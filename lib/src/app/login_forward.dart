@@ -28,6 +28,14 @@ typedef RaiseLoginForward = Future<HeldForward> Function(Machine machine, int po
 /// What raises one: ssh, as every other forward here.
 RaiseLoginForward raiseLoginForward = _withSsh;
 
+/// Starts the ssh of a login forward from its whole command line. Injectable, so a test runs a stand-in in its place.
+typedef StartLoginForward = Future<Process> Function(List<String> command);
+
+/// What starts it: the command as it is, without a shell.
+StartLoginForward startLoginForward = _startIt;
+
+Future<Process> _startIt(List<String> command) => Process.start(command.first, command.skip(1).toList());
+
 /// The forwards raised through [raiseForward] and not yet taken down.
 final Set<HeldForward> _held = <HeldForward>{};
 
@@ -77,7 +85,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
     );
   }
   final command = loginForwardCommand(machine, port);
-  final ssh = await Process.start(command.first, command.skip(1).toList());
+  final ssh = await startLoginForward(command);
 
   final said = ssh.stderr.transform(const SystemEncoding().decoder).join();
   // Proven by connecting through it, never by ssh staying up: the login's listener answers.
