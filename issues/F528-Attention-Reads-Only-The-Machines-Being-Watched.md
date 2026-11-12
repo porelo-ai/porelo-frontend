@@ -28,6 +28,12 @@ scenario: `Null check operator used on a null value` in `Machines.of` (`lib/src/
 called from `Attention._changed` (`lib/src/app/attention.dart`) while `PlanningBoards` notified during
 `Machines._open` → `FleetModel.connect`. Every step of the scenario held; the error failed it afterwards.
 
+The same error comes at every start of the window whose saved machines list a machine with a host card ahead of
+another machine: `Machines._adopt` lists every machine first and then opens them one by one; a card machine skips the
+tunnel and its `FleetModel.connect` notifies before its first pause, so `Attention._changed` and `Attention._follow`
+walk a machine that is listed and not opened yet. Seen in the story test of an agent working, resting or waiting, on
+the VM account's own machines (a rented host's card saved before the e2e machine).
+
 ## Plan
 
 - To be read first: which machines `Machines.all` holds that `_watching` does not yet (one listed and not opened,
