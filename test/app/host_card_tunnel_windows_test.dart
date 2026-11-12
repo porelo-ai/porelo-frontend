@@ -310,10 +310,10 @@ void main() {
     expect(cards.where((card) => tunnels.of(card)?.problem?.contains('connections') ?? false), hasLength(1));
   });
 
-  // Harm: a forge or homeserver page that never loads is not explained, so the person cannot tell a service the host
-  // does not offer from one that is down there.
-  for (final (code, said) in [(64, 'does not offer'), (69, 'does not answer')]) {
-    test('a carried connection whose host relay exits $code says the service ${said.split(' ').last}', () async {
+  // Harm: a forge or homeserver page that never loads or stops halfway is not explained, so the person cannot tell a
+  // host whose porelo does not know the service from one that serves none or is down, or from one that broke off.
+  for (final (code, said) in [(64, 'older than'), (69, 'serves no '), (70, 'broke off')]) {
+    test('a carried connection whose host relay exits $code says what it means: $said', () async {
       final tunnels = tunnelsWith();
       expect(await tunnels.raiseFor(host), isTrue, reason: '${tunnels.of(host)?.problem}');
       carryExit = code;
@@ -326,6 +326,20 @@ void main() {
       expect(tunnels.of(host)?.state, TunnelState.up, reason: 'the daemon still answers');
     });
   }
+
+  // Harm: every page closed by the browser itself is said on the card as a fault of the host.
+  test('a carried connection whose relay ends well says nothing', () async {
+    final tunnels = tunnelsWith();
+    expect(await tunnels.raiseFor(host), isTrue, reason: '${tunnels.of(host)?.problem}');
+    carryExit = 0;
+
+    final client = await Socket.connect(InternetAddress.loopbackIPv4, ports[1]);
+    addTearDown(client.destroy);
+    await until(() => carried.isNotEmpty);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(tunnels.of(host)?.words, isNull);
+  });
 
   // Harm: Connect goes on beside another program holding one of the card's ports, which then receives what is meant for
   // the card.

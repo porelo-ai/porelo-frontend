@@ -567,8 +567,9 @@ class Tunnel {
     await unlockVault();
   }
 
-  /// Says why the host's relay refused a carried connection: 64, a role the host does not offer; 69, a service that
-  /// does not answer there. Any other end, such as the client leaving, says nothing.
+  /// Says why the host's relay ended a carried connection, by Core's exits of `porelo service connect`: 64, a role the
+  /// host's porelo does not know; 69, a service the host serves none of, whose socket refuses, or whose socket it
+  /// refused; 70, a connection that failed while carried. Any other end, such as the client leaving, says nothing.
   void _carriedExited(CarriedRole role, int code) {
     final service = switch (role) {
       CarriedRole.forgeWeb => "forge's web interface",
@@ -577,8 +578,12 @@ class Tunnel {
     };
     final name = machine.hostCard!.name;
     final said = switch (code) {
-      64 => 'Machine $name does not offer its $service: its card names none, or its porelo does not know it.',
-      69 => "Machine $name's $service does not answer there; it is down or still starting on the host.",
+      64 =>
+        'Machine $name does not offer its $service: the porelo there is older than this window and does not know it.',
+      69 =>
+        'Machine $name serves no $service, or it does not answer there: it is down or still starting, or the host '
+            'refused its socket.',
+      70 => "Machine $name's $service broke off a connection while carrying it.",
       _ => null,
     };
     if (said == null || said == serviceProblem) return;
