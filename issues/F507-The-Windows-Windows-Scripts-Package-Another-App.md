@@ -119,3 +119,9 @@ the first other caller.
 - Which paths the window writes at its first start on Windows besides its log: `frontend.json`, the one-instance
   lock, `porelo-host`'s folder under `%LOCALAPPDATA%`. Read in the trial's run with a listing before and after.
 - That `Remove-Item -DeleteKey` on `Cert:\` works in PowerShell 7 on the runner, else the key is deleted as Pack does.
+
+## Measured
+
+- The Windows suite alone (`flutter test --exclude-tags "linux || documents" --concurrency 1` on `windows-2025`) takes
+  about 32 minutes: trial 3 (run 43297658386) ran steadily, no test hung, and was in file 326 of 346 when its 30-minute
+  limit cut it. The trial's Test step has 45 minutes and its job 75 since then.
