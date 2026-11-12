@@ -235,6 +235,11 @@ commit=$(git -C "$here" rev-parse --short HEAD)
 name="walk-$(date -u +%Y%m%d-%H%M%S)-$commit"
 since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 project=${project:-$porelo_project}
+# Names a folder of the planner's state the ending removes: a name only, never a path or a dot.
+[[ $project =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && $project != *..* ]] || {
+    echo "walk: --project must be a project's name, got '$project'" >&2
+    exit 2
+}
 run="walk/$name"
 mkdir -p "$report"
 # A report left from an earlier run would be read as this one's.
@@ -310,7 +315,7 @@ cleanup() {
                 gone=yes; for p in /proc/[0-9]*; do [ \"\$(readlink \$p/exe 2>/dev/null)\" != \$HOME/$run/bin/porelo-planner ] || gone=''; done
                 [ -z \"\$gone\" ] || break; sleep 0.2; done
             [ -n \"\$gone\" ]
-            cd ~/.local/state/porelo-planner; rm -rf -- '$project'
+            mkdir -p ~/.local/state/porelo-planner; cd ~/.local/state/porelo-planner; rm -rf -- '$project'
             if [ -f ~/$run.planner-state.tar ]; then tar -xf ~/$run.planner-state.tar; fi
             rm -f ~/$run.planner-state.tar" </dev/null ||
             left+=("the planner's state of $project on $vm (~/.local/state/porelo-planner/$project; before the run: ~/$run.planner-state.tar)")
