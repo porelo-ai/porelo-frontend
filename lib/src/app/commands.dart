@@ -1947,6 +1947,21 @@ Command planningCommand(PlanningAction action) => Command(
 );
 
 /// Every planning story, issue and move as a command, reachable without a pointer gesture.
-List<Command> planningCommands(PlanningBoards boards, PlanningHost host) => [
-  for (final action in planningActions(boards, host)) planningCommand(action),
+List<Command> planningCommands(PlanningBoards boards, PlanningHost host) =>
+    planningActionCommands(planningActions(boards, host));
+
+/// The commands of [actions], each held action's way on beside it, so the finder says where to go next.
+List<Command> planningActionCommands(Iterable<PlanningAction> actions) => [
+  for (final action in actions) ...[
+    planningCommand(action),
+    if (action.wayOn case final wayOn? when !action.available)
+      Command(
+        // A suffix of its own, so a shortcut or a scoped command never takes it for the action.
+        id: '${action.id} way-on',
+        label: wayOn.label,
+        group: 'Planning',
+        home: Home.openedView,
+        run: wayOn.run,
+      ),
+  ],
 ];

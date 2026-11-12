@@ -56,6 +56,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The command finder lists, beside a planning action that cannot run now, the way on porelo-planner names for it, such as the run that needs attention, as an entry that runs; it never runs the action itself, and an action that can run offers none.
 - A discussion of an idea the window started for the planner hands its idea to the planner when it ends: the result file it wrote, read from the machine it ran on, goes once with the discussion's offer, also after a restart of the window, and the story it was saved as is said in the window's log; a discussion that left no idea, or an idea the planner refused, is said with the planner's faults, and the file stays in the task.
 - *Options* → *Logs* sets how much the logs hold, *ERROR*, *WARN*, *INFO* (the usual) or *DEBUG*: the window's log follows at once, and the planner is told the level when the window finds it and on each change; where the planner is at another level, or cannot take it, *Logs* says so.
 - `tool/e2e.sh` says before a run when the stub agent the scenarios pin is about to leave its folder on Artifactory, which keeps the newest 20 versions, or has left it, naming the pin to move; the pin moved to 0.5.1~snapshot.497.
