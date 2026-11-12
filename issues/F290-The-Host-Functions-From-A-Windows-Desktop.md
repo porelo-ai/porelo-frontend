@@ -5,17 +5,18 @@
   "$schema": "issue-1.json",
   "id": "F290",
   "title": "The Host Functions From A Windows Desktop",
-  "state": "Accepted",
+  "state": "Analyzed",
   "size": "M",
   "priority": "Medium",
   "rank": 24,
   "blockedBy": [],
-  "covers": "Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master."
+  "covers": "Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master.",
+  "openQuestions": 1
 }
 ```
 
-**Why this size.** the card's ssh config, the card tunnel's arguments, the card machine's relay and their tests in this
-repository; Core's and Matrix's parts are their own.
+**Why this size.** M: the card's ssh config, the card tunnel's start and its wait, the card machine's reach and
+relay, the host reads' ssh and their tests, all in this repository; Core's and Matrix's parts are their own.
 
 **What must be true.** On Windows, a person connects to a machine, and a Machine Admin prepares it and names its
 people, as on Linux: through the host's card, with the same `-F` file and the same fixed ports. Linux stays as it is.
@@ -47,19 +48,32 @@ The card connection of today, adapted; no new design.
 
 ## Plan
 
-- `HostCardSsh` (`packages/porelo_host/lib/src/host_card_ssh.dart`): on Windows the written config has no master lines.
-- `Tunnel` (`lib/src/app/tunnel.dart`): on Windows the card's arguments drop `-M` and the daemon's `-L`, and the return
-  forward targets `127.0.0.1:<port>`. The tunnel counts as up once a connection through a service forward arrives, as
-  there is no local socket to wait for.
-- `Machine` (`lib/src/app/machines.dart`): a card machine on Windows gets the relay above, and `whyNotReachableOn`
-  stops refusing it ("Machine card connections require OpenSSH Unix socket and master support on this platform.").
-- `organization_connections.dart` (`CardHostConnections`): no change expected; `SshHostProgress`'s ssh calls
-  already take `ControlMaster=no` and the card's `-F` file.
-- `SshHostProgress` (`lib/src/app/host_progress.dart`) starts `ssh` by name, so on Windows another `ssh.exe` on
-  `PATH` or in the current folder is taken. It takes `openSsh('ssh')`, Windows' own OpenSSH.
-- **Red first:** in `test/app/tunnel_test.dart`, with the Windows desk and the ssh stand-in, the arguments hold no
-  `-M`, no local unix path and a `-R` to `127.0.0.1`; in `test/app/wsl_test.dart`, a card machine on Windows is
-  reached through the relay instead of refused.
+- `HostCardSsh` (`packages/porelo_host/lib/src/host_card_ssh.dart`): `publish`, `checkPublished` and `_contents` take
+  `windows`, as `configPath` does, instead of `Platform.isWindows`. On Windows `_contents` writes no master lines and
+  does not call `checkLocalSocket` on `controlSocket`: that check refuses a colon, so today every `C:\` config path
+  is refused before a file is written.
+- `Tunnel` (`lib/src/app/tunnel.dart`): on Windows `_cardCommand` drops `-M` and the daemon's `-L`, and the return
+  forward is `-R <return socket>:127.0.0.1:<port>`. `_raiseCard` there skips what holds a master: the endpoint check
+  of `controlSocket`, `_mastersHere`, `_endOrphanedMaster` and the wait on `ssh -O check`; it counts the tunnel as up
+  once the first of the card's loopback ports accepts a connection. `HostCardSsh.checkMessengerSocket`, which checks a
+  unix path, is not called for a port.
+- `Tunnels._raiseFor` (same file) raises no tunnel for a machine with a relay. A card machine on Windows gets both:
+  the relay for the daemon and its tunnel for the services, the return forward and Core's unlock.
+- `Machine` (`lib/src/app/machines.dart`): `whyNotReachableOn` stops refusing a card machine on Windows ("Machine
+  card connections require OpenSSH Unix socket and master support on this platform."). `relayOn` then already builds
+  `ssh -F <card config> -o ControlMaster=no ... -T <host> porelo daemon connect --socket <daemon socket>` through
+  `loginSshOptionsOn`; `Backend.relay` (`lib/src/client/porelo_client.dart`) carries it.
+- `CardHostConnections` (`lib/src/app/organization_connections.dart`) and `CoreHostUnlocker`
+  (`lib/src/app/fleet_backend.dart`): no change expected; the unlock is its own `porelo host unlock` process.
+- `SshHostProgress._ssh` (`lib/src/app/host_progress.dart`) runs `ssh` by name through `runHere`, so on Windows
+  another `ssh.exe` on `PATH` or in the current folder is taken. It takes `openSsh('ssh')`, Windows' own OpenSSH.
+- **Red first:** in `packages/porelo_host/test/host_card_ssh_test.dart`, the Windows config of a card has no
+  `ControlMaster`, `ControlPath` or `ControlPersist` and a `C:\` path is not refused. In `test/app/wsl_test.dart`,
+  which already sets a Windows `Desk`, a card machine on Windows has a relay instead of the refusal. The card
+  tunnel's own tests in `test/app/host_card_tunnel_test.dart` are tagged `linux` (chmod, unix control sockets), and
+  `test/app/tunnel_test.dart` runs a real ssh on Linux; so a new untagged `test/app/host_card_tunnel_windows_test.dart`
+  with a Windows `Desk`, the ssh stand-in and a fake `HostFileWriter` shows the arguments: no `-M`, no local unix
+  path, a `-R` to `127.0.0.1`, and a tunnel raised beside the relay.
 
 ## Parts of other repositories
 
@@ -77,12 +91,18 @@ Each is its own piece, agreed in the room before this is built:
 - On Linux, the card tunnel's arguments and config are unchanged; the existing tests stay green unchanged.
 - In the operator's Windows test: Connect and Prepare against a real host.
 
+## Open questions
+
+- Every user of the host now opens its own connection, so the KeePassXC agent asks for its confirmation once for
+  each: the tunnel, the relay, Core's unlock and each host read. Is that accepted on Windows, or is the key to be
+  used there without a confirmation per use?
+
 ## To be checked
 
 - **Measured on Windows first, before building:** that Windows' OpenSSH client carries `-L 127.0.0.1:<port>:<remote
-  unix socket>` and `-R <remote unix socket>:127.0.0.1:<port>`, with `ExitOnForwardFailure=yes`, and how it answers
-  `ControlMaster` options it does not support.
-- That the KeePassXC agent's confirmation per connection is acceptable now that every user of the host opens its own.
+  unix socket>` and `-R <remote unix socket>:127.0.0.1:<port>`, with `ExitOnForwardFailure=yes`; that a loopback
+  port it forwards accepts only once the connection stands; and how it answers `ControlMaster` options it does not
+  support.
 
 ## Estimate
 

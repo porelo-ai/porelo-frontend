@@ -10,6 +10,7 @@
   "priority": "Medium",
   "rank": 1,
   "blockedBy": [],
+  "openQuestions": 2,
   "covers": "The window's tests moved to the test pyramid's shares: waits, network and processes faked, flows proven below the end-to-end runs, logic out of the widgets."
 }
 ```

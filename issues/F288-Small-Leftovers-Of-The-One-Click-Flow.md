@@ -5,14 +5,18 @@
   "$schema": "issue-1.json",
   "id": "F288",
   "title": "Small Leftovers Of The One-Click Flow",
-  "state": "Accepted",
-  "size": "-",
+  "state": "Analyzed",
+  "size": "S",
   "priority": "Medium",
   "rank": 26,
   "blockedBy": [],
-  "covers": "The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts."
+  "covers": "The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts.",
+  "openQuestions": 1
 }
 ```
+
+**Why this size.** S: the buildable part is the two gathered points, a test's bounds in `test/app/pty_test.dart` and
+one condition in `lib/src/ui/organization_project_pages.dart`, each with its test; the rest is no buildable piece.
 
 **What must be true.** Small edge cases left over from the one-click flow's build are kept in one place, for the operator to place:
 address forms, quoting, encodings, texts and test gaps. A grave finding never goes here; it gets an issue of its own.
@@ -31,6 +35,27 @@ The remaining live-host, Core contract and CI load claims below are not establis
 The requirement below to withhold project person actions until the host answers each person's applied state is
 not met by `lib/src/ui/organization_project_pages.dart`: its member menus offer removal, locking and unlocking
 from the project read, without that host answer.
+
+## Plan
+
+This is a gathering list, not one piece. Two points are buildable here and now; the rest is not.
+
+- **The terminal close test's bound** (`test/app/pty_test.dart`, *termination and close wait for the output consumer
+  to reach EOF*). Each of its waits has its own five seconds, but `await stopping` has none, and two rounds run inside
+  the test's 30 seconds. A run that times out there names no step. Red first: the test run 50 times under a load of
+  twice the cores (`stress-ng --cpu`), until it fails or does not. Then each wait gets an `onTimeout` that fails with
+  its own sentence, `stopping` a bound too, and the bounds are set from what the load measured. If it never fails,
+  the measurement is the answer and the point closes with it.
+- **A repository's menu offers the policy it has.** In `OrganizationProjectPage`
+  (`lib/src/ui/organization_project_pages.dart`) the project's menu offers a review policy only `if (view.review !=
+  policy)`; a repository's `CommandMenu` builds `_reviewCommand` for both. It takes the same condition on
+  `repository.review`, so a repository not read still offers both. Red first: in
+  `test/ui/project_init_dialog_test.dart`, beside *review changes follow the Project Admin role*, a repository with
+  `review: 'required'` offers `repositoryReview/demo/optional` and not `repositoryReview/demo/required`.
+- **The rest is not built from here.** Most points under *Left open* wait on a contract of another repository
+  (Core's verbs and typed results, the registry's IDL, porelo-host's answers, the messenger's endpoint, the forge
+  clients) or fall away with the organization model; the points under *Declined* were never reproduced. Each is
+  read again against the code where it still holds and filed as its own issue, with its red test, or dropped.
 
 ## Gathered
 
@@ -112,6 +137,16 @@ finding; each is declined with its reason, and is read again where its code is r
 - **After a card's address moves:** the old connection lives on while the page says *Not connected yet*, until the next *Connect* replaces it.
 - **Prepare a server, after a card is made or a host named:** the access read at start stays until a full refresh, so the command stays off with the old reason meanwhile. Not reproduced, and older than the change it was read in.
 
-## Idea
+## Acceptance
 
-Each point gets a test that goes red with its harm first, when it is placed.
+- Each point placed gets a test that goes red with its harm first. Seen to fail: the close test timing out without
+  naming its wait, and a repository with review required offering *Require review…*.
+
+## Open questions
+
+- May F288 shrink to the two gathered points, with the rest left to git history, or filed one by one where it
+  still holds?
+
+## To be checked
+
+- Whether Build 41235532851's log names the wait that timed out, before the load run.

@@ -10,6 +10,7 @@
   "priority": "Medium",
   "rank": 1,
   "blockedBy": [],
+  "openQuestions": 1,
   "covers": "A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running."
 }
 ```
