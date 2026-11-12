@@ -721,6 +721,8 @@ on_vm "set -e; umask 077; printf '[credential \"https://github.com/%s\"]\\n\\the
     echo "walk: git on $vm cannot read https://github.com/$org/$porelo_project through the run's vault" >&2
     exit 1
 }
+# The steps an earlier attempt of this run noted; this attempt is judged on the ones after them.
+steps_before=$(on_vm "cat ~/$run/steps.txt 2>/dev/null | wc -l" </dev/null) && [[ $steps_before =~ ^[0-9]+$ ]] || steps_before=0
 # In a session of its own whose number is kept, so an ending here takes the whole of it down there too. In a scope of
 # the account's user manager, as a window on a desktop is: a terminal's podman exec under the ssh login's own scope may
 # not move into the task's cgroup ("OCI permission denied"). The window
@@ -743,19 +745,20 @@ as_the_person_on_vm \
         timeout --signal=TERM ${budget}m dbus-run-session -- \
         tool/e2e.sh --machine integration_test/walking_an_idea_test.dart" \
     </dev/null >"$report/results.json" 2>"$report/run.log" || status=$?
-# The steps and pictures, before the run's copy is taken away.
+# The steps and pictures, before the run's copy is taken away; a run taken up again adds its steps to the earlier ones.
 on_vm "cat ~/$run/steps.txt 2>/dev/null" </dev/null >"$report/steps.txt" || true
+tail -n +"$((steps_before + 1))" "$report/steps.txt" >"$work/these-steps"
 if on_vm "[ -d ~/$run/pictures ]" </dev/null; then on_vm "tar -C ~/$run -c pictures" </dev/null | tar -x -C "$report" || true; fi
 [ "$status" -ne 124 ] || echo "walk: the window's part ran out its $budget minutes and was stopped" | tee -a "$report/run.log" >&2
 
 (cd "$here" && dart tool/test_report.dart "$report/results.json" "$report/report.html" "$report/results.xml" \
     --heading='A real idea walked in the window' --against="$vm, project $project" --lines="$report/scenarios.txt") || true
-# Passed only where a step was read and none failed, and the scenario passed.
-if ! grep -q '^OK ' "$report/steps.txt" || grep -q '^FAIL ' "$report/steps.txt" ||
+# Passed only where a step of this attempt was read and none failed, and the scenario passed.
+if ! grep -q '^OK ' "$work/these-steps" || grep -q '^FAIL ' "$work/these-steps" ||
     ! grep -q '^OK ' "$report/scenarios.txt" 2>/dev/null; then
     [ "$status" -ne 0 ] || status=1
 fi
 cat "$report/steps.txt"
 # A red step keeps the run for a repair by hand and the next step.
-if grep -q '^FAIL ' "$report/steps.txt"; then kept=yes; fi
+if grep -q '^FAIL ' "$work/these-steps"; then kept=yes; fi
 exit "$status"
