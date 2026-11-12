@@ -208,15 +208,6 @@ Future<void> openTheConnectionWizard(WidgetTester tester) async {
   // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
   await pumpFor(tester);
   await tester.tap(find.text('Connections — how this machine connects out').last);
-  // Drawn while the machine is still being asked, and only runnable once it has answered.
-  final menu = find.byKey(const Key('connections-menu'));
-  await pumpUntil(
-    tester,
-    () =>
-        menu.evaluate().isNotEmpty &&
-        tester.widget<CommandMenu>(menu).commands.any((each) => each.id == 'add-connection' && each.available),
-    what: 'the connections of the machine, read',
-  );
   await tapInTheConnectionsMenu(tester, 'add-connection');
   await pumpUntil(
     tester,
@@ -226,12 +217,29 @@ Future<void> openTheConnectionWizard(WidgetTester tester) async {
 }
 
 /// Opens the menu of the connections on screen and runs its entry [id], where adding and forgetting stand.
+///
+/// Waits until [id] can be run first: the menu is drawn while the machine is still being asked, and
+/// after a change the connections are read again. A menu opened meanwhile keeps the entry greyed out
+/// even once the read is done, and a tap on it runs nothing.
 Future<void> tapInTheConnectionsMenu(WidgetTester tester, String id) async {
-  await tester.tap(find.byKey(const Key('connections-menu')));
+  final menu = find.byKey(const Key('connections-menu'));
+  await pumpUntil(
+    tester,
+    () =>
+        menu.evaluate().isNotEmpty &&
+        tester.widget<CommandMenu>(menu).commands.any((each) => each.id == id && each.available),
+    what: 'the entry $id of the connections runnable, the machine having answered',
+  );
+  await tester.tap(menu);
   final entry = find.byKey(ValueKey<String>(id));
   await pumpUntil(tester, () => entry.evaluate().isNotEmpty, what: 'the entry $id in the menu of the connections');
   // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
   await pumpFor(tester);
+  expect(
+    tester.widget<PopupMenuItem<String>>(entry.last).enabled,
+    isTrue,
+    reason: 'the entry $id was greyed out when the menu opened, so a tap would run nothing',
+  );
   await tester.tap(entry.last);
 }
 
