@@ -110,6 +110,43 @@ void main() {
     expect(opened.channel.sent, ['\x1b[O', '\x1b[I']);
   });
 
+  // Harm: with the keyboard kept, the session left believed it still held it and the one shown never heard it did.
+  testWidgets('another session shown in its place with the keyboard kept: the old loses it, the new gains it', (
+    tester,
+  ) async {
+    final opened = await open(tester);
+    final channel = _Channel();
+    final other = Session(
+      task: 'porelo-y-work',
+      machine: const Machine(name: 'laptop', socketPath: ''),
+      open: (executable, arguments, {int columns = 80, int rows = 24}) => channel,
+    );
+    await tester.pump();
+    channel.emit(attached);
+    await tester.pump();
+    await tester.pump();
+    channel.sent.clear();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              const TextField(key: Key('elsewhere')),
+              Expanded(
+                child: SessionView(session: other, focusNode: opened.focus),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await opened.session.leave();
+    await other.leave();
+    expect(opened.channel.sent, ['\x1b[O'], reason: 'the session left');
+    expect(channel.sent, ['\x1b[I'], reason: 'the session shown');
+  });
+
   testWidgets('no focus report goes out where the far end did not ask for it', (tester) async {
     desk = Desk.of('linux', const <String, String>{});
     final channel = _Channel();

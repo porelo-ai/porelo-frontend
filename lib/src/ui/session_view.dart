@@ -96,15 +96,21 @@ class _SessionViewState extends State<SessionView> {
     widget.focusNode.requestFocus();
   }
 
-  /// Another session shown in this one's place starts with nothing selected; another focus node is listened to.
+  /// Another session shown in this one's place starts with nothing selected, and where the keyboard stays, the session
+  /// left hears it lost it and the one shown that it gained it; another focus node is listened to.
   @override
   void didUpdateWidget(SessionView old) {
     super.didUpdateWidget(old);
-    if (old.session != widget.session) _selection.clearSelection();
+    final was = _focused;
     if (old.focusNode != widget.focusNode) {
       old.focusNode.removeListener(_focusChanged);
       widget.focusNode.addListener(_focusChanged);
       _focused = widget.focusNode.hasFocus;
+    }
+    if (old.session != widget.session) {
+      _selection.clearSelection();
+      if (was) old.session.focused(gained: false);
+      if (_focused) session.focused(gained: true);
     }
   }
 
