@@ -63,15 +63,18 @@ jobs:
               timeout-minutes: 20
               run: flutter build windows --release
 
-            # The key containers of this user before any key of the trial: the same list must stand at its end.
-            - name: List the key containers before
+            # The key files of this user before any key of the trial: the same list must stand at its end.
+            - name: List the key files before
               shell: pwsh
               timeout-minutes: 2
               run: |
                   $ErrorActionPreference = 'Stop'
-                  certutil -user -key | Select-String -Pattern '^\s{2}\S' | ForEach-Object { $_.Line.Trim() } | Sort-Object |
-                    Set-Content (Join-Path $env:RUNNER_TEMP 'keys-before.txt')
-                  Get-Content (Join-Path $env:RUNNER_TEMP 'keys-before.txt')
+                  # The account's key files, CSP and CNG, read from disk: certutil fails on an account with none.
+                  $keys = @(foreach ($dir in "$env:APPDATA\Microsoft\Crypto\RSA", "$env:APPDATA\Microsoft\Crypto\Keys") {
+                    if (Test-Path -LiteralPath $dir) { Get-ChildItem -LiteralPath $dir -File -Recurse -Force | ForEach-Object FullName }
+                  }) | Sort-Object
+                  [IO.File]::WriteAllLines((Join-Path $env:RUNNER_TEMP 'keys-before.txt'), [string[]]@($keys))
+                  "$(@($keys).Count) key files before the trial"
 
             # The trial proves installing without the real certificate ever reaching a branch.
             - name: Make a throwaway signing certificate
@@ -89,10 +92,11 @@ jobs:
                     "::add-mask::$pfx"
                     "WINDOWS_SIGNING_PFX=$pfx" >> $env:GITHUB_ENV
                     "WINDOWS_SIGNING_PFX_PASSWORD=$password" >> $env:GITHUB_ENV
-                  } catch {
+                  } finally {
+                    # Pack takes the key from the PFX alone: the store's copy and its key go at once, on every path.
                     Remove-Item "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -DeleteKey -Force
-                    throw
-                  } finally { $certificate.Dispose() }
+                    $certificate.Dispose()
+                  }
 
             - name: Ready the window's build
               shell: pwsh
@@ -212,7 +216,7 @@ jobs:
                   $path = "Cert:\CurrentUser\My\$env:WINDOWS_TRIAL_CERTIFICATE"
                   if (Test-Path $path) { Remove-Item $path -DeleteKey -Force }
                   if (Test-Path $path) { throw "Asked to remove '$path'; got an existing certificate" }
-                  "Removed trial certificate $path with its key (or already removed by Pack)"
+                  "No trial certificate $path is left"
 
             # Nothing of the trial's keys and apps is left on the machine, whatever failed before.
             - name: Find no key and no app file left
@@ -222,12 +226,14 @@ jobs:
               run: |
                   $ErrorActionPreference = 'Stop'
                   $before = Join-Path $env:RUNNER_TEMP 'keys-before.txt'
-                  if (-not (Test-Path $before)) { 'No list of key containers was made'; exit 0 }
-                  $now = @(certutil -user -key | Select-String -Pattern '^\s{2}\S' | ForEach-Object { $_.Line.Trim() } | Sort-Object)
+                  if (-not (Test-Path $before)) { 'No list of key files was made'; exit 0 }
+                  $now = @(@(foreach ($dir in "$env:APPDATA\Microsoft\Crypto\RSA", "$env:APPDATA\Microsoft\Crypto\Keys") {
+                    if (Test-Path -LiteralPath $dir) { Get-ChildItem -LiteralPath $dir -File -Recurse -Force | ForEach-Object FullName }
+                  }) | Sort-Object)
                   $was = @(Get-Content $before)
                   $added = @($now | Where-Object { $_ -notin $was })
                   $left = [Collections.Generic.List[string]]::new()
-                  if ($added.Count) { $left.Add("key containers $($added -join ', ')") }
+                  if ($added.Count) { $left.Add("key files $($added -join ', ')") }
                   foreach ($path in "$env:APPDATA\porelo", "$env:LOCALAPPDATA\porelo", "$env:LOCALAPPDATA\porelo-frontend",
                       "$env:LOCALAPPDATA\porelo-windows-trial") {
                     if (Test-Path -LiteralPath $path) { $left.Add($path) }
@@ -236,7 +242,7 @@ jobs:
                     Where-Object { $_.Name -like 'ai.porelo.*' })
                   foreach ($each in $packages) { $left.Add($each.FullName) }
                   if ($left.Count) { throw "Asked for nothing left of the trial; got $($left -join '; ')" }
-                  "No key container and no app file left ($($now.Count) key containers, as before)"
+                  "No key file and no app file left ($($now.Count) key files, as before)"
 
             # The built folder as it is, for a person to try on Windows: unpacked whole into a folder of
             # its own, since the code is in `data\app.so` beside the `.exe`.

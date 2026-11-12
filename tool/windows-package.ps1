@@ -25,6 +25,7 @@
 # manifest and the layout, and it is said so. The key goes into this user's certificate store only for
 # `signtool`, and it and its key container are taken out whatever happens; it is never a file, and its
 # password never on a command line.
+#Requires -Version 7.0
 param(
   [string] $Source,
   [string] $Zip,
@@ -172,6 +173,7 @@ if ($env:WINDOWS_SIGNING_PFX) {
   # there by its thumbprint, and taken out again, its key container with it, whatever happened.
   $signtool = Get-SdkTool 'signtool.exe'
   $loaded = $null
+  $cause = $null
   $store = $null
   $added = $false
   $leftovers = [Collections.Generic.List[string]]::new()
@@ -185,18 +187,29 @@ if ($env:WINDOWS_SIGNING_PFX) {
     }
     $store = [Security.Cryptography.X509Certificates.X509Store]::new('My', 'CurrentUser')
     $store.Open('ReadWrite')
-    $store.Add($loaded)
-    $added = $true
+    # A certificate this user had before is left in the store; only one this run put there is taken out.
+    if (-not $store.Certificates.Find('FindByThumbprint', $loaded.Thumbprint, $false).Count) {
+      $store.Add($loaded)
+      $added = $true
+    }
     if ($env:PORELO_WINDOWS_FAIL_BEFORE_SIGNING -eq 'yes') { throw 'Asked to fail before SignTool, as the trial does' }
     & $signtool sign /fd SHA256 /s My /sha1 $loaded.Thumbprint $msix
     if ($LASTEXITCODE -ne 0) { throw "SignTool did not sign the MSIX (exit $LASTEXITCODE)" }
-    $signer = (Get-AuthenticodeSignature $msix).SignerCertificate
+    $signature = Get-AuthenticodeSignature $msix
+    # Not trusted here is expected of a key not installed on this machine; a broken or missing signature is not.
+    if ($signature.Status -in 'HashMismatch', 'NotSigned', 'Incompatible', 'NotSupportedFileFormat') {
+      throw "Asked for a signed MSIX; got signature status $($signature.Status)"
+    }
+    $signer = $signature.SignerCertificate
     if ($signer.Thumbprint -ne $ExpectedSignerThumbprint) {
       throw "the MSIX is signed by $($signer.Subject), thumbprint $($signer.Thumbprint), not $ExpectedSignerThumbprint"
     }
     # The public half beside it, for a person to trust once on their machine.
     [IO.File]::WriteAllBytes($certificateFile, $loaded.Export('Cert'))
     "signed by $($signer.Subject), thumbprint $($signer.Thumbprint)"
+  } catch {
+    $cause = $_
+    throw
   } finally {
     # Each removal is tried even when another fails, so the run names everything left.
     if ($added) {
@@ -218,7 +231,11 @@ if ($env:WINDOWS_SIGNING_PFX) {
       } catch { $leftovers.Add("the signing key's container: $_") }
       $loaded.Dispose()
     }
-    if ($leftovers.Count) { Write-Error "Asked to leave no signing key behind; left $($leftovers -join '; ')" }
+    if ($leftovers.Count) {
+      # Said with the failure that came first, which this error replaces.
+      $first = if ($cause) { "; the signing had failed before: $cause" } else { '' }
+      Write-Error "Asked to leave no signing key behind; left $($leftovers -join '; ')$first"
+    }
   }
   Assert-Msix $msix $expected $templateXml $msixVersion 'after signing'
   $made += "$name.msix", 'porelo-msix.cer'
