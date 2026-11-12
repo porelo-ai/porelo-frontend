@@ -86,7 +86,20 @@ abstract final class Walk {
 
 /// Runs one step of the walk: a picture of the window where it fails, and one line `OK` or `FAIL` in the steps file
 /// the driver reads, the failure's words with it.
+///
+/// A run taken up again from step `PORELO_WALK_FROM` skips the steps before it, step 1 excepted, which opens the
+/// planning; what they found is read back from the state file `PORELO_WALK_STATE`, which every step that held writes.
 Future<void> walked(WidgetTester tester, String step, Future<void> Function() body) async {
+  final number = int.tryParse(step.split(' ').first) ?? 0;
+  final from = int.tryParse(Platform.environment['PORELO_WALK_FROM'] ?? '') ?? 1;
+  if (!_stateRead) {
+    _stateRead = true;
+    if (from > 1) _readState();
+  }
+  if (number > 1 && number < from) {
+    noteStep('SKIPPED $step: taken up again from step $from');
+    return;
+  }
   try {
     await pictured(tester, body);
   } catch (failure) {
@@ -94,6 +107,43 @@ Future<void> walked(WidgetTester tester, String step, Future<void> Function() bo
     rethrow;
   }
   noteStep('OK $step');
+  _writeState();
+}
+
+bool _stateRead = false;
+
+File? get _stateFile => switch (Platform.environment['PORELO_WALK_STATE'] ?? '') {
+  '' => null,
+  final path => File(path),
+};
+
+void _writeState() => _stateFile?.writeAsStringSync(
+  jsonEncode({
+    'story': Walk.story,
+    'issues': [
+      for (final each in Walk.issues) [each.id, each.repository, each.state],
+    ],
+    'tasksBefore': Walk.tasksBefore.toList(),
+    'discussion': Walk.discussion,
+    'builder': Walk.builder,
+    'reader': Walk.reader,
+  }),
+  flush: true,
+);
+
+void _readState() {
+  final file = _stateFile;
+  if (file == null || !file.existsSync()) return;
+  final state = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  Walk.story = state['story'] as String?;
+  Walk.issues = [
+    for (final each in (state['issues'] as List? ?? const []).cast<List<dynamic>>())
+      (id: each[0] as String, repository: each[1] as String, state: each[2] as String),
+  ];
+  Walk.tasksBefore = {...(state['tasksBefore'] as List? ?? const []).cast<String>()};
+  Walk.discussion = state['discussion'] as String?;
+  Walk.builder = state['builder'] as String?;
+  Walk.reader = state['reader'] as String?;
 }
 
 /// Adds [line] to the steps file the driver reads, where it names one.
