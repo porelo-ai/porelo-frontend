@@ -588,7 +588,7 @@ List<String> plannerCandidates(Map<String, String> environment) => [
 /// The projects the watched machines list, each once, without the default project, which has no repository of its own.
 List<String> plannedProjects(Machines machines) => {
   for (final machine in machines.all)
-    for (final project in machines.of(machine).listedProjects)
+    for (final project in machines.watching(machine)?.listedProjects ?? const <Project>[])
       if (project.name != defaultProject) project.name,
 }.toList();
 
@@ -597,7 +597,8 @@ PlannerProject plannerProjectOf(Machines machines, String project) {
   final all = machines.all;
   final shown = all.isEmpty ? null : machines.current;
   return plannerProjectIn([
-    for (final machine in [?shown, ...all.where((machine) => machine != shown)]) ...machines.of(machine).listedProjects,
+    for (final machine in [?shown, ...all.where((machine) => machine != shown)])
+      ...?machines.watching(machine)?.listedProjects,
   ], project);
 }
 

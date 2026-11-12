@@ -627,8 +627,12 @@ class Machines extends ChangeNotifier {
   /// The fleet of the machine being acted on.
   FleetModel get fleet => of(current);
 
-  /// The fleet of one machine, whether or not it is the one being acted on.
+  /// The fleet of one machine, whether or not it is the one being acted on: for a caller holding a machine it opened.
   FleetModel of(Machine machine) => _watching[machine.name]!;
+
+  /// The fleet of [machine] while it is watched, else null. **For whoever walks [all]**: every stored machine is
+  /// listed before the first is opened, and a card's opening speaks before the machines after it are opened.
+  FleetModel? watching(Machine machine) => _watching[machine.name];
 
   bool _automaticRetriesPaused = false;
 
@@ -1091,7 +1095,9 @@ class Machines extends ChangeNotifier {
 
 /// Every project on [machine], with its permanent default before the daemon's first answer.
 List<ProjectOnScreen> projectsOnMachine(Machines machines, Machine machine) {
-  final local = machines.all.contains(machine) ? machines.of(machine).projects : <ProjectOnScreen>[];
+  final local = machines.all.contains(machine)
+      ? machines.watching(machine)?.projects ?? <ProjectOnScreen>[]
+      : <ProjectOnScreen>[];
   final projects = <String, ProjectOnScreen>{for (final project in local) project.name: project};
   projects.putIfAbsent(
     defaultProject,

@@ -195,8 +195,9 @@ class Notifications extends ChangeNotifier {
     final watched = Expando<bool>();
     void everyMachine() {
       for (final machine in machines.all) {
-        final fleet = machines.of(machine);
-        if (watched[fleet] ?? false) continue;
+        // One not opened yet is followed at the next change of the machines, which its opening makes.
+        final fleet = machines.watching(machine);
+        if (fleet == null || (watched[fleet] ?? false)) continue;
         watched[fleet] = true;
         watchClearance(fleet.clearance, projectOf: (task) => _projectOf(fleet, task), open: open);
         watchAuthorizations(fleet.authorizations, machine: machine.name);

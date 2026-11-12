@@ -82,13 +82,19 @@ class WindowTaskReports {
     starts: starts,
     sourceNamed: (name) => client.providers.where((provider) => provider.name == name).firstOrNull?.source,
     tasksOn: (name) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
-      final machine? => machines.of(machine).tasks,
+      final machine? => machines.watching(machine)?.tasks,
       null => null,
     },
-    stopOn: (machine, container) => machines.of(machine).stopWork(container),
+    stopOn: (machine, container) => switch (machines.watching(machine)) {
+      final fleet? => fleet.stopWork(container),
+      null => Future.error(StateError('${machine.name} is not answering yet, so $container was not stopped.')),
+    },
     removeOn: (name, container) => removeHandedDiscussion(machines, name, container),
     resultOf: (name, container) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
-      final machine? => machines.of(machine).backend.taskResult(container),
+      final machine? => switch (machines.watching(machine)) {
+        final fleet? => fleet.backend.taskResult(container),
+        null => Future.error(StateError('$name is not answering yet.')),
+      },
       null => Future.error(StateError('$name is not watched.')),
     },
     runtimeDirectory: runtimeDirectory,
@@ -547,7 +553,8 @@ class WindowTaskReports {
 Future<void> removeHandedDiscussion(Machines machines, String name, String container) async {
   final machine = machines.all.where((machine) => machine.name == name).firstOrNull;
   if (machine == null) return;
-  final fleet = machines.of(machine);
+  final fleet = machines.watching(machine);
+  if (fleet == null) throw StateError('$name is not answering yet.');
   await fleet.removeWork(container);
   if (fleet.refusal case final refused? when refused.task == container) {
     fleet.letItBe();

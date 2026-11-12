@@ -31,6 +31,10 @@ import 'start_work_view.dart' show StartAgentChoice;
 /// What the planning place says where the window was given no planning: planning is the planner's, not the window's.
 const planningNotReached = 'Planning comes from porelo-planner, which this window does not reach yet.';
 
+/// The selected machine while it is watched, else null: one not opened yet cannot take work.
+Machine? _watchedCurrent(Machines machines) =>
+    machines.all.isEmpty || machines.watching(machines.current) == null ? null : machines.current;
+
 /// The machine a task the planner orders for a project runs on: one of [watched] that carries the project, its host
 /// where a host carries it, otherwise [current], the machine the window is connected to.
 Machine? plannedTaskMachine(Iterable<Machine> watched, Machine? current, bool Function(Machine) carries) {
@@ -63,8 +67,8 @@ class WindowTaskStarts {
   factory WindowTaskStarts.of(Machines machines, PlanningClient client) => WindowTaskStarts(
     machineFor: (project) => plannedTaskMachine(
       machines.all,
-      machines.all.isEmpty ? null : machines.current,
-      (machine) => machines.of(machine).listedProjects.any((each) => each.name == project),
+      _watchedCurrent(machines),
+      (machine) => machines.watching(machine)?.listedProjects.any((each) => each.name == project) ?? false,
     ),
     backendOf: (machine) => machines.of(machine).backend,
     settings: machines.settings,
@@ -365,8 +369,8 @@ Machine? planningMachineOf(Machines machines, PlanningClient client, PlanningSou
   if (carried.isEmpty) return null;
   return plannedTaskMachine(
     machines.all,
-    machines.all.isEmpty ? null : machines.current,
-    (machine) => machines.of(machine).listedProjects.any((each) => carried.contains(each.name)),
+    _watchedCurrent(machines),
+    (machine) => machines.watching(machine)?.listedProjects.any((each) => carried.contains(each.name)) ?? false,
   );
 }
 

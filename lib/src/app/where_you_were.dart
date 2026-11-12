@@ -72,7 +72,9 @@ class WhereYouWere {
   void _remember() {
     if (!_restored) return;
     unawaited(_settings.rememberShellNavigation(_shell.navigation));
-    final fleet = _machines.fleet;
+    // One not opened yet has no selection to keep, and keeping none would forget the one saved.
+    final fleet = _machines.watching(_machines.current);
+    if (fleet == null) return;
     unawaited(
       _settings.rememberWhereYouWere(<String, String>{
         'machine': _machines.current.name,

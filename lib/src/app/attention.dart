@@ -304,7 +304,7 @@ class Attention extends ChangeNotifier {
     for (final machine in missedQuestions) {
       yield AttentionRow(AttentionKind.missed, 'missed ${machine.name}', machine.name, (
         machine: machine,
-        count: fleetOf(machine).clearance.missed,
+        count: _fleet(machine)?.clearance.missed ?? 0,
       ));
     }
     for (final question in _ranOut) {
@@ -320,10 +320,12 @@ class Attention extends ChangeNotifier {
       yield AttentionRow(AttentionKind.token, 'token $host', host, host);
     }
     // Connecting is still being read; a settled refusal or a token wait is what asks for a person.
-    for (final machine in silent.where(
-      (each) => fleetOf(each).reachability != Reachability.connecting && !tokens.contains(each.hostCard?.name),
-    )) {
-      final fleet = fleetOf(machine);
+    for (final (:machine, :fleet) in [
+      for (final each in silent)
+        if (_fleet(each) case final fleet?
+            when fleet.reachability != Reachability.connecting && !tokens.contains(each.hostCard?.name))
+          (machine: each, fleet: fleet),
+    ]) {
       final what = switch (fleet.reachability) {
         _ when notConnectedYet(machine) => 'You have not connected to this machine yet',
         Reachability.connecting => 'This machine is still connecting, so nothing is known yet',
@@ -361,7 +363,8 @@ class Attention extends ChangeNotifier {
       );
     }
     for (final machine in _counted) {
-      final pullRequests = fleetOf(machine).pullRequests;
+      final pullRequests = _fleet(machine)?.pullRequests;
+      if (pullRequests == null) continue;
       for (final each in pullRequests.open) {
         yield AttentionRow(
           AttentionKind.pullRequest,
@@ -453,7 +456,7 @@ class Attention extends ChangeNotifier {
   AttentionRow _asItEnded(AttentionRow row, Machine? machine) {
     if (row.kind != AttentionKind.pullRequest || machine == null) return row;
     final value = row.value as PullRequestRow;
-    final ended = fleetOf(machine).pullRequests.endedAs(value.project.name, value.request.key);
+    final ended = _fleet(machine)?.pullRequests.endedAs(value.project.name, value.request.key);
     if (ended == null) return row;
     return AttentionRow(
       row.kind,
@@ -504,15 +507,16 @@ class Attention extends ChangeNotifier {
     for (final row in _lastRows.values) {
       if (open.containsKey(row.id)) continue;
       final machine = machineNamed(row.machine);
+      final fleet = machine == null ? null : _fleet(machine);
       // Losing contact is not resolution; retain the last facts until this machine answers again.
       final resolved =
           row.kind == AttentionKind.operation ||
           row.kind == AttentionKind.ranOut ||
           row.kind == AttentionKind.host && _hostResolved(row.value as HostStop) ||
           (row.kind != AttentionKind.host &&
-              machine != null &&
-              (fleetOf(machine).reachability == Reachability.connected &&
-                      (row.kind != AttentionKind.message || fleetOf(machine).mailboxes.problem == null) ||
+              fleet != null &&
+              (fleet.reachability == Reachability.connected &&
+                      (row.kind != AttentionKind.message || fleet.mailboxes.problem == null) ||
                   row.kind == AttentionKind.silent && _seenMarks.contains(row.machine)));
       if (resolved) _resolve(_asItEnded(row, machine));
     }
@@ -656,7 +660,8 @@ class Attention extends ChangeNotifier {
     final fresh = <RanOutQuestion>[];
     final again = <({Clearance clearance, Prompt prompt})>[];
     for (final machine in _machines.all) {
-      final clearance = fleetOf(machine).clearance;
+      final clearance = _fleet(machine)?.clearance;
+      if (clearance == null) continue;
       for (final prompt in clearance.settled.where((each) => each.expired)) {
         final id = _ranOutId(machine.name, prompt);
         if (seen.contains(id)) again.add((clearance: clearance, prompt: prompt));
@@ -707,7 +712,8 @@ class Attention extends ChangeNotifier {
         if (each.id != question.id && !each.seen) each,
     ]);
     for (final machine in _machines.all.where((each) => each.name == question.machine)) {
-      final clearance = fleetOf(machine).clearance;
+      final clearance = _fleet(machine)?.clearance;
+      if (clearance == null) continue;
       for (final prompt in clearance.settled) {
         if (_ranOutId(machine.name, prompt) == question.id) clearance.forget(prompt);
       }
@@ -723,8 +729,8 @@ class Attention extends ChangeNotifier {
   void _keepOutcomes(Map<String, AttentionRow> open) {
     String keyOf(String machine, Prompt prompt) => '$machine/${prompt.identity}';
     for (final machine in _counted) {
-      final fleet = fleetOf(machine);
-      if (fleet.reachability != Reachability.connected) continue;
+      final fleet = _fleet(machine);
+      if (fleet == null || fleet.reachability != Reachability.connected) continue;
       for (final asked in fleet.clearance.waiting) {
         _outcomesKept.remove(keyOf(machine.name, asked));
       }
@@ -745,7 +751,7 @@ class Attention extends ChangeNotifier {
     }
     _outcomesKept.retainAll(<String>{
       for (final machine in _machines.all)
-        for (final prompt in fleetOf(machine).clearance.settled) keyOf(machine.name, prompt),
+        for (final prompt in _fleet(machine)?.clearance.settled ?? const <Prompt>[]) keyOf(machine.name, prompt),
     });
   }
 
@@ -787,20 +793,22 @@ class Attention extends ChangeNotifier {
   /// Every machine that is not answering. Said about the machine, above the tiles, never as one:
   /// a machine is not work, and its silence may be hiding a question.
   ///
-  /// This computer, where no Porelo is installed, is not one: nothing was ever going to answer there.
+  /// This computer, where no Porelo is installed, is not one: nothing was ever going to answer there. Nor is one not
+  /// opened yet: its opening is the try a person would ask for.
   List<Machine> get silent => <Machine>[
     for (final machine in _counted)
-      if (_machines.of(machine).reachability != Reachability.connected &&
-          !_seenMarks.contains(machine.name) &&
-          !(machine.isThisComputer && !_machines.poreloIsInstalledHere))
+      if (_fleet(machine)?.reachability case final reachability?
+          when reachability != Reachability.connected &&
+              !_seenMarks.contains(machine.name) &&
+              !(machine.isThisComputer && !_machines.poreloIsInstalledHere))
         machine,
   ];
 
   /// Whether [machine] is a host that has not answered yet: quiet because nobody has connected, not gone silent.
   bool notConnectedYet(Machine machine) =>
       machine.kind == 'host' &&
-      !fleetOf(machine).answered &&
-      fleetOf(machine).reachability != Reachability.incompatible;
+      !(_fleet(machine)?.answered ?? false) &&
+      _fleet(machine)?.reachability != Reachability.incompatible;
 
   /// Every machine once: one node reached two ways would deliver every question twice, and draw all
   /// its work twice.
@@ -812,8 +820,8 @@ class Attention extends ChangeNotifier {
     return scope.every(
       (machine) =>
           _machines.all.contains(machine) &&
-          fleetOf(machine).reachability == Reachability.connected &&
-          fleetOf(machine).listRead,
+          _fleet(machine)?.reachability == Reachability.connected &&
+          _fleet(machine)!.listRead,
     );
   }
 
@@ -822,9 +830,9 @@ class Attention extends ChangeNotifier {
 
   /// Whether every machine has either supplied a list or reported why it cannot answer.
   bool get needsRead => machinesOnce.every(
-    (machine) => switch (fleetOf(machine).reachability) {
-      Reachability.connecting => false,
-      Reachability.connected => fleetOf(machine).listRead,
+    (machine) => switch (_fleet(machine)?.reachability) {
+      null || Reachability.connecting => false,
+      Reachability.connected => _fleet(machine)!.listRead,
       Reachability.unreachable || Reachability.incompatible => true,
     },
   );
@@ -849,7 +857,7 @@ class Attention extends ChangeNotifier {
   List<WaitingMessages> get messagesWaiting => [
     for (final machine in _counted)
       for (final reason in <(String, String, String)>{
-        for (final each in fleetOf(machine).projects)
+        for (final each in _fleet(machine)?.projects ?? const <ProjectOnScreen>[])
           if (each.project.messages case final messages? when messages.waits.isNotEmpty)
             (messages.waits, messages.waitsOn, messages.vault),
       })
@@ -859,7 +867,7 @@ class Attention extends ChangeNotifier {
           waitsOn: reason.$2,
           vault: reason.$3,
           projects: [
-            for (final each in fleetOf(machine).projects)
+            for (final each in _fleet(machine)?.projects ?? const <ProjectOnScreen>[])
               if (each.project.messages?.waits == reason.$1 &&
                   each.project.messages?.waitsOn == reason.$2 &&
                   each.project.messages?.vault == reason.$3)
@@ -891,22 +899,23 @@ class Attention extends ChangeNotifier {
   /// busy with something else entirely.
   List<({Machine machine, HeldMessage message})> get heldMessages => <({Machine machine, HeldMessage message})>[
     for (final machine in _counted)
-      for (final message in _machines.of(machine).mailboxes.waiting) (machine: machine, message: message),
+      for (final message in _fleet(machine)?.mailboxes.waiting ?? const <HeldMessage>[])
+        (machine: machine, message: message),
   ];
 
   /// Every authorization a person has to grant before work can use it, on every machine, oldest first.
   List<({Machine machine, AuthorizationNeeded needed})> get authorizationsNeeded =>
       <({Machine machine, AuthorizationNeeded needed})>[
         for (final machine in _counted)
-          for (final needed in _machines.of(machine).authorizations.open) (machine: machine, needed: needed),
+          for (final needed in _fleet(machine)?.authorizations.open ?? const <AuthorizationNeeded>[])
+            (machine: machine, needed: needed),
       ];
 
   /// Every machine that cannot say what is held for a person, so its silence is not read as none.
   List<({Machine machine, String problem})> get unlistedMessages => <({Machine machine, String problem})>[
     for (final machine in _counted)
-      if (_machines.of(machine).reachability == Reachability.connected &&
-          _machines.of(machine).mailboxes.problem != null)
-        (machine: machine, problem: _machines.of(machine).mailboxes.problem!),
+      if (_fleet(machine) case final fleet? when fleet.reachability == Reachability.connected)
+        if (fleet.mailboxes.problem case final problem?) (machine: machine, problem: problem),
   ];
 
   /// One occurrence of a story's ended work: the entry's id and when its work ended; null where nothing ended.
@@ -967,12 +976,13 @@ class Attention extends ChangeNotifier {
   bool Function(String mark) _taskEndGone() {
     final listed = <String>{
       for (final machine in _machines.all)
-        for (final each in fleetOf(machine).tasks)
+        for (final each in _fleet(machine)?.tasks ?? const <Task>[])
           if (each.agentEnded case final end?) _endKey(machine.name, each, end),
     };
     final saidItsList = <String>[
       for (final machine in _machines.all)
-        if (fleetOf(machine).reachability == Reachability.connected && fleetOf(machine).listRead) '${machine.name}/',
+        if (_fleet(machine) case final fleet? when fleet.reachability == Reachability.connected && fleet.listRead)
+          '${machine.name}/',
     ];
     return (mark) => !mark.startsWith(_storyEnded) && !listed.contains(mark) && saidItsList.any(mark.startsWith);
   }
@@ -1024,7 +1034,7 @@ class Attention extends ChangeNotifier {
     final settings = _settings;
     final answering = <String>{
       for (final machine in _machines.all)
-        if (_machines.of(machine).reachability == Reachability.connected) machine.name,
+        if (_fleet(machine)?.reachability == Reachability.connected) machine.name,
     };
     final setAside = _machines.setAside;
     bool gone(String mark) =>
@@ -1051,8 +1061,11 @@ class Attention extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The model of one machine.
+  /// The model of one machine, for a row's machine: rows are worked out from watched machines alone.
   FleetModel fleetOf(Machine machine) => _machines.of(machine);
+
+  /// The model of [machine] while it is watched; one listed and not opened yet answers nothing.
+  FleetModel? _fleet(Machine machine) => _machines.watching(machine);
 
   /// Every tile, most urgent first.
   List<Tile> get tiles => <Tile>[for (final machine in _counted) ..._tilesOf(machine)]..sort(_byDemand);
@@ -1081,8 +1094,8 @@ class Attention extends ChangeNotifier {
 
   List<Tile> _tilesOf(Machine machine, {bool evenSilent = false}) {
     final out = <Tile>[];
-    final fleet = _machines.of(machine);
-    if (evenSilent || fleet.reachability == Reachability.connected) {
+    final fleet = _fleet(machine);
+    if (fleet != null && (evenSilent || fleet.reachability == Reachability.connected)) {
       final settled = fleet.clearance.settled;
       final asked = <String, List<Prompt>>{};
       for (final prompt in fleet.clearance.waiting) {
@@ -1116,7 +1129,7 @@ class Attention extends ChangeNotifier {
   /// so work may be held until its deadline with nobody told (the contracts review).
   List<Machine> get missedQuestions => <Machine>[
     for (final machine in _counted)
-      if (_machines.of(machine).clearance.missed > 0) machine,
+      if ((_fleet(machine)?.clearance.missed ?? 0) > 0) machine,
   ];
 
   /// How many things need somebody now: every row, work at the gate like any other. The page's
@@ -1219,12 +1232,13 @@ class Attention extends ChangeNotifier {
 
   void _follow() {
     final wanted = <Listenable>{
-      for (final machine in _machines.all) ...<Listenable>[
-        _machines.of(machine),
-        _machines.of(machine).clearance,
-        _machines.of(machine).mailboxes,
-        _machines.of(machine).authorizations,
-      ],
+      for (final machine in _machines.all)
+        if (_fleet(machine) case final fleet?) ...<Listenable>[
+          fleet,
+          fleet.clearance,
+          fleet.mailboxes,
+          fleet.authorizations,
+        ],
     };
     for (final gone in _following.difference(wanted)) {
       gone.removeListener(_changed);
