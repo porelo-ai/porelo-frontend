@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F511",
   "title": "An Open Menu Follows What Can Run",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 84,
@@ -35,11 +35,12 @@ change already under way.
 
 ## Plan
 
-- The command menu takes its commands from a `ValueListenable<List<Command>>` (or a builder plus the view's
-  `Listenable`) and its entries rebuild while open: each `PopupMenuItem` wraps its `enabled` and subtitle in a
-  `ListenableBuilder`, so `PopupMenuButton`'s route redraws them. The menu stays open; only the entries change.
-- Every view that offers a `CommandMenu` with entries that depend on busy or stale passes its model; the others keep
-  passing a plain list.
+- `CommandMenu` keeps the commands its view gives it now in a `ValueNotifier`, set after the frame in which the view
+  rebuilt it, and each entry of its open menu is drawn from it (`ValueListenableBuilder`), so `PopupMenuButton`'s route
+  redraws it. The menu stays open; only the entries change. An entry whose command is gone since is drawn grey and
+  runs nothing; choosing runs only a command available now, as before.
+- Every view rebuilds its `CommandMenu` as its state changes already, so every `CommandMenu` follows without a change at
+  its call site; no model is passed. The right-click menu (`showCommandMenu`) is drawn once, as before.
 - Red first in `test/ui/connections_menu_test.dart`: open the menu while busy, then end busy and pump: the forget entry
   is enabled and a tap calls `onForget`. And: open while idle, turn busy, pump: the entry is disabled and a tap calls
   nothing.
