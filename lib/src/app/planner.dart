@@ -18,8 +18,9 @@ import 'package:porelo_planning/porelo_planning.dart'
 
 import '../client/models.dart' show Project, defaultProject;
 import 'machines.dart';
+import 'owned_process.dart';
 import 'planner_log_level.dart';
-import 'window_log.dart' show LogLevel;
+import 'window_log.dart' show LogLevel, windowLog;
 
 /// Where the package puts the planner, which the window starts as it needs it.
 const plannerInstalled = '/usr/libexec/porelo/planner';
@@ -52,11 +53,21 @@ typedef PlanningReport = Future<void> Function(
   List<PlanningLanding> landed,
 });
 
-/// Starts the planner at [executable] with [environment] added to the window's own, returning once it was started.
-typedef StartPlanner = Future<void> Function(String executable, Map<String, String> environment);
+/// Starts the planner at [executable] with [environment] added to the window's own, answering the process started.
+typedef StartPlanner = Future<Process> Function(String executable, Map<String, String> environment);
+
+/// The planner's option that has it end once its standard input closes, as when the window that holds it ends.
+const plannerEndsWithInput = '--end-with-input';
 
 /// Opens the planner's board reads from the address file under [runtimeDirectory], the account's own when null.
 typedef OpenPlanner = Future<HttpPlanningSource> Function(PlannerProjects projects, {String? runtimeDirectory});
+
+/// What the window started for planning and ends with itself.
+abstract interface class EndsWithTheWindow {
+  /// Ends the planner the window started, where it still answers at the address it wrote; a planner the window found
+  /// serving, or one that took the started one's place, is left running.
+  Future<void> end();
+}
 
 /// A planner that names the file it writes its log into.
 abstract interface class NamesItsLog {
@@ -101,7 +112,8 @@ abstract interface class PlanningReach implements Listenable {
 /// This computer's planner as the window's one provider of planning: found by its address file, started where none
 /// runs, told each project's repository as the window knows it, and followed to a new address when the planner writes
 /// one, as after a restart on another port.
-class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningReach, NamesItsLog, TakesTheLogLevel {
+class LocalPlanner extends ChangeNotifier
+    implements PlanningClient, PlanningReach, NamesItsLog, TakesTheLogLevel, EndsWithTheWindow {
   /// Takes the projects the window knows and their repositories; [runtimeDirectory] is the one the planner writes its
   /// address under, `XDG_RUNTIME_DIR` when null, and [candidates] where the planner may be, in the order they are tried.
   /// [onWindows] is whether the window runs on Windows, where no planner is looked for or started.
@@ -125,7 +137,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
        _chosen = chosenProject,
        runtimeDirectory = runtimeDirectory == null || runtimeDirectory.trim().isEmpty ? null : runtimeDirectory,
        candidates = candidates ?? plannerCandidates(Platform.environment),
-       _start = start ?? _startDetached,
+       _start = start ?? _startWithItsInput,
        _open = open ?? HttpPlanningSource.fromAddressFile {
     _changes?.addListener(notifyListeners);
     _logLevel?.addListener(_levelChosen);
@@ -203,6 +215,15 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   bool get started => _started;
   bool _started = false;
 
+  /// The planner this window started, until it ended or was ended; null where the window found one serving.
+  Process? _process;
+
+  /// Where the planner this window started answers, as its address file said first after the start.
+  _Answers? _startedAt;
+
+  /// The exit code of the planner this window started, where it ended before it said where it answers.
+  int? _endedEarly;
+
   @override
   String? get notReached => _notReached;
 
@@ -238,6 +259,9 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     while (!_disposed) {
       await Future<void>.delayed(poll);
       if (await _look() != _Look.notRunning) return;
+      if (_endedEarly case final code?) {
+        return _say('porelo-planner ended with exit code $code before it said where it answers.');
+      }
       if (waited.elapsed >= wait) {
         return _say('porelo-planner was started, but did not say where it answers within ${wait.inSeconds} s.');
       }
@@ -250,7 +274,7 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     for (final program in programs) {
       try {
         _started = true;
-        await _start(program, {'XDG_RUNTIME_DIR': ?runtimeDirectory});
+        _keep(await _start(program, {'XDG_RUNTIME_DIR': ?runtimeDirectory}));
         return null;
       } on ProcessException catch (error) {
         // Not started at all, as for a file this account may not run: the next may be.
@@ -267,8 +291,10 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
   /// [quietly] where the board of the planner found still stands and says what fails.
   Future<_Look> _look({bool quietly = false}) async {
     try {
-      final address = await _addressNow();
+      var address = await _addressNow();
       final source = await _open(_repositories, runtimeDirectory: runtimeDirectory);
+      // A planner may write its address between the two reads; the address opened is then read once more.
+      address ??= await _addressNow();
       if (_disposed) {
         source.close();
         return _Look.found;
@@ -277,6 +303,8 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
       final old = _source;
       _source = source;
       _address = address;
+      // The first address after the start is the started planner's: none answered before it.
+      if (_process != null && _startedAt == null && address != null) _startedAt = _answersAt(address);
       if (address != null) _log = plannerLogOf(address) ?? _log;
       _missing = 0;
       _notReached = null;
@@ -428,12 +456,78 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     return stat.type == FileSystemEntityType.file && stat.mode & 0x49 != 0;
   }
 
-  // Detached, so the planner keeps serving the account's other windows and tools after this one closes.
-  static Future<void> _startDetached(String executable, Map<String, String> environment) =>
-      Process.start(executable, const [], environment: environment, mode: ProcessStartMode.detached);
+  /// Keeps the planner the window started, and says in the window's log how it ended.
+  void _keep(Process process) {
+    _process = process;
+    _startedAt = null;
+    _endedEarly = null;
+    unawaited(
+      process.exitCode.then((code) {
+        if (!identical(_process, process)) return;
+        _process = null;
+        if (_startedAt == null) _endedEarly = code;
+        // Under its option the planner answers 0 for a clean end and 1 where its stop failed or its input could not be
+        // read.
+        if (code == 0) {
+          windowLog.info('porelo-planner, which the window started, ended.');
+        } else {
+          windowLog.warn('porelo-planner, which the window started, ended with exit code $code.');
+        }
+      }),
+    );
+  }
+
+  @override
+  Future<void> end() async {
+    final process = _process;
+    if (process == null) return;
+    _process = null;
+    final address = await _addressNow();
+    if (address != null && _answersAt(address) != _startedAt) {
+      windowLog.info(
+        'porelo-planner, which the window started, no longer answers at its address; the one that does is '
+        'left running.',
+      );
+      return;
+    }
+    windowLog.info('Ending porelo-planner, which the window started.');
+    try {
+      await stopOwnedProcess(process);
+      windowLog.info('porelo-planner, which the window started, ended with exit code ${await process.exitCode}.');
+    } on TimeoutException {
+      windowLog.error('porelo-planner, which the window started, did not end even on SIGKILL.');
+    }
+  }
+
+  /// Where the address file's text [address] says the planner answers: its port and token, null where it says none.
+  static _Answers? _answersAt(String address) {
+    try {
+      if (jsonDecode(address) case {'port': final Object port, 'token': final Object token}) return (port, token);
+    } on FormatException {
+      // Not the planner's address: it says nowhere.
+    }
+    return null;
+  }
+
+  // Normal, so the planner gets a pipe for its input that closes when the window goes, a hard kill included, and
+  // answers its exit code; its output is read so it never blocks on a full pipe.
+  static Future<Process> _startWithItsInput(String executable, Map<String, String> environment) async {
+    final process = await Process.start(executable, const [plannerEndsWithInput], environment: environment);
+    _intoTheLog(process.stdout, LogLevel.debug);
+    _intoTheLog(process.stderr, LogLevel.info);
+    return process;
+  }
+
+  static void _intoTheLog(Stream<List<int>> output, LogLevel level) => output
+      .transform(const Utf8Decoder(allowMalformed: true))
+      .transform(const LineSplitter())
+      .listen((line) => windowLog.write(level, 'porelo-planner: $line'), onError: (Object _) {});
 }
 
 enum _Look { found, notRunning, refused }
+
+/// Where a planner answers: the port and token its address file names.
+typedef _Answers = (Object port, Object token);
 
 /// Where the planner may be: where its package installs it, then on [environment]'s path, taking only absolute folders
 /// that climb out of none.

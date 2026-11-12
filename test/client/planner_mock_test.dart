@@ -47,13 +47,14 @@ void main() {
       repositories: (_) => PlannerProject(repository),
       runtimeDirectory: runtime.path,
       candidates: [planner],
-      // The mock mode, and a process the test can stop: the window's own start leaves its planner running. Every start
-      // is kept, so a second one is counted and stopped too; its output is drained so it never blocks on a full pipe.
+      // The mock mode, and a process the test can stop. Every start is kept, so a second one is counted and stopped
+      // too; its output is drained so it never blocks on a full pipe.
       start: (executable, environment) async {
         final process = await Process.start(executable, ['--mock'], environment: environment);
         started.add(process);
         process.stdout.drain<void>().ignore();
         process.stderr.drain<void>().ignore();
+        return process;
       },
       wait: const Duration(seconds: 60),
     );

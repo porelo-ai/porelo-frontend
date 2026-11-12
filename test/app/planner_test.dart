@@ -15,6 +15,7 @@ import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
+import '../support/planner_process.dart';
 
 /// A stand-in planner on the loopback address that records every call and answers an empty board.
 class _Planner {
@@ -147,6 +148,7 @@ void main() {
       start: (executable, environment) async {
         starts.add((executable, environment));
         unawaited(Future<void>.delayed(const Duration(milliseconds: 100), () => started.announce(runtime.path)));
+        return PlannerProcess();
       },
     );
 
@@ -167,7 +169,10 @@ void main() {
       var starts = 0;
       final local = client(
         candidates: [path],
-        start: (_, _) async => starts++,
+        start: (_, _) async {
+          starts++;
+          return PlannerProcess();
+        },
         wait: const Duration(milliseconds: 200),
       );
 
@@ -199,7 +204,13 @@ void main() {
     final running = await planner();
     await running.announce(runtime.path, mode: 420);
     var starts = 0;
-    final local = client(candidates: [await program()], start: (_, _) async => starts++);
+    final local = client(
+      candidates: [await program()],
+      start: (_, _) async {
+        starts++;
+        return PlannerProcess();
+      },
+    );
 
     await local.reach();
 
@@ -217,7 +228,13 @@ void main() {
     await file.writeAsString('not the planner\'s address');
     await Process.run('chmod', ['600', file.path]);
     var starts = 0;
-    final local = client(candidates: [await program()], start: (_, _) async => starts++);
+    final local = client(
+      candidates: [await program()],
+      start: (_, _) async {
+        starts++;
+        return PlannerProcess();
+      },
+    );
 
     await local.reach();
 
@@ -232,7 +249,10 @@ void main() {
     final local = client(
       runtimeDirectory: () => 'relative/run',
       candidates: [await program()],
-      start: (_, _) async => starts++,
+      start: (_, _) async {
+        starts++;
+        return PlannerProcess();
+      },
     );
 
     await local.reach();
@@ -249,7 +269,10 @@ void main() {
     final local = client(
       runtimeDirectory: () => '  ',
       candidates: [await program()],
-      start: (_, environment) async => starts.add(environment),
+      start: (_, environment) async {
+        starts.add(environment);
+        return PlannerProcess();
+      },
       open: (_, {runtimeDirectory}) async {
         reads.add(runtimeDirectory);
         throw const PlanningRefusal('NoAddress', {}, 'no planner runs');
@@ -269,7 +292,10 @@ void main() {
     var starts = 0;
     final local = client(
       candidates: [await program()],
-      start: (_, _) async => starts++,
+      start: (_, _) async {
+        starts++;
+        return PlannerProcess();
+      },
       open: (_, {runtimeDirectory}) async => throw StateError('the address could not be taken'),
     );
 
@@ -291,6 +317,7 @@ void main() {
       start: (executable, _) async {
         starts.add(executable);
         await started.announce(runtime.path);
+        return PlannerProcess();
       },
     );
     await local.reach();
@@ -309,7 +336,10 @@ void main() {
     var starts = 0;
     final local = client(
       candidates: [await program()],
-      start: (_, _) async => starts++,
+      start: (_, _) async {
+        starts++;
+        return PlannerProcess();
+      },
       wait: const Duration(milliseconds: 100),
     );
     await local.reach();
@@ -336,6 +366,7 @@ void main() {
         starts.add(executable);
         if (executable == first) throw ProcessException(executable, const [], 'Permission denied', 13);
         await started.announce(runtime.path);
+        return PlannerProcess();
       },
     );
 
@@ -534,6 +565,7 @@ void main() {
       start: (_, _) async {
         starts++;
         await second.announce(runtime.path, token: 'token-of-the-new-one');
+        return PlannerProcess();
       },
     );
     await local.reach();

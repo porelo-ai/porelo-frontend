@@ -73,7 +73,7 @@ import 'central_release_view.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
-import '../app/planner.dart' show NamesItsLog, PlanningReach, TakesTheLogLevel;
+import '../app/planner.dart' show EndsWithTheWindow, NamesItsLog, PlanningReach, TakesTheLogLevel;
 import 'discussion_start_dialog.dart';
 import 'planning_embedding.dart';
 
@@ -798,6 +798,8 @@ class _ShellState extends State<Shell> {
       onLeave: _hostRuns.leave,
     );
     if (!agreed) return AppExitResponse.cancel;
+    // A planner the window started ends with it; one it found serving is left running.
+    if (widget.planning?.client case final EndsWithTheWindow planner) await planner.end();
     // Only what this interface raised is taken down; nothing somebody else raised is in there. The tunnels, and the
     // forwards raised for one login, one grant or one homeserver, at once: one that hangs does not hold up the other.
     await letGoTogether([widget.machines.letGoOfTheTunnels, letGoOfTheForwards]);

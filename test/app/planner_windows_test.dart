@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/planner.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
+import '../support/planner_process.dart';
+
 /// The planner as Windows has it: porelo-planner is built for Linux only, so a window there starts nothing.
 void main() {
   test('on Windows nothing is started or read, and the place says planning is not offered there', () async {
@@ -12,7 +14,10 @@ void main() {
       repositories: (project) async => throw PlanningRefusal('NoRepository', const {}),
       runtimeDirectory: r'C:\Users\someone\AppData\Local\Temp\planner-runtime',
       candidates: const [r'C:\Program Files\Porelo\porelo-planner.exe'],
-      start: (executable, environment) async => starts.add(executable),
+      start: (executable, environment) async {
+        starts.add(executable);
+        return PlannerProcess();
+      },
       open: (projects, {runtimeDirectory}) async {
         opened++;
         throw StateError('not to be opened on Windows');

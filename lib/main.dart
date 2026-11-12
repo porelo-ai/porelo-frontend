@@ -16,6 +16,7 @@ import 'src/app/narrowing.dart';
 import 'src/app/newer_version.dart';
 import 'src/app/one_instance.dart';
 import 'src/app/where_you_were.dart';
+import 'src/app/window_end.dart';
 import 'src/app/window_log.dart';
 import 'src/app/agent_inventory.dart';
 import 'src/app/authentication.dart';
@@ -145,6 +146,10 @@ Future<PoreloApp> _compose() async {
   await notifications.load();
   final organizationSource = PoreloOrganizationSource();
   final planner = LocalPlanner.of(machines, logLevel: settings.logLevel);
+  // A planner the window started ends with it also on SIGTERM and SIGINT, as on closing it; Windows starts none.
+  if (!Platform.isWindows) {
+    endOnSignals([ProcessSignal.sigterm.watch(), ProcessSignal.sigint.watch()], end: planner.end, exit: exit);
+  }
   final app = PoreloApp(
     settingsDropped: settingsDropped,
     organizationSource: organizationSource,
