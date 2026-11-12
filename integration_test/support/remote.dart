@@ -8,8 +8,13 @@ import 'e2e.dart';
 ///
 /// On standard input, never `-n`: `ssh -n` connects it to `/dev/null`, so the script would never
 /// arrive and the run would say nothing and exit 0. The agent `tool/e2e.sh` raised holds the key.
+///
+/// A run on the test machine itself (`localhost`, as the walk in `tool/walk_idea.sh` runs) needs no
+/// ssh: the account has no key for itself and knows no host key for `localhost`, so it runs here.
 Future<String> onTheTestMachine(String script) async {
-  final ssh = await Process.start('ssh', <String>['-o', 'BatchMode=yes', E2e.host, 'bash -s']);
+  final ssh = E2e.host == 'localhost'
+      ? await Process.start('bash', <String>['-s'])
+      : await Process.start('ssh', <String>['-o', 'BatchMode=yes', E2e.host, 'bash -s']);
   ssh.stdin.write(script);
   await ssh.stdin.close();
   // Both at once: read one after the other, a script that writes a lot to the second would wait on
