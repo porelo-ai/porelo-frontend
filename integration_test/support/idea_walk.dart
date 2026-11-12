@@ -191,14 +191,13 @@ Future<bool> probeHolds(List<String> check) async => (await _probe(check)).exitC
 
 Future<ProcessResult> _probe(List<String> check) async {
   // The window's planner writes its address under the window's runtime directory; porelo answers under the account's.
-  final windows = Platform.environment['XDG_RUNTIME_DIR'] ?? '';
   return Process.run(
     Walk.probe,
     check,
     environment: {
       'PLANNER_PROJECT': Walk.project,
       'PORELO_PROJECT': Walk.poreloProject,
-      'PLANNER_ADDRESS_FILE': '$windows/porelo-planner/planner.json',
+      'PLANNER_ADDRESS_FILE': plannerAddressFile(),
       'XDG_RUNTIME_DIR': await theAccountsRuntime(),
     },
   );
@@ -352,8 +351,25 @@ Future<Map<String, dynamic>> untilItEnds(
 }
 
 /// Whether a process of this account runs the planner the driver put on the path.
-bool thePathsPlannerRuns() {
-  final wanted = File(Walk.planner).resolveSymbolicLinksSync();
+bool thePathsPlannerRuns() => plannerRunsFrom(Walk.planner);
+
+/// Where this computer's planner writes its address, as the window reads it: under `%LOCALAPPDATA%` on Windows, under
+/// the window's runtime directory elsewhere.
+String plannerAddressFile() => Platform.isWindows
+    ? '${Platform.environment['LOCALAPPDATA'] ?? ''}\\porelo-planner\\planner.json'
+    : '${Platform.environment['XDG_RUNTIME_DIR'] ?? ''}/porelo-planner/planner.json';
+
+/// Whether a process of this account runs the planner at [path].
+bool plannerRunsFrom(String path) {
+  final wanted = File(path).resolveSymbolicLinksSync();
+  if (Platform.isWindows) {
+    final listed = Process.runSync('powershell', [
+      '-NoProfile',
+      '-Command',
+      'Get-Process -ErrorAction SilentlyContinue | ForEach-Object { \$_.Path }',
+    ]);
+    return '${listed.stdout}'.split(RegExp(r'\r?\n')).any((each) => each.trim().toLowerCase() == wanted.toLowerCase());
+  }
   for (final each in Directory('/proc').listSync().whereType<Directory>()) {
     try {
       if (Link('${each.path}/exe').resolveSymbolicLinksSync() == wanted) return true;
