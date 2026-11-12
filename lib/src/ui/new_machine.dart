@@ -5,6 +5,7 @@ import '../app/machine_setup.dart';
 import '../app/session.dart';
 import '../app/setup_run.dart';
 import 'host_key_dialog.dart';
+import 'session_terminal.dart';
 import 'tokens.dart';
 import 'terminal_copy.dart';
 import 'terminal_look.dart';
@@ -400,16 +401,13 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
             child: CopiesAsShown(
               terminal: vault.terminal,
               controller: _selection,
-              child: TerminalView(
-                vault.terminal,
-                key: const Key('vault-terminal'),
+              child: SessionTerminal(
+                session: vault,
+                viewKey: const Key('vault-terminal'),
                 controller: _selection,
-                shortcuts: terminalShortcuts,
                 theme: TerminalLook.theme,
-                autofocus: true,
                 // A passphrase is typed here blind: the cursor at least says where it goes.
                 alwaysShowCursor: vault.live,
-                readOnly: !vault.live,
                 padding: const EdgeInsets.all(Space.small),
                 textStyle: const TerminalStyle(fontSize: 12),
               ),
@@ -417,6 +415,7 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
           ),
         ),
         const TerminalPasteHint(),
+        TerminalCopyAsk(session: vault),
       ],
     ];
   }
@@ -472,15 +471,12 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
               child: CopiesAsShown(
                 terminal: drive.terminal,
                 controller: _selection,
-                child: TerminalView(
-                  drive.terminal,
-                  key: const Key('drive-terminal'),
+                child: SessionTerminal(
+                  session: drive,
+                  viewKey: const Key('drive-terminal'),
                   controller: _selection,
-                  shortcuts: terminalShortcuts,
                   theme: TerminalLook.theme,
-                  autofocus: true,
                   alwaysShowCursor: drive.live,
-                  readOnly: !drive.live,
                   padding: const EdgeInsets.all(Space.small),
                   textStyle: const TerminalStyle(fontSize: 12),
                 ),
@@ -488,6 +484,7 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
             ),
           ),
           const TerminalPasteHint(),
+          TerminalCopyAsk(session: drive),
         ],
       ] else ...<Widget>[
         Text('Signed in as ${run.driveSignedInAs}.', key: const Key('drive-signed-in')),

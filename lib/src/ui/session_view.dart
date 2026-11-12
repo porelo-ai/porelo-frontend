@@ -11,6 +11,7 @@ import 'package:guided_walk/guided_walk.dart';
 
 import 'tokens.dart';
 import 'terminal_copy.dart';
+import 'session_terminal.dart';
 import 'terminal_links.dart';
 import 'terminal_look.dart';
 
@@ -188,20 +189,17 @@ class _SessionViewState extends State<SessionView> {
                         child: CopiesAsShown(
                           terminal: session.terminal,
                           controller: _selection,
-                          child: TerminalView(
-                            session.terminal,
-                            key: const Key('terminal'),
+                          // Read-only once it is over, so keys typed at a dead session do not look like they went
+                          // somewhere.
+                          child: SessionTerminal(
+                            session: session,
+                            viewKey: const Key('terminal'),
                             scrollController: _scroll,
                             theme: TerminalLook.themeOf(context),
                             controller: _selection,
-                            shortcuts: terminalShortcuts,
                             focusNode: widget.focusNode,
-                            onKeyEvent: widget.onKey,
-                            autofocus: true,
+                            onKey: widget.onKey,
                             padding: const EdgeInsets.symmetric(horizontal: Sizes.terminalSide, vertical: Space.normal),
-                            // Read-only once it is over, so keys typed at a dead session do not look
-                            // like they went somewhere.
-                            readOnly: !session.live,
                             // On Windows every key, letters included, is read from the keyboard's own
                             // events: there the text-input path this widget uses elsewhere delivered
                             // Enter, Backspace and the page keys and no letter at all.
@@ -228,6 +226,10 @@ class _SessionViewState extends State<SessionView> {
             ),
           ),
           const TerminalPasteHint(shiftSelects: true),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.normal),
+            child: TerminalCopyAsk(session: session),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.normal),
             child: TerminalLinks(session: session),

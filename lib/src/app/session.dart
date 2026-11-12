@@ -89,7 +89,9 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     this.run,
     this.forwardsALoginReply = false,
     this.startedAt,
-  }) : _open = open ?? openHere {
+    Duration Function()? clock,
+  }) : _open = open ?? openHere,
+       _now = clock ?? _monotonic() {
     terminal = Terminal(maxLines: scrollback)
       ..inputHandler = CascadeInputHandler(<TerminalInputHandler>[
         _modifiedKeys,
@@ -114,6 +116,46 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   final Machine machine;
 
   final OpenTerminal _open;
+
+  /// Time on a clock that never goes back, for how long ago the person last acted here.
+  final Duration Function() _now;
+
+  static Duration Function() _monotonic() {
+    final watch = Stopwatch()..start();
+    return () => watch.elapsed;
+  }
+
+  /// When the person last pressed a key, pressed or released the mouse, or pasted in this terminal, and no write
+  /// has used it since; null otherwise.
+  Duration? _ownActionAt;
+
+  /// What the task asked to put on this computer's clipboard on its own, waiting for the person to allow it.
+  HeldCopy? get held => _held;
+  HeldCopy? _held;
+
+  /// The person's own action in this terminal, a pointer pressed or released or a paste. **Never what the terminal
+  /// sends itself** — an answer to the far end's question, a mouse or focus report — which a task could ask for.
+  void ownAction() => _ownActionAt = _now();
+
+  /// A key the person pressed in this terminal: only the first press, so a held key does not keep the way open.
+  void ownKey(KeyEvent event) {
+    if (event is KeyDownEvent && !event.synthesized) ownAction();
+  }
+
+  /// Puts [copy] on this computer's clipboard, the person having allowed it — only while it is the one shown.
+  void copyHeld(HeldCopy copy) {
+    if (!live || !identical(copy, _held)) return;
+    _held = null;
+    notifyListeners();
+    unawaited(copyToClipboard(copy.text));
+  }
+
+  /// Forgets [copy], the person having refused it.
+  void dropHeld(HeldCopy copy) {
+    if (!identical(copy, _held)) return;
+    _held = null;
+    notifyListeners();
+  }
 
   /// Whether this terminal runs an agent's login, and so may ask for its reply to be forwarded.
   /// **Only such a terminal**: a work session asking for a port would be a container opening a way
@@ -172,20 +214,38 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     }());
   }
 
-  /// The program's own copy (OSC 52, as tmux's `set-clipboard on` sends it), put on this computer's
-  /// clipboard. **Writing only**: a request to read the clipboard (`?`) is never answered, since that
-  /// would hand whatever was copied here to the container.
+  /// The program's own copy (OSC 52, as tmux's `set-clipboard on` sends it), for this computer's clipboard.
+  /// **Writing only**: a request to read the clipboard (`?`) is never answered, since that would hand whatever was
+  /// copied here to the container. **Without a word only right after the person's own action here**, once per
+  /// action; any other write is held for the person to allow, since a task's text pasted into a shell runs there.
   void _copied(List<String> arguments) {
-    if (!live || arguments.length != 2 || arguments.last == '?') return;
-    if (arguments.last.length > _mostCopied) return;
+    if (!live || arguments.length != 2) return;
+    final [selection, encoded] = arguments;
+    // Only the clipboard: another selection, written here, would land on the clipboard too.
+    if (!selection.contains('c') || encoded.isEmpty || encoded == '?' || encoded.length > _mostCopied) return;
     final String text;
     try {
-      text = utf8.decode(base64.decode(arguments.last), allowMalformed: true);
+      text = utf8.decode(base64.decode(base64.normalize(encoded)), allowMalformed: true);
     } on FormatException {
       return;
     }
-    unawaited(copyToClipboard(text));
+    if (text.isEmpty) return;
+    final acted = _ownActionAt;
+    if (acted != null && _now() - acted <= _silentAfterOwnAction) {
+      _ownActionAt = null;
+      if (_held != null) {
+        _held = null;
+        notifyListeners();
+      }
+      unawaited(copyToClipboard(text));
+      return;
+    }
+    _held = HeldCopy(text);
+    notifyListeners();
   }
+
+  /// How long after the person's own action a write is taken as theirs. It proves time, not cause.
+  static const Duration _silentAfterOwnAction = Duration(seconds: 2);
 
   /// How much a program may copy at once, in base64: more than any selection, less than a flood.
   static const int _mostCopied = 1 << 20;
@@ -279,6 +339,7 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   /// *stop*.
   Future<void> leave() async {
     _gone = true;
+    _held = null;
     final reading = _reading;
     _reading = null;
     final channel = _channel;
@@ -356,6 +417,7 @@ class Session extends ChangeNotifier with QuietAfterDispose {
       exitCode ??= code;
       return;
     }
+    _held = null;
     // The login is over, so its reply has nothing left to reach.
     exitCode = code;
     final forward = _forward;
@@ -483,4 +545,14 @@ class Sessions extends ChangeNotifier {
     if (open != null) unawaited(_end(open));
     super.dispose();
   }
+}
+
+/// What a task asked to put on this computer's clipboard on its own. Compared by identity: allowing one copies that
+/// one, never one that replaced it in the meantime.
+class HeldCopy {
+  /// Constructor taking the decoded text.
+  HeldCopy(this.text);
+
+  /// The text as it would be written.
+  final String text;
 }

@@ -11,6 +11,7 @@ import 'dialog_scroll.dart';
 
 import 'package:guided_walk/guided_walk.dart';
 
+import 'session_terminal.dart';
 import 'tokens.dart';
 import 'terminal_copy.dart';
 import 'terminal_links.dart';
@@ -380,19 +381,16 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
                   child: CopiesAsShown(
                     terminal: _session.terminal,
                     controller: _selection,
-                    child: TerminalView(
-                      _session.terminal,
-                      key: const Key('unlock-terminal'),
+                    child: SessionTerminal(
+                      session: _session,
+                      viewKey: const Key('unlock-terminal'),
                       theme: TerminalLook.theme,
                       controller: _selection,
-                      shortcuts: terminalShortcuts,
                       focusNode: _keyboard,
-                      autofocus: true,
                       // The cursor always shown while it waits: a pasted sign-in code went in with
                       // nothing to say where (on a rented machine). What runs here may hide
                       // its own; this terminal is for one answer typed by a person.
                       alwaysShowCursor: _session.live,
-                      readOnly: !_session.live,
                       padding: const EdgeInsets.all(Space.small),
                       textStyle: const TerminalStyle(fontSize: 12),
                     ),
@@ -401,6 +399,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
               ),
             ),
             const TerminalPasteHint(),
+            TerminalCopyAsk(session: _session),
             // A link left on offer after it ended invites doing it all again.
             if (_session.state != SessionState.over) TerminalLinks(session: _session),
             if (_session.state != SessionState.over) ...<Widget>[

