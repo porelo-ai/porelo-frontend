@@ -65,6 +65,7 @@ class PlannedOffer {
     this.startedReported = false,
     this.ended,
     this.run,
+    this.landedReported = false,
   });
 
   /// The machine's name, as the window shows it.
@@ -95,11 +96,14 @@ class PlannedOffer {
   /// name lists another. Null where the machine did not say, or an earlier build kept none.
   final String? run;
 
+  /// Whether where its work landed was reported, with its end or after it.
+  final bool landedReported;
+
   /// Whether it can be reported: an earlier build kept no project or task for it.
   bool get reportable => provider != null && project != null && story != null && task != null;
 
   /// The same, with what was reported since.
-  PlannedOffer copyWith({bool? startedReported, String? ended}) => PlannedOffer(
+  PlannedOffer copyWith({bool? startedReported, String? ended, bool? landedReported}) => PlannedOffer(
     machine: machine,
     container: container,
     offer: offer,
@@ -110,6 +114,7 @@ class PlannedOffer {
     startedReported: startedReported ?? this.startedReported,
     ended: ended ?? this.ended,
     run: run,
+    landedReported: landedReported ?? this.landedReported,
   );
 }
 
@@ -1021,11 +1026,21 @@ class Settings extends ChangeNotifier {
   PlannedOffer? plannedOffer(String machine, String container) => _planningOffers[(machine, container)];
 
   /// Notes what was reported of the task in [container] on [machine]: that it started, or the end last reported.
-  Future<void> planningOfferReported(String machine, String container, {bool? started, String? ended}) async {
+  Future<void> planningOfferReported(
+    String machine,
+    String container, {
+    bool? started,
+    String? ended,
+    bool? landed,
+  }) async {
     final kept = _planningOffers[(machine, container)];
     if (kept == null) return;
     if (ended != null && !_validEnd(ended)) throw ArgumentError('An end must be a short line.');
-    _planningOffers[(machine, container)] = kept.copyWith(startedReported: started, ended: ended);
+    _planningOffers[(machine, container)] = kept.copyWith(
+      startedReported: started,
+      ended: ended,
+      landedReported: landed,
+    );
     await _write();
   }
 
@@ -1166,6 +1181,7 @@ class Settings extends ChangeNotifier {
             startedReported: reportable && value['startedReported'] == true,
             ended: reportable && ended is String && _validEnd(ended) ? ended : null,
             run: reportable && run is String && _validLabel(run) ? run : null,
+            landedReported: reportable && value['landedReported'] == true,
           );
         }
       }
@@ -1237,6 +1253,7 @@ class Settings extends ChangeNotifier {
             'startedReported': kept.startedReported,
             'ended': ?kept.ended,
             'run': ?kept.run,
+            if (kept.landedReported) 'landedReported': true,
           },
         },
     ],

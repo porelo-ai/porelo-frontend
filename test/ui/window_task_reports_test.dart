@@ -97,6 +97,68 @@ void main() {
     expect((await loaded()).plannedOffer('laptop', started.container)!.startedReported, isTrue);
   });
 
+  // Harm: a reader is started seeing none of the work it is to read, and searches for it until its time runs out.
+  test('a reader the planner orders is started naming the tasks whose work it reads', () async {
+    final (starts, reports) = window();
+    planner.answers.add(
+      _answer([
+        _followUp(1, role: 'READER', reads: ['foo-1']),
+      ]),
+    );
+
+    await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+
+    expect(machine.started.map((each) => each['reads']), [
+      const <String>[],
+      const ['foo-1'],
+    ]);
+  });
+
+  // Harm: the planner never learns where a build's work landed, and orders its reader to read a branch it cannot see.
+  test('an end names where the work landed, as Porelo lists it', () async {
+    final (starts, reports) = window();
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+
+    machine.end(started.container, {'at': 'the end', 'finished': true}, landed: [_landing]);
+    reports.sweep();
+    await reports.idle;
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+
+    expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+    expect(planner.calls.last.ended!.landed.map((landing) => landing.toMap()), [_landing]);
+  });
+
+  // Harm: a build whose work waited at the gate when it ended is never read, or its landing is told twice.
+  test('work that landed after its task ended is reported once as landed, also across a restart', () async {
+    final (starts, reports) = window();
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+    machine.end(started.container, {'at': 'the end', 'finished': true}, landed: const []);
+    reports.sweep();
+    await reports.idle;
+
+    machine.land(started.container, [_landing]);
+    reports.sweep();
+    await reports.idle;
+    reports.sweep();
+    await reports.idle;
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+
+    expect(planner.calls.map((call) => call.event), [
+      PlanningTaskEvent.started,
+      PlanningTaskEvent.ended,
+      PlanningTaskEvent.landed,
+    ]);
+    expect(planner.calls[1].ended!.landed, isEmpty);
+    expect(planner.calls.last.landed.map((landing) => landing.toMap()), [_landing]);
+  });
+
   // Harm: a refused report undoes or hides a task that runs, or its refusal goes unsaid.
   test('a refused report keeps the task and says the planner\'s words', () async {
     final (starts, reports) = window();
@@ -752,15 +814,29 @@ void main() {
 PlanningTaskOrder _order(Map<String, dynamic> followUp) => TaskEventResolution.from(_answer([followUp])).tasks.single;
 
 /// A follow-up order of the planner, a builder of B540 in [repository].
-Map<String, dynamic> _followUp(int number, {String repository = 'builder-one'}) => {
+Map<String, dynamic> _followUp(
+  int number, {
+  String repository = 'builder-one',
+  String role = 'BUILDER',
+  List<String>? reads,
+}) => {
   'offer': '00000000-0000-4000-8000-${'$number'.padLeft(12, '0')}',
   'repository': repository,
   'issues': ['B540'],
-  'role': 'BUILDER',
+  'role': role,
+  'reads': ?reads,
   'agent': 'codex',
   'model': 'a-model',
   'mode': 'UNATTENDED',
   'prompt': 'Build B540.',
+};
+
+/// Where a build's work landed, as Porelo's row names it.
+const _landing = <String, dynamic>{
+  'branch': 'porelo/foo-1',
+  'ref': 'refs/porelo/landed/foo-1/porelo/foo-1',
+  'remote': 'origin/landed/foo-1/porelo/foo-1',
+  'commit': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
 };
 
 /// The planner's answer to a report, with [followUps] still valid.
@@ -811,6 +887,7 @@ typedef _Call = ({
   String container,
   String machine,
   PlanningTaskEnded? ended,
+  List<PlanningLanding> landed,
 });
 
 /// A provider's source that records each report and answers what a test queued, an empty answer when none is.
@@ -833,6 +910,7 @@ class _Planner extends Fake implements PlanningSource {
     required String container,
     required String machine,
     PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
   }) async {
     calls.add((
       project: project,
@@ -842,6 +920,7 @@ class _Planner extends Fake implements PlanningSource {
       container: container,
       machine: machine,
       ended: ended,
+      landed: landed,
     ));
     await hold?.future;
     final next = answers.isEmpty ? _answer(const []) : answers.removeAt(0);
@@ -878,8 +957,8 @@ class _Machine extends Fake implements FleetBackend {
     });
   }
 
-  /// The agent of [container] ended as [ended] says.
-  void end(String container, Map<String, dynamic> ended) {
+  /// The agent of [container] ended as [ended] says, its work landed where [landed] says.
+  void end(String container, Map<String, dynamic> ended, {List<Map<String, dynamic>>? landed}) {
     final index = listed.indexWhere((task) => task.name == container);
     final task = listed[index];
     listed[index] = Task.from({
@@ -889,6 +968,26 @@ class _Machine extends Fake implements FleetBackend {
       'running': false,
       'run': ?task.run,
       'agentEnded': ended,
+      'landed': ?landed,
+    });
+  }
+
+  /// The ended task in [container]'s work has left the gate for [landed].
+  void land(String container, List<Map<String, dynamic>> landed) {
+    final index = listed.indexWhere((task) => task.name == container);
+    final task = listed[index];
+    listed[index] = Task.from({
+      'name': task.name,
+      'task': task.task,
+      'project': task.project,
+      'running': false,
+      'run': ?task.run,
+      'agentEnded': {
+        'at': task.agentEnded!.at,
+        'finished': task.agentEnded!.finished,
+        'answer': task.agentEnded!.lastAnswer,
+      },
+      'landed': landed,
     });
   }
 

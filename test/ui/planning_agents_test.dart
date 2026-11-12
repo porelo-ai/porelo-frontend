@@ -87,6 +87,7 @@ class _PathPlanner extends ChangeNotifier implements PlanningClient {
     required String container,
     required String machine,
     PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
   }) async {}
 }
 

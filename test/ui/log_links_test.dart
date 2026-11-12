@@ -160,5 +160,6 @@ class _Planner extends ChangeNotifier implements PlanningClient, NamesItsLog, Ta
     required String container,
     required String machine,
     PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
   }) async {}
 }

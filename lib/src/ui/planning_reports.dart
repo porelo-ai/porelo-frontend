@@ -26,13 +26,28 @@ String? plannerMachineNameProblem(String machine) {
 }
 
 /// Porelo's record of how an agent ended, as the planner takes it: every field as the machine gave it, none mapped.
-PlanningTaskEnded plannedTaskEnded(AgentEnded ended) => PlanningTaskEnded(
+///
+/// [landed] is where its work landed, from the task's row; none while it waits at the gate.
+PlanningTaskEnded plannedTaskEnded(AgentEnded ended, {List<PlanningLanding> landed = const []}) => PlanningTaskEnded(
   at: ended.at,
   finished: ended.finished,
   why: ended.error,
   answer: ended.lastAnswer,
   unpushed: ended.unpushed,
+  landed: landed,
 );
+
+/// Where a task's work landed, each entry of its row as Porelo gave it; an entry missing a field is passed as empty
+/// there, for the planner to refuse rather than the window to judge.
+List<PlanningLanding> plannedLandings(Task task) => [
+  for (final entry in task.landed ?? const <Map<String, dynamic>>[])
+    PlanningLanding(
+      branch: entry['branch'] is String ? entry['branch'] as String : '',
+      ref: entry['ref'] is String ? entry['ref'] as String : '',
+      remote: entry['remote'] is String ? entry['remote'] as String : '',
+      commit: entry['commit'] is String ? entry['commit'] as String : '',
+    ),
+];
 
 /// Reports each task this window started for a planner's offer: its start right after Start confirmed it, each new end
 /// of its agent once, also across restarts of the window, and the planner's follow-up orders started once each.
@@ -188,12 +203,13 @@ class WindowTaskReports {
     required String container,
     required String machine,
     PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
   }) => _queued(() async {
     final kept = settings.plannedOffer(machine, container);
     if (kept == null || !kept.reportable || kept.offer != offer || kept.project != project || kept.task != task) {
       throw const PlanningRefusal('TaskEventConflict', {}, 'The offer does not identify a task this window started.');
     }
-    await _deliver(kept, event, ended: ended);
+    await _deliver(kept, event, ended: ended, landed: landed);
   });
 
   /// Stops [tasks], each on the machine it was started on, and forgets their offers; reports nothing, since the
@@ -240,8 +256,21 @@ class WindowTaskReports {
           continue;
         }
       }
+      final landed = plannedLandings(task);
       if (task.agentEnded case final ended? when plannedEndKey(ended) != kept.ended) {
-        await _quietly(kept, () => _deliver(kept, PlanningTaskEvent.ended, ended: plannedTaskEnded(ended)));
+        await _quietly(
+          kept,
+          () => _deliver(kept, PlanningTaskEvent.ended, ended: plannedTaskEnded(ended, landed: landed)),
+        );
+      }
+      // Work that still waited at the gate when its task ended is told once it has landed, so its reader is offered.
+      if (settings.plannedOffer(kept.machine, kept.container) case final told?
+          when landed.isNotEmpty &&
+              !told.landedReported &&
+              told.ended != null &&
+              task.agentEnded?.finished == true &&
+              told.ended == plannedEndKey(task.agentEnded!)) {
+        await _quietly(told, () => _deliver(told, PlanningTaskEvent.landed, landed: landed));
       }
     }
     for (final kept in settings.keptDiscussions) {
@@ -375,12 +404,18 @@ class WindowTaskReports {
 
   /// Sends one report and starts what its answer orders; a refusal that will not change by itself is not sent again in
   /// this window's life. A report told meanwhile, of the same offer, is not sent again.
-  Future<void> _deliver(PlannedOffer asked, PlanningTaskEvent event, {PlanningTaskEnded? ended}) async {
+  Future<void> _deliver(
+    PlannedOffer asked,
+    PlanningTaskEvent event, {
+    PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
+  }) async {
     final kept = settings.plannedOffer(asked.machine, asked.container);
     if (kept == null || kept.offer != asked.offer || !kept.reportable) return;
     final project = kept.project!, task = kept.task!, provider = kept.provider!;
     final endKey = ended == null ? null : _endKey(ended);
     if (event == PlanningTaskEvent.started && kept.startedReported || endKey != null && endKey == kept.ended) return;
+    if (event == PlanningTaskEvent.landed && kept.landedReported) return;
     final attempt = (kept.offer, endKey ?? event.name);
     if (_voided.contains(kept.offer) || _refused.contains(attempt)) return;
     if (plannerMachineNameProblem(kept.machine) case final words?) {
@@ -399,6 +434,7 @@ class WindowTaskReports {
         container: kept.container,
         machine: kept.machine,
         ended: ended,
+        landed: landed,
       );
     } on PlanningRefusal catch (refusal) {
       if (refusal.name == 'TaskNotAnswered') return _voidTask(kept);
@@ -416,6 +452,7 @@ class WindowTaskReports {
       kept.container,
       started: event == PlanningTaskEvent.started ? true : null,
       ended: endKey,
+      landed: event == PlanningTaskEvent.landed || (ended?.landed.isNotEmpty ?? false) ? true : null,
     );
     await _startFollowUps(source, provider, project, kept.story!, answer.tasks, kept.offer);
   }

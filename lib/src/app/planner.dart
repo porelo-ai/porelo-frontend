@@ -10,6 +10,7 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlannerProject,
         PlannerProjects,
         PlanningClient,
+        PlanningLanding,
         PlanningProvider,
         PlanningRefusal,
         PlanningTaskEnded,
@@ -48,6 +49,7 @@ typedef PlanningReport = Future<void> Function(
   required String container,
   required String machine,
   PlanningTaskEnded? ended,
+  List<PlanningLanding> landed,
 });
 
 /// Starts the planner at [executable] with [environment] added to the window's own, returning once it was started.
@@ -393,12 +395,22 @@ class LocalPlanner extends ChangeNotifier implements PlanningClient, PlanningRea
     required String container,
     required String machine,
     PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
   }) async {
     final report = reports;
     if (report == null) {
       throw const PlanningRefusal('NotReporting', {}, 'This window does not report the tasks it starts.');
     }
-    await report(project, task, event, offer: offer, container: container, machine: machine, ended: ended);
+    await report(
+      project,
+      task,
+      event,
+      offer: offer,
+      container: container,
+      machine: machine,
+      ended: ended,
+      landed: landed,
+    );
   }
 
   @override

@@ -184,6 +184,7 @@ class WindowTaskStarts {
           mode: Mode(task.mode),
           prompt: task.prompt,
           callerKey: task.offer,
+          reads: task.reads,
         );
       default:
         final words = 'The planner ordered a ${task.role} task this window cannot start.';

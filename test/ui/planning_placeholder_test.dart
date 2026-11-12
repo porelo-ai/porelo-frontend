@@ -144,5 +144,6 @@ class _Unreached extends ChangeNotifier implements PlanningClient, PlanningReach
     required String container,
     required String machine,
     PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
   }) async {}
 }
