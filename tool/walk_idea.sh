@@ -759,6 +759,13 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
         case $(github POST "/repos/$org/${issue_repos[0]}/git/refs" \
             "{\"ref\": \"refs/heads/walk-$name-existing\", \"sha\": \"${t0_of[${issue_repos[0]}]}\"}") in
         201) echo "walk: $org/${issue_repos[0]} has walk-$name-existing at ${t0_of[${issue_repos[0]}]}" ;;
+        # Made already by this run, for instance before a resume: taken as it stands where it stands at T0.
+        422) [ "$(github GET "/repos/$org/${issue_repos[0]}/git/ref/heads/walk-$name-existing")" = 200 ] &&
+            [ "$(python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["object"]["sha"])' \
+                "$work/answer")" = "${t0_of[${issue_repos[0]}]}" ] || {
+            echo "walk: walk-$name-existing in $org/${issue_repos[0]} stands elsewhere than T0" >&2
+            exit 1
+        } ;;
         *)
             echo "walk: walk-$name-existing could not be made in $org/${issue_repos[0]}" >&2
             exit 1

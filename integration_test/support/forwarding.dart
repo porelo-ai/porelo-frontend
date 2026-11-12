@@ -33,6 +33,19 @@ abstract final class Forwarding {
 
   /// The default branch and its head before the forward.
   static (String branch, String head)? defaultBefore;
+
+  /// Every branch at GitHub and its head before the forward: all but the chosen one must stand there after it.
+  static Map<String, String>? branchesBefore;
+}
+
+/// Every branch at GitHub with its head.
+Future<Map<String, String>> theBranchesAtGitHub() async {
+  final listed = await _git(['ls-remote', '--heads', Forwarding.url]);
+  return {
+    for (final line in listed.split('\n'))
+      if (line.split('\t') case [final head, final ref] when ref.startsWith('refs/heads/'))
+        ref.substring('refs/heads/'.length): head,
+  };
 }
 
 /// The head of [branch] at GitHub, or null where GitHub has no such branch.
@@ -51,16 +64,18 @@ Future<(String, String)> theDefaultAtGitHub() async {
   return (named.group(1)!, head.group(1)!);
 }
 
+/// Runs git against GitHub; a refusal is asked again twice, a moment apart, so one lost answer is not the run's end.
 Future<String> _git(List<String> arguments) async {
-  final result = await Process.run(
-    'git',
-    ['-c', 'credential.interactive=never', ...arguments],
-    environment: {'GIT_TERMINAL_PROMPT': '0'},
-  );
-  if (result.exitCode != 0) {
-    fail('git ${arguments.join(' ')} exited ${result.exitCode}: ${result.stderr}');
+  for (var tried = 1; ; tried++) {
+    final result = await Process.run(
+      'git',
+      ['-c', 'credential.interactive=never', ...arguments],
+      environment: {'GIT_TERMINAL_PROMPT': '0'},
+    );
+    if (result.exitCode == 0) return result.stdout as String;
+    if (tried == 3) fail('git ${arguments.join(' ')} exited ${result.exitCode}: ${result.stderr}');
+    await Future<void>.delayed(const Duration(seconds: 2));
   }
-  return result.stdout as String;
 }
 
 /// Forwards the reviewed work through *Forward it upstream…* onto [branch]: chosen from the branches the dialog offers,

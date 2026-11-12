@@ -20,4 +20,8 @@ Future<void> githubHasThatBranchAtTheReviewedCommitAndTheDefaultBranchWhereItWas
       final (wasBranch, wasHead) = Forwarding.defaultBefore!;
       expect(defaultBranch, wasBranch, reason: 'the default branch is still $wasBranch');
       expect(defaultHead, wasHead, reason: 'the reviewed commit $head did not land on $defaultBranch');
+      // Nor on any other branch: each but the chosen one stands where it stood, and no other branch was made.
+      final now = await theBranchesAtGitHub()
+        ..remove(branch);
+      expect(now, Map.of(Forwarding.branchesBefore!)..remove(branch), reason: 'only $branch moved');
     });

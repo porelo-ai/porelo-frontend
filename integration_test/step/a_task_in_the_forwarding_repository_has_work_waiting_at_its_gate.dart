@@ -8,6 +8,7 @@ import '../support/rehearsal.dart';
 Future<void> aTaskInTheForwardingRepositoryHasWorkWaitingAtItsGate(WidgetTester tester) => pictured(tester, () async {
   // The default branch as it stood before anything was forwarded: the forward must leave it there.
   Forwarding.defaultBefore = await theDefaultAtGitHub();
+  Forwarding.branchesBefore = await theBranchesAtGitHub();
   final stamp = DateTime.now().toUtc().millisecondsSinceEpoch;
   await startWorkOn(
     tester,
