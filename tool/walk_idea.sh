@@ -554,13 +554,6 @@ case " ${seeded[*]} " in *" $porelo_project "*)
 esac
 issue_head=$(tip_of "$issue_repo")
 
-# tool/e2e.sh gives the window a runtime directory of the run's own, where the account's own entry for this machine
-# looks for porelod: its socket is linked there, so that entry, and nothing added beside it, reaches the daemon.
-on_vm "set -e; mkdir -p ~/$run/run/porelo; ln -sfn /run/user/\$(id -u)/porelo/porelod.sock ~/$run/run/porelo/porelod.sock" </dev/null || {
-    echo "walk: porelod's socket could not be linked into the run's runtime directory on $vm" >&2
-    exit 1
-}
-
 echo "walk: the window walks $project, at most $budget minutes"
 status=0
 # In a session of its own whose number is kept, so an ending here takes the whole of it down there too. The window
@@ -569,6 +562,7 @@ as_the_person_on_vm \
     "cd ~/$run && exec setsid sh -c 'echo \$\$ >pid; exec \"\$@\"' walk env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS \
         PATH=\$HOME/$run/bin:\$HOME/$flutter_dir/bin:\$PATH \
         PORELO_E2E_HOST=localhost PORELO_E2E_REMOTE_SOCKET=/run/user/\$(id -u)/porelo/porelod.sock \
+        PORELO_E2E_LINK_SOCKET=/run/user/\$(id -u)/porelo/porelod.sock \
         PORELO_E2E_OWN_SETTINGS=1 $in_vault \
         PORELO_WALK_PROJECT='$project' PORELO_WALK_PORELO_PROJECT='$porelo_project' PORELO_WALK_AGENT='$agent' PORELO_WALK_MODEL='$task_model' \
         PORELO_WALK_PROBE=\$HOME/$run/bin/planner-probe.sh PORELO_WALK_PLANNER=\$HOME/$run/bin/porelo-planner \

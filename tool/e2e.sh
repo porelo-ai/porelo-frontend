@@ -68,6 +68,12 @@ cleanup() {
 trap cleanup EXIT
 mkdir -p "$here/run" "$here/config"
 chmod 700 "$here/run"
+# A walk on the machine itself keeps the account's own entry for this machine, which looks for porelod in the window's
+# runtime directory: the daemon's socket is linked there.
+if [ -n "${PORELO_E2E_LINK_SOCKET:-}" ]; then
+    mkdir -p "$here/run/porelo"
+    ln -s "$PORELO_E2E_LINK_SOCKET" "$here/run/porelo/porelod.sock"
+fi
 
 if [ -n "${PORELO_E2E_KEY:-}" ] || [ -n "${PORELO_MACHINES_SSH:-}" ]; then
     eval "$(ssh-agent -s -a "$here/agent.sock")" >/dev/null
