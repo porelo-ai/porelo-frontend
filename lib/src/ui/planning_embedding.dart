@@ -233,6 +233,7 @@ class WindowTaskStarts {
           final ended? => plannedEndKey(ended),
           null => null,
         },
+        run: listed?.run,
       );
       if (settings.plannedOffer(machine.name, container) case final kept?) onConfirmed?.call(kept);
     }

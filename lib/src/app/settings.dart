@@ -39,6 +39,7 @@ class PlannedOffer {
     this.task,
     this.startedReported = false,
     this.ended,
+    this.run,
   });
 
   /// The machine's name, as the window shows it.
@@ -65,6 +66,10 @@ class PlannedOffer {
   /// The end of its agent last reported, or seen when it started, as the window keys an end; null for none.
   final String? ended;
 
+  /// The run of the container the task was started in, as the machine lists it: a later task under the same container
+  /// name lists another. Null where the machine did not say, or an earlier build kept none.
+  final String? run;
+
   /// Whether it can be reported: an earlier build kept no project or task for it.
   bool get reportable => provider != null && project != null && story != null && task != null;
 
@@ -79,6 +84,7 @@ class PlannedOffer {
     task: task,
     startedReported: startedReported ?? this.startedReported,
     ended: ended ?? this.ended,
+    run: run,
   );
 }
 
@@ -949,7 +955,8 @@ class Settings extends ChangeNotifier {
   List<PlannedOffer> get plannedOffers => List.unmodifiable(_planningOffers.values);
 
   /// Keeps [offer] beside the machine and container of the task started for it, with the provider, project, story and
-  /// task a report names, and the end its agent showed when it started ([ended]), which is no new end.
+  /// task a report names, the end its agent showed when it started ([ended]), which is no new end, and the container's
+  /// [run], which tells it from a later task under the same container name.
   Future<void> rememberPlanningOffer({
     required String machine,
     required String container,
@@ -959,6 +966,7 @@ class Settings extends ChangeNotifier {
     String? story,
     String? task,
     String? ended,
+    String? run,
   }) async {
     if (!_validOffer(machine, container, offer)) {
       throw ArgumentError('A machine, a container and an offer of at most 200 characters must be given.');
@@ -968,6 +976,7 @@ class Settings extends ChangeNotifier {
       throw ArgumentError('A provider, a project, a story and a task must all be given, or none.');
     }
     if (ended != null && !_validEnd(ended)) throw ArgumentError('An end must be a short line.');
+    if (run != null && !_validLabel(run)) throw ArgumentError('A run must be a short name.');
     _planningOffers[(machine, container)] = PlannedOffer(
       machine: machine,
       container: container,
@@ -977,6 +986,7 @@ class Settings extends ChangeNotifier {
       story: story,
       task: task,
       ended: ended,
+      run: run,
     );
     await _write();
   }
@@ -1058,6 +1068,12 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
+  /// Drops the offer kept for the task in [container] on [machine] alone, once a later task holds that container's
+  /// name: a discussion kept under the name since is that later task's.
+  Future<void> forgetEarlierPlanningOffer(String machine, String container) async {
+    if (_planningOffers.remove((machine, container)) != null) await _write();
+  }
+
   /// Drops the offer and the discussion kept for the task in [container] on [machine], once that task is removed.
   Future<void> forgetPlanningOffer(String machine, String container) async {
     final offer = _planningOffers.remove((machine, container));
@@ -1088,6 +1104,7 @@ class Settings extends ChangeNotifier {
           ];
           final reportable = named.every((each) => each is String && _validLabel(each));
           final ended = value['ended'];
+          final run = value['run'];
           _planningOffers[(machine, container)] = PlannedOffer(
             machine: machine,
             container: container,
@@ -1098,6 +1115,7 @@ class Settings extends ChangeNotifier {
             task: reportable ? named[3] as String : null,
             startedReported: reportable && value['startedReported'] == true,
             ended: reportable && ended is String && _validEnd(ended) ? ended : null,
+            run: reportable && run is String && _validLabel(run) ? run : null,
           );
         }
       }
@@ -1146,6 +1164,7 @@ class Settings extends ChangeNotifier {
             'task': kept.task,
             'startedReported': kept.startedReported,
             'ended': ?kept.ended,
+            'run': ?kept.run,
           },
         },
     ],

@@ -181,6 +181,68 @@ void main() {
     expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started]);
   });
 
+  // Harm: a task the window never started is reported to the planner under an earlier task's offer, because it took
+  // the earlier one's container name after that one was removed while the window was closed.
+  test('a later task under the same container name is not reported under the earlier task\'s offer', () async {
+    final (starts, reports) = window();
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+    final earlier = machine.listed.singleWhere((task) => task.name == started.container);
+    machine.listed
+      ..remove(earlier)
+      ..add(
+        Task.from({
+          'name': earlier.name,
+          'task': earlier.task,
+          'project': earlier.project,
+          'running': false,
+          'run': 'a-later-run',
+          'agentEnded': {'at': '2026-11-12T14:10:05Z', 'finished': true, 'answer': 'Findings:'},
+        }),
+      );
+
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+
+    expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started]);
+    expect((await loaded()).plannedOffer('laptop', started.container), isNull);
+  });
+
+  // Harm: dropping an earlier task's offer takes a later discussion's kept record with it, so its idea is never handed.
+  test('dropping an earlier task\'s offer keeps a discussion started under the same container name', () async {
+    final (starts, reports) = window();
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+    await settings.rememberDiscussion(
+      machine: 'laptop',
+      container: started.container,
+      offer: 'a-discussion-offer',
+      provider: _provider,
+      project: 'demo',
+    );
+    final earlier = machine.listed.singleWhere((task) => task.name == started.container);
+    machine.listed
+      ..remove(earlier)
+      ..add(
+        Task.from({
+          'name': earlier.name,
+          'task': earlier.task,
+          'project': earlier.project,
+          'running': true,
+          'run': 'a-later-run',
+        }),
+      );
+
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+
+    final kept = await loaded();
+    expect(kept.plannedOffer('laptop', started.container), isNull);
+    expect(kept.keptDiscussions.map((each) => each.offer), ['a-discussion-offer']);
+  });
+
   // Harm: a restart of the window reports an end twice, or never reports one that came while it was closed.
   test('after a restart, an end that came while the window was closed is reported once', () async {
     final (starts, reports) = window();
@@ -787,6 +849,7 @@ class _Machine extends Fake implements FleetBackend {
       'task': task.task,
       'project': task.project,
       'running': false,
+      'run': ?task.run,
       'agentEnded': ended,
     });
   }
@@ -816,6 +879,7 @@ class _Machine extends Fake implements FleetBackend {
         'task': repository,
         'project': project,
         'running': true,
+        'run': 'run-${started.length}',
         'agentEnded': ?endBeforeStart,
       }),
     );
@@ -842,6 +906,7 @@ class _Machine extends Fake implements FleetBackend {
         'task': 'discussion',
         'project': project,
         'running': true,
+        'run': 'run-${started.length}',
         'agentEnded': ?endBeforeStart,
       }),
     );

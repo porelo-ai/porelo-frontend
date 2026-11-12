@@ -228,6 +228,11 @@ class WindowTaskReports {
       }
       final task = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
       if (task == null) continue;
+      // A later task took the container's name after the one started for the offer was removed: it is not that task.
+      if ((kept.run, task.run) case (final run?, final listed?) when listed != run) {
+        await settings.forgetEarlierPlanningOffer(kept.machine, kept.container);
+        continue;
+      }
       if (!kept.startedReported) {
         await _quietly(kept, () => _deliver(kept, PlanningTaskEvent.started));
         // An end that came before the start was told goes right after it.
