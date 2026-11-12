@@ -8,7 +8,18 @@ import 'i_start_work_on_the_repository_in_default_from_the_interface_and_put_the
 Future<void> iTakeOutOfDefaultFromTheInterface(WidgetTester tester, String name) async {
   // From default's own menu, where taking one out lives.
   await openTheDefault(tester);
-  await tester.tap(find.byKey(ValueKey<String>('default-remove $name')));
+  // The machine lists it already (the step before reads porelo); the dialog shows it once its own read of default
+  // came back, which on a slow leased machine is after it opened.
+  final remove = find.byKey(ValueKey<String>('default-remove $name'));
+  await pumpUntil(
+    tester,
+    () => remove.evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'default to show $name with its way out',
+  );
+  await tester.ensureVisible(remove);
+  await pumpFor(tester);
+  await tester.tap(remove);
   await pumpUntil(
     tester,
     () => find.byKey(ValueKey<String>('default-repository $name')).evaluate().isEmpty,
