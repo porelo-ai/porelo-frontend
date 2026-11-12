@@ -82,7 +82,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | - | Windows notifications from the MSIX's identity. | - |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | - | A fine-grained token waiting for an organisation's approval said as waiting. | - |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | - | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | - |
-| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working; waits for a Tasks1 answer that says an attached agent is at rest. | - |
 | <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | S | - | A waiting push decided without an IDE: source level, highest risk class, files in risk order with their class, *Let it through…* or *Turn it away*, a second ask for `C3` files; the code read in IntelliJ. | - |
 | <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | M | [F78](README.md#f78) | Per waiting push the open finding and thread counts and each check's completeness, anything but complete never shown as clean; comments read and written in IntelliJ. | - |
 | <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | - | A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation. | - |
@@ -101,6 +100,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | - | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | - | Every view shows the same way that it is reading. |
 | <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | - | A project's keys told in one place, the signing key checked against a branch rule. |
+| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working; waits for a Tasks1 answer that says an attached agent is at rest. |
 | <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | - | Making a project from a repository measured against GitHub. |
 | <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | - | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | - | A machine reached without an `ssh` binary. |
