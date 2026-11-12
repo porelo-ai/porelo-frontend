@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F494",
   "title": "About Names The Planner's Version",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 2,
@@ -33,8 +33,10 @@ built from or null where the build had no checkout. `status` stays as it is; `pl
 
 ## Plan
 
-- The window reads `version` and `commit` from the planner's `/health` as it asks it today; a planner that answers
-  `status` alone, or a field of the wrong type, reads as one that names no version, never as a failure to reach it.
+- The window asks the planner's `/health` (a new request, with the token and the loopback-only rules of the log
+  level's), following no redirect and reading at most 64 KiB. Any answer counts as reached; only no answer is "not
+  reached". A missing or malformed `version` (or a redirect, or a body past the limit) reads as one that names no
+  version; a missing or malformed `commit` drops the commit alone.
 - About shows it in its own line beside porelo's, with the commit's first twelve characters where it is given, and
   says "not reached" or "says no version" where that is so.
 - Tests, red first: the health read takes version and commit, takes a null commit, and an older answer as no version;
