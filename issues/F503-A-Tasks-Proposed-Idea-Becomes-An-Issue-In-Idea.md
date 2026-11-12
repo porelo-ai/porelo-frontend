@@ -22,8 +22,7 @@ planner's new issue taking the name of the task it came from.
 **What must be true.** An idea a task has while it works becomes an issue in Idea on the board, in the task's
 repository, without anyone copying it there. The task proposes it to Porelo, which keeps it on the task's row; the
 planner talks to no Porelo, so the window, which watches the tasks, hands it in. Each idea is handed once, however
-often the row is seen and whether the window restarted meanwhile. This is part of ST313's work: ideas become issues
-the normal way.
+often the row is seen and whether the window restarted meanwhile, so ideas become issues the normal way.
 
 The contracts it builds against:
 

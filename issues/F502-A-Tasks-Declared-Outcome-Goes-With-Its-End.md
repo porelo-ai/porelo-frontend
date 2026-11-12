@@ -21,7 +21,7 @@ taking the declared outcome beside the fields it takes today.
 **What must be true.** When a task the window started for the planner ends, the planner is told how the task itself
 said its work ended: DONE, or BLOCKED with the reason it gave. Today the window reports only whether the run finished
 and what never reached the gate, so a task that declared BLOCKED and ended its run normally reads to the planner as
-done, and its issue is moved on. This is part of ST313's work: a task's result lands where the next step finds it.
+done, and its issue is moved on. A task's result must land where the next step finds it.
 
 Porelo already answers the outcome on each task's row of `List` and `Watch` as `ended`, with `outcome`, `why` and `at`:
 the task's own declaration first (DONE or BLOCKED, BLOCKED always with a non-blank why), else FAILED with the run's

@@ -72,9 +72,11 @@ entry to its result.
 - [F492](README.md#f492) (Implementing): the real walk this script stands on.
 - [F500](README.md#f500) (Backlog): a reader started naming the work it reads.
 - [F501](README.md#f501) (Backlog): a started offer found again by its key.
-- porelo-planner's PL85 (Implementing) and PL49 (Backlog): the planner's real run and work moving on from a move on
-  the board.
-- porelo's B648 (Backlog): a start carrying the caller's own key.
+- porelo-planner carrying one story in a real run beside a real installed Porelo, and work moving on by itself from a
+  move on the board: the Start dialog filled with the project's defaults and the chain of build, reading and review
+  running on, asking the person where a reading blocks.
+- Porelo's start taking an opaque key from its caller, at most 200 characters, kept with the task and given back by
+  List and Watch.
 
 ## Note
 

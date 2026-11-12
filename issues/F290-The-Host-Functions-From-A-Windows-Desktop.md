@@ -70,7 +70,7 @@ people, as on Linux: through the host's card, with the same `-F` file and the sa
   and reaps a child that starts after its connection was cancelled. Past a cap a connection is closed at once. The
   defaults: 16 per card, 48 in all, 8 starts a second per card, 256 KiB buffered each way, 30 s to the first byte. The
   daemon's readiness probes count under the cap of all too; a place is free only once its child has exited.
-- **The relay command is a contract**, agreed as Core's B677: `porelo service connect <forge-web|forge-git|homeserver>`
+- **The relay command is a contract**, agreed with Core: `porelo service connect <forge-web|forge-git|homeserver>`
   takes exactly one argument, the role, mapped on the host to its fixed socket, and puts only the service's bytes on
   standard output. A role it does not know, or one the card names as none, exits 64; a service whose port does not
   answer exits 69; the window says either on the card. The carrier passes only the role of the port it holds.
@@ -99,8 +99,8 @@ goes; what replaces it:
   bounded, for each process to exit.
 - `Tunnel` (`lib/src/app/tunnel.dart`): on Windows a card machine's tunnel is the carrier, started with the card's
   ports, no ssh of its own; up once the carrier holds every port and the relay answers; down when released.
-- The relay command per socket is Core's B677 (above); the carrier names the socket by its agreed role, never by a path
-  a caller passes.
+- The relay command per socket is Core's `porelo service connect` (above); the carrier names the socket by its agreed
+  role, never by a path a caller passes.
 - **Red first:** `test/app/loopback_carrier_test.dart`, untagged, run on Linux and in the Windows build's tests: a
   port another socket holds refuses the hold on either family; while held, a second bind of the port fails (on
   Windows too, with `SO_REUSEADDR` set by the other side); a connection is carried to the process `carry` gives and
@@ -118,7 +118,7 @@ goes; what replaces it:
 ## Parts of other repositories
 
 Each is its own piece, agreed in the room before this is built:
-- **Core:** B677, agreed: `porelo service connect <role>` on the host joins its standard input and output to one
+- **Core:** agreed: `porelo service connect <role>` on the host joins its standard input and output to one
   service socket by its role (forge web, forge Git, homeserver), refusing any other with exit 64 and a service that
   does not answer with 69, as `porelo daemon connect` does for the daemon's. Where Core puts the person's key into
   KeePassXC on Windows, it sets no confirmation per use.

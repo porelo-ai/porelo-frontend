@@ -70,7 +70,8 @@ answers ends with a named timeout, and forgetting one connection leaves the othe
 ## Expected failures
 
 - [F91](README.md#f91) (Backlog): one way to show loading; scenario one fails on it.
-- porelo's B200 (Backlog): a Varlink call with a read deadline; scenario two's named timeout fails on it.
+- Porelo's Varlink calls ending within a stated time with a named error when the other side accepts and never
+  answers; scenario two's named timeout fails until Porelo gives it.
 - [F219](README.md#f219) (Backlog): no forward left behind when the interface ends without asking; a forward left
   after the timeout names it.
 
@@ -89,7 +90,7 @@ answers ends with a named timeout, and forgetting one connection leaves the othe
 ## Acceptance
 
 - One run on the test VM with a report naming each step: OK, FAIL with what was asked and got, or EXPECTED with
-  [F91](README.md#f91), [F219](README.md#f219) or porelo's B200.
+  [F91](README.md#f91), [F219](README.md#f219) or Porelo's missing read deadline.
 - No listener, connection or forward of the run is left on the VM.
 
 ## Estimate

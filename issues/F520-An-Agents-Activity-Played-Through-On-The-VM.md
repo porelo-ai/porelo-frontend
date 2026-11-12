@@ -69,8 +69,10 @@ shown as ongoing work, for Porelo's stub agent and for pi.
 ## Expected failures
 
 - [F99](README.md#f99) (Backlog): an attached agent shown at rest or working on the card.
-- porelo's B118 (Backlog): the at-rest activity and the stub agent's `at_rest`; the rest steps fail on it.
-- porelo's B506 (Backlog): an agent waiting on a person in the listing; the wait steps fail on it.
+- Porelo's `AT_REST` activity, judged from the screen reads the listing already makes, and the stub agent's
+  `at_rest`; the rest steps fail until Porelo gives them.
+- Porelo's listing saying when a task's agent waits on a person for its own question; the wait steps fail until it
+  does.
 
 ## Note
 
@@ -87,12 +89,12 @@ shown as ongoing work, for Porelo's stub agent and for pi.
 ## Acceptance
 
 - One run on the test VM with a report naming each step for both agents: OK, FAIL with what was asked and got,
-  or EXPECTED with [F99](README.md#f99), porelo's B118 or B506.
+  or EXPECTED with [F99](README.md#f99), Porelo's missing at-rest activity or its missing wait on a person.
 - No task, vault or key of the run is left on the VM.
 
 ## To be checked
 
-- How the stub agent is told to work, rest and wait from its terminal, once porelo's B118 gives it `at_rest`.
+- How the stub agent is told to work, rest and wait from its terminal, once Porelo gives it `at_rest`.
 
 ## Estimate
 

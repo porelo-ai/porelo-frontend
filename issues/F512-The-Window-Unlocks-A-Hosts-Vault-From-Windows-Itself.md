@@ -14,7 +14,8 @@
 }
 ```
 
-Waits on Core's B678: the written rule of the share and a fixed test vector.
+Waits on Core writing down how a host vault's opening share is derived from a person's Ed25519 ssh key, with a fixed
+test vector (key, host fingerprint, login, signed data, signature blob, share) that Core's own test pins.
 
 **Why this size.** M: one module of the window that speaks the ssh agent protocol over a named pipe, derives the
 share and runs the host's vault commands through the card's config, with its tests; one contract, Core's rule and
@@ -52,8 +53,8 @@ Core's `porelo host unlock` does not run on Windows, so a card connected there
 Each runs as `ssh -F <card config> -T -- <card> <command>` in the login shell, under the window's carrier budget.
 
 **Red first** (unit tests over fakes of the pipe, the agent and ssh):
-- the derivation pins Core's B678 vector: key, public blob, fingerprint, login, signed data, SSHSIG blob and share
-  hex;
+- the derivation pins Core's written test vector: key, public blob, fingerprint, login, signed data, SSHSIG blob and
+  share hex;
 - each exit code (0, 65, 66, 77, and any other) gives its own state and words;
 - no `vault clear` without the person's yes;
 - the share appears in no log line and in no process argument, only on standard input.

@@ -67,8 +67,11 @@ deletes the file, an idea a task brings back is an issue in Idea, and a clone el
 
 ## Expected failures
 
-- porelo-project's PJ108 (Backlog): ideas and issues checked where the planner keeps them; the idea step fails on it.
-- porelo-project's PJ109 (Backlog): where a task's results are kept; the findings steps fail on it.
+- A task handing its ideas to the planner, whose backend, and before it the window, checks that an idea or an issue
+  holds every field it must; the idea step fails until that holds.
+- A reading's findings written as a Markdown file in the repository where the start instructions of each state say,
+  the next task finding them, working them off and deleting the file, with the start instructions coming from the
+  store's adapter through the planner's API; the findings steps fail until that holds.
 - [F492](README.md#f492) (Implementing): the real walk this script stands on; a fault in its steps names it.
 
 ## Note
@@ -91,7 +94,8 @@ deletes the file, an idea a task brings back is an issue in Idea, and a clone el
 
 ## To be checked
 
-- The project setting that names the findings file's place, once porelo-project's PJ109 says it.
+- The project setting that names the findings file's place, once porelo-project has settled where a task's results
+  are kept.
 
 ## Estimate
 

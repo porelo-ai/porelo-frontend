@@ -71,9 +71,10 @@ version; after the planner is killed, the window finds it again at its new port.
 
 ## Expected failures
 
-- porelo-planner's PL33 (Backlog): the planner as a service of the system, started at sign-in; the update and the
-  kill steps fail on it.
-- porelo-planner's PL91 (Implementing): the planner ending with the window that started it.
+- porelo-planner running as a service of the system, a systemd user service started at sign-in by its package and
+  seen and stopped with the system's own commands; the update and the kill steps fail until it does.
+- porelo-planner ending by itself when the window's end of the pipe it was started with closes, a hard kill of the
+  window included.
 - [F479](README.md#f479) (Backlog): a planner the window started ends with it.
 - [F494](README.md#f494): the planner's version in About; the version step names it as missing until its Review
   stands on `main`.

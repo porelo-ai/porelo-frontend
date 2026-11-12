@@ -24,8 +24,7 @@ of keeping a copy. The window's own ZIP, MSIX, certificate and SHA256SUMS keep t
 
 No run leaves a signing key or the started app's files on the machine.
 
-Serves porelo-project's *A planner app serves the board on Windows* (story ST334). porelo-planner's Windows build is
-the first other caller.
+porelo-planner's Windows build, which serves the board on Windows, is the first other caller.
 
 ## Why
 

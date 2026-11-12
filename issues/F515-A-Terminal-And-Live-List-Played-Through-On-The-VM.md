@@ -72,7 +72,8 @@ and Ctrl-C ends the watch and leaves an ordinary prompt.
 
 - [F105](README.md#f105) (Implementing): a task's terminal in the interface behaving as in a plain terminal; the
   input steps fail on it until it is in Review.
-- porelo's B48 (Backlog): `task list --watch` with its hint line; the watch steps fail on it.
+- Porelo's `task list --watch`, an overview that stays open on the daemon's watch stream, with a hint line for
+  waiting clearance questions and the terminal reset on Ctrl-C; the watch steps fail until Porelo gives it.
 
 ## Note
 
@@ -89,7 +90,7 @@ and Ctrl-C ends the watch and leaves an ordinary prompt.
 ## Acceptance
 
 - One run on the test VM with a report naming each step of the story: OK, FAIL with what was asked and got, or
-  EXPECTED with [F105](README.md#f105) or porelo's B48.
+  EXPECTED with [F105](README.md#f105) or Porelo's missing `task list --watch`.
 - The run leaves no task, project or terminal behind on the VM.
 
 ## To be checked
