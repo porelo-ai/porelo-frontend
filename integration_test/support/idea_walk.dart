@@ -73,8 +73,9 @@ abstract final class Walk {
     final several =>
       'Title: $title. A user gains a file hello.txt at the top of each of the repositories ${_named(several)} that '
           'says hello. The test that shows it works: hello.txt is in each of them and says hello. Priority: Low. It '
-          'concerns the repositories ${_named(several)}, with one issue of size S in each that an Agent works. I '
-          'agree with this as written: write it down without asking further.',
+          'concerns the repositories ${_named(several)}, with one issue of size S in each that an Agent works, each '
+          'issue changing only its own repository and waiting on no other. I agree with this as written: write it '
+          'down without asking further.',
   };
 
   static String _named(List<String> names) => '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}';
