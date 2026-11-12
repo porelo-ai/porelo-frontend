@@ -34,9 +34,8 @@ judged by its observed effect - the board, the files, the forge - never by what 
   is written, and the split is written here.
 - After each step the driver reads the effect itself: the board through the planner's own read, the project's files
   in its repository, the task and its branch through `porelo` and the forge.
-- The task runs with the cheapest agent and model the adapters offer; the window rehearsal starts `pi` with
-  `z-ai/glm-5.3-flash` today, the candidate. The forge token of the test identity goes, as in the window rehearsal,
-  on standard input alone into a vault of the run's own, removed on every ending.
+- The task runs `pi` with `z-ai/glm-5.3-flash`, as the window rehearsal does. The forge token of the test identity
+  goes, as there, on standard input alone into a vault of the run's own, removed on every ending.
 - Everything the run makes in the test organization carries the run's name - the project's issues, the task's branch
   and pull request - and the run deletes exactly those at its end, after a failure too, and exits non-zero naming
   anything it left.
@@ -51,6 +50,5 @@ judged by its observed effect - the board, the files, the forge - never by what 
 ## To be checked
 
 - The split of steps with the planner's side, agreed in the room.
-- The cheapest agent and model the adapters offer, asked of their agent, and its cost per run measured from one run's
-  tokens at the provider's current price.
+- The cost of one run, measured from its tokens at the provider's current price.
 - Every tool the walk needs on the VM, checked there before the first run.
