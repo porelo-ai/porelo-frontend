@@ -444,6 +444,8 @@ Future<void> toTheStory(WidgetTester tester) async {
 
 /// The states a person may move [issue] to, in the board's order, as its menu offers them; the menu is closed again.
 Future<List<String>> theMovesOffered(WidgetTester tester, String issue) async {
+  await tester.ensureVisible(find.byKey(Key('planning-move $issue')).first);
+  await pumpFor(tester);
   await tester.tap(find.byKey(Key('planning-move $issue')).first);
   await pumpFor(tester);
   final prefix = 'planning-move-to $issue ';
@@ -469,15 +471,25 @@ Future<void> moveAndSave(WidgetTester tester, String issue, String state) async 
   // Right after a saved move the board is drawn again, and a tap on the next issue's menu may land on the old one:
   // the menu is opened again until it offers the move.
   final by = DateTime.now().add(const Duration(minutes: 1));
-  while (to.evaluate().isEmpty && DateTime.now().isBefore(by)) {
-    await pumpUntil(tester, () => move.evaluate().isNotEmpty, what: 'the move menu of $issue');
-    await tester.tap(move.first);
+  // A tap that misses fails here rather than passing on with a warning: the page above the issues grows with a run's
+  // sections, and a menu below the window took a pick that never reached it.
+  final missedWarns = WidgetController.hitTestWarningShouldBeFatal;
+  WidgetController.hitTestWarningShouldBeFatal = true;
+  try {
+    while (to.evaluate().isEmpty && DateTime.now().isBefore(by)) {
+      await pumpUntil(tester, () => move.evaluate().isNotEmpty, what: 'the move menu of $issue');
+      await tester.ensureVisible(move.first);
+      await pumpFor(tester);
+      await tester.tap(move.first);
+      await pumpFor(tester);
+      if (to.evaluate().isEmpty) await pumpFor(tester, const Duration(seconds: 5));
+    }
+    await pumpUntil(tester, () => to.evaluate().isNotEmpty, what: 'the move of $issue to $state');
+    await tester.tap(to.last);
     await pumpFor(tester);
-    if (to.evaluate().isEmpty) await pumpFor(tester, const Duration(seconds: 5));
+  } finally {
+    WidgetController.hitTestWarningShouldBeFatal = missedWarns;
   }
-  await pumpUntil(tester, () => to.evaluate().isNotEmpty, what: 'the move of $issue to $state');
-  await tester.tap(to.last);
-  await pumpFor(tester);
   final save = find.byKey(const Key('planning-save-moves'));
   await pumpUntil(tester, () => save.evaluate().isNotEmpty, what: 'Save changes');
   await tester.tap(save.first);
