@@ -19,20 +19,27 @@ Future<void> theBuilderTaskRunsAndTheStoryStandsInImplementing(WidgetTester test
         what: 'the planner to have the run started',
       );
       await probe(['work', Walk.story!, 'started']);
-      // A builder that ended already has been reported so: the planner moved its issue on to Reading.
-      final ended = <String>{
-        for (final builder in Walk.builders)
-          if (hasEnded(await theTask(builder))) '${(await theTask(builder))['repository']}',
-      };
+      // A builder that ended already has been reported so: the planner moved its issue on to Reading. Its end is read
+      // after the planner's state, which follows it.
+      Future<bool> builderEnded(String repository) async {
+        for (final builder in Walk.builders) {
+          final task = await theTask(builder);
+          if (task['repository'] == repository && hasEnded(task)) return true;
+        }
+        return false;
+      }
+
       for (final issue in Walk.issues) {
-        final state = ended.contains(issue.repository) && await probeHolds(['issue-state', issue.id, 'Reading'])
+        final state = await probeHolds(['issue-state', issue.id, 'Reading']) && await builderEnded(issue.repository)
             ? 'Reading'
             : 'Implementing';
         if (state == 'Reading') noteStep('   ${issue.id}: its builder ended before this read; it stands in Reading');
         await theIssueStandsIn(issue.id, issue.repository, state);
       }
-      final story = ended.length == Walk.issues.length && await probeHolds(['story-state', Walk.story!, 'Reading'])
-          ? 'Reading'
-          : 'Implementing';
+      var allEnded = true;
+      for (final issue in Walk.issues) {
+        if (!await builderEnded(issue.repository)) allEnded = false;
+      }
+      final story = await probeHolds(['story-state', Walk.story!, 'Reading']) && allEnded ? 'Reading' : 'Implementing';
       await probe(['story-state', Walk.story!, story]);
     });
