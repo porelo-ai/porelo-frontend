@@ -196,6 +196,8 @@ class Tunnel {
           // A connection of its own, whatever the person's ssh config says: through their master the
           // forward would live in the master, and letting go of this process would leave it running.
           if (machine.kind != 'host') ...<String>['-o', 'ControlMaster=no', '-o', 'ControlPath=none'],
+          // Whatever the person's config says, ssh never removes what is at the socket path before it binds there.
+          '-o', 'StreamLocalBindUnlink=no',
           '-L', '${machine.socketPath}:${machine.remoteSocket}',
           machine.host,
         ];
@@ -216,6 +218,9 @@ class Tunnel {
       'ServerAliveCountMax=2',
       for (final (port, socket) in card.forwards)
         for (final spec in HostCardSsh.listenSpecs(port, socket)) ...['-L', spec],
+      // Whatever the card's config says, ssh never removes what is at the socket path before it binds there.
+      '-o',
+      'StreamLocalBindUnlink=no',
       '-L',
       '${machine.socketPath}:${card.daemonSocket}',
       if (messengerSocket != null) ...['-R', '${card.returnSocket}:$messengerSocket'],

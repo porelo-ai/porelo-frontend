@@ -15,7 +15,7 @@ void main() {
   setUp(() {
     // This account's alone, as the runtime directory is: the one place its socket is ever removed.
     runtime = Directory.systemTemp.createTempSync('one-');
-    Process.runSync('chmod', <String>['700', runtime.path]);
+    if (!Platform.isWindows) Process.runSync('chmod', <String>['700', runtime.path]);
     path = '${runtime.path}/porelo-frontend.sock';
     addTearDown(() => runtime.deleteSync(recursive: true));
   });
@@ -87,6 +87,57 @@ void main() {
     await first.release();
 
     expect(await answersAt(path), isTrue, reason: 'another program\'s socket was removed');
+  }, tags: 'linux');
+
+  // Harm: closing the listener removes whatever is at the name it was bound at by then, another program's socket too.
+  test('a socket put at the name it was bound at survives the release', () async {
+    String? bound;
+    final first = await OneInstance.take(
+      comeForward: () {},
+      at: path,
+      afterLink: (private) async {
+        bound = private;
+        await anotherProgramAt(private);
+      },
+    );
+    expect(first.inCharge, isTrue, reason: first.unsure);
+
+    await first.release();
+
+    expect(await answersAt(bound!), isTrue, reason: 'another program\'s socket was removed');
+  }, tags: 'linux');
+
+  // Harm: a socket put at the name it was bound at before it was held is taken for its own, given the shared name,
+  // and its name removed.
+  test('a socket put at the name it was bound at before it was held is neither taken nor removed', () async {
+    String? bound;
+    final taking = await OneInstance.take(
+      comeForward: () {},
+      at: path,
+      afterBind: (private) async {
+        bound = private;
+        await anotherProgramAt(private);
+      },
+    );
+
+    expect(taking.inCharge, isFalse);
+    expect(FileSystemEntity.typeSync(path, followLinks: false), FileSystemEntityType.notFound);
+    expect(await answersAt(bound!), isTrue, reason: 'another program\'s socket was removed');
+    await taking.release();
+  }, tags: 'linux');
+
+  // Harm: a runtime folder whose path leaves room for the shared name, but not for a longer one beside it, keeps the
+  // window from starting at all.
+  test('a runtime folder with a long path, where the shared name still fits, is taken charge of', () async {
+    // The shared name ends 107 bytes in, the most a unix socket's path may hold.
+    final deep = '${runtime.path}/${'d' * (107 - runtime.path.length - '/porelo-frontend.sock'.length - 1)}';
+    Directory(deep).createSync();
+    Process.runSync('chmod', <String>['700', deep]);
+
+    final taking = await OneInstance.take(comeForward: () {}, at: '$deep/porelo-frontend.sock');
+
+    expect(taking.inCharge, isTrue, reason: taking.unsure);
+    await taking.release();
   }, tags: 'linux');
 
   // Harm: two launches at once both find the path free and both take charge.

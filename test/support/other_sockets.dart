@@ -38,6 +38,28 @@ Future<void> anotherProgramAt(String socket, {bool listens = true}) async {
   expect(ready, 'ready');
 }
 
+/// A process listening at [socket], as a launched ssh does, that stays until the test ends and never accepts.
+Future<Process> listeningAt(String socket) async {
+  final program = await Process.start('python3', <String>[
+    '-c',
+    'import socket,sys,time\n'
+        's=socket.socket(socket.AF_UNIX)\n'
+        's.bind(sys.argv[1])\n'
+        's.listen(4)\n'
+        'print("ready",flush=True)\n'
+        'time.sleep(300)\n',
+    socket,
+  ]);
+  addTearDown(() => program.kill(ProcessSignal.sigkill));
+  final ready = await program.stdout
+      .transform(utf8.decoder)
+      .transform(const LineSplitter())
+      .first
+      .timeout(const Duration(seconds: 10));
+  expect(ready, 'ready');
+  return program;
+}
+
 /// Whether something accepts a connection at [socket].
 Future<bool> answersAt(String socket) async {
   try {

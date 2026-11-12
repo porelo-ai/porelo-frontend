@@ -8,17 +8,24 @@ import 'tunnel.dart' show ConnectToSocket, SocketProbe, connectToSocket, probeSo
 /// The socket file at [path], held, when [pid] holds a listening socket bound to that very file: the proof that the
 /// process made the socket now there, rather than only that it was started or that something is at the path. The
 /// kernel names the file each socket is bound to by device and inode (`sock_diag`), and `/proc/<pid>/fd` names the
-/// sockets the process holds; a socket somebody else bound at the path is not among them. Null where that is not seen.
-HeldSocket? madeBy(int pid, String path) {
+/// sockets the process holds; a socket somebody else bound at the path is not among them. That answer names the inode
+/// in 32 bits only, so another file whose inode shares them reads alike: the file is therefore also connected to
+/// through its held descriptor, and the socket the kernel reaches there must have been put to listen by [pid]. Null
+/// where any of that is not seen.
+HeldSocket? madeBy(int pid, String path, {@visibleForTesting List<BoundSocket>? Function() diagnose = boundSockets}) {
   final held = HeldSocket.at(path);
   if (held == null) return null;
-  final listening = {
-    for (final bound in boundSockets() ?? const <BoundSocket>[])
-      if (bound.listening && boundTo(bound, held.identity)) 'socket:[${bound.socket}]',
-  };
-  if (listening.isNotEmpty && _holdsAny(pid, listening)) return held;
-  held.release();
-  return null;
+  var made = false;
+  try {
+    final listening = {
+      for (final bound in diagnose() ?? const <BoundSocket>[])
+        if (bound.listening && boundTo(bound, held.identity)) 'socket:[${bound.socket}]',
+    };
+    made = listening.isNotEmpty && _holdsAny(pid, listening) && held.listenerPid() == pid;
+    return made ? held : null;
+  } finally {
+    if (!made) held.release();
+  }
 }
 
 bool _holdsAny(int pid, Set<String> sockets) {
@@ -48,14 +55,15 @@ Future<bool> removeLeftover(
   String path, {
   ConnectToSocket connect = connectToSocket,
   @visibleForTesting void Function()? afterProbe,
+  @visibleForTesting List<BoundSocket>? Function() diagnose = boundSockets,
 }) async {
   final held = HeldSocket.at(path);
   if (held == null) return false;
   try {
-    if (!_nobodyBinds(held)) return false;
+    if (!_nobodyBinds(held, diagnose)) return false;
     if (await probeSocket(path, connect) != SocketProbe.nobody) return false;
     afterProbe?.call();
-    if (!_nobodyBinds(held)) return false;
+    if (!_nobodyBinds(held, diagnose)) return false;
     return removeSocketIfStill(path, held);
   } finally {
     held.release();
@@ -63,8 +71,8 @@ Future<bool> removeLeftover(
 }
 
 // A socket file no socket is bound to: the kernel was asked, and named none bound to it.
-bool _nobodyBinds(HeldSocket held) {
-  final bound = boundSockets();
+bool _nobodyBinds(HeldSocket held, List<BoundSocket>? Function() diagnose) {
+  final bound = diagnose();
   return bound != null && !bound.any((each) => boundTo(each, held.identity));
 }
 

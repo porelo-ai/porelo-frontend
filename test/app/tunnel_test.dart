@@ -572,6 +572,157 @@ void main() {
     expect(await answersAt(socket), isTrue, reason: 'another program\'s socket was removed');
   });
 
+  // Harm: ssh told by the person's config to unlink before binding deletes whatever is at the socket path.
+  test("ssh never unlinks what is at the socket path before binding, whatever the person's config says", () async {
+    final config = File('${where.path}/config')..writeAsStringSync('Host *\n  StreamLocalBindUnlink yes\n');
+    final command = Tunnel(machineAt('${where.path}/forward.sock')).command;
+
+    final effective = await Process.run(command.first, <String>['-G', '-F', config.path, ...command.skip(1)]);
+
+    expect(effective.exitCode, 0, reason: '${effective.stderr}');
+    expect('${effective.stdout}'.split('\n'), contains('streamlocalbindunlink no'));
+  });
+
+  // Harm: a socket bound by the launched process and never listened on is taken for the forward, though a connect to
+  // it is refused, and removed at drop as the forward's own.
+  test('a socket the launched process only binds is not taken for the forward, and stays', () async {
+    final socket = '${where.path}/only-bound.sock';
+    final tunnel = Tunnel(
+      machineAt(socket),
+      start: (_) => Process.start('sh', <String>[
+        '-c',
+        'exec python3 -c "import socket,time; s=socket.socket(socket.AF_UNIX); s.bind(\'$socket\'); time.sleep(300)"',
+      ]),
+      appears: const Duration(milliseconds: 600),
+    );
+
+    await tunnel.raise();
+    expect(tunnel.state, TunnelState.down);
+    await tunnel.drop();
+
+    expect(FileSystemEntity.typeSync(socket, followLinks: false), FileSystemEntityType.unixDomainSock);
+  });
+
+  // Harm: an endpoint made in another account's folder, whose leftover can never be told from what that account put.
+  test('a folder of another account is refused before anything is launched', () async {
+    final mine = Process.runSync('id', const <String>['-u']).stdout.toString().trim();
+    final owner = Process.runSync('stat', const <String>['-c', '%u', '/usr']).stdout.toString().trim();
+    if (mine == owner) {
+      markTestSkipped("/usr is this account's own here, so it is no folder of another account");
+      return;
+    }
+    var started = false;
+    final tunnel = Tunnel(
+      machineAt('/usr/porelo-not-here.sock'),
+      start: (command) {
+        started = true;
+        return bindsAndStays('/usr/porelo-not-here.sock')(command);
+      },
+    );
+
+    await tunnel.raise();
+
+    expect(tunnel.problem, contains('not yours alone'));
+    expect(started, isFalse);
+  });
+
+  // Harm: an endpoint in a folder reached through one this account may search and not read is refused, as if it were
+  // another's, and the machine can never be raised.
+  test("a folder reached through one that may be searched and not read is still this account's", () {
+    final through = Directory('${where.path}/search-only')..createSync();
+    final folder = Directory('${through.path}/sockets')..createSync();
+    Process.runSync('chmod', <String>['700', folder.path]);
+    Process.runSync('chmod', <String>['311', through.path]);
+    addTearDown(() => Process.runSync('chmod', <String>['700', through.path]));
+
+    expect(inOwnDirectory('${folder.path}/forward.sock'), isTrue);
+  });
+
+  // Harm: a held socket file never let go keeps a descriptor for good, and one let go is still removed through it.
+  test('a held socket file is let go on release, and nothing is removed through it after', () {
+    final socket = '${where.path}/held.sock';
+    leftBehindAt(socket);
+    int holding() => Directory('/proc/self/fd').listSync(followLinks: false).where((fd) {
+      try {
+        return Link(fd.path).targetSync() == socket;
+      } on FileSystemException {
+        return false;
+      }
+    }).length;
+
+    final held = HeldSocket.at(socket)!;
+    expect(holding(), 1);
+    held.release();
+
+    expect(holding(), 0);
+    expect(removeSocketIfStill(socket, held), isFalse);
+    expect(FileSystemEntity.typeSync(socket, followLinks: false), FileSystemEntityType.unixDomainSock);
+  });
+
+  // Harm: where the kernel cannot be asked which sockets are bound, a socket somebody still holds is taken for a
+  // leftover, or one somebody else made for the launch's own.
+  test("where the kernel cannot be asked, nothing is a leftover and nothing is the launch's own", () async {
+    final leftover = '${where.path}/leftover.sock';
+    leftBehindAt(leftover);
+    final socket = '${where.path}/its.sock';
+    final ssh = await listeningAt(socket);
+
+    expect(await removeLeftover(leftover, diagnose: () => null), isFalse);
+    expect(FileSystemEntity.typeSync(leftover, followLinks: false), FileSystemEntityType.unixDomainSock);
+    expect(madeBy(ssh.pid, socket, diagnose: () => null), isNull);
+  });
+
+  group('a socket whose inode shares its low 32 bits with the one ssh listens on', () {
+    late Process ssh;
+    late String its;
+
+    setUp(() async {
+      its = '${where.path}/its.sock';
+      ssh = await listeningAt(its);
+    });
+
+    // What the kernel answers where the two inodes collide: it names a bound file's inode in 32 bits only, so ssh's
+    // listener reads as bound to the other file.
+    List<BoundSocket> colliding(String other) {
+      final mine = socketIdentityOf(its)!, theirs = socketIdentityOf(other)!;
+      return [
+        for (final each in boundSockets()!)
+          if (boundTo(each, mine))
+            (
+              socket: each.socket,
+              listening: each.listening,
+              file: SocketIdentity(theirs.deviceMajor, theirs.deviceMinor, theirs.inode & 0xffffffff),
+            )
+          else
+            each,
+      ];
+    }
+
+    test("ssh's own socket is held as its own", () {
+      final made = madeBy(ssh.pid, its);
+
+      expect(made, isNotNull);
+      made!.release();
+    });
+
+    // Harm: a socket file nobody binds, at the path where ssh's endpoint was, is removed as ssh's own.
+    test("a socket file nobody binds is not taken for ssh's own", () {
+      final other = '${where.path}/other.sock';
+      leftBehindAt(other);
+
+      expect(madeBy(ssh.pid, other, diagnose: () => colliding(other)), isNull);
+    });
+
+    // Harm: another program's live socket, at the path where ssh's endpoint was, is removed as ssh's own.
+    test("another program's listening socket is not taken for ssh's own", () async {
+      final other = '${where.path}/other.sock';
+      await anotherProgramAt(other);
+
+      expect(madeBy(ssh.pid, other, diagnose: () => colliding(other)), isNull);
+      expect(await answersAt(other), isTrue);
+    });
+  });
+
   test('a socket that answers is left alone, and the forward is refused', () async {
     // The endpoint may belong to another program of this user that happens to sit at that path.
     // Deleting it to put ours there would break it with nothing said anywhere.

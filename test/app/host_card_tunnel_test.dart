@@ -96,6 +96,19 @@ void main() {
     });
   });
 
+  // Harm: ssh told by the card's config to unlink before binding deletes whatever is at the socket path.
+  test("the card's ssh never unlinks what is at the socket path before binding, whatever its config says", () async {
+    File(host.sshConfig)
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('Host *\n  StreamLocalBindUnlink yes\n');
+    final command = Tunnel(host).command;
+
+    final effective = await Process.run(command.first, <String>['-G', ...command.skip(1)]);
+
+    expect(effective.exitCode, 0, reason: '${effective.stderr}');
+    expect('${effective.stdout}'.split('\n'), contains('streamlocalbindunlink no'));
+  });
+
   // Prevents SSH from using personal trust, another identity or externally bound services.
   // Guards a card host the IDE plugin, which reads the same file, would drop as of an unknown kind.
   test('a card host is stored without a kind and read back as a host', () {

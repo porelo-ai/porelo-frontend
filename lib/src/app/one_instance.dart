@@ -24,11 +24,16 @@ import 'package:porelo_frontend/src/client/environment.dart';
 /// `dart:io` has no unix socket there. The running interface greets whoever connects, so a port
 /// that some other program took over after a crash is told from this interface's own.
 class OneInstance {
-  OneInstance._(this._listening, this.socketPath, {this.unsure}) : _held = null;
+  OneInstance._(this._listening, this.socketPath, {this.unsure}) : _unix = null, _held = null;
 
-  OneInstance._held(this._listening, this.socketPath, HeldSocket this._held) : unsure = null;
+  OneInstance._held(UnixListener this._unix, this.socketPath, HeldSocket this._held) : _listening = null, unsure = null;
 
+  // Over the loopback address.
   final ServerSocket? _listening;
+
+  // At a unix socket: made without `dart:io`, whose listener removes the name it was bound at on close, whatever is
+  // there by then.
+  final UnixListener? _unix;
 
   // The socket file this run listens through at [socketPath], held while it is in charge: only that file is removed.
   final HeldSocket? _held;
@@ -40,7 +45,7 @@ class OneInstance {
   final String? unsure;
 
   /// Whether this process is the one in charge.
-  bool get inCharge => _listening != null;
+  bool get inCharge => _listening != null || _unix != null;
 
   /// Takes charge, or asks whoever already has it to come forward.
   ///
@@ -51,6 +56,8 @@ class OneInstance {
     String? at,
     bool? overLoopback,
     @visibleForTesting ConnectToSocket connect = connectToSocket,
+    @visibleForTesting Future<void> Function(String private)? afterBind,
+    @visibleForTesting Future<void> Function(String private)? afterLink,
   }) async {
     if (overLoopback ?? desk.isWindows) {
       return _takeOverLoopback(comeForward, at ?? desk.join(<String>[desk.state, 'frontend.port']));
@@ -61,51 +68,58 @@ class OneInstance {
       return OneInstance._(null, path, unsure: 'the folder of $path is not yours alone');
     }
     // Bound at a name of its own, then linked to the shared name: `link` takes a name only while it is free, so two
-    // launches never both take charge, and closing the listener later removes only that private name, never whatever
-    // is at the shared one by then.
-    final private = '${path.substring(0, path.lastIndexOf('/'))}/.porelo-frontend-$pid-${_token()}.sock';
-    final ServerSocket listening;
+    // launches never both take charge. The private name is short and bound through the folder's descriptor, so any
+    // folder whose shared name fits a unix socket's path fits it too.
+    final directory = path.substring(0, path.lastIndexOf('/'));
+    final private = '$directory/.pf-${_token()}';
+    final made = UnixListener.bindIn(directory, private.substring(directory.length + 1));
+    final listener = made.listener;
+    if (listener == null) {
+      return OneInstance._(null, path, unsure: 'a socket could not be made beside $path: ${made.failure}');
+    }
+    HeldSocket? held;
+    var inCharge = false;
     try {
-      listening = await ServerSocket.bind(InternetAddress(private, type: InternetAddressType.unix), 0);
-    } on SocketException catch (failure) {
-      return OneInstance._(null, path, unsure: 'a socket could not be made beside $path: ${failure.message}');
-    }
-    final held = HeldSocket.at(private);
-    if (held == null) {
-      await listening.close();
-      return OneInstance._(null, path, unsure: 'the socket made beside $path could not be held');
-    }
-    var leftovers = 0;
-    while (true) {
-      final linked = linkSocketName(private, path);
-      if (linked == 0) {
-        removeSocketIfStill(private, held);
-        listening.listen((from) {
-          comeForward();
-          from.destroy();
-        });
-        return OneInstance._held(listening, path, held);
+      await afterBind?.call(private);
+      // Only a file this very listener is reached through is its own; anything else at the private name stays.
+      held = listener.holdOwnFile(private);
+      if (held == null) return OneInstance._(null, path, unsure: 'the socket made beside $path could not be held');
+      var leftovers = 0;
+      while (true) {
+        final linked = linkSocketName(private, path);
+        if (linked == 0) {
+          removeSocketIfStill(private, held);
+          await afterLink?.call(private);
+          await listener.serve(comeForward);
+          inCharge = true;
+          return OneInstance._held(listener, path, held);
+        }
+        if (linked != 17) return OneInstance._(null, path, unsure: 'the name $path could not be taken (errno $linked)');
+        // Somebody is there, or a run that died left its socket. Asking settles it: one that answers is in charge.
+        switch (await probeSocket(path, connect)) {
+          case SocketProbe.answers:
+            return OneInstance._(null, path);
+          case SocketProbe.unknown:
+            return OneInstance._(null, path, unsure: 'whether another window listens at $path could not be told');
+          case SocketProbe.nobody:
+            // A leftover nobody holds is removed, and only that; anything else at the name stays and is said.
+            if (++leftovers > 3 || !await removeLeftover(path, connect: connect)) {
+              if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.notFound) {
+                return OneInstance._(
+                  null,
+                  path,
+                  unsure: 'something that is no leftover of this window is at $path, and it was left alone',
+                );
+              }
+            }
+        }
       }
-      // Not linked, so the private name is the only one: closing removes it.
-      Future<OneInstance> giveUp({String? unsure}) async {
-        held.release();
-        await listening.close();
-        return OneInstance._(null, path, unsure: unsure);
-      }
-
-      if (linked != 17) return giveUp(unsure: 'the name $path could not be taken (errno $linked)'); // EEXIST
-      // Somebody is there, or a run that died left its socket. Asking settles it: one that answers is in charge.
-      switch (await probeSocket(path, connect)) {
-        case SocketProbe.answers:
-          return giveUp();
-        case SocketProbe.unknown:
-          return giveUp(unsure: 'whether another window listens at $path could not be told');
-        case SocketProbe.nobody:
-          // A leftover nobody holds is removed, and only that; anything else at the name stays and is said.
-          if (++leftovers > 3 || !await removeLeftover(path, connect: connect)) {
-            if (FileSystemEntity.typeSync(path, followLinks: false) == FileSystemEntityType.notFound) continue;
-            return giveUp(unsure: 'something that is no leftover of this window is at $path, and it was left alone');
-          }
+    } finally {
+      if (!inCharge) {
+        // Never linked, so the private name is its only one, and it goes; anything put there since stays.
+        if (held != null) removeSocketIfStill(private, held);
+        held?.release();
+        await listener.close();
       }
     }
   }
@@ -118,22 +132,22 @@ class OneInstance {
   /// Stops listening and removes its socket, so the next launch is not met by a leftover: only while the shared name
   /// is still the socket this run listens through, never one put there since.
   Future<void> release() async {
-    final listening = _listening;
-    if (listening == null) return;
-    final held = _held;
-    if (held == null) {
-      // Over the loopback address: the file that names the port.
-      await listening.close();
-      try {
-        File(socketPath).deleteSync();
-      } on FileSystemException {
-        // Something else removed it. Nothing to do and nothing worth saying.
-      }
+    if (_unix case final unix?) {
+      final held = _held!;
+      removeSocketIfStill(socketPath, held);
+      held.release();
+      await unix.close();
       return;
     }
-    removeSocketIfStill(socketPath, held);
-    held.release();
+    final listening = _listening;
+    if (listening == null) return;
+    // Over the loopback address: the file that names the port.
     await listening.close();
+    try {
+      File(socketPath).deleteSync();
+    } on FileSystemException {
+      // Something else removed it. Nothing to do and nothing worth saying.
+    }
   }
 
   /// What the running interface says to whoever connects on the loopback port.

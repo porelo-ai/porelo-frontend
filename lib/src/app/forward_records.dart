@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 
@@ -420,11 +421,12 @@ class ForwardRecords {
   }
 
   /// Opens the directory at the absolute [path] one component at a time from `/`, following no link on the way, or
-  /// null where that cannot be done.
+  /// null where that cannot be done. Each is opened only to be passed through (`O_PATH`), so a directory that may be
+  /// searched and not read is passed as well; the answer serves as the directory of a call, never to list it.
   static int? _openChain(String path, _Flags flags) {
     if (!path.startsWith('/')) return null;
     final libc = _Libc.instance;
-    var at = _native((libc, arena) => libc.open(arena.string('/'), flags.directory | _oCloexec, 0));
+    var at = _native((libc, arena) => libc.open(arena.string('/'), _oPath | flags.directory | _oCloexec, 0));
     if (at < 0) return null;
     for (final part in path.split('/').where((each) => each.isNotEmpty)) {
       if (part == '.' || part == '..') {
@@ -432,7 +434,7 @@ class ForwardRecords {
         return null;
       }
       final next = _native(
-        (libc, arena) => libc.openat(at, arena.string(part), flags.directory | flags.noFollow | _oCloexec, 0),
+        (libc, arena) => libc.openat(at, arena.string(part), _oPath | flags.directory | flags.noFollow | _oCloexec, 0),
       );
       libc.close(at);
       if (next < 0) return null;
@@ -690,7 +692,31 @@ class _Libc {
           .lookupFunction<
             Int32 Function(Int32, Pointer<Uint8>, Int32, Uint32, Pointer<Void>),
             int Function(int, Pointer<Uint8>, int, int, Pointer<Void>)
-          >('statx');
+          >('statx'),
+      connect = library
+          .lookupFunction<Int32 Function(Int32, Pointer<Uint8>, Uint32), int Function(int, Pointer<Uint8>, int)>(
+            'connect',
+          ),
+      bind = library
+          .lookupFunction<Int32 Function(Int32, Pointer<Uint8>, Uint32), int Function(int, Pointer<Uint8>, int)>(
+            'bind',
+          ),
+      listen = library.lookupFunction<Int32 Function(Int32, Int32), int Function(int, int)>('listen'),
+      accept4 = library
+          .lookupFunction<
+            Int32 Function(Int32, Pointer<Void>, Pointer<Void>, Int32),
+            int Function(int, Pointer<Void>, Pointer<Void>, int)
+          >('accept4'),
+      shutdown = library.lookupFunction<Int32 Function(Int32, Int32), int Function(int, int)>('shutdown'),
+      poll = library
+          .lookupFunction<Int32 Function(Pointer<Uint8>, Uint64, Int32), int Function(Pointer<Uint8>, int, int)>(
+            'poll',
+          ),
+      getsockopt = library
+          .lookupFunction<
+            Int32 Function(Int32, Int32, Int32, Pointer<Void>, Pointer<Uint32>),
+            int Function(int, int, int, Pointer<Void>, Pointer<Uint32>)
+          >('getsockopt');
 
   static final _Libc instance = _Libc._(DynamicLibrary.process());
 
@@ -710,6 +736,13 @@ class _Libc {
   final int Function(int, Pointer<Uint8>, int, int) recv;
   final int Function(int, Pointer<Uint8>, int, Pointer<Uint8>, int) linkat;
   final int Function(int, Pointer<Uint8>, int, int, Pointer<Void>) statx;
+  final int Function(int, Pointer<Uint8>, int) connect;
+  final int Function(int, Pointer<Uint8>, int) bind;
+  final int Function(int, int) listen;
+  final int Function(int, Pointer<Void>, Pointer<Void>, int) accept4;
+  final int Function(int, int) shutdown;
+  final int Function(Pointer<Uint8>, int, int) poll;
+  final int Function(int, int, int, Pointer<Void>, Pointer<Uint32>) getsockopt;
 }
 
 /// A socket file's identity: the device it lies on and its inode.
@@ -755,22 +788,29 @@ class HeldSocket {
     final parent = ForwardRecords._openChain(named.parent, flags);
     if (parent == null) return null;
     final libc = _Libc.instance;
+    var held = -1;
     try {
-      final held = _native(
+      held = _native(
         (libc, arena) => libc.openat(parent, arena.string(named.name), _oPath | flags.noFollow | _oCloexec, 0),
       );
       if (held < 0) return null;
       final identity = _identityAt(held, '', emptyPath: true);
       // The held file and the name as it stands now: the same socket, or nothing is held.
-      if (identity == null || _identityAt(parent, named.name) != identity) {
-        libc.close(held);
-        return null;
-      }
-      return HeldSocket._(held, identity);
+      if (identity == null || _identityAt(parent, named.name) != identity) return null;
+      final made = HeldSocket._(held, identity);
+      held = -1;
+      return made;
     } finally {
+      if (held >= 0) libc.close(held);
       libc.close(parent);
     }
   }
+
+  /// The pid that listens on the socket bound to this very file, or null where none does or it cannot be told. Asked
+  /// by connecting through the held descriptor rather than by name, so the kernel reaches the socket bound to this
+  /// file itself, never one whose number only looks alike: its credentials name the process that called `listen`. The
+  /// listener sees one connection opened and closed.
+  int? listenerPid() => _descriptor < 0 ? null : _connected('/proc/self/fd/$_descriptor', (client) => _peerPid(client));
 
   int _descriptor;
 
@@ -881,8 +921,9 @@ final Pointer<Int32> Function() _errnoLocation = DynamicLibrary.process()
 /// inode, whether it listens, and the file it is bound to, whatever name it was bound by.
 typedef BoundSocket = ({int socket, bool listening, SocketIdentity file});
 
-/// Whether [socket] is bound to [file]. The kernel names a bound file's inode in 32 bits, so only those of [file]'s
-/// inode are compared; two socket files on one device that share them are taken for one, which only ever keeps a path.
+/// Whether [socket] may be bound to [file]. The kernel names a bound file's inode in 32 bits, so only those of
+/// [file]'s inode are compared, and two socket files on one device that share them are taken for one: enough to keep a
+/// path as somebody's, never enough to prove one's own ([HeldSocket.listenerPid] does that).
 bool boundTo(BoundSocket socket, SocketIdentity file) =>
     socket.file.deviceMajor == file.deviceMajor &&
     socket.file.deviceMinor == file.deviceMinor &&
@@ -951,6 +992,160 @@ List<BoundSocket>? boundSockets() {
 }
 
 const _oPath = 0x200000;
+
+/// `struct sockaddr_un` naming [path], or null where the path is longer than the 107 bytes it holds.
+Pointer<Uint8>? _unixAddress(_Arena arena, String path) {
+  final bytes = utf8.encode(path);
+  if (bytes.length > 107) return null;
+  final address = arena.allocate(_addressSize).cast<Uint8>();
+  ByteData.sublistView(address.asTypedList(_addressSize)).setUint16(0, 1, Endian.host); // AF_UNIX
+  address.asTypedList(_addressSize).setAll(2, bytes);
+  return address;
+}
+
+const _addressSize = 110;
+
+/// Connects a socket of its own to the unix socket at [path] and runs [work] with it while it is connected; null where
+/// the connect is refused or cannot be made at once: a listener whose queue is full refuses, it never blocks.
+T? _connected<T>(String path, T? Function(int client) work) {
+  final libc = _Libc.instance;
+  // AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC.
+  final client = libc.socket(1, 1 | 0x800 | _oCloexec, 0);
+  if (client < 0) return null;
+  try {
+    final address = _native((libc, arena) {
+      final named = _unixAddress(arena, path);
+      return named != null && libc.connect(client, named, _addressSize) == 0;
+    });
+    return address ? work(client) : null;
+  } finally {
+    libc.close(client);
+  }
+}
+
+/// The pid of the process that called `listen` on the socket [client] is connected to (`SO_PEERCRED`).
+int? _peerPid(int client) => _native((libc, arena) {
+  final credentials = arena.allocate(12);
+  final length = arena.allocate(4).cast<Uint32>()..value = 12;
+  if (libc.getsockopt(client, 1, 17, credentials, length) != 0 || length.value != 12) return null; // SOL_SOCKET
+  final pid = credentials.cast<Int32>().value;
+  return pid > 0 ? pid : null;
+});
+
+/// A unix socket this process listens on, made here rather than through `dart:io`, whose listener removes the name it
+/// was bound at when it closes, whatever is there by then. Closing this removes no name at all; the names are removed
+/// by whoever holds the file, and only while they still name it.
+class UnixListener {
+  UnixListener._(this._socket);
+
+  final int _socket;
+  bool _closed = false;
+  ReceivePort? _told;
+  ReceivePort? _ended;
+
+  /// Makes a socket bound at [name] in [directory], reached one component at a time from `/` following no link and
+  /// this account's alone, and listening; answers it, or why not. Bound through the directory's descriptor, so the
+  /// length of [directory] counts for nothing.
+  static ({UnixListener? listener, String? failure}) bindIn(String directory, String name) {
+    final flags = _Flags.here;
+    if (flags == null || name.contains('/') || name.isEmpty) return (listener: null, failure: 'no such socket here');
+    final folder = ForwardRecords._openChain(directory, flags);
+    if (folder == null) return (listener: null, failure: 'the folder could not be opened');
+    final libc = _Libc.instance;
+    var socket = -1;
+    try {
+      if (!_isOwn(directory, folder)) return (listener: null, failure: 'the folder is not yours alone');
+      socket = libc.socket(1, 1 | _oCloexec, 0); // AF_UNIX, SOCK_STREAM
+      if (socket < 0) return (listener: null, failure: 'errno ${_errno()}');
+      final bound = _native((libc, arena) {
+        final address = _unixAddress(arena, '/proc/self/fd/$folder/$name');
+        if (address == null) return 36; // ENAMETOOLONG
+        return libc.bind(socket, address, _addressSize) == 0 && libc.listen(socket, 16) == 0 ? 0 : _errno();
+      });
+      if (bound != 0) return (listener: null, failure: 'errno $bound');
+      final made = UnixListener._(socket);
+      socket = -1;
+      return (listener: made, failure: null);
+    } finally {
+      if (socket >= 0) libc.close(socket);
+      libc.close(folder);
+    }
+  }
+
+  /// Holds the socket file at [path], or null where the file there is not this listener's own: a connection through
+  /// the held file must reach a socket that this process listens on, and this very socket must receive it.
+  HeldSocket? holdOwnFile(String path) {
+    final held = HeldSocket.at(path);
+    if (held == null) return null;
+    var own = false;
+    try {
+      own =
+          _connected('/proc/self/fd/${held._descriptor}', (client) => _peerPid(client) == pid && _acceptWaiting()) ??
+          false;
+      return own ? held : null;
+    } finally {
+      if (!own) held.release();
+    }
+  }
+
+  // Takes a connection that waits to be accepted, if one does, without waiting for one.
+  bool _acceptWaiting() => _native((libc, arena) {
+    final waiting = arena.allocate(8).cast<Uint8>();
+    final asked = ByteData.sublistView(waiting.asTypedList(8))
+      ..setInt32(0, _socket, Endian.host)
+      ..setInt16(4, 1, Endian.host); // POLLIN
+    if (libc.poll(waiting, 1, 0) != 1 || asked.getInt16(6, Endian.host) & 1 == 0) return false;
+    final connection = libc.accept4(_socket, nullptr, nullptr, _oCloexec);
+    if (connection < 0) return false;
+    libc.close(connection);
+    return true;
+  });
+
+  /// Calls [onConnection] for each connection made to it, until [close]; each is accepted and closed at once.
+  Future<void> serve(void Function() onConnection) async {
+    if (_closed || _told != null) return;
+    final told = _told = ReceivePort()..listen((_) => onConnection());
+    final ended = _ended = ReceivePort();
+    await Isolate.spawn(_acceptEach, (_socket, told.sendPort), onExit: ended.sendPort, debugName: 'one window');
+  }
+
+  /// Stops listening and lets go of the socket, removing no name.
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    final libc = _Libc.instance;
+    // Wakes an accept that waits, which then ends; the descriptor is closed only after, so no other takes its number
+    // while it is still used.
+    libc.shutdown(_socket, 2); // SHUT_RDWR
+    if (_ended case final ended?) {
+      await ended.first;
+    }
+    _told?.close();
+    libc.close(_socket);
+  }
+}
+
+/// Accepts each connection to [listening]'s socket, closes it and says so, until the socket is shut down.
+void _acceptEach((int, SendPort) listening) {
+  final (socket, told) = listening;
+  final libc = _Libc.instance;
+  while (true) {
+    final connection = libc.accept4(socket, nullptr, nullptr, _oCloexec);
+    if (connection >= 0) {
+      libc.close(connection);
+      told.send(null);
+      continue;
+    }
+    switch (_errno()) {
+      case 4 || 103: // EINTR, ECONNABORTED
+        continue;
+      case 12 || 23 || 24 || 105: // ENOMEM, ENFILE, EMFILE, ENOBUFS: a moment later there may be room
+        sleep(const Duration(milliseconds: 100));
+      default:
+        return; // EINVAL once shut down
+    }
+  }
+}
 
 /// The records of this run, set once it took charge of the window: until then, and in a run that is turned away,
 /// nothing is recorded or ended.
