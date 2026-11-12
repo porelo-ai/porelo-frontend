@@ -16,7 +16,6 @@ import 'src/app/narrowing.dart';
 import 'src/app/newer_version.dart';
 import 'src/app/one_instance.dart';
 import 'src/app/where_you_were.dart';
-import 'src/app/window_end.dart';
 import 'src/app/window_log.dart';
 import 'src/app/agent_inventory.dart';
 import 'src/app/authentication.dart';
@@ -132,7 +131,6 @@ Future<PoreloApp> _compose() async {
   windowLog.info('The window started.');
   // Only once in charge: a launch about to be turned away records and ends nothing.
   forwardRecords = ForwardRecords.inRuntime(setIn('XDG_RUNTIME_DIR'))?..removeStale();
-  letGoOnSignals(endingSignals(), letGo: [machines.letGoOfTheTunnels, letGoOfTheForwards], exit: exit);
 
   // A card copy a crash left behind is removed now, not only when the next replacement runs.
   final newerVersion = NewerVersion()..watch();
@@ -146,10 +144,9 @@ Future<PoreloApp> _compose() async {
   await notifications.load();
   final organizationSource = PoreloOrganizationSource();
   final planner = LocalPlanner.of(machines, logLevel: settings.logLevel);
-  // On SIGTERM and SIGINT the planner the window started is ended before the window exits; Windows starts none.
-  if (!Platform.isWindows) {
-    endOnSignals([ProcessSignal.sigterm.watch(), ProcessSignal.sigint.watch()], end: planner.end, exit: exit);
-  }
+  // One watch of the ending signals: the tunnels, the forwards and the planner the window started go at once, then
+  // the window exits; a planner it found serving is left running, and Windows starts none.
+  letGoOnSignals(endingSignals(), letGo: [machines.letGoOfTheTunnels, letGoOfTheForwards, planner.end], exit: exit);
   final app = PoreloApp(
     settingsDropped: settingsDropped,
     organizationSource: organizationSource,
