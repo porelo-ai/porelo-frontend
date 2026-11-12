@@ -55,6 +55,7 @@ class CarrierBudget {
     this.startsPerSecond = 8,
     this.bufferedBytes = 256 * 1024,
     this.handshake = const Duration(seconds: 30),
+    this.stalled = const Duration(seconds: 30),
     DateTime Function()? now,
   }) : now = now ?? DateTime.now;
 
@@ -72,6 +73,10 @@ class CarrierBudget {
 
   /// How long a connection's ssh is given to say its first byte.
   final Duration handshake;
+
+  /// How long a connection's ssh is given to take what the client sent once its bound is full; while it is waited for,
+  /// the client is not read, so not even its end is seen.
+  final Duration stalled;
 
   /// The clock the rate is read on.
   final DateTime Function() now;
@@ -264,6 +269,7 @@ class _Carried {
   final CarriedRole role;
   Process? _process;
   Timer? _handshake;
+  Timer? _stall;
   StreamSubscription<RawSocketEvent>? _events;
   StreamSubscription<List<int>>? _output;
   bool _over = false;
@@ -357,7 +363,10 @@ class _Carried {
     _toProcess += bytes.length;
     if (_toProcess < carrier.budget.bufferedBytes) return;
     client.readEventsEnabled = false;
+    // Not even the client's end is seen until it reads again, so a child that never takes its bytes ends it.
+    _stall = Timer(carrier.budget.stalled, end);
     process.stdin.flush().then<void>((_) {
+      _stall?.cancel();
       _toProcess = 0;
       if (!_over) client.readEventsEnabled = true;
     }, onError: (Object _) => end());
@@ -404,6 +413,7 @@ class _Carried {
     if (_over) return;
     _over = true;
     _handshake?.cancel();
+    _stall?.cancel();
     unawaited(_output?.cancel());
     unawaited(_events?.cancel());
     client.close();

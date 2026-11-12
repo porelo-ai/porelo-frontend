@@ -273,6 +273,27 @@ void main() {
     expect(children.single.received.length, lessThanOrEqualTo(4096 + 16 * 1024));
   });
 
+  // Harm: a child that answered once and then stops reading keeps its connection, the person's key and a place under
+  // the caps for as long as the card is connected, since the client's end is not read while its bytes wait.
+  test('a child that stops reading after its first answer is ended once it stalled too long', () async {
+    final budget = CarrierBudget(bufferedBytes: 4096, stalled: const Duration(milliseconds: 300));
+    final port = await freePort();
+    final held = carrier({port: CarriedRole.forgeGit}, budget: budget)..carrying = true;
+    await held.hold();
+    final client = await Socket.connect(InternetAddress.loopbackIPv4, port);
+    addTearDown(client.destroy);
+    await until(() => children.isNotEmpty);
+    children.single.say('ready');
+    children.single.stall();
+
+    client.add(Uint8List(64 * 1024));
+    unawaited(client.close().then<void>((_) {}, onError: (Object _) {}));
+    await until(() => children.single.killed && held.connections == 0);
+
+    expect(children.single.killed, isTrue);
+    expect(held.connections, 0);
+  });
+
   // Harm: an ssh started for a connection already gone runs on with the person's key.
   test('a child that starts after its connection was cancelled is ended', () async {
     final port = await freePort();
