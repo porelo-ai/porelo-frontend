@@ -46,6 +46,7 @@ class WindowTaskReports {
     required this.sourceNamed,
     required this.tasksOn,
     required this.stopOn,
+    this.removeOn = _noRemoval,
     this.resultOf = _noResult,
     this.hand = handIdea,
     this.runtimeDirectory,
@@ -69,6 +70,11 @@ class WindowTaskReports {
       null => null,
     },
     stopOn: (machine, container) => machines.of(machine).stopWork(container),
+    removeOn: (name, container) async {
+      if (machines.all.where((machine) => machine.name == name).firstOrNull case final machine?) {
+        await machines.of(machine).removeWork(container);
+      }
+    },
     resultOf: (name, container) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
       final machine? => machines.of(machine).backend.taskResult(container),
       null => Future.error(StateError('$name is not watched.')),
@@ -91,6 +97,9 @@ class WindowTaskReports {
 
   /// Stops a container on the machine it runs on.
   final Future<void> Function(Machine machine, String container) stopOn;
+
+  /// Removes the ended task in a container on the machine by that name; a refusal is the machine's to say.
+  final Future<void> Function(String machine, String container) removeOn;
 
   /// The result file the task in a container handed back on the machine by that name, with its content.
   final Future<TaskResult> Function(String machine, String container) resultOf;
@@ -301,6 +310,13 @@ class WindowTaskReports {
     } else {
       windowLog.info('Planning: the idea of the discussion ${kept.container} was saved as $story in ${kept.project}.');
     }
+    // Its idea is the planner's now, so the ended discussion goes, as a person would remove it; one whose idea was not
+    // saved stays with its result file.
+    try {
+      await removeOn(kept.machine, kept.container);
+    } on Object catch (error) {
+      _sayIdea(kept, 'The discussion ${kept.container} was handed in as $story, but could not be removed: $error');
+    }
   }
 
   /// Says that [kept]'s discussion left no idea to hand in at [end], once.
@@ -438,6 +454,8 @@ class WindowTaskReports {
 
   static Future<TaskResult> _noResult(String machine, String container) =>
       Future.error(StateError('$machine answers no result files here.'));
+
+  static Future<void> _noRemoval(String machine, String container) async {}
 
   static String _endKey(PlanningTaskEnded ended) =>
       plannedEndKey(AgentEnded(at: ended.at, finished: ended.finished, unpushed: ended.unpushed));

@@ -26,6 +26,7 @@ void main() {
   late List<(Machine, String)> stopped;
   late List<(String, String, List<(PlanningTaskOrder, PlanningTaskStarted)>)> shown;
   late List<(String, String, Map<String, Object?>)> handed;
+  late List<(String, String)> removed;
   late List<Object> handAnswers;
   late Map<String, TaskResult> results;
 
@@ -50,6 +51,7 @@ void main() {
       sourceNamed: (name) => name == _provider && (reached?.call() ?? true) ? planner : null,
       tasksOn: (name) => name == on.name ? machine.listed : null,
       stopOn: (machine, container) async => stopped.add((machine, container)),
+      removeOn: (machine, container) async => removed.add((machine, container)),
       resultOf: (name, container) async =>
           name == on.name ? results[container] ?? fail('no result for $container') : fail('$name is not watched'),
       hand: (project, offer, idea, {runtimeDirectory, projects}) async {
@@ -71,6 +73,7 @@ void main() {
     stopped = [];
     shown = [];
     handed = [];
+    removed = [];
     handAnswers = [];
     results = {};
   });
@@ -529,6 +532,26 @@ void main() {
       // Kept no longer than its task: a removed task's discussion is forgotten.
       await settings.forgetPlanningOffer('laptop', 'porelo-demo-discussion');
       expect((await loaded()).keptDiscussions, isEmpty);
+    });
+
+    // Harm: an ended discussion stays on the machine after its idea was saved, or one whose idea was not saved goes,
+    // and the person's agreed idea with it.
+    test('removes the ended discussion once the planner saved its idea, and keeps one it did not', () async {
+      final (reports, _, saved) = await discussed();
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      handAnswers.addAll([
+        const IdeaNotSaved('The idea does not follow the idea format.', faults: ['story.title: Too long.']),
+        const IdeaNotSaved('no planner is running for this account', transient: true),
+        'ST902',
+      ]);
+      machine.end('porelo-demo-discussion', endAt('1', result: ideaFile));
+      await sweeps(reports);
+      expect(removed, isEmpty, reason: 'its idea was refused for its faults');
+
+      machine.end('porelo-demo-discussion', endAt('2', result: ideaFile));
+      await sweeps(reports);
+      expect(saved, ['demo ST902']);
+      expect(removed, [('laptop', 'porelo-demo-discussion')]);
     });
 
     // Harm: an idea an earlier run of the container wrote is handed in as this discussion's, under its offer.
