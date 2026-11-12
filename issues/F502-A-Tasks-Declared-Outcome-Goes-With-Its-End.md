@@ -51,7 +51,8 @@ error when the run ended unfinished, else absent. A finished run without a decla
   its error; a finished run without a declaration with no outcome.
 - Each end is reported once, also across restarts of the window, as today.
 
-## To be checked
+## Checked
 
-- Whether Porelo's row can show a run's end before the declaration that came with it; if so, the sweep waits for the
-  row that carries both rather than reporting an end without its outcome.
+- Porelo's row may show a run's end before the declaration that came with it. An end whose row shows no outcome yet is
+  held once for a moment (five seconds) and looked at again; it goes then, without an outcome only where the row still
+  shows none. An empty outcome is told as none.
