@@ -368,6 +368,9 @@ abstract final class Sizes {
   /// Words beside a dialog's button, saying what it waits for.
   static const dialogWords = 360.0;
 
+  /// How wide the whole of a held terminal copy stands in its dialog: lines of a terminal, not a sentence.
+  static const heldCopyWhole = 720.0;
+
   /// A tab of *Running*, tall enough to be hit with a pointer or a finger.
   static const runningTab = 44.0;
 

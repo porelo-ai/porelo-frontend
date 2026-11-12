@@ -177,7 +177,7 @@ class _Ask extends StatelessWidget {
     builder: (context) => AlertDialog(
       title: Text('What ${session.task} would copy: ${copy.size}'),
       content: SizedBox(
-        width: Sizes.dialogWords * 2,
+        width: Sizes.heldCopyWhole,
         child: SingleChildScrollView(
           child: SelectableText(
             CopyPreview.shown(held.text),
