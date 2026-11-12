@@ -22,7 +22,9 @@
 # The test person's key never enters the VM: SSH_AUTH_SOCK must name an agent holding it (a throwaway one, never the
 # operator's), forwarded for the run alone. WALK_FORGE_TOKEN names a program that prints the test identity's token
 # for the forge: it goes on standard input alone into a vault of the run's own on the VM, and to GitHub's API as a
-# curl config on standard input, never on a command line. Every ending takes away what the run made: the task branches
+# curl config on standard input, never on a command line. WALK_PROVIDER_KEY_FILE names the file holding the
+# OpenRouter key the tasks' agent pi signs in with: it goes from that file on standard input alone into the same vault,
+# never read into this shell. Every ending takes away what the run made: the task branches
 # and pull requests in the issue repository, each noted repository's tree back to its T0 in one new commit where it
 # differs (never a force push), the porelo project's repository signed anew on that commit, the run's vault and copy
 # on the VM; it exits non-zero naming what it left.
@@ -177,6 +179,10 @@ done
 }
 [ -n "${WALK_FORGE_TOKEN:-}" ] && [ -x "$WALK_FORGE_TOKEN" ] || {
     echo "walk: WALK_FORGE_TOKEN names no program printing the forge's token" >&2
+    exit 1
+}
+[ -n "${WALK_PROVIDER_KEY_FILE:-}" ] && [ -r "$WALK_PROVIDER_KEY_FILE" ] && [ -s "$WALK_PROVIDER_KEY_FILE" ] || {
+    echo "walk: WALK_PROVIDER_KEY_FILE names no readable file holding the OpenRouter key" >&2
     exit 1
 }
 if [ -z "${SSH_AUTH_SOCK:-}" ] || ! ssh-add -l >/dev/null 2>&1; then
@@ -525,6 +531,11 @@ on_vm "set -e; umask 077; mkdir ~/$run/vault
 }
 printf '%s\n' "$token" | on_vm "${in_vault}porelo vault put --json central-forge" >/dev/null || {
     echo "walk: the forge token could not be put into the run's vault on $vm" >&2
+    exit 1
+}
+# The tasks' agent pi signs in at OpenRouter with the key stored under the provider's name in porelod's vault.
+on_vm "${in_vault}porelo vault put --json openrouter" <"$WALK_PROVIDER_KEY_FILE" >/dev/null || {
+    echo "walk: the OpenRouter key could not be put into the run's vault on $vm" >&2
     exit 1
 }
 if as_the_person_on_vm "porelo credentials list" </dev/null | awk '{print $1}' | grep -qxF "$central_match"; then
