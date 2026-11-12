@@ -14,38 +14,59 @@
 }
 ```
 
-**Why this size.** the forwards this interface raised found again by their socket at the next start, or ended with it, and
-their tests.
+**Why this size.** S: a record of each forward's pid and command line beside its endpoint, a sweep of a recorded one at
+the next start in the tunnel and the login forward, SIGTERM and SIGINT watched, and their tests; Linux only.
 
 **How it stands.** A bug.
 
 **What must be true.** The ssh forwards this interface raises for a machine end with it, also where it ends without
-asking: `q` in `flutter run`, a crash, a kill. At the next start a forward of this account already up for the same
-socket is used or ended, never a second one raised beside it.
+asking: `q` in `flutter run`, a crash, a kill. At the next start a forward this interface left behind for the same
+socket or port is ended and raised anew; an endpoint answered by anything else is still left alone.
 
 ## Why
 
 Closing the window takes every forward down: `_letGo` (`lib/src/ui/shell.dart`) answers the exit request with
-`Machines.letGoOfTheTunnels` and `letGoOfTheForwards`.
-`Tunnel._endOrphanedMaster` in `lib/src/app/tunnel.dart` ends an orphaned card control master at startup
-when its configuration is absent or names the same login, leaving another login's master alone.
-For non-card tunnels, `Tunnel.raise` in that file refuses a socket that already answers and leaves it
-alone; it does not find and end the orphaned process. Neither it nor `_letGo` provides parent-watch or
-PID cleanup after `SIGKILL`. `lib/src/app/login_forward.dart` also holds its ssh processes only in
-memory and supplies no parent-watch or startup PID cleanup, so the promised cleanup is incomplete.
+`Machines.letGoOfTheTunnels` and `letGoOfTheForwards`. Nothing ends them on any other end: the window watches no
+signal, and no forward is tied to the window's life. After a kill:
+
+- A machine without a card is shown down at the next start: `Tunnel.raise` (`lib/src/app/tunnel.dart`) finds its
+  socket answered by the leftover ssh and refuses it ("something is already serving …, and it was left alone"), while
+  that ssh still serves.
+- A homeserver or login forward (`lib/src/app/login_forward.dart`), held only in memory and raised again at every
+  start from the settings, is refused as "Port N is already in use".
+
+Card control masters are already ended at the start by `Tunnel._endOrphanedMaster`; they are not part of this issue.
 
 ## Plan
 
-- **Found again at the start:** before raising a forward for a machine, a running `ssh` of this account whose command
-  line is one this interface writes (`-N -o BatchMode=yes … -o ControlPath=none -L <the machine's socket>:…`) is
-  ended, so the socket is this run's alone; nothing else of the account is touched.
-- **Ended with the interface where the platform allows it:** the forward started so that it ends when its parent
-  does (on Linux a parent-death signal through a small wrapper), where that holds without a helper of its own.
-- **Red first:** a forward left by an interface that was killed is ended at the next start, and only one runs for the
-  socket after it.
+- **A record of each forward:** right after its ssh starts, the interface writes beside its endpoint (the socket's
+  path, or the state directory keyed by the port) the pid and its `/proc/<pid>/cmdline`.
+- **Found again at the start:** before the "already serving" refusal in `Tunnel.raise`, and before the port check in
+  the login forward, a recorded pid that is alive, runs as this account and still has the recorded command line is
+  ended, and the start waits until its endpoint stops answering. An endpoint with no record of ours, or whose pid now
+  runs another command line, is left alone as today. A command-line pattern is not enough: a `host` machine's forward
+  and a login forward with its own ssh options write other ones.
+- The sweep reads `/proc` through a seam of its own, not through the tunnel's `run:`, so the existing fakes are
+  unchanged. The login forward's `Process.start` gets a seam (`startLoginForward`, like `raiseLoginForward`), landed
+  first without a change of behaviour.
+- **Ended on SIGTERM and SIGINT:** `lib/main.dart` watches both, lets go of the tunnels and forwards, and exits (a
+  watched signal no longer ends the process by itself).
+- No parent-death signal: on Linux it fires when the thread that started the child ends, and Dart starts processes
+  from pool threads that end when idle, so forwards would die at random.
+- Linux only. Windows has no `/proc` and only SIGINT; a job object that ends its children would be its own issue.
+- **Red first:** in `test/app/tunnel_test.dart`, a forward a killed run left at the socket is ended and the machine
+  raised (today: down, "already serving", the old one alive); an answering socket with no record of ours is still left
+  alone; a recorded pid that now runs another command line is not ended. In `test/app/login_reply_test.dart`, a login
+  forward a killed run left on the port is ended and raised again (today: "already in use").
 
 ## Acceptance
 
-- After `q` in `flutter run` and a new start, one forward runs per watched machine.
+- After `q` in `flutter run`, or a kill of the window, and a new start, each watched machine is up with one forward,
+  and each homeserver forward is raised.
 - Closing the window still takes them all down, as today.
-- Seen to fail: the test red with two forwards for one socket before the start ends the old one.
+- An endpoint served by anything this interface did not record is left alone.
+- Seen to fail: the tests red with the machine refused while the old forward still runs.
+
+## To be checked
+
+- Which signal `q` in `flutter run` sends a Linux desktop app.
