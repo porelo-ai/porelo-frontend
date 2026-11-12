@@ -143,6 +143,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f511"></a>[F511](F511-An-Open-Menu-Follows-What-Can-Run.md) | S | - | An entry of an open command menu turns runnable or greyed out as its view's state changes, instead of keeping what it was when the menu opened. |
 | <a id="f514"></a>[F514](F514-Small-Points-Of-The-Leftover-Forwards-Reading.md) | S | - | The small points a reading by another model found in the window's ending of leftover forwards: a lookup error taken for an ended process, a late connect left running, a directory descriptor kept on a failed allocation, tunnels stopped one after another, and the test gaps it named. |
 | <a id="f525"></a>[F525](F525-Small-Points-Of-The-Browser-Address-Reading.md) | S | - | The small points a reading by another model found in the host's browser addresses on both loopbacks: guards no test shows, and Windows taking an IPv6 loopback for granted. |
+| <a id="f526"></a>[F526](F526-The-Planner-Is-Given-Porelos-Own-Path.md) | S | - | The window resolves Porelo's executable once, absolute with its links followed, and gives that path to the planner it starts, refusing one that it or anyone else could swap. |
 | <a id="f505"></a>[F505](F505-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The repository's daily shared-rules run checks its issues' heads with `issues check issues` from the released porelo-release, as the build tools' own shared rules do. |
 
 ## Implementing
