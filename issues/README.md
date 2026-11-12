@@ -24,7 +24,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f480"></a>[F480](F480-The-Window-Says-It-Started-The-Installed-Planner.md) | S | - | Where no planner was serving and the window started one itself, the planning place says so, with the program it started, so a person expecting their own planner sees that another one answers. |
 | <a id="f402"></a>[F402](F402-Prepare-A-Server-As-The-Standard-Wizard.md) | - | - | *Prepare a server* as steps of the standard wizard, each fitting the window. |
 | <a id="f481"></a>[F481](F481-The-Board-Shows-Each-Size-As-A-Badge.md) | XS | - | The window carries the planning screen whose story cards and issue tiles show their T-shirt size as a badge beside the priority chip, and a test of the window sees the badge on its embedded board. |
-| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | - | - | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
 | <a id="f384"></a>[F384](F384-Configure-The-Terminal.md) | - | - | The window's terminal can be configured: font sizes, colours and so on. |
 | <a id="f372"></a>[F372](F372-An-Unattended-Agents-Console-Reads-What-It-Did.md) | - | - | An unattended agent's console reads its text and what it did, in summaries, in place of one line per tool. |
 | <a id="f491"></a>[F491](F491-A-Work-Row-Names-Its-Repository.md) | S | - | A row under Work names the repository its work is in, also in a project of one repository; where it says so is the person's to decide. |
@@ -45,10 +44,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f295"></a>[F295](F295-No-Ask-Line-Naming-The-Viewer.md) | S | - | No refusal ends with "Ask <name>" when the named person is the one at this interface. |
 | <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | - | Host deliveries hardened: git in a clean environment, commands without the login shell or a deliberate exception. |
 | <a id="f292"></a>[F292](F292-A-Lock-Confirmed-By-Each-Host.md) | M | - | *Lock* and *Let back in* shown as under way on each host until `org status` there confirms them; adding counts as done once signed. |
-| <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | - | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
 | <a id="f395"></a>[F395](F395-Leftovers-Of-Sprint-6q.md) | - | - | What sprint 6q's issues named as not built, gathered for the operator to place: organization rows, a machine's page, a project's central state, lists and the card's renewal. |
-| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | - | - | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. |
-| <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | - | - | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
 | <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | - | - | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
 | <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | S | - | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
 | <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | XS | - | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
@@ -75,6 +71,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | - | - | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | - | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
+| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | - | - | A work tile says whether an attached agent is at rest or working; implementation waits for the verified screen-derived daemon answer. |
+| <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | - | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
+| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | - | - | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. |
 
 ## Analyzed
 
@@ -422,6 +421,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f284"></a>F284 | The Subagent Number Chosen When Starting | The number of subagents now follows the number of Agent issues in the story, so it is not chosen when starting (operator, 2026-11-12; ST52 rejected). |
 | <a id="f467"></a>F467 | A Board Without Streaming Says It Is Not Live | Moved to the planner's package: porelo-planner's PL23, on its `main`, builds the board's stream, its lost connection, *Retry* and *Reload* (operator, 2026-11-11). |
 | <a id="f307"></a>F307 | Push And Pull Show Their Progress In The Interface | Nothing left to apply to: the terminal push and pull were removed for *Bring it to central…*, which says each repository's answer in the interface ([F460](#f460); operator, 2026-11-10). |
 | <a id="f386"></a>F386 | A Short Name People Read | The operator's word (2026-11-08): a problem with long task names is handled when one is seen. |

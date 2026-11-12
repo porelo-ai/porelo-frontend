@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F99",
   "title": "An Attached Agent Shown At Rest Or Working",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "-",
   "priority": "Medium",
   "rank": 4,

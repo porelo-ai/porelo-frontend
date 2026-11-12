@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F288",
   "title": "Small Leftovers Of The One-Click Flow",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "-",
   "priority": "Medium",
   "rank": 26,
