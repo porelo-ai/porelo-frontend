@@ -257,8 +257,7 @@ class Machine {
         when hostCard != null &&
             (sshConfig.isEmpty || host != hostCard!.name || remoteSocket != hostCard!.daemonSocket) =>
       'The imported machine needs its matching public SSH configuration and daemon endpoint.',
-    'host' when hostCard != null =>
-      windows ? 'Machine card connections require OpenSSH Unix socket and master support on this platform.' : null,
+    'host' when hostCard != null => null,
     'host' when remoteSocket.isEmpty && socketPath.isEmpty =>
       'This server is prepared with no project account or daemon.',
     'host' when hostProject.isEmpty => 'This machine has no verified SSH configuration.',
@@ -322,8 +321,9 @@ class Machine {
   /// Builds account options using the supplied desktop's config and pinned host key.
   List<String> loginSshOptionsOn({required Map<String, String> environment, required bool windows}) {
     if (hostCard != null) {
-      // The card config pins trust and identity while retaining the shared control socket.
-      return ['-F', sshConfig, '-o', 'ControlMaster=no', '-o', 'ProxyCommand=false'];
+      // The card config pins trust and identity. On Linux a command goes only through the card's master; Windows'
+      // OpenSSH holds none, so there each command opens a connection of its own.
+      return windows ? ['-F', sshConfig] : ['-F', sshConfig, '-o', 'ControlMaster=no', '-o', 'ProxyCommand=false'];
     }
     if (kind != 'host') return const [];
     if (identity.isNotEmpty) {

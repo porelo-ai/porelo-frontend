@@ -8,6 +8,7 @@ import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/session.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_frontend/src/app/wsl.dart';
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh, inTheLoginShell;
 
 /// The WSL distributions of a Windows user, read without starting any of them, and what the
 /// interface says before it calls into one.
@@ -155,6 +156,48 @@ void main() {
       expect(option.whyNotReachableOn(windows: false), isNotNull);
     });
 
+    // Harm: a host's card cannot be connected to from a Windows desktop, or its daemon is reached through a command
+    // that can never connect there.
+    test('a card machine on Windows reaches its daemon through a relay over its own config', () {
+      const environment = <String, String>{'SystemRoot': r'D:\Windows', 'APPDATA': r'C:\Users\Alice\AppData\Roaming'};
+      final card = HostCardSsh(
+        name: 'alpha',
+        address: 'alpha.example.org',
+        sshPort: 2222,
+        hostKey: _publicKey,
+        login: 'alice',
+        publicKey: _publicKey,
+        webPort: 18080,
+        gitPort: 18081,
+        matrixPort: 18082,
+      );
+      final config = card.configPath(environment: environment, windows: true);
+      final machine = Machine.fromHostCard(card, socketPath: '', sshConfig: config);
+
+      expect(machine.whyNotReachableOn(windows: true), isNull);
+      expect(machine.relayOn(windows: true, environment: environment)?.command, <String>[
+        r'D:\Windows\System32\OpenSSH\ssh.exe',
+        '-F',
+        config,
+        '-T',
+        '-o',
+        'ServerAliveInterval=15',
+        '--',
+        'alpha',
+        inTheLoginShell("porelo daemon connect --socket '/run/porelo-host/people/alice/porelod.sock'"),
+      ], reason: 'no master to keep out and no ProxyCommand that ends every connection of its own');
+      expect(machine.loginSshOptionsOn(environment: environment, windows: true), <String>['-F', config]);
+      expect(machine.loginSshOptionsOn(environment: environment, windows: false), <String>[
+        '-F',
+        config,
+        '-o',
+        'ControlMaster=no',
+        '-o',
+        'ProxyCommand=false',
+      ], reason: 'on Linux every command still goes through the master');
+      expect(machine.relayOn(windows: false, environment: environment), isNull);
+    });
+
     test('on Linux the Linux ways are reached, and a WSL distribution is said not to be', () {
       expect(wsl.whyNotReachableOn(windows: false), contains('reached from Windows'));
       expect(overSsh.whyNotReachableOn(windows: false), isNull);
@@ -162,6 +205,8 @@ void main() {
     });
   });
 }
+
+const _publicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 List<int> _utf16(String text) => <int>[
   for (final unit in text.codeUnits) ...<int>[unit & 0xff, unit >> 8],
