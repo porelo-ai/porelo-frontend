@@ -20,8 +20,8 @@ jobs:
         # No host has a Windows runner, so a job there would wait for ever.
         if: vars.PORELO_PUBLISH == 'true'
         runs-on: windows-2025
-        # Its steps' own limits add up to more than 45 minutes once Test may take 30.
-        timeout-minutes: 60
+        # Its steps' own limits add up to more than 60 minutes once Test may take 45.
+        timeout-minutes: 75
         steps:
             # Without the job's token in .git/config: nothing here pushes with git.
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -55,8 +55,9 @@ jobs:
             # A test marked `linux` needs what only Linux has: a pty, a unix socket, `chmod`, a Bash tool.
             # Each such mark says why in the test itself. The documents are checked by the Linux build.
             # The suite takes 17 to 19 minutes on the runner, and its speed varies.
+            # The suite alone took about 32 minutes on windows-2025, running steadily (no test hung).
             - name: Test
-              timeout-minutes: 30
+              timeout-minutes: 45
               run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
 
             - name: Build
