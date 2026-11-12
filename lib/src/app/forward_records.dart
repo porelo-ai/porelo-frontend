@@ -90,8 +90,12 @@ class _NoProcessTable implements ProcessTable {
 
 /// `/proc`, read as it is now, and a pidfd to signal through.
 class LinuxProcessTable implements ProcessTable {
-  /// Constructor.
-  const LinuxProcessTable();
+  /// Constructor; [throughSyscall] takes the kernel's pidfd calls by their numbers even where the C library has them,
+  /// as one older than glibc 2.36 must.
+  const LinuxProcessTable({@visibleForTesting this.throughSyscall = false});
+
+  /// Whether the pidfd calls go through `syscall` rather than the C library's own functions.
+  final bool throughSyscall;
 
   @override
   int? get myUid => _uidIn('/proc/self/status');
@@ -154,7 +158,7 @@ class LinuxProcessTable implements ProcessTable {
 
   @override
   PinnedProcess? pin(int pid) {
-    final pidfd = _Pidfd.instance;
+    final pidfd = throughSyscall ? _Pidfd.bySyscall : _Pidfd.instance;
     if (pidfd == null) return null;
     final handle = pidfd.open(pid, 0);
     return handle < 0 ? null : _PinnedByPidfd(pidfd, handle);
@@ -174,7 +178,8 @@ class _PinnedByPidfd implements PinnedProcess {
   void release() => _pidfd.close(_handle);
 }
 
-/// glibc's pidfd calls, or none where this C library has none: then nothing is ended, never by a bare pid.
+/// The C library's pidfd calls, or the kernel's by their numbers where it has none (glibc before 2.36, as on Ubuntu
+/// 22.04); none where neither can be reached: then nothing is ended, never by a bare pid.
 class _Pidfd {
   _Pidfd._(DynamicLibrary library)
     : open = library.lookupFunction<Int32 Function(Int32, Uint32), int Function(int, int)>('pidfd_open'),
@@ -185,9 +190,43 @@ class _Pidfd {
           >('pidfd_send_signal'),
       close = library.lookupFunction<Int32 Function(Int32), int Function(int)>('close');
 
+  _Pidfd._byNumber(DynamicLibrary library)
+    : open = _numbered(
+        library.lookupFunction<Int64 Function(Int64, VarArgs<(Int32, Uint32)>), int Function(int, int, int)>('syscall'),
+        _pidfdOpen,
+      ),
+      sendSignal = _numberedSignal(
+        library.lookupFunction<
+          Int64 Function(Int64, VarArgs<(Int32, Int32, Pointer<Void>, Uint32)>),
+          int Function(int, int, int, Pointer<Void>, int)
+        >('syscall'),
+      ),
+      close = library.lookupFunction<Int32 Function(Int32), int Function(int)>('close');
+
+  // The same numbers on x86-64 and arm64, the two Linux machines this window is built for.
+  static const _pidfdOpen = 434;
+  static const _pidfdSendSignal = 424;
+
+  static int Function(int, int) _numbered(int Function(int, int, int) call, int number) =>
+      (a, b) => call(number, a, b);
+
+  static int Function(int, int, Pointer<Void>, int) _numberedSignal(
+    int Function(int, int, int, Pointer<Void>, int) call,
+  ) =>
+      (a, b, c, d) => call(_pidfdSendSignal, a, b, c, d);
+
   static final _Pidfd? instance = () {
     try {
       return _Pidfd._(DynamicLibrary.process());
+    } on ArgumentError {
+      return bySyscall;
+    }
+  }();
+
+  static final _Pidfd? bySyscall = () {
+    if (Abi.current() != Abi.linuxX64 && Abi.current() != Abi.linuxArm64) return null;
+    try {
+      return _Pidfd._byNumber(DynamicLibrary.process());
     } on ArgumentError {
       return null;
     }

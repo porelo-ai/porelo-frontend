@@ -202,109 +202,114 @@ void main() {
     hanging.complete();
   });
 
-  group('a login forward a run that ended without asking left behind', () {
-    late Directory where;
-    late String records;
-    late List<Process> started;
-    late Set<Process> ended;
-    final startedBefore = startLoginForward;
+  group(
+    'a login forward a run that ended without asking left behind',
+    () {
+      late Directory where;
+      late String records;
+      late List<Process> started;
+      late Set<Process> ended;
+      final startedBefore = startLoginForward;
 
-    setUp(() async {
-      where = Directory.systemTemp.createTempSync('lf-');
-      // As XDG_RUNTIME_DIR is: the records' parent is this account's alone.
-      Process.runSync('chmod', <String>['700', where.path]);
-      records = '${where.path}/records';
-      started = <Process>[];
-      ended = <Process>{};
-    });
+      setUp(() async {
+        where = Directory.systemTemp.createTempSync('lf-');
+        // As XDG_RUNTIME_DIR is: the records' parent is this account's alone.
+        Process.runSync('chmod', <String>['700', where.path]);
+        records = '${where.path}/records';
+        started = <Process>[];
+        ended = <Process>{};
+      });
 
-    tearDown(() async {
-      forwardRecords = null;
-      startLoginForward = startedBefore;
-      for (final process in started) {
-        process.kill(ProcessSignal.sigkill);
-        await process.exitCode;
-      }
-      where.deleteSync(recursive: true);
-    });
-
-    Future<int> freePort() async {
-      final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-      final port = probe.port;
-      await probe.close();
-      return port;
-    }
-
-    /// A process listening on [port] whose own command line forwards it as a login forward's ssh does.
-    Future<({Process process, List<String> command})> listening(int port, {bool stubborn = false}) async {
-      final command = <String>[
-        'python3',
-        '-c',
-        'import socket,time,signal;${stubborn ? 'signal.signal(signal.SIGTERM,signal.SIG_IGN);' : ''}'
-            's=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);'
-            's.bind(("127.0.0.1",$port));s.listen(8);time.sleep(300)',
-        '-L',
-        '$port:localhost:$port',
-        'alice@vm',
-      ];
-      final process = await Process.start(command.first, command.sublist(1));
-      started.add(process);
-      unawaited(process.exitCode.then((_) => ended.add(process)));
-      for (var i = 0; i < 100; i++) {
-        try {
-          (await Socket.connect(InternetAddress.loopbackIPv4, port)).destroy();
-          break;
-        } on SocketException {
-          await Future<void>.delayed(const Duration(milliseconds: 20));
+      tearDown(() async {
+        forwardRecords = null;
+        startLoginForward = startedBefore;
+        for (final process in started) {
+          process.kill(ProcessSignal.sigkill);
+          await process.exitCode;
         }
+        where.deleteSync(recursive: true);
+      });
+
+      Future<int> freePort() async {
+        final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+        final port = probe.port;
+        await probe.close();
+        return port;
       }
-      return (process: process, command: command);
-    }
 
-    Future<bool> alive(Process process) async {
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      return !ended.contains(process);
-    }
+      /// A process listening on [port] whose own command line forwards it as a login forward's ssh does.
+      Future<({Process process, List<String> command})> listening(int port, {bool stubborn = false}) async {
+        final command = <String>[
+          'python3',
+          '-c',
+          'import socket,time,signal;${stubborn ? 'signal.signal(signal.SIGTERM,signal.SIG_IGN);' : ''}'
+              's=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);'
+              's.bind(("127.0.0.1",$port));s.listen(8);time.sleep(300)',
+          '-L',
+          '$port:localhost:$port',
+          'alice@vm',
+        ];
+        final process = await Process.start(command.first, command.sublist(1));
+        started.add(process);
+        unawaited(process.exitCode.then((_) => ended.add(process)));
+        for (var i = 0; i < 100; i++) {
+          try {
+            (await Socket.connect(InternetAddress.loopbackIPv4, port)).destroy();
+            break;
+          } on SocketException {
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+          }
+        }
+        return (process: process, command: command);
+      }
 
-    // Harm: after a kill or `q`, every homeserver or login forward refused at the next start as a port in use.
-    test('one a killed run left on the port is ended and raised again', () async {
-      final port = await freePort();
-      final left = await listening(port);
-      ForwardRecords(records).record(left.process.pid, left.command);
-      forwardRecords = ForwardRecords(records);
-      startLoginForward = (_) async => (await listening(port)).process;
+      Future<bool> alive(Process process) async {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        return !ended.contains(process);
+      }
 
-      final held = await withSsh(vm, port);
-      addTearDown(held.close);
+      // Harm: after a kill or `q`, every homeserver or login forward refused at the next start as a port in use.
+      test('one a killed run left on the port is ended and raised again', () async {
+        final port = await freePort();
+        final left = await listening(port);
+        ForwardRecords(records).record(left.process.pid, left.command);
+        forwardRecords = ForwardRecords(records);
+        startLoginForward = (_) async => (await listening(port)).process;
 
-      expect(await alive(left.process), isFalse, reason: 'the forward left behind was ended');
-    });
+        final held = await withSsh(vm, port);
+        addTearDown(held.close);
 
-    // Harm: an ssh that ignored being taken down forgotten, and never found again at the next start.
-    test('a forward taken down stays recorded while its process still runs', () async {
-      final port = await freePort();
-      forwardRecords = ForwardRecords(records);
-      startLoginForward = (_) async => (await listening(port, stubborn: true)).process;
+        expect(await alive(left.process), isFalse, reason: 'the forward left behind was ended');
+      });
 
-      final held = await withSsh(vm, port);
-      await held.close();
+      // Harm: an ssh that ignored being taken down forgotten, and never found again at the next start.
+      test('a forward taken down stays recorded while its process still runs', () async {
+        final port = await freePort();
+        forwardRecords = ForwardRecords(records);
+        startLoginForward = (_) async => (await listening(port, stubborn: true)).process;
 
-      expect(File('$records/${started.last.pid}.forward').existsSync(), isTrue);
-    });
+        final held = await withSsh(vm, port);
+        await held.close();
 
-    // Harm: a forward this run holds for one login ended by another login asking for the same port.
-    test('a second forward for a port this run holds ends nothing', () async {
-      final port = await freePort();
-      final held = await listening(port);
-      forwardRecords = ForwardRecords(records)..record(held.process.pid, held.command);
+        expect(File('$records/${started.last.pid}.forward').existsSync(), isTrue);
+      });
 
-      await expectLater(
-        withSsh(vm, port),
-        throwsA(isA<ForwardRefused>().having((refused) => refused.words, 'words', contains('already in use'))),
-      );
-      expect(await alive(held.process), isTrue);
-    });
-  });
+      // Harm: a forward this run holds for one login ended by another login asking for the same port.
+      test('a second forward for a port this run holds ends nothing', () async {
+        final port = await freePort();
+        final held = await listening(port);
+        forwardRecords = ForwardRecords(records)..record(held.process.pid, held.command);
+
+        await expectLater(
+          withSsh(vm, port),
+          throwsA(isA<ForwardRefused>().having((refused) => refused.words, 'words', contains('already in use'))),
+        );
+        expect(await alive(held.process), isTrue);
+      });
+    },
+    // The records are read from Linux's /proc and held by a pidfd; elsewhere a forward left behind is not found again.
+    skip: Platform.isLinux ? null : 'records of forwards left behind are kept on Linux alone',
+  );
 }
 
 class _Hanging implements HeldForward {
