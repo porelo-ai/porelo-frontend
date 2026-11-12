@@ -56,5 +56,6 @@ Future<void> iDiscussAnIdeaWithTheWalkAgentUntilTheDiscussionEnds(WidgetTester t
       // The agent ends into the session's shell, and the session ends with that shell, as the person leaves it.
       await untilQuiet(tester, terminal, quiet: const Duration(seconds: 10), within: const Duration(minutes: 2));
       await say(tester, terminal, 'exit');
-      await untilItEnds(tester, Walk.discussion!, within: const Duration(minutes: 5));
+      // A discussion reads the whole project, so porelo removes it when its session ends.
+      await untilItEnds(tester, Walk.discussion!, within: const Duration(minutes: 5), goneIsEnded: true);
     });

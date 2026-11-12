@@ -213,6 +213,10 @@ Future<Map<String, dynamic>> theNewTask(
   return found!;
 }
 
+/// Whether porelo lists [container] no longer.
+Future<bool> isGone(String container) async =>
+    (await theProjectsTasks()).every((each) => theContainerOf(each) != container);
+
 /// The task in [container] as porelo lists it now; fails where porelo lists it no longer.
 Future<Map<String, dynamic>> theTask(String container) async =>
     (await theProjectsTasks()).where((each) => theContainerOf(each) == container).firstOrNull ??
@@ -220,11 +224,15 @@ Future<Map<String, dynamic>> theTask(String container) async =>
 
 /// Waits until porelo says the agent in [container] ended, at most [within]; fails at once where the task is gone, and
 /// fast where the same failure is read three times in a row (porelo not answering, or the planner raising [issue]).
+///
+/// With [goneIsEnded], porelo no longer listing it counts as its end: a task that read its whole project is removed
+/// when its run ends, and is then answered as an empty record.
 Future<Map<String, dynamic>> untilItEnds(
   WidgetTester tester,
   String container, {
   required Duration within,
   String? issue,
+  bool goneIsEnded = false,
 }) async {
   final by = DateTime.now().add(within);
   String? last;
@@ -232,6 +240,7 @@ Future<Map<String, dynamic>> untilItEnds(
   while (true) {
     String? failure;
     try {
+      if (goneIsEnded && await isGone(container)) return const {};
       final task = await theTask(container);
       if (hasEnded(task)) return task;
       if (issue != null && !await probeHolds(['attention', issue, 'NONE'])) {
