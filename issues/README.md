@@ -140,7 +140,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f507"></a>[F507](F507-The-Windows-Windows-Scripts-Package-Another-App.md) | M | - | The Windows packing and install check take the app's name, version, files, manifest and start as parameters, so another repository's Windows build calls them at a pinned commit; the window's own packages stay as they are, and neither script leaves a signing key or the app's files behind. |
 | <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | - | Forwarding to a chosen branch measured against GitHub. |
 | <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | - | A task's terminal in the interface behaves as in a plain terminal. |
-| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | S | - | Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have. |
 
 ## Review
 
@@ -187,6 +186,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f472"></a>[F472](F472-The-Packages-Carry-The-Third-Party-Notices-As-A-File.md) | S | - | The .deb and .rpm carry the licenses of all third-party code built into the window as one plain THIRD-PARTY-NOTICES file, unpacked from Flutter's own notices. |
 | <a id="f379"></a>[F379](F379-Add-A-Project-In-One-Step-From-The-Window.md) | S | - | A person naming themselves Project Admin adds a project in one step from the window. |
 | <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | - | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |
+| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | S | - | Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have. |
 | <a id="f439"></a>[F439](F439-A-Machines-Own-Pages-After-The-Third-Move.md) | M | - | One header with *Open its forge* in sight, *Machine Admins* alone, a project's repositories on a machine, *New work* without a needless question, a dead forge forward noticed. |
 | <a id="f465"></a>[F465](F465-Needs-You-Rows-Say-Their-Name-Once-And-Whole.md) | XS | - | A row under *Needs you* names its machine once, and its title is shown whole where the row has room. |
 | <a id="f440"></a>[F440](F440-Agents-Gate-And-Builds-As-Designed.md) | M | - | *Agents & providers* as designed, the gate's review with author, committer and trailer, one line per workflow on a task's tile. |

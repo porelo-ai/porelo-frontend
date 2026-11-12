@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F288",
   "title": "Small Leftovers Of The One-Click Flow",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 14,
@@ -28,6 +28,16 @@ review policy it does not have, as the project's menu does.
 ## How it stands
 
 `test/app/pty_test.dart` uses `os._exit(0)` in the detached child's release path.
+
+Built on 2026-11-12:
+- **The close test's bound closes with the measurement.** Build 41235532851's log names two waits that ran out after
+  five seconds: the close (by its stack, to the test's line 228) and the EOF wait (by its message alone); the test's
+  own 30 seconds were never reached. The test then paused its reader on every read, so a line arriving in two reads
+  left it paused for good; "Hold a test's reader once, as a line may come in two reads" (2026-11-05) fixed that after
+  the build. Under a load of twice the cores (eight busy loops on four cores), today's test ran 300 rounds without a
+  failure (slowest 37 ms), while the old one failed once in 100 with the build's message. No `onTimeout` is added.
+- **A repository's menu offers only the policy it does not have**, with its test seen red for required and
+  optional first.
 
 ## Plan
 
@@ -58,6 +68,3 @@ review policy it does not have, as the project's menu does.
 - Each point gets a test that goes red with its harm first. Seen to fail: the close test timing out without
   naming its wait, and a repository with review required offering *Require review…*.
 
-## To be checked
-
-- Whether Build 41235532851's log names the wait that timed out, before the load run.
