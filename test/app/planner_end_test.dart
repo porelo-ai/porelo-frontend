@@ -2,11 +2,14 @@
 @Tags(<String>['linux'])
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/planner.dart';
+import 'package:porelo_frontend/src/app/window_log.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../support/planner_process.dart';
@@ -62,15 +65,17 @@ void main() {
     return file.path;
   }
 
-  LocalPlanner client({required List<String> candidates, StartPlanner? start, Duration? wait}) => LocalPlanner(
-    projects: () => ['demo'],
-    repositories: (project) => PlannerProject('https://example.org/$project.git'),
-    runtimeDirectory: runtime.path,
-    candidates: candidates,
-    start: start,
-    wait: wait ?? const Duration(seconds: 5),
-    poll: const Duration(milliseconds: 20),
-  )..let(clients.add);
+  LocalPlanner client({required List<String> candidates, StartPlanner? start, Duration? wait, Duration? follow}) =>
+      LocalPlanner(
+        projects: () => ['demo'],
+        repositories: (project) => PlannerProject('https://example.org/$project.git'),
+        runtimeDirectory: runtime.path,
+        candidates: candidates,
+        start: start,
+        wait: wait ?? const Duration(seconds: 5),
+        poll: const Duration(milliseconds: 20),
+        follow: follow ?? const Duration(seconds: 2),
+      )..let(clients.add);
 
   /// A start that hands [process] and has it write its address, as a planner does once it listens.
   StartPlanner starting(PlannerProcess process, {List<String>? starts}) => (executable, _) async {
@@ -169,8 +174,8 @@ rm -f "\$dir/planner.json"''');
 
     await local.end();
 
-    expect(starts, isEmpty);
     expect(serving.signals, isEmpty);
+    expect(starts, isEmpty);
     expect(addressFile().existsSync(), isTrue);
   });
 
@@ -211,6 +216,130 @@ rm -f "\$dir/planner.json"''');
     expect(started.signals, isEmpty);
   });
 
+  // Harm: a close overlapping a signal lets the window exit while the planner it started is still being ended.
+  test('an end asked while one runs waits for the same end', () async {
+    final started = PlannerProcess(ignoresTerm: true);
+    final local = client(candidates: [await program()], start: starting(started));
+    await local.reach();
+
+    final first = local.end();
+    await local.end();
+
+    expect(started.ended, isTrue, reason: 'the second end answers only once the planner ended');
+    expect(started.signals, [ProcessSignal.sigterm, ProcessSignal.sigkill]);
+    await first;
+  });
+
+  // Harm: a planner the window started and then lost sight of keeps running beside the one it starts next.
+  test('a planner the window started again ends the one it started before', () async {
+    final first = PlannerProcess();
+    final second = PlannerProcess();
+    final processes = [first, second];
+    var starts = 0;
+    final local = client(
+      candidates: [await program()],
+      follow: const Duration(milliseconds: 20),
+      start: (_, _) async {
+        await announce(token: 'token-of-start-${starts + 1}');
+        return processes[starts++];
+      },
+    );
+    await local.reach();
+    await addressFile().delete();
+
+    await until(() => starts == 2 && local.providers.isNotEmpty);
+
+    expect(first.signals, [ProcessSignal.sigterm]);
+    expect(second.signals, isEmpty);
+  });
+
+  // Harm: a planner the window started that moved to another port outlives the window.
+  test('a planner the window started that wrote a new address is still ended', () async {
+    final started = PlannerProcess();
+    final local = client(
+      candidates: [await program()],
+      start: starting(started),
+      follow: const Duration(milliseconds: 20),
+    );
+    await local.reach();
+    final before = local.providers.single.source;
+    await announce(token: 'token-after-a-restart-of-its-server');
+    await until(() => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
+
+    await local.end();
+
+    expect(started.signals, [ProcessSignal.sigterm]);
+  });
+
+  group('the output of a planner the window started', () {
+    late Directory logs;
+    late WindowLog before;
+
+    setUp(() async {
+      logs = await Directory.systemTemp.createTemp('planner-end-logs-');
+      before = windowLog;
+      windowLog = WindowLog(logs.path, level: ValueNotifier(LogLevel.debug), keepPrivate: (_) async {});
+    });
+
+    tearDown(() async {
+      windowLog = before;
+      await logs.delete(recursive: true);
+    });
+
+    List<String> logged() => [
+      for (final line in File(
+        '${logs.path}/${WindowLog.fileName}',
+      ).let((file) => file.existsSync() ? file.readAsLinesSync() : const <String>[]))
+        if (line.contains('porelo-planner: '))
+          line.substring(line.indexOf('porelo-planner: ') + 'porelo-planner: '.length),
+    ];
+
+    // Harm: a planner whose output nobody reads blocks once the pipe is full, and stops answering.
+    test('is read to its end, far past what a pipe holds', () async {
+      var pulled = 0;
+      Stream<List<int>> lines(String name) async* {
+        for (var i = 0; i < 4096; i++) {
+          pulled++;
+          yield utf8.encode('$name line $i of a planner that talks a lot ${'.' * 200}\n');
+        }
+      }
+
+      final started = PlannerProcess(stdout: lines('out'), stderr: lines('err'));
+      final local = client(candidates: [await program()], start: starting(started));
+      await local.reach();
+      await until(() => pulled == 2 * 4096);
+      await pumpEventQueue();
+
+      final said = logged();
+      expect(said.where((line) => line.startsWith('out line ')), hasLength(4096));
+      expect(said.where((line) => line.startsWith('err line ')), hasLength(4096));
+    });
+
+    // Harm: a planner that writes without ever ending a line has the window hold all of it.
+    test('is cut into lines of at most 64 KiB where it ends none', () async {
+      final output = StreamController<List<int>>();
+      final started = PlannerProcess(stdout: output.stream);
+      final local = client(candidates: [await program()], start: starting(started));
+      await local.reach();
+
+      for (var i = 0; i < 200; i++) {
+        output.add(utf8.encode('x' * 1024));
+      }
+      await pumpEventQueue();
+      final whileUnended = logged();
+      output.add(utf8.encode('\nlast\n'));
+      await output.close();
+      await pumpEventQueue();
+
+      expect(whileUnended, [for (var i = 0; i < 3; i++) 'x' * plannerOutputLine]);
+      expect(logged(), [
+        for (var i = 0; i < 3; i++) 'x' * plannerOutputLine,
+        'x' * (200 * 1024 - 3 * plannerOutputLine),
+        'last',
+      ]);
+    });
+  });
+
   // Harm: a planner that refuses to start, as one that does not know the option, leaves the place waiting in silence.
   test('a started planner that ends before it writes its address is said with its exit code at once', () async {
     final local = client(
@@ -237,5 +366,5 @@ Future<void> until(bool Function() condition) async {
 }
 
 extension<T> on T {
-  void let(void Function(T) use) => use(this);
+  R let<R>(R Function(T) use) => use(this);
 }

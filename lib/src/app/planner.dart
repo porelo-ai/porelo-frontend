@@ -56,6 +56,10 @@ typedef PlanningReport = Future<void> Function(
 /// Starts the planner at [executable] with [environment] added to the window's own, answering the process started.
 typedef StartPlanner = Future<Process> Function(String executable, Map<String, String> environment);
 
+/// The most of one line of a started planner's output the window holds before it logs it, in characters, so output
+/// that never ends a line is not held without limit.
+const plannerOutputLine = 64 * 1024;
+
 /// The planner's option that has it end once its standard input closes, as when the window that holds it ends.
 const plannerEndsWithInput = '--end-with-input';
 
@@ -224,6 +228,9 @@ class LocalPlanner extends ChangeNotifier
   /// The exit code of the planner this window started, where it ended before it said where it answers.
   int? _endedEarly;
 
+  /// The end of the planner this window started while it runs, which every caller meanwhile waits for.
+  Future<void>? _ending;
+
   @override
   String? get notReached => _notReached;
 
@@ -274,6 +281,11 @@ class LocalPlanner extends ChangeNotifier
     for (final program in programs) {
       try {
         _started = true;
+        // A planner started before whose address went is ended first, so two never run side by side.
+        if (_process case final before?) {
+          _process = null;
+          await _stop(before);
+        }
         _keep(await _start(program, {'XDG_RUNTIME_DIR': ?runtimeDirectory}));
         return null;
       } on ProcessException catch (error) {
@@ -303,8 +315,9 @@ class LocalPlanner extends ChangeNotifier
       final old = _source;
       _source = source;
       _address = address;
-      // The first address after the start is the started planner's: none answered before it.
-      if (_process != null && _startedAt == null && address != null) _startedAt = _answersAt(address);
+      // While the started planner runs, it holds the address file against any other, so an address read is its own,
+      // a new one included.
+      if (_process != null && address != null) _startedAt = _answersAt(address);
       if (address != null) _log = plannerLogOf(address) ?? _log;
       _missing = 0;
       _notReached = null;
@@ -461,6 +474,8 @@ class LocalPlanner extends ChangeNotifier
     _process = process;
     _startedAt = null;
     _endedEarly = null;
+    _intoTheLog(process.stdout, LogLevel.debug);
+    _intoTheLog(process.stderr, LogLevel.info);
     unawaited(
       process.exitCode.then((code) {
         if (!identical(_process, process)) return;
@@ -478,7 +493,9 @@ class LocalPlanner extends ChangeNotifier
   }
 
   @override
-  Future<void> end() async {
+  Future<void> end() => _ending ??= _end().whenComplete(() => _ending = null);
+
+  Future<void> _end() async {
     final process = _process;
     if (process == null) return;
     _process = null;
@@ -490,6 +507,11 @@ class LocalPlanner extends ChangeNotifier
       );
       return;
     }
+    await _stop(process);
+  }
+
+  /// Stops [process], a planner the window started, with SIGTERM and then SIGKILL, and says so in the window's log.
+  static Future<void> _stop(Process process) async {
     windowLog.info('Ending porelo-planner, which the window started.');
     try {
       await stopOwnedProcess(process);
@@ -510,18 +532,44 @@ class LocalPlanner extends ChangeNotifier
   }
 
   // Normal, so the planner gets a pipe for its input that closes when the window goes, a hard kill included, and
-  // answers its exit code; its output is read so it never blocks on a full pipe.
-  static Future<Process> _startWithItsInput(String executable, Map<String, String> environment) async {
-    final process = await Process.start(executable, const [plannerEndsWithInput], environment: environment);
-    _intoTheLog(process.stdout, LogLevel.debug);
-    _intoTheLog(process.stderr, LogLevel.info);
-    return process;
-  }
+  // answers its exit code.
+  static Future<Process> _startWithItsInput(String executable, Map<String, String> environment) =>
+      Process.start(executable, const [plannerEndsWithInput], environment: environment);
 
-  static void _intoTheLog(Stream<List<int>> output, LogLevel level) => output
-      .transform(const Utf8Decoder(allowMalformed: true))
-      .transform(const LineSplitter())
-      .listen((line) => windowLog.write(level, 'porelo-planner: $line'), onError: (Object _) {});
+  /// Reads [output] of a planner the window started into the window's log, line by line, so the planner never blocks
+  /// on a full pipe; a line longer than [plannerOutputLine] is logged in pieces of that length.
+  static void _intoTheLog(Stream<List<int>> output, LogLevel level) {
+    final pending = StringBuffer();
+    void say() {
+      var line = pending.toString();
+      pending.clear();
+      if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
+      windowLog.write(level, 'porelo-planner: $line');
+    }
+
+    output
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .listen(
+          (text) {
+            final parts = text.split('\n');
+            for (var i = 0; i < parts.length; i++) {
+              var part = parts[i];
+              while (pending.length + part.length > plannerOutputLine) {
+                final fits = plannerOutputLine - pending.length;
+                pending.write(part.substring(0, fits));
+                part = part.substring(fits);
+                say();
+              }
+              pending.write(part);
+              if (i < parts.length - 1) say();
+            }
+          },
+          onError: (Object _) {},
+          onDone: () {
+            if (pending.isNotEmpty) say();
+          },
+        );
+  }
 }
 
 enum _Look { found, notRunning, refused }

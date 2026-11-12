@@ -7,7 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 /// on its own clock.
 class PlannerProcess extends Fake implements Process {
   /// A planner that ends on SIGTERM unless [ignoresTerm], and always on SIGKILL.
-  PlannerProcess({this.ignoresTerm = false}) {
+  /// What it writes is [stdout] and [stderr], nothing where none is given.
+  PlannerProcess({this.ignoresTerm = false, Stream<List<int>>? stdout, Stream<List<int>>? stderr})
+    : stdout = stdout ?? const Stream.empty(),
+      stderr = stderr ?? const Stream.empty() {
     _input.stream.listen((_) {});
     _stdin = IOSink(_input.sink);
   }
@@ -44,9 +47,9 @@ class PlannerProcess extends Fake implements Process {
   @override
   IOSink get stdin => _stdin;
   @override
-  Stream<List<int>> get stdout => const Stream.empty();
+  final Stream<List<int>> stdout;
   @override
-  Stream<List<int>> get stderr => const Stream.empty();
+  final Stream<List<int>> stderr;
   @override
   Future<int> get exitCode => _exit.future;
 }

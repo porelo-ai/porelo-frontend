@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'window_log.dart';
 
-/// Ends the window on the first of [signals] as closing it does: [end] first, then [exit] with 0, also where [end]
-/// failed. Watching SIGTERM or SIGINT takes its default end away, so the window must end itself; a later signal while
-/// it ends changes nothing.
+/// Ends the window on the first of [signals]: [end] first, then [exit] with 0, also where [end] failed; nothing else
+/// the window raised is taken down here. Watching SIGTERM or SIGINT takes its default end away, so the window must end
+/// itself; a later signal while it ends changes nothing.
 void endOnSignals(
   Iterable<Stream<ProcessSignal>> signals, {
   required Future<void> Function() end,

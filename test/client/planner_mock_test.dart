@@ -48,12 +48,10 @@ void main() {
       runtimeDirectory: runtime.path,
       candidates: [planner],
       // The mock mode, and a process the test can stop. Every start is kept, so a second one is counted and stopped
-      // too; its output is drained so it never blocks on a full pipe.
+      // too; the window reads its output.
       start: (executable, environment) async {
         final process = await Process.start(executable, ['--mock'], environment: environment);
         started.add(process);
-        process.stdout.drain<void>().ignore();
-        process.stderr.drain<void>().ignore();
         return process;
       },
       wait: const Duration(seconds: 60),

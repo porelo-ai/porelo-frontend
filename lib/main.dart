@@ -146,7 +146,7 @@ Future<PoreloApp> _compose() async {
   await notifications.load();
   final organizationSource = PoreloOrganizationSource();
   final planner = LocalPlanner.of(machines, logLevel: settings.logLevel);
-  // A planner the window started ends with it also on SIGTERM and SIGINT, as on closing it; Windows starts none.
+  // On SIGTERM and SIGINT the planner the window started is ended before the window exits; Windows starts none.
   if (!Platform.isWindows) {
     endOnSignals([ProcessSignal.sigterm.watch(), ProcessSignal.sigint.watch()], end: planner.end, exit: exit);
   }
