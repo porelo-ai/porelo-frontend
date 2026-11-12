@@ -52,5 +52,4 @@ judged by its observed effect - the board, the files, the forge - never by what 
 ## To be checked
 
 - The order of the steps, fixed with the planner's side once its list of steps and reads stands.
-- The cost of one run, measured from its tokens at the provider's current price.
 - Every tool the walk needs on the VM, checked there before the first run.
