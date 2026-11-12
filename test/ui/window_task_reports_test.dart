@@ -127,7 +127,7 @@ void main() {
       'source': 'provider',
       'status': 401,
       'unpushed': 2,
-      'lastAnswer': 'Outcome: blocked.',
+      'answer': 'Outcome: blocked.',
     });
     reports.sweep();
     await reports.idle;
@@ -186,7 +186,7 @@ void main() {
     final (starts, reports) = window();
     final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
     await reports.idle;
-    machine.end(started.container, {'at': 'while closed', 'finished': true, 'lastAnswer': 'Done.'});
+    machine.end(started.container, {'at': 'while closed', 'finished': true, 'answer': 'Done.'});
 
     final (_, reopened) = window(kept: await loaded());
     reopened.sweep();

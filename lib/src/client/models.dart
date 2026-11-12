@@ -1113,7 +1113,7 @@ class AgentEnded {
     source: _string(map, 'source'),
     status: map['status'] is int ? map['status'] as int : null,
     unpushed: _int(map, 'unpushed'),
-    lastAnswer: _string(map, 'lastAnswer'),
+    lastAnswer: _string(map, 'answer'),
     result: map['result'] is Map<String, dynamic> ? TaskResult.from(map['result'] as Map<String, dynamic>) : null,
   );
 
@@ -1135,7 +1135,7 @@ class AgentEnded {
   /// How many changed files never reached the gate.
   final int unpushed;
 
-  /// The agent's last answer at the end of the run, when reported.
+  /// The agent's last answer at the end of the run, as Tasks1's `answer` gives it; empty where none was written.
   final String lastAnswer;
 
   /// The result file the task was asked to hand back and how it stood at the end; null where none was asked.

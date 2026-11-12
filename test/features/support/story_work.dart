@@ -118,7 +118,7 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
           'at': 'instant',
           'finished': false,
           'error': 'Needs a repository decision.',
-          'lastAnswer': 'Outcome: blocked - needs the repository key.',
+          'answer': 'Outcome: blocked - needs the repository key.',
         },
       );
     case 'ended blocked':
