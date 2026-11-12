@@ -267,7 +267,8 @@ cleanup() {
     tasks=$(on_vm "tr ' ' '\\n' <~/$run/tasks.txt 2>/dev/null" </dev/null | grep -Ex '[A-Za-z0-9][A-Za-z0-9._-]{2,}' || true)
     if [ -n "$taken" ]; then
         # Judged by what porelod lists afterwards: the clear's exit also counts what it could not reach of the run's vault.
-        as_the_person_on_vm "${in_vault:-}porelo project clear --yes '$porelo_project'" </dev/null >/dev/null 2>&1 || true
+        # The project is the run's alone, so a task of it still up (a discussion nobody ended) goes with it.
+        as_the_person_on_vm "${in_vault:-}porelo project clear --yes --force '$porelo_project'" </dev/null >/dev/null 2>&1 || true
         [ "$(placed)" != True ] || left+=("$porelo_project placed on $vm (porelo project clear --yes $porelo_project there)")
     fi
     [ -z "${t0_of[$issue_repo]:-}" ] || take_back_the_tasks_work "$tasks"
