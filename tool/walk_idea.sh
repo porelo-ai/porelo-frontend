@@ -4,7 +4,7 @@
 #
 #   tool/walk_idea.sh check --vm USER@VM --vm-key FILE [--planner DIR]
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
-#                           [--porelo-project foo-project] [--project NAME] [--issue-repo foo-1] [--budget-minutes 180]
+#                           [--porelo-project foo-project] [--mail keep|drop] [--project NAME] [--issue-repo foo-1] [--budget-minutes 180]
 #
 # `check` says what the VM lacks and changes nothing. `run` checks first, then seeds the existing repositories of ORG:
 # the seed holds one directory per repository, named as it is, whose files are written over that repository's at the
@@ -36,7 +36,7 @@ usage() {
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-vm='' vm_key='' planner='' seed='' org='' project='' issue_repo=foo-1 porelo_project=foo-project report='' budget=180
+vm='' vm_key='' planner='' seed='' org='' project='' issue_repo=foo-1 porelo_project=foo-project mail=keep report='' budget=180
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
@@ -47,6 +47,7 @@ while [ $# -gt 0 ]; do
     --org) org=$2 ;;
     --project) project=$2 ;;
     --porelo-project) porelo_project=$2 ;;
+    --mail) mail=$2 ;;
     --issue-repo) issue_repo=$2 ;;
     --report) report=$2 ;;
     --budget-minutes) budget=$2 ;;
@@ -55,6 +56,7 @@ while [ $# -gt 0 ]; do
     shift 2
 done
 case "$mode" in check | run) ;; *) usage ;; esac
+case "$mail" in keep | drop) ;; *) usage ;; esac
 [ -n "$vm" ] && [ -n "$vm_key" ] || usage
 case "$budget" in '' | *[!0-9]*) echo "walk: --budget-minutes is a whole number of minutes" >&2 && exit 64 ;; esac
 # Every task of the walk runs this agent and model: the discussion, the builder and the reader.
@@ -404,6 +406,13 @@ for hunk in hunks:
     lines[at[0]:at[0] + n] = hunk["new"]
 sys.stdout.write("\n".join(lines))
 EOF
+        if [ "$mail" = drop ] && [ "$path" = "$porelo_project/project.yml" ]; then
+            # A laptop names no homeserver of its own for an organization's project: the run's project goes without mail.
+            python3 -I -c 'import re, sys
+text = open(sys.argv[1]).read()
+sys.stdout.write(re.sub(r"(?m)^mail:\n(?:[ \t].*\n?|\n)*", "", text))' "$work/applied" >"$work/no-mail"
+            mv "$work/no-mail" "$work/applied"
+        fi
         on_vm "cat >~/$run/seed/'$repository.files/$file'" <"$work/applied"
     done
     as_the_person_on_vm "set -e; cd ~/$run/seed; cp -R '$repository.files/.' '$repository/'; cd '$repository'; git add -A
