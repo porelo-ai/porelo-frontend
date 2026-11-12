@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F479",
   "title": "A Planner The Window Started Ends With It",
-  "state": "Accepted",
+  "state": "Analyzed",
   "size": "M",
   "priority": "Medium",
   "rank": 1,
@@ -14,8 +14,8 @@
 }
 ```
 
-**Why this size.** the window's start of the planner, its end of it on every way the window ends, and a test of each;
-a hard kill of the window is covered only with the planner's help.
+**Why this size.** M: the planner's start keeps what it started, the window's end runs on closing and on SIGTERM and
+SIGINT, which it does not catch today, and a test of each; no contract changes on the window's side.
 
 **What must be true.** A person who ends the window finds no planner left running that the window started, and can
 start another planner at once.
@@ -26,8 +26,38 @@ The window starts the installed planner, detached, when none serves (`LocalPlann
 ended, that planner kept running and kept `planner.json` under the runtime directory, so a planner started next, for
 instance one built from source, could not start until it was killed by hand.
 
+## Plan
+
+- `LocalPlanner` (`lib/src/app/planner.dart`): `_startDetached` keeps the `Process` it started (`StartPlanner` answers
+  it), and the address the planner then writes (`_look`, the port and token of `planner.json`) as the one it started.
+  A planner the window found serving keeps none, so nothing below touches it.
+- `LocalPlanner.end()`: where it started one, and `planner.json` still names the address it started (else another
+  planner took its place and is left alone), it sends SIGTERM, waits two seconds for the process to go and then
+  sends SIGKILL, as `owned_process.dart` does for an owned child; it says what it ended in the window's log.
+- The window's ends call it: `_letGo` in `lib/src/ui/shell.dart` after the person agreed to leave, and new
+  `ProcessSignal.sigterm` and `sigint` watches in `lib/main.dart`, which run the same end and then `exit(0)`
+  (watching them takes their default end away, so they must end the window themselves). `q` in `flutter run` ends
+  the process without either, as a hard kill does.
+- Tests, red first: `test/client/planner_end_test.dart` with a fake start and a fake address file: a planner the
+  window started is ended on `end()`; one it found serving is not; one whose address file names another address
+  is not; one that ignores SIGTERM is killed. The signal watches get a test of the function they call, not of a
+  real signal.
+
+## Acceptance
+
+- After closing the window, or SIGTERM or SIGINT to it, no planner the window started runs, and a planner started
+  next writes its address at once.
+- A planner that served before the window started still serves after it ended.
+
+## Open questions
+
+- A hard kill of the window (SIGKILL, a crash, `q` in `flutter run`) runs no end of the window's. Ending the planner
+  then needs the planner's part: it ends when the pipe of the window that started it closes. Is that asked of
+  porelo-planner as its own issue, or is the planner left running after a hard kill?
+
 ## To be checked
 
-- Which ways of ending the window run its own end: closing it, `q` in `flutter run` (which calls `exit`), SIGTERM,
-  SIGINT. A hard kill runs none, so only a planner that ends on its own when the window's pipe closes (the planner's
-  part, if wanted) is ended then.
+- Whether the planner removes `planner.json` on SIGTERM; if it does not, `end()` removes it only while it still names
+  the address the window started.
+- Whether `Process.kill` reaches a process started with `ProcessStartMode.detached` in the Dart this window builds
+  with; else `Process.killPid` on its pid.
