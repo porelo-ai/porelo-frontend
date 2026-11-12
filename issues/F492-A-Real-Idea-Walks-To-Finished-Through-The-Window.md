@@ -36,10 +36,15 @@ judged by its observed effect - the board, the files, the forge - never by what 
   its result coming back, each with its read (its board and work answers, the store's files, the forge).
 - After each step the driver reads the effect itself: the board through the planner's own read, the project's files
   in its repository, the task and its branch through `porelo` and the forge.
-- The task runs `pi` with `z-ai/glm-5.3-flash`, as the window rehearsal does. The forge token of the test identity
+- The order, each step's reads holding before the next: the window starts and names the project; the Idea is made
+  in a discussion task; it is handed in as a story with issues in Idea; a person moves each issue to Backlog; the work
+  is proposed and ordered; the builder task is started and its STARTED posted; the agent works under a deadline; its
+  ENDED is posted; the offered reader task is started and ended; a person sets the story Finished; then the clean-up.
+- All three tasks - discussion, builder, reader - run `pi` with `z-ai/glm-5.3-flash`, as the window rehearsal does. The forge token of the test identity
   goes, as there, on standard input alone into a vault of the run's own, removed on every ending.
-- Everything the run makes in the test organization carries the run's name - the project's issues, the task's branch
-  and pull request - and the run deletes exactly those at its end, after a failure too, and exits non-zero naming
+- The clean-up runs on every ending, after a failure too: the task branches and pull requests carrying the run's name
+  are deleted, and each repository the planner's store wrote to gets one new commit restoring the tree it had when the
+  run started, never a force push; the run's vault and its copy on the VM go with it. It exits non-zero naming
   anything it left.
 - A test script: no red-first test and no unit suite of its own; its proof is the run on the VM.
 
@@ -51,5 +56,5 @@ judged by its observed effect - the board, the files, the forge - never by what 
 
 ## To be checked
 
-- The order of the steps, fixed with the planner's side once its list of steps and reads stands.
+- Whether a test repository's own workflow refuses the restoring commit, which deletes the run's statistics files.
 - Every tool the walk needs on the VM, checked there before the first run.
