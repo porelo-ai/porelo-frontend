@@ -102,6 +102,27 @@ void main() {
       expect(settings.planningOffer('laptop', 'porelo-demo-porelo'), isNull);
     });
 
+    // Harm: a start that made its container and then failed reads as a started task, and its reason is lost.
+    test('a start that made its task but failed is a planning refusal in its words, and keeps no offer', () async {
+      final order = (await plannedOrders()).first;
+      machine.answer = const StartProgress(
+        container: 'porelo-demo_porelo',
+        exitCode: 70,
+        action: StartAction.create,
+        output: ['porelo: the agent could not be started'],
+      );
+
+      await expectLater(
+        starts()(MockPlanningSource('planner'), 'demo', 'ST291', order),
+        throwsA(
+          isA<PlanningRefusal>()
+              .having((refusal) => refusal.name, 'name', 'StartRefused')
+              .having(planningFailureWords, 'words', contains('porelo: the agent could not be started')),
+        ),
+      );
+      expect(settings.planningOffer('laptop', 'porelo-demo_porelo'), isNull);
+    });
+
     // Harm: a named refusal of the machine reaches the screen as a crash or a generic failure.
     test('a named refusal of the machine is a planning refusal with its name and words', () async {
       final order = (await plannedOrders()).first;

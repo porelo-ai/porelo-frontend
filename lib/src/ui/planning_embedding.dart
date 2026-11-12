@@ -243,7 +243,12 @@ class WindowTaskStarts {
       (agent: task.agent, model: task.model);
 
   // A start that went through answers CREATE or RESUME; an older Porelo bringing a task back answers no action, exit 0.
-  static bool _started(StartProgress answer) => answer.action == null ? answer.exitCode == 0 : answer.action!.starts;
+  // One that made its task and then failed answers its action with an exit code other than 0: no task stands.
+  static bool _started(StartProgress answer) => switch ((answer.action, answer.exitCode)) {
+    (_, final code?) when code != 0 => false,
+    (null, final code) => code == 0,
+    (final action?, _) => action.starts,
+  };
 }
 
 /// How the window tells one end of a task's agent from another: when it ended, whether it finished, what it left.
