@@ -63,10 +63,23 @@ class _SessionViewState extends State<SessionView> {
 
   Session get session => widget.session;
 
+  /// Whether the terminal held the keyboard when last told: a report goes out only on a change.
+  late bool _focused;
+
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_moved);
+    _focused = widget.focusNode.hasFocus;
+    widget.focusNode.addListener(_focusChanged);
+  }
+
+  /// The far end hears when the terminal gains and loses the keyboard, where it asked to.
+  void _focusChanged() {
+    final now = widget.focusNode.hasFocus;
+    if (now == _focused) return;
+    _focused = now;
+    session.focused(gained: now);
   }
 
   /// Only a move changes it: lines written below move nothing, so they neither pull the view down nor turn it back.
@@ -83,15 +96,21 @@ class _SessionViewState extends State<SessionView> {
     widget.focusNode.requestFocus();
   }
 
-  /// Another session shown in this one's place starts with nothing selected.
+  /// Another session shown in this one's place starts with nothing selected; another focus node is listened to.
   @override
   void didUpdateWidget(SessionView old) {
     super.didUpdateWidget(old);
     if (old.session != widget.session) _selection.clearSelection();
+    if (old.focusNode != widget.focusNode) {
+      old.focusNode.removeListener(_focusChanged);
+      widget.focusNode.addListener(_focusChanged);
+      _focused = widget.focusNode.hasFocus;
+    }
   }
 
   @override
   void dispose() {
+    widget.focusNode.removeListener(_focusChanged);
     _selection.dispose();
     _scroll
       ..removeListener(_moved)

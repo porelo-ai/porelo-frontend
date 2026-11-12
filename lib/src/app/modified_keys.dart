@@ -45,3 +45,32 @@ class ModifiedKeys implements TerminalInputHandler {
     return '\x1b[27;$modifiers;13~';
   }
 }
+
+/// Sends the cursor and page keys with a modifier as xterm writes them, the one form tmux and the programs in it read
+/// whatever else holds the key: `ESC [ 1 ; m A` for an arrow, Home and End, `ESC [ 5 ; m ~` for the page keys, where m
+/// is 1 plus 1 for Shift, 2 for Alt and 4 for Ctrl.
+///
+/// The terminal's own table sends Alt with an arrow as Ctrl with it, a habit of other terminals; a plain xterm, which
+/// Porelo sets a task's tmux up for, does not, so an agent read Alt+Up as Ctrl+Up. A key with no modifier is left to
+/// the table, which knows the far end's cursor mode.
+class ModifiedCursorKeys implements TerminalInputHandler {
+  static const _final = <TerminalKey, String>{
+    TerminalKey.arrowUp: 'A',
+    TerminalKey.arrowDown: 'B',
+    TerminalKey.arrowRight: 'C',
+    TerminalKey.arrowLeft: 'D',
+    TerminalKey.end: 'F',
+    TerminalKey.home: 'H',
+  };
+
+  static const _tilde = <TerminalKey, int>{TerminalKey.pageUp: 5, TerminalKey.pageDown: 6};
+
+  @override
+  String? call(TerminalKeyboardEvent event) {
+    final modifiers = 1 + (event.shift ? 1 : 0) + (event.alt ? 2 : 0) + (event.ctrl ? 4 : 0);
+    if (modifiers == 1) return null;
+    if (_final[event.key] case final letter?) return '\x1b[1;$modifiers$letter';
+    if (_tilde[event.key] case final number?) return '\x1b[$number;$modifiers~';
+    return null;
+  }
+}

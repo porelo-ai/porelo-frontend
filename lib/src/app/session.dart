@@ -91,7 +91,11 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     this.startedAt,
   }) : _open = open ?? openHere {
     terminal = Terminal(maxLines: scrollback)
-      ..inputHandler = CascadeInputHandler(<TerminalInputHandler>[_modifiedKeys, defaultInputHandler])
+      ..inputHandler = CascadeInputHandler(<TerminalInputHandler>[
+        _modifiedKeys,
+        ModifiedCursorKeys(),
+        defaultInputHandler,
+      ])
       ..onOutput = _typed
       ..onResize = _resized
       ..onPrivateOSC = _hyperlink;
@@ -255,6 +259,12 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   /// asked for the mouse, since the pseudoconsole draws the screen again rather than passing on
   /// what tmux wrote; so the terminal would answer the wheel itself, with nothing to scroll.
   void wheel({required bool up}) => type('\x1b[<${up ? 64 : 65};1;1M');
+
+  /// Tells the far end that this terminal gained or lost the keyboard, as xterm does once it asked for it
+  /// (`ESC [ ? 1004 h`): tmux passes it on to the program in the task.
+  void focused({required bool gained}) {
+    if (terminal.reportFocusMode) type(gained ? '\x1b[I' : '\x1b[O');
+  }
 
   /// Sends what somebody typed. Does nothing once it is over, rather than throwing into a widget.
   void type(String input) {
