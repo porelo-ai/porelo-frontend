@@ -34,9 +34,17 @@ void letGoOnSignals(
 /// Starts each of [letGo] at once, and completes once all of them are done or after [within], whichever comes first;
 /// one that hangs or throws stops none of the others.
 Future<void> letGoTogether(List<Future<void> Function()> letGo, {Duration within = const Duration(seconds: 5)}) {
-  final all = Future.wait<void>([
+  final ended = Completer<void>();
+  final bound = Timer(within, () {
+    if (!ended.isCompleted) ended.complete();
+  });
+  Future.wait<void>([
     // What could not be let go is found again at the next start; the person asked for the end.
     for (final each in letGo) Future<void>.sync(each).catchError((Object _) {}),
-  ]);
-  return Future.any(<Future<void>>[all, Future<void>.delayed(within)]);
+  ]).whenComplete(() {
+    // The bound ends with the work: no timer outlives what it bounds.
+    bound.cancel();
+    if (!ended.isCompleted) ended.complete();
+  }).ignore();
+  return ended.future;
 }
