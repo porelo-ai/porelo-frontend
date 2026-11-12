@@ -225,6 +225,8 @@ class LoopbackCarrier {
   void stopCarrying() {
     carrying = false;
     for (final carried in [..._carried]) {
+      // Cut here: how its relay ends says nothing of the host any more.
+      carried.cut = true;
       carried.end();
     }
   }
@@ -266,6 +268,9 @@ class _Carried {
   StreamSubscription<List<int>>? _output;
   bool _over = false;
   bool _starting = true;
+
+  /// Whether the carrier cut it, on a reconnect or a release: its relay's end is not reported then.
+  bool cut = false;
   final _exited = Completer<void>();
 
   /// Completes once its process exited, or none was started: only then is its place under the caps free.
@@ -308,7 +313,7 @@ class _Carried {
     // hold the connection.
     unawaited(
       process.exitCode.then<void>((code) {
-        carrier.onExit?.call(role, code);
+        if (!cut) carrier.onExit?.call(role, code);
         Timer(const Duration(seconds: 2), end);
       }, onError: (Object _) => end()),
     );

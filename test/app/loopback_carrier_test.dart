@@ -348,6 +348,36 @@ void main() {
     });
   }
 
+  // Harm: a connection cut by a reconnect or a release reports its relay's end afterwards, and the card says a fault of
+  // the host that is no longer true, or tells a tunnel already gone.
+  for (final (how, cut) in <(String, Future<void> Function(LoopbackCarrier))>[
+    ('a reconnect', (held) async => held.stopCarrying()),
+    ('a release', (held) => held.release()),
+  ]) {
+    test('a connection cut by $how does not report how its relay ended', () async {
+      final port = await freePort();
+      final exits = <int>[];
+      final held = LoopbackCarrier(
+        {port: CarriedRole.forgeGit},
+        carry: carry,
+        onExit: (CarriedRole role, int code) => exits.add(code),
+      )..carrying = true;
+      carriers.add(held);
+      await held.hold();
+      final client = await Socket.connect(InternetAddress.loopbackIPv4, port);
+      addTearDown(client.destroy);
+      await until(() => children.isNotEmpty);
+      children.single.lingers = true;
+
+      final cutting = cut(held);
+      children.single.exitWith(69);
+      await cutting;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(exits, isEmpty);
+    });
+  }
+
   // Harm: a released card's ssh children still run with the person's key after release answered, and their places
   // under the caps go to new children meanwhile.
   test('release waits for its children to exit, and a place is free only once its child exited', () async {
@@ -456,6 +486,12 @@ class _Child extends Fake implements Process {
 
   /// Exits now, whatever it was told before.
   void exit() => end();
+
+  /// Exits now with [code], as the host's relay command does.
+  void exitWith(int code) {
+    unawaited(_out.close());
+    if (!_exit.isCompleted) _exit.complete(code);
+  }
 
   /// How many bytes it produced while flooding.
   int produced = 0;
