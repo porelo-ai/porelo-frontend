@@ -600,6 +600,7 @@ class Task {
     this.result,
     this.run,
     this.callerKey = '',
+    this.landed,
     this.handInLimit,
     this.files,
     this.builds,
@@ -622,6 +623,10 @@ class Task {
   /// The key its starter gave Start, kept from the task's creation; empty where none was given or the machine keeps
   /// none.
   final String callerKey;
+
+  /// Each branch its work was forwarded to, as Porelo gives it (`branch`, `ref`, `remote`, `commit`), to be passed on
+  /// unchanged: empty while the work waits at the gate, and null from a machine that does not say.
+  final List<Map<String, dynamic>>? landed;
 
   /// The bytes one file handed to this task may have. Null from a machine without hand-in, which
   /// is no limit of zero.
@@ -693,6 +698,11 @@ class Task {
         : null,
     run: map['run'] is String ? map['run'] as String : null,
     callerKey: _string(map, 'callerKey'),
+    landed: map['landed'] is List
+        ? List.unmodifiable(
+            (map['landed'] as List).whereType<Map<String, dynamic>>().map(Map<String, dynamic>.unmodifiable),
+          )
+        : null,
     handInLimit: map['handInLimit'] is num ? (map['handInLimit'] as num).toInt() : null,
     files: map['files'] is List
         ? (map['files'] as List).whereType<Map<String, dynamic>>().map(HandedFile.from).toList()

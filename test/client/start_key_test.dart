@@ -54,4 +54,22 @@ void main() {
     expect(Task.from(<String, dynamic>{'name': 'a', 'callerKey': 'offer-1'}).callerKey, 'offer-1');
     expect(Task.from(<String, dynamic>{'name': 'a'}).callerKey, isEmpty);
   });
+
+  test('a listed task gives the branches its work landed on as Porelo names them, none while it waits', () {
+    final entry = <String, dynamic>{
+      'branch': 'porelo/foo-1',
+      'ref': 'refs/porelo/landed/foo-1/porelo/foo-1',
+      'remote': 'origin/landed/foo-1/porelo/foo-1',
+      'commit': 'a' * 40,
+    };
+    expect(
+      Task.from(<String, dynamic>{
+        'name': 'a',
+        'landed': [entry],
+      }).landed,
+      [entry],
+    );
+    expect(Task.from(<String, dynamic>{'name': 'a', 'landed': <Object>[]}).landed, isEmpty);
+    expect(Task.from(<String, dynamic>{'name': 'a'}).landed, isNull);
+  });
 }
