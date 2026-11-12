@@ -5,6 +5,7 @@
 # Named as the Linux packages are: `<version>~snapshot.<run>` from `main`, `<version>` from a tag
 # `v<version>`. Where GITHUB_ENV is set, the version and run go there as PORELO_WINDOWS_VERSION and
 # PORELO_WINDOWS_RUN for the steps after this one; the last line printed is the version either way.
+#Requires -Version 7.0
 param(
   [string] $Release = 'build/windows/x64/runner/Release'
 )
@@ -17,6 +18,7 @@ if ($env:GITHUB_REF -like 'refs/tags/v*') { $version = $base } else { $version =
 
 # `porelo-host.exe`, beside the interface and of its version: the interface calls this copy by its path.
 dart pub get --directory=packages/porelo_host | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "dart pub get refused packages/porelo_host (exit $LASTEXITCODE)" }
 dart compile exe packages/porelo_host/bin/porelo_host.dart "-Dporelo_host.version=$version" -o "$Release/porelo-host.exe"
 if ($LASTEXITCODE -ne 0) { Write-Error "porelo-host did not compile (exit $LASTEXITCODE)"; exit 1 }
 $said = & "$Release/porelo-host.exe" --version
