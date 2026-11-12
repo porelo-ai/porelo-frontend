@@ -588,8 +588,8 @@ class _ShellState extends State<Shell> {
   }
 
   /// The watched machine that provides [source], if one still is.
-  Machine? _planningMachine(PlanningSource source) => switch (widget.planning) {
-    final planning? => planningMachineOf(widget.machines, planning.client, source),
+  Machine? _planningMachine(PlanningSource source, {String? project}) => switch (widget.planning) {
+    final planning? => planningMachineOf(widget.machines, planning.client, source, project: project),
     null => null,
   };
 
@@ -4019,7 +4019,7 @@ class _ShellState extends State<Shell> {
   void _openPlanningTask(PlanningBoard board, String name) {
     if (!_beforePlanningNavigation(Section.work, () => _openPlanningTask(board, name))) return;
     if (board.disposed) return;
-    final machine = _planningMachine(board.backend);
+    final machine = _planningMachine(board.backend, project: board.project);
     if (machine == null) return;
     final fleet = widget.machines.of(machine);
     final task = fleet.tasks.where((task) => task.name == name && task.project == board.project).firstOrNull;
@@ -4032,7 +4032,7 @@ class _ShellState extends State<Shell> {
   }
 
   String? _planningTaskUnavailable(PlanningBoard board, String name) {
-    final machine = _planningMachine(board.backend);
+    final machine = _planningMachine(board.backend, project: board.project);
     if (machine == null || board.disposed) return 'This window no longer knows the machine for $name.';
     final task = widget.machines
         .of(machine)
@@ -4272,7 +4272,7 @@ class _ShellState extends State<Shell> {
             onStarted: _storyWorkStarted,
             onStop: _storyWorkStopped,
           ),
-          agents: MachinePlanningAgents(widget.machines, planning.client),
+          agents: MachinePlanningAgents(widget.machines, planning.client, project: () => widget.shell.place.project),
         ),
       },
     ),

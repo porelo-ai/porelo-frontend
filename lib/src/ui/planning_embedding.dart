@@ -304,10 +304,20 @@ EmbeddedPlanning plannerPlanning(LocalPlanner planner, Machines machines) {
 /// The watched machine that [client] names as the provider of [source], if one still is.
 ///
 /// A provider is named as the machine it stands for, so the window finds the tasks of a run where the machine keeps
-/// them.
-Machine? planningMachineOf(Machines machines, PlanningClient client, PlanningSource source) {
+/// them. A provider named as no machine, as the planner on the path is, has its tasks where the window starts them:
+/// on the machine that carries [project], by default the client's chosen one.
+Machine? planningMachineOf(Machines machines, PlanningClient client, PlanningSource source, {String? project}) {
   final name = client.providers.where((provider) => identical(provider.source, source)).firstOrNull?.name;
-  return name == null ? null : machines.all.where((machine) => machine.name == name).firstOrNull;
+  if (name == null) return null;
+  final named = machines.all.where((machine) => machine.name == name).firstOrNull;
+  if (named != null) return named;
+  final carried = project ?? client.chosenProject;
+  if (carried == null) return null;
+  return plannedTaskMachine(
+    machines.all,
+    machines.all.isEmpty ? null : machines.current,
+    (machine) => machines.of(machine).listedProjects.any((each) => each.name == carried),
+  );
 }
 
 /// The planning screen's place as this window's own place, kept in the window's history.
@@ -398,8 +408,14 @@ class WindowTaskChanges implements PlanningTaskChanges {
 
 /// The agents the machine of a provider offers a start, shown as the window's start shows them.
 class MachinePlanningAgents implements PlanningAgents {
-  /// Finds each provider's machine among [machines] by the name [client] gives it.
-  const MachinePlanningAgents(this.machines, this.client);
+  /// Finds each provider's machine among [machines] by the name [client] gives it, or by the [project] the person
+  /// plans.
+  const MachinePlanningAgents(this.machines, this.client, {this.project = _noProject});
+
+  static String? _noProject() => null;
+
+  /// The project the person plans, whose machine a planner named as no machine starts on.
+  final String? Function() project;
 
   /// The watched machines.
   final Machines machines;
@@ -409,7 +425,7 @@ class MachinePlanningAgents implements PlanningAgents {
 
   @override
   Future<PlanningAgentList> on(PlanningSource source) async {
-    final machine = planningMachineOf(machines, client, source);
+    final machine = planningMachineOf(machines, client, source, project: project());
     if (machine == null) throw StateError('This window no longer knows the machine of ${source.label}.');
     try {
       final listed = await machines.of(machine).backend.agentsOn();
