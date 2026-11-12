@@ -14,49 +14,41 @@
 }
 ```
 
-**Why this size.** no product code changes, but a new acceptance scenario on the VM against GitHub, with
-its support for a token and a test repository; it waits for both from the operator, as [F59](README.md#f59) does.
-
-**Blocked by** the test organization and its token from the operator.
+**Why this size.** no product code changes, but a new acceptance scenario on the VM against GitHub, with its
+support for the run's token and a branch made for the run; M.
 
 **What must be true.** Forwarding approved work to a branch the person chose from the repository's
-own lands on that branch at GitHub.
+own lands on that branch at GitHub, and on no other.
 
 ## Why
 
 The branches offered, the default first, and a new one typed and checked, are already built; they
 have not been measured against GitHub.
 
+## How it stands
+
+The test organization `porelo-ai-test` and its token exist now; the idea walk runs against them on the local VM.
+
 ## Plan
 
-- **Against real GitHub, in a CI leg.** In a test organisation of its own (`porelo-ai-test`), with
-  its test repositories made once by a script, and a fine-grained token scoped to that organisation
-  only, kept as the Actions secret `PORELO_TEST_GITHUB_TOKEN` of this repository. The leg runs in the
-  Build's job against a leased machine, on a push to `main` or by hand, never for a pull request,
-  and skips itself while the token is missing. The operator makes the organisation and the token.
-- **What is measured.** `_ShellState._approve` in `lib/src/ui/shell.dart` asks `_branchesFor`
-  (which reads `Forge.branches` and the default branch from `Forge.repository`), then
-  `askWhichBranch` (`lib/src/ui/gate_view.dart`), then `Gate.approve(backend, branch)` in
-  `lib/src/app/gate.dart`. Nothing of this changes unless the measurement finds a fault.
-- **A waiting push on the VM.** No integration scenario reaches the gate today. A step makes one
-  through `onTheTestMachine` (`integration_test/support/remote.dart`): a task in a project
-  following the test repository commits and pushes, so its push waits at the gate. The task's
-  shell does it; no agent's work is needed.
-- **GitHub in the run.** A support file in `integration_test/support/` reads the token and the test
-  repository from the environment, as `E2e` in `integration_test/support/e2e.dart` reads
-  `PORELO_E2E_HOST`, and skips the scenario when they are not set. It asks GitHub's API for a
-  branch's head commit, and deletes the typed branch afterwards. `tool/e2e.sh` passes the variables
-  through.
-- **Red first.** A scenario in `integration_test/reaching_a_machine.feature`, "approved work
-  forwarded to a branch chosen from the repository's lands on it at GitHub": open the waiting push,
-  forward it through "Forward it upstream…" onto an existing branch, and find the commit at the
-  head of that branch at GitHub and not on the default branch. A second one types a new branch.
-- **The run.** On the VM against Porelo's handover, named in the result, as the other acceptance
-  scenarios are.
+- **On the VM, through the walk's script.** `tool/walk_idea.sh run --test forwarding_to_a_branch` runs
+  `integration_test/forwarding_to_a_branch_test.dart` there, without a planner or a seed. It makes the branch
+  `walk-<run>-existing` of the first issue repository (foo-1) at its default tip, names `walk-<run>-typed` as the
+  one to type, and deletes both at its ending, as it deletes every branch named for the run.
+- **GitHub in the run.** The window's own forge list reaches GitHub through `PORELO_FORGE_TOKEN`, taken from the
+  run's vault into the window's environment alone; the steps read GitHub with `git ls-remote` through the run's
+  credential helper, so no token is in the test.
+- **What is measured.** `_ShellState._approve` in `lib/src/ui/shell.dart` asks `_branchesFor`, then
+  `askWhichBranch` (`lib/src/ui/gate_view.dart`), then `Gate.approve` (`lib/src/app/gate.dart`), whose porelod
+  pushes. Nothing of this changes unless the measurement finds a fault.
+- **A waiting push.** A task of foo-project in foo-1, started from the window unattended, commits one file and
+  pushes it to its gate, as the move rehearsal's gate step does; the person reviews it at the gate.
+- **The scenarios.** One forwards onto the branch the repository has, one onto a new branch typed. Each checks that
+  the dialog offers the default branch first, that GitHub has the chosen branch at the reviewed commit, and that the
+  default branch did not move.
 
 ## Acceptance
 
 - On the VM against Porelo's handover, approved work forwarded to an existing branch and to a newly
   typed one arrives on that branch at GitHub. Seen to fail: the commit missing from the chosen branch
   at GitHub, or landing on another.
-
