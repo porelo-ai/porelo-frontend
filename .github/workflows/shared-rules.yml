@@ -16,7 +16,7 @@ permissions:
 
 jobs:
     check:
-        name: The shared rules are unchanged copies, nothing cites an issue, and the documents hold
+        name: The shared rules are unchanged copies, nothing cites an issue, the issue heads and the documents hold
         runs-on: ubuntu-26.04
         timeout-minutes: 30
         steps:
@@ -37,6 +37,12 @@ jobs:
                   java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-citations .
                   java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-readmes .
                   java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-doc-site doc mkdocs.yml
+
+            # Every issue head held to issue-1.json and each index to its heads, on the checked-out commit, never on a
+            # working tree: a head the planner's board refuses, one without a size or with a rank of null, is named
+            # here by its file and its field.
+            - name: The issue heads
+              run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main issues check issues
 
             - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
               with:
