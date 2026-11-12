@@ -5,6 +5,7 @@
 #   tool/play_story.sh check --story NAME [--vm USER@VM --vm-key FILE] [--packages DIR] [--report DIR]
 #   tool/play_story.sh run   --story NAME --report DIR [--vm USER@VM --vm-key FILE] [--packages DIR]
 #                            [--expect PART=ISSUE]... [--budget-minutes 60]
+#                            [--org ORG] [--seed DIR] [--issue-repo REPO]... [--porelo-project NAME]
 #
 # NAME is a story of the `case` below: integration_test/NAME.feature and its generated NAME_test.dart, played on the
 # machine the case names, and the Windows builds it names, read on GitHub from here. A step names in its line the part
@@ -30,17 +31,23 @@
 # `Windows trial` (windows.yml) is what there is: with PLAY_GITHUB_TOKEN naming a program that prints a GitHub token
 # allowed to run workflows, a trial of main is started and waited for; without it, the step says it needs that login
 # and names the latest trial run as it stands. The token reaches curl on its standard input alone.
+#
+# A story the `case` hands to tool/walk_idea.sh is played by it on its Linux VM, with its forge, vault and seed: --org,
+# --seed, --issue-repo and --porelo-project go to it as they are, its test is the story's and its project goes without
+# mail, and its environment is the walk's own (SSH_AUTH_SOCK holding the test person's key, WALK_FORGE_TOKEN,
+# WALK_PROVIDER_KEY_FILE; tool/walk_idea.sh says what each is). Its report, in DIR/walk, becomes this one's; a run it
+# kept after a red step is taken up or away with tool/walk_idea.sh, as it says.
 set -euo pipefail
 
 usage() {
-    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
 }
 
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-vm='' vm_key='' story='' report='' packages='' budget=60 expects=()
+vm='' vm_key='' story='' report='' packages='' budget=60 expects=() walk=()
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
@@ -51,6 +58,7 @@ while [ $# -gt 0 ]; do
     --packages) packages=$2 ;;
     --expect) expects+=("$2") ;;
     --budget-minutes) budget=$2 ;;
+    --org | --seed | --issue-repo | --porelo-project) walk+=("$1" "$2") ;;
     *) usage ;;
     esac
     shift 2
@@ -71,8 +79,9 @@ shaped --story "$story" '[a-z0-9][a-z0-9_]*'
 for each in "${expects[@]}"; do shaped --expect "$each" '[a-z][a-z0-9-]*=[A-Za-z0-9][A-Za-z0-9#._/-]*'; done
 
 # Each story: the machine it is played on, what it needs there beyond what every story needs (tools, by name), and the
-# repositories whose Windows build it reads, each `owner/repository[=PART]`.
-builds=''
+# repositories whose Windows build it reads, each `owner/repository[=PART]`; or that tool/walk_idea.sh plays it, and the
+# part of Porelo a failure of its test leans on where a step does not say.
+builds='' handed='' leans_on=''
 case "$story" in
 a_terminal_and_live_list)
     # The work's session is read in its container, and the clearance question raised from there.
@@ -81,6 +90,10 @@ a_terminal_and_live_list)
 the_window_and_the_planner_on_windows)
     machine=windows needs=''
     builds='porelo-ai/porelo-frontend porelo-ai/porelo-planner=planner-windows'
+    ;;
+forwarding_to_a_branch)
+    # The forge's seed, token and branches are the walk's; forwarding to a chosen branch at GitHub is what it measures.
+    machine=linux needs='' handed=walk leans_on='forward-github'
     ;;
 *)
     echo "play: no story $story here; tool/play_story.sh names each in its case" >&2
@@ -101,6 +114,8 @@ if [ -n "$packages" ] && [ ! -r "$packages/SHA256SUMS" ]; then
     echo "play: --packages $packages holds no SHA256SUMS" >&2
     exit 64
 fi
+[ -z "$handed" ] || [ "$mode" = check ] || [ ${#walk[@]} -gt 0 ] || usage
+[ -n "$handed" ] || [ ${#walk[@]} -eq 0 ] || usage
 
 here=$(cd "$(dirname "$0")/.." && pwd)
 for each in "integration_test/$story.feature" "integration_test/${story}_test.dart"; do
@@ -253,13 +268,18 @@ check() {
     fi
 }
 
+if [ "$mode" = check ] && [ -n "$handed" ]; then
+    rm -rf "$work"
+    exec "$here/tool/walk_idea.sh" check --vm "$vm" --vm-key "$vm_key"
+fi
 if [ "$mode" = check ]; then
     check
     rm -rf "$work"
     exit
 fi
 
-check
+# A story handed to the walk is checked by it.
+[ -n "$handed" ] || check
 [ -z "$(git -C "$here" status --porcelain --untracked-files=no)" ] || echo "play: runs HEAD; changes not committed are not in it" >&2
 commit=$(git -C "$here" rev-parse --short HEAD)
 stamp="$(date -u +%Y%m%dT%H%M%SZ)-$commit"
@@ -268,7 +288,7 @@ mkdir -p "$report"
 # A report left from an earlier run would be read as this one's.
 rm -f "$report/results.json" "$report/run.log" "$report/report.html" "$report/results.xml" "$report/scenarios.txt" \
     "$report/noted.txt" "$report/steps.txt" "$report/before.txt" "$report/after.txt"
-rm -rf "$report/pictures"
+rm -rf "$report/pictures" "$report/walk"
 : >"$report/noted.txt"
 : >"$report/before.txt"
 : >"$report/after.txt"
@@ -350,6 +370,17 @@ print(r[0][\"archive\"], r[0][\"sha256\"]) if r else None')
     on_vm "cat ~/$run/noted.txt 2>/dev/null" </dev/null >"$report/noted.txt" || true
     if on_vm "[ -d ~/$run/pictures ]" </dev/null; then on_vm "tar -C ~/$run -c pictures" </dev/null | tar -x -C "$report" || true; fi
     [ "$status" -ne 124 ] || echo "play: the window's part ran out its $budget minutes and was stopped" | tee -a "$report/run.log" >&2
+}
+
+# The story played by tool/walk_idea.sh; its report, in DIR/walk, taken up as this one's.
+play_walk() {
+    local status=0
+    "$here/tool/walk_idea.sh" run --vm "$vm" --vm-key "$vm_key" --report "$report/walk" --test "$story" --mail drop \
+        --budget-minutes "$budget" "${walk[@]}" || status=$?
+    echo "play: tool/walk_idea.sh ended with $status"
+    cp "$report/walk/scenarios.txt" "$report/scenarios.txt" 2>/dev/null || true
+    cp "$report/walk/steps.txt" "$report/noted.txt" 2>/dev/null || : >"$report/noted.txt"
+    [ ! -d "$report/walk/pictures" ] || cp -R "$report/walk/pictures" "$report/pictures"
 }
 
 # One mode of tool/play_story_windows.ps1 on the Windows machine, its output kept in $work/guest.
@@ -475,7 +506,9 @@ windows_trial() {
 }
 
 waiting_on=''
-if [ "$machine" = linux ]; then
+if [ -n "$handed" ]; then
+    play_walk
+elif [ "$machine" = linux ]; then
     play_linux
 elif [ -n "$vm" ]; then
     play_windows
@@ -486,21 +519,28 @@ else
 fi
 for each in $builds; do windows_build "$each"; done
 
-if [ -z "$waiting_on" ]; then
+if [ -z "$waiting_on" ] && [ -z "$handed" ]; then
     (cd "$here" && dart tool/test_report.dart "$report/results.json" "$report/report.html" "$report/results.xml" \
         --heading="The story $story played in the window" --against="$vm" --lines="$report/scenarios.txt") || true
 fi
 
-# One line per step, the driver's own before and after the feature's: from what the steps noted, the scenario's result
+# One line per step, the driver's own before and after the feature's: from what the steps noted, each scenario's result
 # for a step that noted nothing, and the parts expected missing; then the closing line. Its exit is the run's.
 played=0
 python3 -I - "$here/integration_test/$story.feature" "$report/noted.txt" "$report/scenarios.txt" "$story" \
-    "$report/before.txt" "$report/after.txt" "$waiting_on" "${expects[@]}" >"$report/steps.txt" <<'EOF' || played=$?
+    "$report/before.txt" "$report/after.txt" "$waiting_on" "$leans_on" "${expects[@]}" >"$report/steps.txt" <<'EOF' ||
+    played=$?
 import re, sys
 
-feature, noted_file, scenarios_file, story, before_file, after_file, machine = sys.argv[1:8]
-expected = dict(each.split("=", 1) for each in sys.argv[8:])
-steps = [m.group(2) for m in (re.match(r"\s*(Given|When|Then|And|But)\s+(.*)", line) for line in open(feature)) if m]
+feature, noted_file, scenarios_file, story, before_file, after_file, machine, leans_on = sys.argv[1:9]
+expected = dict(each.split("=", 1) for each in sys.argv[9:])
+# The steps, numbered through the whole feature, each with the scenario it is in.
+steps, scenario = [], ""
+for line in open(feature, encoding="utf-8"):
+    if m := re.match(r"\s*Scenario:\s*(.*)", line):
+        scenario = m.group(1).strip()
+    elif m := re.match(r"\s*(Given|When|Then|And|But)\s+(.*)", line):
+        steps.append((scenario, m.group(2)))
 line_shape = re.compile(r"(OK|FAIL|WAITING) (?:\[([a-z0-9-]+)\] )?(.*)")
 
 
@@ -515,16 +555,26 @@ for line in open(noted_file, encoding="utf-8", errors="replace"):
     if m:
         noted[int(m.group(2))] = (m.group(1), m.group(3), m.group(4))
 try:
-    scenarios = [line.rstrip("\n") for line in open(scenarios_file, encoding="utf-8", errors="replace")]
+    results = [line.rstrip("\n") for line in open(scenarios_file, encoding="utf-8", errors="replace")]
 except FileNotFoundError:
-    scenarios = []
-held = bool(scenarios) and all(line.startswith("OK ") for line in scenarios)
-why = next((line.split(None, 1)[1] for line in scenarios if line.startswith("FAIL ")), "no result; see run.log")
-last = max(noted, default=0)
+    results = []
+held = bool(results) and all(line.startswith("OK ") for line in results)
+why = next((line.split(None, 1)[1] for line in results if line.startswith("FAIL ")), "no result; see run.log")
+
+
+# The scenario's own line of the test's result: OK, or why it failed; None where it has no line.
+def result_of(name):
+    for line in results:
+        if name and name in line:
+            return ("OK", "") if line.startswith("OK ") else ("FAIL", line.split(None, 1)[1])
+    return None
+
+
 failed, waiting = [], []
 number = 0
 
 
+# One step under the next number; a failed one EXPECTED where the part it leans on is said to be missing.
 def say(result, part, words):
     global number
     number += 1
@@ -544,20 +594,26 @@ def say(result, part, words):
 
 for each in before:
     say(*each)
-unexplained = None
-for at, sentence in enumerate(steps, 1):
-    if machine:
-        say("WAITING", None, f"{sentence}: on {machine}")
-    elif at in noted:
-        say(*noted[at])
-    elif at < last or held:
-        say("OK", None, sentence)
-    elif unexplained is None:
-        say("FAIL", None, f"{sentence}: {why}")
-        unexplained = at
-    else:
-        number += 1
-        print(f"NOT RUN {number} {sentence}")
+for name in dict.fromkeys(scenario for scenario, _ in steps):
+    numbered = [(at, sentence) for at, (s, sentence) in enumerate(steps, 1) if s == name]
+    own = result_of(name) or (("OK", "") if held else ("FAIL", "no result; see run.log"))
+    last = max((at for at, _ in numbered if at in noted), default=0)
+    unexplained = False
+    for at, sentence in numbered:
+        if machine:
+            say("WAITING", None, f"{sentence}: on {machine}")
+        elif at in noted:
+            # A failure leans on the part its step names, or else on the story's.
+            result, part, words = noted[at]
+            say(result, part or leans_on, words)
+        elif at < last or own[0] == "OK":
+            say("OK", None, sentence)
+        elif not unexplained:
+            say("FAIL", leans_on, f"{sentence}: no step noted more, and the scenario failed here or after: {own[1]}")
+            unexplained = True
+        else:
+            number += 1
+            print(f"NOT RUN {number} {sentence}")
 for each in after:
     say(*each)
 if failed:
