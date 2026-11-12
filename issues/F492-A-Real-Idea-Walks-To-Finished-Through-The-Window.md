@@ -29,9 +29,11 @@ judged by its observed effect - the board, the files, the forge - never by what 
   by step as `tool/rehearse_window.sh` drives a move: a new integration test beside `rehearsing_a_move_test.dart`
   walks the states, and a driver script copies this checkout's HEAD to the VM, runs it through `tool/e2e.sh` and writes
   one line per step (`OK`, `FAIL`, `SKIPPED` with why) and a picture of the window for each one that failed.
-- The planner's side - the planner app on the VM against the real `porelo`, its own moves and the task start - is its
-  repository's companion issue. One shared run, not two: who runs which step is agreed in the room before the script
-  is written, and the split is written here.
+- One shared run with the planner's side, not two, in this repository's account on the VM. This side drives every
+  step a person takes in the window - making the Idea, each move a person makes, starting the task - and reads each
+  effect. The planner's side owns the planner app on the VM against the real `porelo`, every move the planner makes by
+  itself (the work proposal's starts, the reading rounds' moves, the move to Review), the task start on its side and
+  its result coming back, each with its read (its board and work answers, the store's files, the forge).
 - After each step the driver reads the effect itself: the board through the planner's own read, the project's files
   in its repository, the task and its branch through `porelo` and the forge.
 - The task runs `pi` with `z-ai/glm-5.3-flash`, as the window rehearsal does. The forge token of the test identity
@@ -49,6 +51,6 @@ judged by its observed effect - the board, the files, the forge - never by what 
 
 ## To be checked
 
-- The split of steps with the planner's side, agreed in the room.
+- The order of the steps, fixed with the planner's side once its list of steps and reads stands.
 - The cost of one run, measured from its tokens at the provider's current price.
 - Every tool the walk needs on the VM, checked there before the first run.
