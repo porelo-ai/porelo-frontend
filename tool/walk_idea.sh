@@ -558,7 +558,7 @@ case " ${seeded[*]} " in *" $porelo_project "*)
 esac
 issue_head=$(tip_of "$issue_repo")
 
-# The person's own machine takes the organization's project as a person's laptop does, so porelod lists it and the
+# The person's own machine takes the organization's project as a person's laptop does, on the person's agent, so porelod lists it and the
 # window tells the planner of it; one already placed there is not the run's to take or to clear.
 porelod_call() {
     on_vm "python3 -I -c 'import json, os, socket, sys
@@ -577,8 +577,9 @@ placed() { porelod_call Projects '{}' | python3 -I -c 'import json, sys
 print(any(p.get("name") == sys.argv[1] for p in json.load(sys.stdin)["parameters"]["projects"]))' "$porelo_project"; }
 if [ "$(placed)" != True ]; then
     taken=yes
-    answer=$(porelod_call TakeProject "{\"project\": \"$porelo_project\"}") || answer=''
-    echo "walk: porelod took $porelo_project: $answer"
+    # Off a host only a start or its question takes a project; the question starts nothing.
+    answer=$(porelod_call CanStart "{\"project\": \"$porelo_project\", \"repository\": \"$issue_repo\"}") || answer=''
+    echo "walk: porelod asked whether $porelo_project can start: $answer"
     if [ "$(placed)" != True ]; then
         echo "walk: porelod on $vm does not list $porelo_project after taking it" >&2
         exit 1
