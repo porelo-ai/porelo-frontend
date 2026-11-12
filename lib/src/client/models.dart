@@ -142,9 +142,12 @@ final class StartStep extends StartEvent {
     required this.text,
     required this.waitingOn,
     required this.cause,
+    this.container,
   });
 
   /// The step's identity; unknown names remain usable identities.
+  ///
+  /// `AGENT` in state `STARTED` says the task stands and its agent runs.
   final String step;
 
   /// Its state, including names this build does not know.
@@ -159,6 +162,10 @@ final class StartStep extends StartEvent {
   /// The dependency's last error line when this step failed.
   final String cause;
 
+  /// The task's container, from the step after the container was made on; null before, or from a machine that does
+  /// not say.
+  final String? container;
+
   /// Reads each field without assuming the peer sent its declared type.
   factory StartStep.from(Map<String, dynamic> map) => StartStep(
     step: _string(map, 'step'),
@@ -166,6 +173,9 @@ final class StartStep extends StartEvent {
     text: _string(map, 'text'),
     waitingOn: _string(map, 'waitingOn'),
     cause: _string(map, 'cause'),
+    container: map['container'] is String && (map['container'] as String).isNotEmpty
+        ? map['container'] as String
+        : null,
   );
 
   /// The fields kept with the operation's record.

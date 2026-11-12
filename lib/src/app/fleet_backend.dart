@@ -843,8 +843,10 @@ class PoreloBackend implements FleetBackend {
     required String prompt,
     String? callerKey,
     List<String> reads = const [],
-  }) => _startAnswered(
-    _opened().start(
+  }) => _startRunning(
+    project: project,
+    repository: repository,
+    () => _opened().start(
       project: project,
       repository: repository,
       agent: agent,
@@ -853,11 +855,9 @@ class PoreloBackend implements FleetBackend {
       prompt: prompt,
       callerKey: callerKey,
       reads: reads.isEmpty ? null : reads,
-      // A prompted start would otherwise answer only when the agent's run ends.
       now: true,
       certify: asksToCertify,
     ),
-    project: project,
   );
 
   @override
@@ -869,8 +869,9 @@ class PoreloBackend implements FleetBackend {
     required String prompt,
     required String result,
     String? callerKey,
-  }) => _startAnswered(
-    _opened().start(
+  }) => _startRunning(
+    project: project,
+    () => _opened().start(
       project: project,
       callerKey: callerKey,
       agent: agent,
@@ -882,8 +883,43 @@ class PoreloBackend implements FleetBackend {
       allRepositories: true,
       result: result,
     ),
-    project: project,
   );
+
+  /// Follows a start whose prompt the agent runs on, answering once Start says its agent runs (the step `AGENT` in
+  /// state `STARTED`) with the container the step names, or else the one the machine newly lists for [project] (and
+  /// [repository] where one is named): Start's final reply comes only when the agent's run ends. The run goes on when
+  /// this stops reading it. A start that ends or is refused before its agent runs answers as [_startAnswered] does.
+  Future<StartProgress> _startRunning(
+    Stream<StartProgress> Function() start, {
+    required String project,
+    String? repository,
+  }) async {
+    // What stood before, so a task the start made is told from it; where the list cannot be read, only a step that
+    // names its container answers early.
+    Set<(String, String?)>? before;
+    try {
+      before = {for (final task in await tasks()) (task.name, task.run)};
+    } on Exception {
+      before = null;
+    }
+    return _startAnswered(
+      start(),
+      project: project,
+      agentRuns: (named) async {
+        if (named != null) return named;
+        final stood = before;
+        if (stood == null) return null;
+        final made = [
+          for (final task in await tasks())
+            if (task.project == project &&
+                (repository == null || task.repository == repository) &&
+                !stood.contains((task.name, task.run)))
+              task.name,
+        ];
+        return made.length == 1 ? made.single : null;
+      },
+    );
+  }
 
   @override
   Future<String?> whyNoDiscussion() => _opened().whyNoDiscussion();
@@ -892,7 +928,15 @@ class PoreloBackend implements FleetBackend {
   Future<TaskResult> taskResult(String task) => _opened().result(task);
 
   /// Follows a start to its final reply, certifying what it asks, and answers that reply with what it printed.
-  Future<StartProgress> _startAnswered(Stream<StartProgress> start, {required String project, String? task}) async {
+  ///
+  /// [agentRuns], where given, is asked for the container once Start says the agent runs, with the one the step names;
+  /// the start answers with it at once, and with Start's final reply where it finds none.
+  Future<StartProgress> _startAnswered(
+    Stream<StartProgress> start, {
+    required String project,
+    String? task,
+    Future<String?> Function(String? named)? agentRuns,
+  }) async {
     var last = const StartProgress();
     final printed = <String>[];
     final certifying = _Certifying();
@@ -903,6 +947,11 @@ class PoreloBackend implements FleetBackend {
       final line = progress.line;
       if (line != null) printed.add(line);
       last = progress;
+      if ((agentRuns, progress.step) case (final runs?, StartStep(step: 'AGENT', state: 'STARTED', :final container))) {
+        if (await runs(container) case final made?) {
+          return StartProgress(container: made, exitCode: 0, action: StartAction.create, output: printed);
+        }
+      }
     }
     // The final reply carries only a code. What was printed before it is why, and dropping it left
     // "failed with exit code 70" where the machine had said which agent it wanted.

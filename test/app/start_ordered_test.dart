@@ -92,6 +92,68 @@ void main() {
     expect(answer.action, StartAction.create);
   });
 
+  // Harm: Start gives its final reply only when the agent's run ends, so the planner hears of a builder that works for
+  // half an hour only then, and the story's next task waits on it.
+  group('a start whose agent runs on answers once its agent runs', () {
+    const declares = 'method Start(task: ?string, steps: ?bool) -> (exitCode: ?int)';
+
+    Stream<Map<String, dynamic>> runsOn(Map<String, dynamic> step) async* {
+      yield <String, dynamic>{'line': 'starting'};
+      yield <String, dynamic>{'step': step};
+      // The agent's run goes on; Start's final reply would come only at its end.
+      await Completer<void>().future;
+    }
+
+    test('with the container the step names', () async {
+      daemon.description = declares;
+      daemon.stream(
+        'Start',
+        (_) => runsOn({'step': 'AGENT', 'state': 'STARTED', 'text': 'pi runs', 'container': 'porelo-demo_porelo'}),
+        isFinal: _finalReply,
+      );
+      final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+      await backend.open();
+
+      final answer = await startOrdered(backend).timeout(const Duration(seconds: 5));
+
+      expect((answer.container, answer.exitCode), ('porelo-demo_porelo', 0));
+      expect(answer.output, ['starting']);
+    });
+
+    test('with the task the machine lists newly for the project and repository, where the step names none', () async {
+      daemon.description = declares;
+      var listings = 0;
+      daemon.method('List', (_) {
+        listings++;
+        return <String, dynamic>{
+          'tasks': [
+            {'name': 'porelo-demo_porelo', 'task': 'porelo', 'project': 'demo', 'repository': 'porelo', 'run': 'r1'},
+            {'name': 'porelo-other_porelo', 'task': 'porelo', 'project': 'other', 'repository': 'porelo', 'run': 'r9'},
+            if (listings > 1)
+              {
+                'name': 'porelo-demo_porelo-2',
+                'task': 'porelo-2',
+                'project': 'demo',
+                'repository': 'porelo',
+                'run': 'r2',
+              },
+          ],
+        };
+      });
+      daemon.stream(
+        'Start',
+        (_) => runsOn({'step': 'AGENT', 'state': 'STARTED', 'text': 'pi runs'}),
+        isFinal: _finalReply,
+      );
+      final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+      await backend.open();
+
+      final answer = await startOrdered(backend).timeout(const Duration(seconds: 5));
+
+      expect((answer.container, answer.exitCode), ('porelo-demo_porelo-2', 0));
+    });
+  });
+
   // Harm: a discussion starts as an ordinary task, one repository writable and nothing handed back, or with a
   // repository the order never named.
   test('a discussion asks for every repository read only and for its result file, naming no repository', () async {
@@ -141,3 +203,6 @@ void main() {
     expect(result.content, '{}');
   });
 }
+
+/// Start's final reply, the one that carries its result; every reply before it goes out as it comes.
+bool _finalReply(Map<String, dynamic> reply) => reply.containsKey('exitCode');
