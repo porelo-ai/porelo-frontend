@@ -16,8 +16,9 @@
 
 **Why this size.** XL: the card's ssh config; a loopback listener the window holds on both families through every
 reconnect; a carrier of each connection over its own ssh, bounded in children, rate and buffers; readiness proven by
-the daemon's own answer; Core's unlock given the card's config; the host reads' ssh; and their tests, several of them
-run on Windows against a native contender; Core's and Matrix's parts are their own.
+the daemon's own answer; the host reads' ssh; and their tests, several of them run on Windows against a native
+contender; Core's and Matrix's parts are their own. The Windows vault unlock left this issue for
+[F512](README.md#f512); the carrier, its bounds and their tests stay, so the size stays XL and the estimate as it was.
 
 **What must be true.** On Windows, a person connects to a machine, and a Machine Admin prepares it and names its
 people, as on Linux: through the host's card, with the same `-F` file and the same fixed ports. Linux stays as it is.
@@ -49,7 +50,8 @@ people, as on Linux: through the host's card, with the same `-F` file and the sa
 - **Local ends the window holds:** for each of the card's ports (the forge's web and Git, the homeserver's) a
   listener of the window's own on `127.0.0.1:<port>` and `[::1]:<port>`, bound exclusively (no other socket may bind
   or share the port while it is held) for as long as the card is connected. A port that cannot be bound so on either
-  family refuses the connection, naming the port; nothing falls back to ssh's `-L`.
+  family refuses the connection, naming the port; nothing falls back to ssh's `-L`. Both families are required: a
+  desktop with no IPv6 loopback (`::1`) is refused at Connect, with the system's reason, rather than held on one.
 - **Each connection over its own ssh:** a connection accepted there starts `ssh -F <card config> -T <host> <relay
   command for that socket>`, and the window copies bytes both ways between the two until either end closes, then ends
   that ssh. Nothing else is accepted: a port carries only to its own agreed remote socket.
@@ -65,13 +67,17 @@ people, as on Linux: through the host's card, with the same `-F` file and the sa
   They are released only when the person disconnects the card or the window ends.
 - **Bounded.** Each connection's ssh uses the person's key, so the carrier caps the children per card and in all
   (pending and active), the rate of new ones, and the bytes buffered per connection, gives each handshake a deadline,
-  and reaps a child that starts after its connection was cancelled. Past a cap a connection is closed at once.
-- **The relay command is a contract:** the host command takes exactly one argument, a role among `forge-web`,
-  `forge-git` and `homeserver`, mapped on the host to its fixed socket; an unknown role, a path, a second argument or
-  an option is refused before anything is opened. The carrier passes only the role of the port it holds.
+  and reaps a child that starts after its connection was cancelled. Past a cap a connection is closed at once. The
+  defaults: 16 per card, 48 in all, 8 starts a second per card, 256 KiB buffered each way, 30 s to the first byte. The
+  daemon's readiness probes count under the cap of all too; a place is free only once its child has exited.
+- **The relay command is a contract**, agreed as Core's B677: `porelo service connect <forge-web|forge-git|homeserver>`
+  takes exactly one argument, the role, mapped on the host to its fixed socket, and puts only the service's bytes on
+  standard output. A role it does not know, or one the card names as none, exits 64; a service whose port does not
+  answer exits 69; the window says either on the card. The carrier passes only the role of the port it holds.
 - **No `ControlMaster` on Windows.** The config written there leaves out `ControlMaster`, `ControlPath` and
-  `ControlPersist`. Whoever else needs the host, such as Core's `porelo host unlock`, opens a connection of its own
-  through the same `-F` file.
+  `ControlPersist`. Whoever else needs the host opens a connection of its own through the same `-F` file. The host
+  vault is not unlocked from Windows here: Core's `porelo host unlock` does not run there, and the window does its
+  steps itself under [F512](README.md#f512).
 - **The return channel** waits on the messenger's endpoint on Windows; once there, it is carried the same way, the
   window holding nothing the messenger has not bound first.
 - **One use of the key per connection, none confirmed.** The person's key is held by KeePassXC's agent while the
@@ -85,37 +91,37 @@ Built on the branch's first commits, which stay: the card's config on Windows wi
 paths (`HostCardSsh`), the relay over its own config (`Machine.relayOn`, `whyNotReachableOn`), and the host reads
 through Windows' own OpenSSH (`SshHostProgress._ssh`). The Windows tunnel with `-L`, `-R` and ssh's "listening" line
 goes; what replaces it:
-- `lib/src/app/loopback_carrier.dart` (new): `LoopbackCarrier.hold(ports, carry)` binds each port on both families
-  through a seam, exclusively; on Windows `ServerSocket.bind(shared: false)` is expected to set
-  `SO_EXCLUSIVEADDRUSE` (to be checked; else FFI to `setsockopt` before `bind`). Each accepted socket gets its own
-  process from `carry(port)` and the bytes are copied both ways; either end closing closes the other and ends the
-  process. `release()` closes the listeners and every connection.
+- `lib/src/app/loopback_carrier.dart` (new): `LoopbackCarrier(ports, carry: ...)` and its `hold()` bind each port on
+  both families through a seam, exclusively; Dart's Windows listener sets `SO_EXCLUSIVEADDRUSE` before its bind on
+  both families, which a reading of its source confirmed and the native contender tests prove on the Windows build
+  alone. Each accepted socket gets its own process from `carry(role)` and the bytes are copied both ways; either end
+  closing closes the other and ends the process. `release()` closes the listeners and every connection and waits,
+  bounded, for each process to exit.
 - `Tunnel` (`lib/src/app/tunnel.dart`): on Windows a card machine's tunnel is the carrier, started with the card's
   ports, no ssh of its own; up once the carrier holds every port and the relay answers; down when released.
-- The relay command per socket is Core's (below); the carrier names the socket by its agreed role, never by a path a
-  caller passes.
+- The relay command per socket is Core's B677 (above); the carrier names the socket by its agreed role, never by a path
+  a caller passes.
 - **Red first:** `test/app/loopback_carrier_test.dart`, untagged, run on Linux and in the Windows build's tests: a
   port another socket holds refuses the hold on either family; while held, a second bind of the port fails (on
   Windows too, with `SO_REUSEADDR` set by the other side); a connection is carried to the process `carry` gives and
   its bytes arrive both ways; closing either end ends the process; `release` closes everything.
   The Windows exclusivity tests use a native contender (FFI) that sets `SO_REUSEADDR` before its bind, on both
-  families, and check where a connection is delivered; a second Dart bind alone proves nothing. A flood of connections
+  families, and check where a connection is delivered; a second Dart bind alone proves nothing. They skip off Windows,
+  so they are proven only by the Windows build's test step. A flood of connections
   against stalled ssh children stays within the caps and keeps the listeners; a partial bind and a cancel during
   start leave nothing bound or running; each port reaches its own role, with a fake that records the role (an echo
   cannot tell a misroute). `test/app/host_card_tunnel_windows_test.dart`: the Windows card tunnel starts no ssh with
   `-L` or `-R`, holds both families of each port through a reconnect, and is up only on the daemon's answer: stderr
   with a banner alone, malformed output, failed authentication and an answer after release leave it down.
-- `CoreHostUnlocker` (`lib/src/app/fleet_backend.dart`) passes the card's config to Core's unlock (as Core names the
-  option) and stops refusing a port other than 22 and an IPv6 host; tests show the card's endpoint and pins are used.
+- `CoreHostUnlocker` stays as it is: on Windows the vault unlock is [F512](README.md#f512)'s.
 
 ## Parts of other repositories
 
 Each is its own piece, agreed in the room before this is built:
-- **Core:** `porelo host unlock <host>` and the host commands work through the card's `-F` file without a master,
-  opening their own connection. A command on the host that joins its standard input and output to one agreed
-  service socket by its role (forge web, forge Git, homeserver), refusing any other, as `porelo daemon connect` does
-  for the daemon's. Where Core puts the person's key into KeePassXC on Windows, it sets no confirmation
-  per use.
+- **Core:** B677, agreed: `porelo service connect <role>` on the host joins its standard input and output to one
+  service socket by its role (forge web, forge Git, homeserver), refusing any other with exit 64 and a service that
+  does not answer with 69, as `porelo daemon connect` does for the daemon's. Where Core puts the person's key into
+  KeePassXC on Windows, it sets no confirmation per use.
 - **Matrix:** the messenger's return endpoint on Windows, carried as above once it exists; not part of this build.
 
 ## Acceptance
@@ -135,8 +141,8 @@ Each is its own piece, agreed in the room before this is built:
 
 ## To be checked
 
-- On Windows: that `ServerSocket.bind(shared: false)` sets `SO_EXCLUSIVEADDRUSE`, so a later bind with
-  `SO_REUSEADDR` fails; else the carrier sets it itself.
+- On the Windows build: that the native contender tests pass, so a later bind with `SO_REUSEADDR` fails on both
+  families; else the carrier sets `SO_EXCLUSIVEADDRUSE` itself.
 - On Windows: the time an ssh handshake per connection adds to a forge page and to a Git fetch.
 
 ## Estimate
