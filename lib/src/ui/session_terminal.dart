@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 
@@ -7,10 +8,11 @@ import 'tokens.dart';
 
 /// A session's terminal on screen, telling the session when the person acts in it.
 ///
-/// **Only what the person does here counts**: a key's first press and a pointer pressed or released, never hover,
-/// move or scroll, and never what the terminal sends by itself. Every terminal of a [Session] is drawn with this, so a
-/// write to the clipboard right after the person's own action goes through, and no other ([Session.held]).
-class SessionTerminal extends StatelessWidget {
+/// **Only a drag the person made here lets a write to the clipboard through**: one pointer pressed with the main
+/// button, moved to another cell and let go, whose text the session reads off this screen ([Session.dragged]). A key,
+/// a new press or the keyboard leaving ends it; every other write is held ([Session.held]). Every terminal of a
+/// [Session] is drawn with this.
+class SessionTerminal extends StatefulWidget {
   /// Constructor taking the session and how its terminal is drawn.
   const SessionTerminal({
     required this.session,
@@ -61,28 +63,95 @@ class SessionTerminal extends StatelessWidget {
   final bool hardwareKeyboardOnly;
 
   @override
+  State<SessionTerminal> createState() => _SessionTerminalState();
+}
+
+class _SessionTerminalState extends State<SessionTerminal> {
+  /// The pointer that may be dragging, pressed with the main button while no other was down; null otherwise.
+  int? _dragging;
+
+  /// The cell it was pressed on.
+  CellOffset? _from;
+
+  /// How many pointers are down here.
+  int _down = 0;
+
+  Session get _session => widget.session;
+
+  /// The cell of the terminal's buffer under [position] on the screen, or null while it is not laid out.
+  CellOffset? _cellAt(Offset position) {
+    TerminalViewState? view;
+    void visit(Element element) {
+      if (element is StatefulElement && element.state is TerminalViewState) {
+        view = element.state as TerminalViewState;
+      } else {
+        element.visitChildElements(visit);
+      }
+    }
+
+    context.visitChildElements(visit);
+    final render = view?.renderTerminal;
+    if (render == null || !render.hasSize) return null;
+    return render.getCellOffset(render.globalToLocal(position));
+  }
+
+  void _pressed(PointerDownEvent event) {
+    _session.pressed();
+    _down++;
+    final alone = _down == 1 && event.buttons == kPrimaryButton;
+    _dragging = alone ? event.pointer : null;
+    _from = alone ? _cellAt(event.position) : null;
+  }
+
+  void _letGo(PointerUpEvent event) {
+    _down = _down > 0 ? _down - 1 : 0;
+    final from = _from;
+    final dragged = event.pointer == _dragging;
+    _dragging = null;
+    _from = null;
+    if (!dragged || from == null) return;
+    final to = _cellAt(event.position);
+    if (to != null && to != from) _session.dragged(from, to);
+  }
+
+  void _cancelled(PointerCancelEvent event) {
+    _down = _down > 0 ? _down - 1 : 0;
+    _dragging = null;
+    _from = null;
+  }
+
+  @override
   Widget build(BuildContext context) => Listener(
-    onPointerDown: (_) => session.ownAction(),
-    onPointerUp: (_) => session.ownAction(),
-    child: TerminalView(
-      session.terminal,
-      key: viewKey,
-      scrollController: scrollController,
-      theme: theme,
-      controller: controller,
-      shortcuts: terminalShortcuts,
-      focusNode: focusNode,
-      // Seen here first, before any shortcut: a typed letter goes on to the far end as text, never back past here.
-      onKeyEvent: (node, event) {
-        session.ownKey(event);
-        return onKey?.call(node, event) ?? KeyEventResult.ignored;
+    onPointerDown: _pressed,
+    onPointerUp: _letGo,
+    onPointerCancel: _cancelled,
+    // Holds no keyboard of its own: it hears the terminal's leaving.
+    child: Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (focused) {
+        if (!focused) _session.lostFocus();
       },
-      autofocus: true,
-      alwaysShowCursor: alwaysShowCursor,
-      readOnly: !session.live,
-      padding: padding,
-      hardwareKeyboardOnly: hardwareKeyboardOnly,
-      textStyle: textStyle,
+      child: TerminalView(
+        _session.terminal,
+        key: widget.viewKey,
+        scrollController: widget.scrollController,
+        theme: widget.theme,
+        controller: widget.controller,
+        shortcuts: terminalShortcuts,
+        focusNode: widget.focusNode,
+        // Seen here first, before any shortcut: a typed letter goes on to the far end as text, never back past here.
+        onKeyEvent: (node, event) {
+          _session.ownKey(event);
+          return widget.onKey?.call(node, event) ?? KeyEventResult.ignored;
+        },
+        autofocus: true,
+        alwaysShowCursor: widget.alwaysShowCursor,
+        readOnly: !_session.live,
+        padding: widget.padding,
+        hardwareKeyboardOnly: widget.hardwareKeyboardOnly,
+        textStyle: widget.textStyle,
+      ),
     ),
   );
 }

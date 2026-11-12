@@ -127,22 +127,39 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   /// Time on a clock that never goes back, for how long ago the person last acted here.
   final Duration Function() _now;
 
-  /// When the person last pressed a key, pressed or released the mouse, or pasted in this terminal, and no write
-  /// has used it since; null otherwise.
-  Duration? _ownActionAt;
+  /// The text the person last dragged across here, as a copy of it would read, and when; null once a key, a press,
+  /// the keyboard leaving or a write of that text has ended it.
+  ({Set<String> texts, Duration at})? _drag;
 
   /// What the task asked to put on this computer's clipboard on its own, waiting for the person to allow it.
   HeldCopy? get held => _held;
   HeldCopy? _held;
 
-  /// The person's own action in this terminal, a pointer pressed or released or a paste. **Never what the terminal
-  /// sends itself** — an answer to the far end's question, a mouse or focus report — which a task could ask for.
-  void ownAction() => _ownActionAt = _now();
-
-  /// A key the person pressed in this terminal: only the first press, so a held key does not keep the way open.
+  /// A key the person pressed or holds down in this terminal: it ends what a drag lets through, so a copy made by
+  /// a key — or a paste — is asked about.
   void ownKey(KeyEvent event) {
-    if (event is KeyDownEvent && !event.synthesized) ownAction();
+    if (event is KeyDownEvent || event is KeyRepeatEvent) _drag = null;
   }
+
+  /// The person dragged the pointer from cell [from] to cell [to] of this terminal's buffer: **a write of the very
+  /// text between them** goes through without a word, once, shortly after. The text is read now, from what this
+  /// window shows, so whatever took the drag can copy nothing else silently; the end cell may count or not.
+  void dragged(CellOffset from, CellOffset to) {
+    final range = BufferRangeLine(from, to).normalized;
+    final buffer = terminal.buffer;
+    final through = BufferRangeLine(range.begin, CellOffset(range.end.x + 1, range.end.y));
+    final texts = {_asCopied(buffer.getText(range)), _asCopied(buffer.getText(through))}..remove('');
+    _drag = texts.isEmpty ? null : (texts: texts, at: _now());
+  }
+
+  /// The person pressed the pointer in this terminal: whatever an earlier drag let through ends.
+  void pressed() => _drag = null;
+
+  /// This terminal lost the keyboard: whatever a drag let through ends.
+  void lostFocus() => _drag = null;
+
+  /// [text] as compared with a drag: each line without the spaces at its end, which a copy may drop or keep.
+  static String _asCopied(String text) => text.split('\n').map((line) => line.trimRight()).join('\n');
 
   /// Puts [copy] on this computer's clipboard, the person having allowed it — only while it is the one shown.
   void copyHeld(HeldCopy copy) {
@@ -218,8 +235,8 @@ class Session extends ChangeNotifier with QuietAfterDispose {
 
   /// The program's own copy (OSC 52, as tmux's `set-clipboard on` sends it), for this computer's clipboard.
   /// **Writing only**: a request to read the clipboard (`?`) is never answered, since that would hand whatever was
-  /// copied here to the container. **Without a word only right after the person's own action here**, once per
-  /// action; any other write is held for the person to allow, since a task's text pasted into a shell runs there.
+  /// copied here to the container. **Without a word only for the text the person just dragged across here**, once
+  /// per drag; any other write is held for the person to allow, since a task's text pasted into a shell runs there.
   void _copied(List<String> arguments) {
     if (!live || arguments.length != 2) return;
     final [selection, encoded] = arguments;
@@ -233,9 +250,10 @@ class Session extends ChangeNotifier with QuietAfterDispose {
       return;
     }
     if (text.isEmpty) return;
-    final acted = _ownActionAt;
-    if (acted != null && _now() - acted <= _silentAfterOwnAction) {
-      _ownActionAt = null;
+    final drag = _drag;
+    final dragged = drag != null && _now() - drag.at <= _silentAfterDrag && drag.texts.contains(_asCopied(text));
+    if (dragged) {
+      _drag = null;
       if (_held != null) {
         _held = null;
         notifyListeners();
@@ -247,8 +265,8 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     notifyListeners();
   }
 
-  /// How long after the person's own action a write is taken as theirs. It proves time, not cause.
-  static const Duration _silentAfterOwnAction = Duration(seconds: 2);
+  /// How long after a drag a write of its text is taken as the person's copy.
+  static const Duration _silentAfterDrag = Duration(seconds: 2);
 
   /// How much a program may copy at once, in base64: more than any selection, less than a flood.
   static const int _mostCopied = 1 << 20;

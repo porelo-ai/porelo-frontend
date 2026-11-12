@@ -10,6 +10,7 @@ import 'package:porelo_frontend/src/app/setup_run.dart';
 import 'package:porelo_frontend/src/ui/new_machine.dart';
 
 import '../features/support/world.dart';
+import '../support/terminal_drag.dart';
 
 /// A machine whose work user's client answers who is signed in, and records what runs as that user.
 class _Machine extends MachineSetup {
@@ -113,7 +114,7 @@ void main() {
   });
 
   // Harm: Tresorit's terminal writing the clipboard without a word, or holding a write with nothing to ask about it.
-  testWidgets('the drive terminal asks before its program writes the clipboard, and takes a click in it', (
+  testWidgets('the drive terminal asks before its program writes the clipboard, and takes a drag in it', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 1000);
@@ -161,11 +162,12 @@ void main() {
     expect(copied, isEmpty, reason: 'a write the program makes by itself is held');
     expect(find.byKey(const Key('terminal-copy-ask')), findsOneWidget, reason: 'and asked about under its terminal');
 
-    await tester.tap(find.byKey(const Key('drive-terminal')));
-    await tester.pump();
-    terminals.single.prints('\x1b]52;c;${base64.encode(utf8.encode('after a click'))}\x07');
+    terminals.single.prints('\x1b[2J\x1b[Hafter a drag');
     await World.settle(tester);
-    expect(copied, <String>['after a click']);
+    await dragAcrossTheTopLine(tester, find.byKey(const Key('drive-terminal')), 'after a drag'.length);
+    terminals.single.prints('\x1b]52;c;${base64.encode(utf8.encode('after a drag'))}\x07');
+    await World.settle(tester);
+    expect(copied, <String>['after a drag']);
     expect(find.byKey(const Key('terminal-copy-ask')), findsNothing);
   });
 }

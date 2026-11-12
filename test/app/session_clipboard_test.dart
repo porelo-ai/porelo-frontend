@@ -11,8 +11,8 @@ import 'package:xterm/xterm.dart';
 /// What a task's terminal puts on this computer's clipboard (OSC 52).
 ///
 /// The harm: a task putting text on the clipboard that the person pastes into a shell later, a trailing newline
-/// running it, or clearing what the person copied. Only right after the person's own action in that terminal does a
-/// write go through without a word, once; any other is held for the person to allow.
+/// running it, or clearing what the person copied. Only a write of the very text the person just dragged across in
+/// that terminal goes through without a word, once; any other is held for the person to allow.
 void main() {
   late CopyToClipboard before;
   late List<String> copied;
@@ -51,6 +51,12 @@ void main() {
     timeStamp: Duration.zero,
   );
 
+  /// Shows [shown] on the screen's first line, and has the person drag across it from its first to its last cell.
+  Future<void> dragOver(Session session, _Channel channel, String shown) async {
+    await prints(channel, '\x1b[2J\x1b[H$shown');
+    session.dragged(const CellOffset(0, 0), CellOffset(shown.length - 1, 0));
+  }
+
   test('a write with no action of the person is held, not copied, and the view is told', () async {
     final (session, channel) = open();
     var told = 0;
@@ -82,35 +88,132 @@ void main() {
     expect(session.held?.text, 'after the reports');
   });
 
-  test('one key lets one write through and holds the second', () async {
+  // Harm: a task's text pasted by the person, who copied something else, into a shell where a line break runs it.
+  test('a write of what the person dragged across goes through, once', () async {
     final (session, channel) = open();
-    session.ownKey(keyA);
+    await dragOver(session, channel, 'copy me');
 
-    await prints(channel, write('first') + write('second'));
+    await prints(channel, write('copy me') + write('copy me'));
 
-    expect(copied, <String>['first']);
-    expect(session.held?.text, 'second');
+    expect(copied, <String>['copy me']);
+    expect(session.held?.text, 'copy me', reason: 'one drag, one write');
   });
 
-  test('a pointer or a paste of the person lets one write through', () async {
+  test('after a drag, a write of other text is held, and the dragged text still goes through', () async {
     final (session, channel) = open();
-    session.ownAction();
-    await prints(channel, write('after a click'));
-    expect(copied, <String>['after a click']);
+    await dragOver(session, channel, 'copy me');
+
+    await prints(channel, write('rm -rf ~\n'));
+    expect(copied, isEmpty, reason: 'a task beating the copy to the clipboard is asked about');
+    expect(session.held?.text, 'rm -rf ~\n');
+
+    await prints(channel, write('copy me'));
+    expect(copied, <String>['copy me']);
+  });
+
+  test('the dragged text with a line break added is held', () async {
+    final (session, channel) = open();
+    await dragOver(session, channel, 'rm -rf ~');
+
+    await prints(channel, write('rm -rf ~\n'));
+
+    expect(copied, isEmpty, reason: 'the added line break would run it when pasted');
+    expect(session.held?.text, 'rm -rf ~\n');
+  });
+
+  test('a drag over lines matches their copy with or without the spaces at their ends', () async {
+    final (session, channel) = open();
+    await prints(channel, '\x1b[2J\x1b[Hfirst   \r\nsecond');
+    session.dragged(const CellOffset(5, 1), const CellOffset(0, 0));
+    await prints(channel, write('first   \nsecond'));
+    expect(copied, <String>['first   \nsecond'], reason: 'drawn backwards, end cell counted, spaces kept');
+
+    session.dragged(const CellOffset(0, 0), const CellOffset(5, 1));
+    await prints(channel, write('first\nsecon'));
+    expect(copied, <String>['first   \nsecond', 'first\nsecon'], reason: 'end cell left out, spaces dropped');
+  });
+
+  test('typing lets no write through', () async {
+    final (session, channel) = open();
+    await prints(channel, 'typed');
+    session.ownKey(keyA);
+    await prints(channel, write('typed'));
+    expect(copied, isEmpty);
+    expect(session.held?.text, 'typed');
+  });
+
+  test('a press of the pointer that is no drag lets no write through', () async {
+    final (session, channel) = open();
+    await prints(channel, 'clicked');
+    session.pressed();
+    await prints(channel, write('clicked'));
+    expect(copied, isEmpty);
+  });
+
+  for (final (what, end) in <(String, void Function(Session))>[
+    ('a key', (session) => session.ownKey(keyA)),
+    (
+      'a key held down',
+      (session) => session.ownKey(
+        const KeyRepeatEvent(
+          physicalKey: PhysicalKeyboardKey.keyA,
+          logicalKey: LogicalKeyboardKey.keyA,
+          character: 'a',
+          timeStamp: Duration.zero,
+        ),
+      ),
+    ),
+    (
+      'a paste shortcut',
+      (session) => session.ownKey(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.insert,
+          logicalKey: LogicalKeyboardKey.insert,
+          timeStamp: Duration.zero,
+        ),
+      ),
+    ),
+    ('a new press of the pointer', (session) => session.pressed()),
+    ('the terminal losing the keyboard', (session) => session.lostFocus()),
+  ]) {
+    test('$what after the drag ends what it lets through', () async {
+      final (session, channel) = open();
+      await dragOver(session, channel, 'copy me');
+      end(session);
+
+      await prints(channel, write('copy me'));
+
+      expect(copied, isEmpty);
+      expect(session.held?.text, 'copy me');
+    });
+  }
+
+  test('two seconds after the drag its write still goes through, a moment later it is held', () async {
+    final (session, channel) = open();
+    await dragOver(session, channel, 'just inside');
+    now += const Duration(seconds: 2);
+    await prints(channel, write('just inside'));
+    expect(copied, <String>['just inside']);
+
+    await dragOver(session, channel, 'just past');
+    now += const Duration(seconds: 2, milliseconds: 1);
+    await prints(channel, write('just past'));
+    expect(copied, <String>['just inside']);
+    expect(session.held?.text, 'just past');
   });
 
   test('a silent write clears one that was held', () async {
     final (session, channel) = open();
     await prints(channel, write('held'));
-    session.ownKey(keyA);
-    await prints(channel, write('typed for'));
-    expect(copied, <String>['typed for']);
+    await dragOver(session, channel, 'dragged');
+    await prints(channel, write('dragged'));
+    expect(copied, <String>['dragged']);
     expect(session.held, isNull);
   });
 
   test('an empty write leaves the clipboard alone, and is not held', () async {
     final (session, channel) = open();
-    session.ownKey(keyA);
+    await dragOver(session, channel, 'copy me');
     await prints(channel, '\x1b]52;c;\x07');
     expect(copied, isEmpty);
     expect(session.held, isNull);
@@ -118,7 +221,7 @@ void main() {
 
   test('a read of the clipboard is neither answered nor held', () async {
     final (session, channel) = open();
-    session.ownKey(keyA);
+    await dragOver(session, channel, 'copy me');
     await prints(channel, '\x1b]52;c;?\x07');
     expect(copied, isEmpty);
     expect(session.held, isNull);
@@ -128,7 +231,7 @@ void main() {
   test('only a write naming the clipboard is taken', () async {
     final (session, channel) = open();
     for (final selection in <String>['p', 's', '0', 'q7']) {
-      session.ownKey(keyA);
+      await dragOver(session, channel, 'to $selection');
       await prints(channel, write('to $selection', selection: selection));
     }
     expect(copied, isEmpty);
@@ -140,14 +243,14 @@ void main() {
     await prints(channel, write('by itself', selection: ''));
     expect(copied, isEmpty);
     expect(session.held?.text, 'by itself');
-    session.ownKey(keyA);
-    await prints(channel, write('after a key', selection: ''));
-    expect(copied, <String>['after a key']);
+    await dragOver(session, channel, 'dragged');
+    await prints(channel, write('dragged', selection: ''));
+    expect(copied, <String>['dragged']);
   });
 
   test('unpadded base64 is read as padded', () async {
     final (session, channel) = open();
-    session.ownKey(keyA);
+    await dragOver(session, channel, 'hi');
     await prints(channel, '\x1b]52;c;aGk\x07');
     expect(copied, <String>['hi']);
   });
@@ -186,71 +289,15 @@ void main() {
     expect(session.held, isNull);
   });
 
-  test('a held key repeats, but counts only once', () async {
-    final (session, channel) = open();
-    session.ownKey(keyA);
-    now += const Duration(seconds: 3);
-    session.ownKey(
-      const KeyRepeatEvent(
-        physicalKey: PhysicalKeyboardKey.keyA,
-        logicalKey: LogicalKeyboardKey.keyA,
-        character: 'a',
-        timeStamp: Duration.zero,
-      ),
-    );
-    await prints(channel, write('while held'));
-    expect(copied, isEmpty);
-    expect(session.held?.text, 'while held');
-  });
-
-  test('a key the framework made up does not count', () async {
-    final (session, channel) = open();
-    session.ownKey(
-      const KeyDownEvent(
-        physicalKey: PhysicalKeyboardKey.keyA,
-        logicalKey: LogicalKeyboardKey.keyA,
-        timeStamp: Duration.zero,
-        synthesized: true,
-      ),
-    );
-    await prints(channel, write('made up'));
-    expect(copied, isEmpty);
-  });
-
-  test('two seconds after the action a write still goes through, a moment later it is held', () async {
-    final (session, channel) = open();
-    session.ownKey(keyA);
-    now += const Duration(seconds: 2);
-    await prints(channel, write('just inside'));
-    expect(copied, <String>['just inside']);
-
-    session.ownKey(keyA);
-    now += const Duration(seconds: 2, milliseconds: 1);
-    await prints(channel, write('just past'));
-    expect(copied, <String>['just inside']);
-    expect(session.held?.text, 'just past');
-  });
-
   test('a write split across chunks is judged once it is complete', () async {
     final (session, channel) = open();
     final whole = write('split');
-    session.ownKey(keyA);
+    await dragOver(session, channel, 'split');
     await prints(channel, whole.substring(0, 10));
     now += const Duration(seconds: 3);
     await prints(channel, whole.substring(10));
-    expect(copied, isEmpty, reason: 'it ended long after the key');
+    expect(copied, isEmpty, reason: 'it ended long after the drag');
     expect(session.held?.text, 'split');
-  });
-
-  test('a write begun before the action and ended after it counts by its end, as one written after it', () async {
-    final (session, channel) = open();
-    final whole = write('begun before');
-    now += const Duration(seconds: 10);
-    await prints(channel, whole.substring(0, 10));
-    session.ownKey(keyA);
-    await prints(channel, whole.substring(10));
-    expect(copied, <String>['begun before']);
-    expect(session.held, isNull);
   });
 }
 

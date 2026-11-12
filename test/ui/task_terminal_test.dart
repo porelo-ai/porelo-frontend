@@ -14,6 +14,8 @@ import 'package:porelo_frontend/src/ui/session_terminal.dart';
 import 'package:porelo_frontend/src/ui/session_view.dart';
 import 'package:xterm/xterm.dart';
 
+import '../support/terminal_drag.dart';
+
 /// A task's terminal in the interface, as walk 21 found it wanting.
 ///
 /// The harms: a button that sends the browser to an address only the container reaches; an earlier
@@ -388,12 +390,12 @@ void main() {
       tester.widget<SelectableText>(find.byKey(const Key('terminal-copy-preview'))).data!;
   String size(WidgetTester tester) => tester.widget<Text>(find.byKey(const Key('terminal-copy-size'))).data!;
 
-  testWidgets('what the program copies right after a key reaches the clipboard, and a read of it gets no answer', (
+  testWidgets('what the program copies of a drag across its text reaches the clipboard, and a read gets no answer', (
     tester,
   ) async {
     final (_, channel) = await open(tester);
-    // A typed letter goes to the far end as text, never back through the terminal's input handlers.
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await prints(tester, channel, '\x1b[2J\x1b[Hgit log --oneline');
+    await dragAcrossTheTopLine(tester, find.byKey(const Key('terminal')), 'git log --oneline'.length);
     await prints(tester, channel, write('git log --oneline'));
     expect(copied, <String>['git log --oneline']);
     expect(ask, findsNothing);
@@ -492,23 +494,26 @@ void main() {
       expect(copied, isEmpty);
     });
 
-    // Harm: a task waiting a while after the person's key still writes without a word.
-    testWidgets('two seconds of the test clock after a key still copy, a moment more asks', (tester) async {
+    // Harm: a task waiting a while after the person's drag still writes without a word.
+    testWidgets('two seconds of the test clock after a drag still copy, a moment more asks', (tester) async {
       final (_, channel) = await open(tester);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
-      await tester.pump(const Duration(seconds: 2));
+      final view = find.byKey(const Key('terminal'));
+      await prints(tester, channel, '\x1b[2J\x1b[Hjust inside');
+      await dragAcrossTheTopLine(tester, view, 'just inside'.length);
+      await tester.pump(const Duration(seconds: 2) - kDoubleTapTimeout * 2);
       await prints(tester, channel, write('just inside'));
       expect(copied, <String>['just inside']);
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
-      await tester.pump(const Duration(seconds: 2, milliseconds: 1));
+      await prints(tester, channel, '\x1b[2J\x1b[Hjust past');
+      await dragAcrossTheTopLine(tester, view, 'just past'.length);
+      await tester.pump(const Duration(seconds: 2, milliseconds: 1) - kDoubleTapTimeout * 2);
       await prints(tester, channel, write('just past'));
       expect(copied, <String>['just inside']);
       expect(preview(tester), 'just past');
     });
 
     // Harm: a pointer only passing over the terminal opens the way for the task's copy.
-    testWidgets('a pointer passing over the terminal does not count, a click does', (tester) async {
+    testWidgets('a pointer passing over the terminal or clicking in it does not count, a drag does', (tester) async {
       final (_, channel) = await open(tester);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: tester.getTopLeft(find.byKey(const Key('terminal'))));
@@ -518,13 +523,19 @@ void main() {
       expect(copied, isEmpty);
       expect(ask, findsOneWidget);
 
+      await prints(tester, channel, '\x1b[2J\x1b[Hafter a drag');
       await mouse.down(tester.getCenter(find.byKey(const Key('terminal'))));
       await mouse.up();
       await tester.pump(const Duration(milliseconds: 500));
       await prints(tester, channel, write('after a click'));
-      expect(copied, <String>['after a click']);
-      expect(ask, findsNothing);
+      expect(copied, isEmpty);
+      expect(preview(tester), 'after a click');
       await mouse.removePointer();
+
+      await dragAcrossTheTopLine(tester, find.byKey(const Key('terminal')), 'after a drag'.length);
+      await prints(tester, channel, write('after a drag'));
+      expect(copied, <String>['after a drag']);
+      expect(ask, findsNothing);
     });
   });
 

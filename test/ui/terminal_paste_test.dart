@@ -13,6 +13,7 @@ import 'package:porelo_frontend/src/ui/session_view.dart';
 import 'package:porelo_frontend/src/ui/unlock_terminal.dart';
 
 import '../features/support/world.dart';
+import '../support/terminal_drag.dart';
 
 void main() {
   for (final (kind, asks) in <(String, bool)>[
@@ -22,7 +23,7 @@ void main() {
     // task's own write to the clipboard held where nothing asks about it, or copied without a word.
     testWidgets(
       asks
-          ? '$kind terminal asks before a write to the clipboard and takes a click in it as the person'
+          ? '$kind terminal asks before a write to the clipboard and takes a drag in it as a copy'
           : '$kind terminal sends the clipboard once for each paste shortcut',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
@@ -100,11 +101,12 @@ void main() {
             await World.settle(tester);
             expect(copied, isEmpty, reason: 'a write the task makes by itself is held');
             expect(find.byKey(const Key('terminal-copy-ask')), findsOneWidget, reason: 'and asked about');
-            await tester.tap(find.byKey(Key(key)));
-            await tester.pump();
-            far.prints('\x1b]52;c;${base64.encode(utf8.encode('after a click'))}\x07');
+            far.prints('\x1b[2J\x1b[Hafter a drag');
             await World.settle(tester);
-            expect(copied, <String>['after a click'], reason: 'a click in this terminal is the person acting');
+            await dragAcrossTheTopLine(tester, find.byKey(Key(key)), 'after a drag'.length);
+            far.prints('\x1b]52;c;${base64.encode(utf8.encode('after a drag'))}\x07');
+            await World.settle(tester);
+            expect(copied, <String>['after a drag'], reason: 'a drag across its text in this terminal is a copy');
             await tester.pumpWidget(const SizedBox.shrink());
             await World.settle(tester);
             return;
