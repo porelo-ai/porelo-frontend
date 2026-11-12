@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F105",
   "title": "A Task's Terminal In The Interface As Outside It",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 6,
@@ -47,8 +47,22 @@ passed through it, not tmux's history.
 - **Then make the interface send what a plain terminal sends**, and decide which scrollback a person
   uses: the interface's own or tmux's. They must not fight over the same keys.
 
-`lib/src/app/session.dart` handles OSC 52 writes through `_copied`, but does not check for a person's
-key or mouse action or ask for confirmation with a preview, so it does not meet the clipboard promise below.
+The clipboard's consent, a write through OSC 52 asked for first unless the person just acted, is
+[F508](F508-A-Tasks-Clipboard-Write-Asks-First.md) of its own; here OSC 52 is measured as it comes through.
+
+## How it stands
+
+Read in the code on 2026-11-12:
+- `ModifiedKeys` (`lib/src/app/modified_keys.dart`) sends a modified Enter only.
+- Focus reports are not sent: the vendored `xterm` keeps the far end's focus mode
+  (`packages/xterm/lib/src/terminal.dart`) but on a change of focus only repaints
+  (`packages/xterm/lib/src/ui/render.dart`).
+- Shift+PageUp and Shift+PageDown very likely send nothing on the alternate screen tmux runs on: the key table's rows
+  for them want the main screen (`packages/xterm/lib/src/core/input/keytab/keytab_default.dart`).
+- The wheel goes to tmux on Windows only (`Session.wheel`, `lib/src/ui/session_view.dart`).
+- Porelo's task tmux, the measured reference: escape-time 10, extended keys, focus events, set-clipboard, the mouse,
+  `xterm*` terminal features and the Shift+PageUp/PageDown binds; the window's pty sets `TERM=xterm-256color`. No
+  daemon contract is involved.
 
 ## Plan
 
@@ -62,12 +76,8 @@ key or mouse action or ask for confirmation with a preview, so it does not meet 
   (`CascadeInputHandler` of `ModifiedKeys` and `defaultInputHandler`). What differs gets a handler
   beside `ModifiedKeys` in `lib/src/app/modified_keys.dart`, or a new file of its own, asked for by
   the far end where tmux asks for it.
-- **Focus events and OSC 52** are output the far end sends: read in `Session`'s `Terminal` set-up
-  (`onPrivateOSC = _hyperlink` reads OSC 8, OSC 52 and `5379`). OSC 52 writes this computer's
-  clipboard without a word only right after the person's own key or mouse action in that terminal,
-  as tmux's copy mode does; any other write asks first, with a preview of what would be written.
-  Focus reports go out when the `TerminalView`'s `focusNode` in
-  `lib/src/ui/session_view.dart` gains and loses focus.
+- **Focus events** go out as `ESC[I` and `ESC[O` when the `TerminalView`'s `focusNode` in
+  `lib/src/ui/session_view.dart` gains and loses focus, while the far end asked for them (`ESC[?1004h`).
 - **Scrolling: tmux's alone.** For a task the interface gives up its own scrollback. The
   `TerminalView`'s `shortcuts` (`terminalShortcuts`, `lib/src/ui/terminal_copy.dart`) must not
   take Shift+PageUp/PageDown, and the wheel goes to tmux everywhere, as `Session.wheel` does on
@@ -79,8 +89,8 @@ key or mouse action or ask for confirmation with a preview, so it does not meet 
 
 ## Acceptance
 
-- **A per-key test** for each key and capability above, through the interface's terminal against a
-  real task, each seen to fail first where the interface differs today.
+- **A per-key widget test** for each key and capability above, against the bytes a plain terminal sends, each
+  seen to fail first where the interface differs today.
 - **Scrolling back and down works** in the interface as in a plain terminal, by the keys and by the
   wheel.
 
