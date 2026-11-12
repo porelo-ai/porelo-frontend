@@ -119,6 +119,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f493"></a>[F493](F493-A-Place-Chosen-While-The-Window-Starts-Stands.md) | XS | - | A place the person chooses while the window still reads its machines stands; the place saved from before does not replace it when the read ends. |
+| <a id="f494"></a>[F494](F494-About-Names-The-Planners-Version.md) | S | - | The window's About names the version of the planner the window runs beside porelo's, so a person can tell which planner build answers the planning. |
 | <a id="f476"></a>[F476](F476-The-Window-Starts-The-Planner-On-Windows.md) | S | - | On Windows the window finds and starts porelo-planner's Windows build as it does on Linux, and reads the board through it, instead of saying planning is not offered there. |
 | <a id="f470"></a>[F470](F470-A-Story-Moved-Against-Its-Issues-Is-Warned-And-Confirmed.md) | S | - | A story moved on the board against its issues is warned, naming them, and saved only when confirmed; it keeps that state. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | - | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
