@@ -1291,6 +1291,41 @@ void _leftBehind() {
     await leftAlone(await raisedAgain(socket, ForwardRecords(records, table: _Told(reusedOnPin: true))), left);
   });
 
+  // Harm: a live forward forgotten because it could not be read once, and never found again.
+  test('a record whose process cannot be read, or of a boot that cannot be told, stays', () async {
+    final left = await leftBy(ForwardRecords(records), '${where.path}/unread.sock');
+
+    ForwardRecords(records, table: _Told(unreadable: true)).removeStale();
+    ForwardRecords(records, table: _Told(noBoot: true)).removeStale();
+
+    expect(File('$records/${left.pid}.forward').existsSync(), isTrue);
+  });
+
+  // Harm: records read from, or written to, wherever a link above the runtime directory points.
+  test('records under a runtime directory reached through a link are ignored', () async {
+    Directory('${where.path}/real/run').createSync(recursive: true);
+    Process.runSync('chmod', <String>['700', '${where.path}/real/run']);
+    Link('${where.path}/link').createSync('${where.path}/real');
+    final socket = '${where.path}/linked-runtime.sock';
+    final left = await leftBy(ForwardRecords('${where.path}/real/run/records'), socket);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords('${where.path}/link/run/records')), left);
+  });
+
+  // Harm: a pidfd kept open for every leftover that was looked at and not ended.
+  test('a pidfd is let go also where the pid is not ended', () async {
+    final me = const LinuxProcessTable().myUid!;
+    for (final table in [_Told(owner: me + 1), _Told(reusedOnPin: true)]) {
+      final socket = '${where.path}/rejected-${table.reusedOnPin}.sock';
+      await leftBy(ForwardRecords(records), socket);
+
+      await raisedAgain(socket, ForwardRecords(records, table: table));
+
+      expect(table.pinned, 1);
+      expect(table.released, 1);
+    }
+  });
+
   // Harm: a pidfd per leftover kept open for the window's whole life.
   test('every pidfd taken is let go', () async {
     final socket = '${where.path}/released.sock';
@@ -1336,7 +1371,21 @@ void _leftBehind() {
 
 /// The real process table, except for what a test tells it to say instead.
 class _Told implements ProcessTable {
-  _Told({this.startTime, String? bootId, this.owner, this.pins = true, this.reusedOnPin = false}) : _boot = bootId;
+  _Told({
+    this.startTime,
+    String? bootId,
+    this.owner,
+    this.pins = true,
+    this.reusedOnPin = false,
+    this.unreadable = false,
+    this.noBoot = false,
+  }) : _boot = bootId;
+
+  /// Its start time and arguments cannot be read, though it runs.
+  final bool unreadable;
+
+  /// This boot cannot be told.
+  final bool noBoot;
 
   static const _real = LinuxProcessTable();
   final String? startTime;
@@ -1353,16 +1402,20 @@ class _Told implements ProcessTable {
   int? get myUid => _real.myUid;
 
   @override
-  String? get bootId => _boot ?? _real.bootId;
+  String? get bootId => noBoot ? null : _boot ?? _real.bootId;
+
+  @override
+  bool isGone(int pid) => _real.isGone(pid);
 
   @override
   int? ownerOf(int pid) => owner ?? _real.ownerOf(pid);
 
   @override
-  String? startTimeOf(int pid) => startTime ?? (reusedOnPin && pinned > 0 ? '1' : _real.startTimeOf(pid));
+  String? startTimeOf(int pid) =>
+      unreadable ? null : startTime ?? (reusedOnPin && pinned > 0 ? '1' : _real.startTimeOf(pid));
 
   @override
-  List<String>? argumentsOf(int pid) => _real.argumentsOf(pid);
+  List<String>? argumentsOf(int pid) => unreadable ? null : _real.argumentsOf(pid);
 
   @override
   PinnedProcess? pin(int pid) {

@@ -24,7 +24,8 @@ class PathFacts {
 /// only names it), or null where it cannot.
 typedef ReadPathFacts = PathFacts? Function(String path, int? descriptor);
 
-/// One process held by a handle of its own (a pidfd): its pid can no longer be taken by another while it is held.
+/// One process held by a handle of its own (a pidfd): the handle refers to that very process, so a signal sent
+/// through it never reaches another that took its pid later.
 abstract interface class PinnedProcess {
   /// Asks it to end with SIGTERM through the handle, and answers whether the signal was sent.
   bool terminate();
@@ -57,6 +58,9 @@ abstract interface class ProcessTable {
 
   /// Holds [pid] by a handle of its own, or null where it is gone or no such handle can be had here.
   PinnedProcess? pin(int pid);
+
+  /// Whether [pid] is provably gone: the process table can be read, and holds no such pid.
+  bool isGone(int pid);
 }
 
 class _NoProcessTable implements ProcessTable {
@@ -79,6 +83,9 @@ class _NoProcessTable implements ProcessTable {
 
   @override
   PinnedProcess? pin(int pid) => null;
+
+  @override
+  bool isGone(int pid) => false;
 }
 
 /// `/proc`, read as it is now, and a pidfd to signal through.
@@ -139,6 +146,11 @@ class LinuxProcessTable implements ProcessTable {
       return null;
     }
   }
+
+  @override
+  bool isGone(int pid) =>
+      FileSystemEntity.typeSync('/proc/self', followLinks: false) != FileSystemEntityType.notFound &&
+      FileSystemEntity.typeSync('/proc/$pid', followLinks: false) == FileSystemEntityType.notFound;
 
   @override
   PinnedProcess? pin(int pid) {
@@ -272,15 +284,16 @@ class ForwardRecords {
           for (final record in _records(folder, me)) {
             if (record.boot != boot || _holding.contains(record.pid) || record.pid == pid) continue;
             if (!forwardsIt(record.command)) continue;
-            // Held first, then checked: once pinned, the pid cannot be taken by another process before the signal.
+            // Held first, then checked: what is checked is then the process the signal reaches, never one that took
+            // the pid in between.
             final pinned = table.pin(record.pid);
             if (pinned == null) {
-              if (table.startTimeOf(record.pid) == null) _unlink(folder, _nameOf(record.pid));
+              if (table.isGone(record.pid)) _unlink(folder, _nameOf(record.pid));
               continue;
             }
             try {
               if (!_stillThat(record)) {
-                _unlink(folder, _nameOf(record.pid));
+                if (_provenStale(record)) _unlink(folder, _nameOf(record.pid));
                 continue;
               }
               if (table.ownerOf(record.pid) != me) continue;
@@ -294,16 +307,28 @@ class ForwardRecords {
         false;
   }
 
-  /// Removes the records of forwards that are gone or of another boot.
+  /// Removes the records of forwards that are provably gone or of another boot; one that cannot be told stays.
   void removeStale() {
     final boot = table.bootId;
+    if (boot == null) return;
     _inDirectory((folder, me) {
       for (final record in _records(folder, me)) {
-        if (!_holding.contains(record.pid) && (record.boot != boot || !_stillThat(record))) {
+        if (!_holding.contains(record.pid) && (record.boot != boot || _provenStale(record))) {
           _unlink(folder, _nameOf(record.pid));
         }
       }
     });
+  }
+
+  // Provably not that process any more: gone, or readably started at another time or running other arguments. One
+  // whose start time or arguments cannot be read is not.
+  bool _provenStale(_Recorded record) {
+    if (table.isGone(record.pid)) return true;
+    final start = table.startTimeOf(record.pid);
+    if (start == null) return false;
+    if (start != record.start) return true;
+    final running = table.argumentsOf(record.pid);
+    return running != null && !listEquals(running, record.command);
   }
 
   // The same process: alive, started at the recorded time, and running exactly the recorded arguments.
@@ -317,21 +342,29 @@ class ForwardRecords {
   T? _inDirectory<T>(T Function(int folder, int me) work, {bool create = false}) {
     final me = table.myUid;
     final flags = _Flags.here;
-    if (me == null || flags == null) return null;
-    final parent = _facts(Directory(directory).parent.path, null);
-    if (parent == null ||
-        parent.type != FileSystemEntityType.directory ||
-        parent.owner != me ||
-        parent.permissions != 0x1c0) {
-      return null;
-    }
+    final cut = directory.lastIndexOf('/');
+    final name = directory.substring(cut + 1);
+    if (me == null || flags == null || cut < 0 || name.isEmpty || name == '.' || name == '..') return null;
+    final parentPath = directory.substring(0, cut);
+    final parent = _openChain(parentPath, flags);
+    if (parent == null) return null;
     final libc = _Libc.instance;
-    if (create && FileSystemEntity.typeSync(directory, followLinks: false) == FileSystemEntityType.notFound) {
-      _native((libc, arena) => libc.mkdir(arena.string(directory), 0x1c0));
+    final int folder;
+    try {
+      final facts = _facts(parentPath, parent);
+      if (facts == null ||
+          facts.type != FileSystemEntityType.directory ||
+          facts.owner != me ||
+          facts.permissions != 0x1c0) {
+        return null;
+      }
+      if (create) _native((libc, arena) => libc.mkdirat(parent, arena.string(name), 0x1c0));
+      folder = _native(
+        (libc, arena) => libc.openat(parent, arena.string(name), flags.directory | flags.noFollow | _oCloexec, 0),
+      );
+    } finally {
+      libc.close(parent);
     }
-    final folder = _native(
-      (libc, arena) => libc.open(arena.string(directory), flags.directory | flags.noFollow | _oCloexec, 0),
-    );
     if (folder < 0) return null;
     try {
       final facts = _facts(directory, folder);
@@ -345,6 +378,28 @@ class ForwardRecords {
     } finally {
       libc.close(folder);
     }
+  }
+
+  /// Opens the directory at the absolute [path] one component at a time from `/`, following no link on the way, or
+  /// null where that cannot be done.
+  static int? _openChain(String path, _Flags flags) {
+    if (!path.startsWith('/')) return null;
+    final libc = _Libc.instance;
+    var at = _native((libc, arena) => libc.open(arena.string('/'), flags.directory | _oCloexec, 0));
+    if (at < 0) return null;
+    for (final part in path.split('/').where((each) => each.isNotEmpty)) {
+      if (part == '.' || part == '..') {
+        libc.close(at);
+        return null;
+      }
+      final next = _native(
+        (libc, arena) => libc.openat(at, arena.string(part), flags.directory | flags.noFollow | _oCloexec, 0),
+      );
+      libc.close(at);
+      if (next < 0) return null;
+      at = next;
+    }
+    return at;
   }
 
   /// The records this account alone wrote: regular files, owned by [me], readable and writable by nobody else, each
@@ -400,10 +455,12 @@ class ForwardRecords {
   }
 
   static bool _writeNew(int folder, String name, List<int> bytes) => _native((libc, arena) {
-    // O_WRONLY | O_CREAT | O_EXCL, 0600: with O_EXCL a link at the name is never followed.
-    final descriptor = libc.openat(folder, arena.string(name), 0x1 | 0x40 | 0x80 | _oCloexec, 0x180);
-    if (descriptor < 0) return false;
+    // Everything allocated before the open, so nothing can throw while the descriptor is held.
     final buffer = arena.bytes(bytes);
+    final named = arena.string(name);
+    // O_WRONLY | O_CREAT | O_EXCL, 0600: with O_EXCL a link at the name is never followed.
+    final descriptor = libc.openat(folder, named, 0x1 | 0x40 | 0x80 | _oCloexec, 0x180);
+    if (descriptor < 0) return false;
     var done = 0;
     var failed = false;
     while (done < bytes.length) {
@@ -542,9 +599,10 @@ class _Libc {
   _Libc._(DynamicLibrary library)
     : malloc = library.lookupFunction<Pointer<Void> Function(IntPtr), Pointer<Void> Function(int)>('malloc'),
       free = library.lookupFunction<Void Function(Pointer<Void>), void Function(Pointer<Void>)>('free'),
-      mkdir = library.lookupFunction<Int32 Function(Pointer<Uint8>, Uint32), int Function(Pointer<Uint8>, int)>(
-        'mkdir',
-      ),
+      mkdirat = library
+          .lookupFunction<Int32 Function(Int32, Pointer<Uint8>, Uint32), int Function(int, Pointer<Uint8>, int)>(
+            'mkdirat',
+          ),
       open = library
           .lookupFunction<Int32 Function(Pointer<Uint8>, Int32, Uint32), int Function(Pointer<Uint8>, int, int)>(
             'open',
@@ -582,7 +640,7 @@ class _Libc {
 
   final Pointer<Void> Function(int) malloc;
   final void Function(Pointer<Void>) free;
-  final int Function(Pointer<Uint8>, int) mkdir;
+  final int Function(int, Pointer<Uint8>, int) mkdirat;
   final int Function(Pointer<Uint8>, int, int) open;
   final int Function(int, Pointer<Uint8>, int, int) openat;
   final int Function(int, Pointer<Uint8>, int, Pointer<Uint8>) renameat;
