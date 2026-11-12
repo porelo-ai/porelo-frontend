@@ -129,7 +129,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | - | Connections' rare actions in its ⋮. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working; waits for a Tasks1 answer that says an attached agent is at rest. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | - | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
-| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | S | - | Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have. |
 | <a id="f479"></a>[F479](F479-A-Planner-The-Window-Started-Ends-With-It.md) | M | - | A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running. |
 | <a id="f505"></a>[F505](F505-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The repository's daily shared-rules run checks its issues' heads with `issues check issues` from the released porelo-release, as the build tools' own shared rules do. |
 
@@ -141,7 +140,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f507"></a>[F507](F507-The-Windows-Windows-Scripts-Package-Another-App.md) | M | - | The Windows packing and install check take the app's name, version, files, manifest and start as parameters, so another repository's Windows build calls them at a pinned commit; the window's own packages stay as they are, and neither script leaves a signing key or the app's files behind. |
 | <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | - | Forwarding to a chosen branch measured against GitHub. |
 | <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | - | A task's terminal in the interface behaves as in a plain terminal. |
-| <a id="f490"></a>[F490](F490-The-Command-Finder-Offers-A-Planning-Actions-Way-On.md) | S | - | An unavailable planning action in the command finder offers its way on, a runnable step to what holds it, beside the disabled action. |
+| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | S | - | Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have. |
 
 ## Review
 
@@ -258,6 +257,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f451"></a>[F451](F451-Leftovers-Of-The-Planning-Board.md) | S | - | The mock's planning board under the interface's rule for a story's state, and a story's move taking the issues that rule names, in the mock and the client. |
 | <a id="f377"></a>[F377](F377-A-Hosts-Channel-Follows-The-Window.md) | S | - | A host the window prepares installs from the window's own channel. |
 | <a id="f362"></a>[F362](F362-A-Click-Answers-At-Once.md) | S | - | A click on a row shows its page and its reading line at once; the delay seen is the read, so the page shows what the list holds while it reads, and a project's last read at once when opened again. |
+| <a id="f490"></a>[F490](F490-The-Command-Finder-Offers-A-Planning-Actions-Way-On.md) | S | - | An unavailable planning action in the command finder offers its way on, a runnable step to what holds it, beside the disabled action. |
 
 ### Finished
 

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F490",
   "title": "The Command Finder Offers A Planning Action's Way On",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Low",
   "rank": 15,
