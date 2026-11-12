@@ -598,7 +598,8 @@ for name in dict.fromkeys(scenario for scenario, _ in steps):
     numbered = [(at, sentence) for at, (s, sentence) in enumerate(steps, 1) if s == name]
     own = result_of(name) or (("OK", "") if held else ("FAIL", "no result; see run.log"))
     last = max((at for at, _ in numbered if at in noted), default=0)
-    unexplained = False
+    # A step that noted its failure last ended the scenario: what follows it did not run.
+    unexplained = last in noted and noted[last][0] == "FAIL"
     for at, sentence in numbered:
         if machine:
             say("WAITING", None, f"{sentence}: on {machine}")
