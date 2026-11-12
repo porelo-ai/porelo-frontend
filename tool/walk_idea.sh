@@ -274,9 +274,10 @@ github() {
 }
 
 # Taken away on every ending, in this order: what still runs of the window's part and the planner it started, the
-# task branches and pull requests in the issue repository, each noted repository's tree as at its T0, the forge's
+# planner's own state of the project as it stood before the run, the task branches and pull requests in the issue
+# repository, each noted repository's tree as at its T0, the forge's
 # token and its declaration, porelod's agent put back, the run's copy.
-porelo_commit='' swapped='' pointed='' agent_before='' holder='' central_match='' vault='' declared='' taken=''
+porelo_commit='' swapped='' pointed='' agent_before='' holder='' central_match='' vault='' declared='' taken='' planned=''
 # Each noted repository's default branch and its tip at T0, by name; only a noted one is restored.
 declare -A branch_of=() t0_of=()
 left=()
@@ -302,6 +303,18 @@ cleanup() {
         for p in /proc/[0-9]*; do
             [ \"\$(readlink \$p/exe 2>/dev/null)\" != \$HOME/$run/bin/porelo-planner ] || kill -TERM \${p#/proc/} 2>/dev/null || true
         done" </dev/null || true
+    if [ -n "$planned" ]; then
+        # The planner keeps a project's runs in its own state, by story: a later run's story of the same name would
+        # take over this run's ended work. Put back once the run's planner is gone, which ends within its stop.
+        on_vm "set -e; for _ in \$(seq 50); do
+                gone=yes; for p in /proc/[0-9]*; do [ \"\$(readlink \$p/exe 2>/dev/null)\" != \$HOME/$run/bin/porelo-planner ] || gone=''; done
+                [ -z \"\$gone\" ] || break; sleep 0.2; done
+            [ -n \"\$gone\" ]
+            cd ~/.local/state/porelo-planner; rm -rf -- '$project'
+            if [ -f ~/$run.planner-state.tar ]; then tar -xf ~/$run.planner-state.tar; fi
+            rm -f ~/$run.planner-state.tar" </dev/null ||
+            left+=("the planner's state of $project on $vm (~/.local/state/porelo-planner/$project; before the run: ~/$run.planner-state.tar)")
+    fi
     local tasks=''
     tasks=$(on_vm "tr ' ' '\\n' <~/$run/tasks.txt 2>/dev/null" </dev/null | grep -Ex '[A-Za-z0-9][A-Za-z0-9._-]{2,}' || true)
     if [ -n "$taken" ]; then
@@ -713,9 +726,18 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
         fi
     fi
 
+    # The planner's state of the project as before the run, put back on every ending; none stands for a project new to
+    # the planner. Kept beside the run's copy, which goes first.
+    on_vm "set -e; rm -f ~/$run.planner-state.tar; d=~/.local/state/porelo-planner
+        if [ -d \$d/'$project' ]; then tar -C \$d -cf ~/$run.planner-state.tar -- '$project'; fi" </dev/null || {
+        echo "walk: the planner's state of $project on $vm could not be kept" >&2
+        exit 1
+    }
+    planned=yes
+
     # What a resume or a clean takes the run up with.
     declare -p vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
-        declared pointed agent_before swapped porelo_commit taken branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
+        declared pointed agent_before swapped porelo_commit taken planned branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
 fi
 
 echo "walk: the window walks $project from step $from, at most $budget minutes"
