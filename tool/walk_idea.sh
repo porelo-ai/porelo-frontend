@@ -306,7 +306,11 @@ cleanup() {
         # Judged by what porelod lists afterwards: the clear's exit also counts what it could not reach of the run's vault.
         # The project is the run's alone, so a task of it still up (a discussion nobody ended) goes with it.
         as_the_person_on_vm "${in_vault:-}porelo project clear --yes --force '$porelo_project'" </dev/null >/dev/null 2>&1 || true
-        [ "$(placed)" != True ] || left+=("$porelo_project placed on $vm (porelo project clear --yes $porelo_project there)")
+        if [ "$(placed)" = True ]; then
+            # The project's deploy keys are in the run's vault: kept beside the run, a later clear can still forget them.
+            on_vm "mv ~/$run/vault ~/$run.vault" </dev/null >/dev/null 2>&1 || true
+            left+=("$porelo_project placed on $vm (PORELO_VAULT=~/$run.vault/vault.bin porelo project clear --yes --force $porelo_project there)")
+        fi
     fi
     [ -z "${t0_of[$issue_repo]:-}" ] || take_back_the_tasks_work "$tasks"
     local each
