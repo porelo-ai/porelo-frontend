@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F97",
   "title": "Forwarding To A Branch, Measured Against GitHub",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "Medium",
   "rank": 5,
