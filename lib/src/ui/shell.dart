@@ -8,6 +8,7 @@ import 'package:guided_walk/guided_walk.dart';
 
 import '../app/central_release.dart';
 import '../app/desk.dart';
+import '../app/ending_signals.dart';
 import '../app/log_files.dart';
 import '../app/identity.dart';
 import '../app/environment_tokens.dart';
@@ -797,10 +798,9 @@ class _ShellState extends State<Shell> {
       onLeave: _hostRuns.leave,
     );
     if (!agreed) return AppExitResponse.cancel;
-    // Only what this interface raised is taken down; nothing somebody else raised is in there.
-    await widget.machines.letGoOfTheTunnels();
-    // And the forwards raised for one login, one grant or one homeserver, where one is still open.
-    await letGoOfTheForwards();
+    // Only what this interface raised is taken down; nothing somebody else raised is in there. The tunnels, and the
+    // forwards raised for one login, one grant or one homeserver, at once: one that hangs does not hold up the other.
+    await letGoTogether([widget.machines.letGoOfTheTunnels, letGoOfTheForwards]);
     return AppExitResponse.exit;
   }
 

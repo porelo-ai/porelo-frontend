@@ -187,6 +187,21 @@ void main() {
     expect(closed, <int>[9420, 8009], reason: 'taken down twice');
   });
 
+  // Harm: the forwards after one that is slow to end left running when the window's time to close is up.
+  test('the window closing takes every forward down at once, one that hangs holding none up', () async {
+    final hanging = Completer<void>();
+    raiseLoginForward = (machine, port) async =>
+        port == 8009 ? _Hanging(hanging.future) : _Recorded(() => closed.add(port));
+    await raiseForward(vm, 8009);
+    await raiseForward(vm, 9420);
+
+    unawaited(letGoOfTheForwards());
+    await pumpEventQueue();
+
+    expect(closed, <int>[9420]);
+    hanging.complete();
+  });
+
   group('a login forward a run that ended without asking left behind', () {
     late Directory where;
     late String records;
@@ -290,6 +305,15 @@ void main() {
       expect(await alive(held.process), isTrue);
     });
   });
+}
+
+class _Hanging implements HeldForward {
+  _Hanging(this._until);
+
+  final Future<void> _until;
+
+  @override
+  Future<void> close() => _until;
 }
 
 class _Recorded implements HeldForward {

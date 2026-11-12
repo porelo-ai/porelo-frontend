@@ -52,9 +52,8 @@ Future<HeldForward> raiseForward(Machine machine, int port) async {
 /// Takes down every forward raised through [raiseForward] that is still held. Called when the window
 /// closes; only what this interface raised is in there.
 Future<void> letGoOfTheForwards() async {
-  for (final each in _held.toList()) {
-    await each.close();
-  }
+  // All at once: one that is slow to end, or will not, holds none of the others up.
+  await Future.wait<void>([for (final each in _held.toList()) Future<void>.sync(each.close).catchError((Object _) {})]);
 }
 
 class _Tracked implements HeldForward {

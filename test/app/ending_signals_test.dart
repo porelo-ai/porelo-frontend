@@ -72,4 +72,17 @@ void main() {
 
     expect(done, <String>['forwards']);
   });
+
+  // Harm: the window closed with its login forwards still running, because letting go of the tunnels hung or threw.
+  test('letting go together waits for none that hangs or throws, and within its bound', () async {
+    final done = <String>[];
+
+    await letGoTogether([
+      () => Completer<void>().future,
+      () async => throw StateError('the tunnels would not go'),
+      () async => done.add('forwards'),
+    ], within: const Duration(milliseconds: 200)).timeout(const Duration(seconds: 2));
+
+    expect(done, <String>['forwards']);
+  });
 }
