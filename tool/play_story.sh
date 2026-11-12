@@ -97,6 +97,11 @@ forwarding_to_a_branch)
     # The forge's seed, token and branches are the walk's; forwarding to a chosen branch at GitHub is what it measures.
     machine=linux needs='' handed=walk leans_on='forward-github'
     ;;
+the_planner_moves_work_on)
+    # The idea walk with two issue repositories to the end of its builders, the second seeded with a fault its reader
+    # blocks on; from there only the planner and the window move the work, and a task fails on a refused key.
+    machine=linux needs='' handed=walk leans_on='idea-walk'
+    ;;
 a_tasks_results_land)
     # The idea walk up to its reading, on a seed the reader finds fault with; then the findings, the rework and the idea
     # brought back, read in fresh clones of the forge.
