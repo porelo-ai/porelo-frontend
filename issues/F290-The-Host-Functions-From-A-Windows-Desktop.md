@@ -71,9 +71,14 @@ people, as on Linux: through the host's card, with the same `-F` file and the sa
   defaults: 16 per card, 48 in all, 8 starts a second per card, 256 KiB buffered each way, 30 s to the first byte. The
   daemon's readiness probes count under the cap of all too; a place is free only once its child has exited.
 - **The relay command is a contract**, agreed with Core: `porelo service connect <forge-web|forge-git|homeserver>`
-  takes exactly one argument, the role, mapped on the host to its fixed socket, and puts only the service's bytes on
-  standard output. A role it does not know, or one the card names as none, exits 64; a service whose port does not
-  answer exits 69; the window says either on the card. The carrier passes only the role of the port it holds.
+  takes exactly one argument, the role, mapped on the host to its fixed socket (`/run/porelo-forge/web.sock`,
+  `/run/porelo-forge/git.sock`, `/run/porelo-matrix/client.sock`), connects to it as the person and puts only the
+  service's bytes on standard output. It refuses a socket others may write, or one below a directory that is not
+  root's or that others may write. A role it does not know exits 64 (a porelo on the host older than the role); a
+  host that serves none (no socket), a socket that refuses, or a socket it refuses exits 69, naming the role on
+  standard error; a connection that fails while carrying exits 70. The window says each on the card, 64 and 69 as the
+  host offering no such service and 70 as the service breaking off. The carrier passes only the role of the port it
+  holds.
 - **No `ControlMaster` on Windows.** The config written there leaves out `ControlMaster`, `ControlPath` and
   `ControlPersist`. Whoever else needs the host opens a connection of its own through the same `-F` file. The host
   vault is not unlocked from Windows here: Core's `porelo host unlock` does not run there, and the window does its
@@ -112,16 +117,17 @@ goes; what replaces it:
   start leave nothing bound or running; each port reaches its own role, with a fake that records the role (an echo
   cannot tell a misroute). `test/app/host_card_tunnel_windows_test.dart`: the Windows card tunnel starts no ssh with
   `-L` or `-R`, holds both families of each port through a reconnect, and is up only on the daemon's answer: stderr
-  with a banner alone, malformed output, failed authentication and an answer after release leave it down.
+  with a banner alone, malformed output, failed authentication and an answer after release leave it down. A carried
+  connection whose relay exits 64, 69 or 70 is said on the card as above; one the client ended says nothing.
 - `CoreHostUnlocker` stays as it is: on Windows the vault unlock is [F512](README.md#f512)'s.
 
 ## Parts of other repositories
 
 Each is its own piece, agreed in the room before this is built:
 - **Core:** agreed: `porelo service connect <role>` on the host joins its standard input and output to one
-  service socket by its role (forge web, forge Git, homeserver), refusing any other with exit 64 and a service that
-  does not answer with 69, as `porelo daemon connect` does for the daemon's. Where Core puts the person's key into
-  KeePassXC on Windows, it sets no confirmation per use.
+  service socket by its role (forge web, forge Git, homeserver), as `porelo daemon connect` does for the daemon's,
+  with the exits above: 64, 69 and 70 (porelo#B677). Where Core puts the person's key into KeePassXC on Windows, it
+  sets no confirmation per use.
 - **Matrix:** the messenger's return endpoint on Windows, carried as above once it exists; not part of this build.
 
 ## Acceptance
