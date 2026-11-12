@@ -17,8 +17,13 @@ Future<void> theBuilderTaskRunsAndTheStoryStandsInImplementing(WidgetTester test
         what: 'the planner to have the run started',
       );
       await probe(['work', Walk.story!, 'started']);
+      // A builder that ended already has been reported so: the planner moved its issues on to Reading.
+      final state = hasEnded(await theTask(Walk.builder!)) && await probeHolds(['story-state', Walk.story!, 'Reading'])
+          ? 'Reading'
+          : 'Implementing';
+      if (state == 'Reading') noteStep('   the builder ended before this read: the story stands in Reading already');
       for (final issue in Walk.issues) {
-        await theIssueStandsIn(issue.id, issue.repository, 'Implementing');
+        await theIssueStandsIn(issue.id, issue.repository, state);
       }
-      await probe(['story-state', Walk.story!, 'Implementing']);
+      await probe(['story-state', Walk.story!, state]);
     });
