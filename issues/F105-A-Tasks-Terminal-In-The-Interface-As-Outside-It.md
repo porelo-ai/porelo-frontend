@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F105",
   "title": "A Task's Terminal In The Interface As Outside It",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 6,

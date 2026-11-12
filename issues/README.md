@@ -102,8 +102,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | - | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | - | Every view shows the same way that it is reading. |
 | <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | - | A project's keys told in one place, the signing key checked against a branch rule. |
-| <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | - | Forwarding to a chosen branch measured against GitHub. |
-| <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | - | A task's terminal in the interface behaves as in a plain terminal. |
 | <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | - | Making a project from a repository measured against GitHub. |
 | <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | - | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | - | A machine reached without an `ssh` binary. |
@@ -127,6 +125,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | - | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f490"></a>[F490](F490-The-Command-Finder-Offers-A-Planning-Actions-Way-On.md) | S | - | An unavailable planning action in the command finder offers its way on, a runnable step to what holds it, beside the disabled action. |
+| <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | - | Forwarding to a chosen branch measured against GitHub. |
+| <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | - | A task's terminal in the interface behaves as in a plain terminal. |
 
 ## Implementing
 
