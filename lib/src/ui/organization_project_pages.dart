@@ -798,7 +798,7 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
                     ? CommandMenu(
                         commands: [
                           for (final policy in ['required', 'optional'])
-                            _reviewCommand(view, policy, repository: repository.name),
+                            if (repository.review != policy) _reviewCommand(view, policy, repository: repository.name),
                           if (repository.namesNoCentral && (repository.address ?? '').isNotEmpty)
                             organizationCommand(
                               id: 'nameCentral/${repository.name}',

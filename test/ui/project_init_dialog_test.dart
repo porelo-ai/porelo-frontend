@@ -385,4 +385,33 @@ void main() {
       expect(find.text('entry: changeProjectReview\n'), findsOneWidget);
     });
   }
+
+  // Harm: offering a repository the policy it already has reads as if that policy did not hold.
+  for (final review in ['required', 'optional', null]) {
+    testWidgets('a repository with review $review offers only the policy it does not have', (tester) async {
+      final source = _Source('pat')
+        ..projects = {
+          'demo': ProjectView(
+            name: 'demo',
+            revision: 'org-base',
+            members: demoProject.members,
+            repositories: [
+              ProjectRepository(name: 'demo', address: demoProject.repositories.first.address, review: review),
+            ],
+          ),
+        };
+      await _organization(
+        tester,
+        source,
+        (organization) => OrganizationProjectPage(organization: organization, project: 'demo', onBack: () {}),
+      );
+      for (final policy in ['required', 'optional']) {
+        expect(
+          organizationAction('repositoryReview/demo/$policy'),
+          review == policy ? findsNothing : findsOneWidget,
+          reason: 'a repository whose policy was not read offers both',
+        );
+      }
+    });
+  }
 }

@@ -13,6 +13,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A repository's menu on a project's page offers only the review policy the repository does not have, as the project's own menu does; a repository whose policy was not read still offers both.
 - A `logs` folder the window makes itself takes no line of its log before it is closed to others; what was said meanwhile follows once it is.
 - A release of a held message that Porelo refuses keeps its dialog open and says, in the error's colour, that nothing was sent, with Porelo's words whole; before, it was a plain notice gone with the dialog.
 - A project's page and the organization's pages show the state Porelo kept at once, saying when it was checked last, and replace it with the checked state when that answers; a project's page offers no change until then, and a read whose check failed says so, with when and why, instead of passing for the project as it stands.
