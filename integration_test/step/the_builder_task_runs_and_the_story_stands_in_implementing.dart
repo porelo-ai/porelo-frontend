@@ -7,7 +7,8 @@ import '../support/idea_walk.dart';
 Future<void> theBuilderTaskRunsAndTheStoryStandsInImplementing(WidgetTester tester) =>
     walked(tester, '6 read: the builder task runs and the story stands in Implementing', () async {
       final task = await theTask(Walk.builder!);
-      expect(task['running'], isTrue, reason: 'porelo says ${Walk.builder} runs: $task');
+      // A small task may have ended already by the time it is read.
+      expect(task['running'] == true || hasEnded(task), isTrue, reason: 'porelo says ${Walk.builder} ran: $task');
       // The window posts STARTED after Start confirmed it; the planner moves on its own word.
       await pumpUntil(
         tester,
