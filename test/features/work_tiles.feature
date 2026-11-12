@@ -42,6 +42,24 @@ Feature: Work in its machine's area, as tiles that carry their own actions
         Then the tile {'porelo-checkout-shell'} says {'Running'}
         And the tile {'porelo-checkout-shell'} is not marked as a guess
 
+    # The machine reads an attached agent's rest from its screen, by the agent's own declaration.
+    Scenario: an attached agent at rest says so, and is not marked as a guess
+        Given the attached agent in {'porelo-checkout-shell'} is at rest
+        Then the tile {'porelo-checkout-shell'} says {'At rest'}
+        And the tile {'porelo-checkout-shell'} does not say {'Running'}
+        And the tile {'porelo-checkout-shell'} is not marked as a guess
+
+    Scenario: an attached agent at work says it works, never that it rests
+        Given the attached agent in {'porelo-checkout-shell'} is working
+        Then the tile {'porelo-checkout-shell'} says {'Working'}
+        And the tile {'porelo-checkout-shell'} does not say {'At rest'}
+
+    Scenario: a question about an attached agent at rest wins over its rest
+        Given the attached agent in {'porelo-billing-shell'} is at rest
+        And other work is blocked reaching {'files.example.test:22'}
+        Then the tile {'porelo-billing-shell'} says {'files.example.test:22'}
+        And the tile {'porelo-billing-shell'} does not say {'At rest'}
+
     # Reported: opened from Running and put away, it came back to the work's project.
     Scenario: work is opened by hand from the work page, and leaving it comes back there
         When I work in {'porelo-billing-shell'} by hand from its tile

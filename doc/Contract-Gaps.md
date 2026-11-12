@@ -82,7 +82,8 @@ gap here is a backend method that has to be added, not a workaround waiting to b
 
 - **Whether an agent is waiting on a person for its own question.** `WAITING` covers clearance
   questions only. The backend will observe working and quiet from outside for every agent, and let
-  each agent declare waiting where it can; until then a quiet task is shown as a guess.
+  each agent declare waiting where it can; until then a quiet task is shown as a guess. An attached agent that
+  declares its rest is no guess: the machine answers `AT_REST` or `WORKING` from its screen.
 
 - **Removing a project the machine lists but does not know** (decided in Porelo, not built).
   `RemoveProject` with `dryRun` answers `NoSuchProject` for it, so *Remove this project* has nothing to

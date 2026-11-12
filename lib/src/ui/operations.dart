@@ -280,6 +280,7 @@ class _RunState extends StatelessWidget {
     final state = switch (task?.activity.name) {
       'WORKING' => 'Working',
       'IDLE' => 'Resting',
+      'AT_REST' => 'At rest',
       'DONE' => 'Done',
       'ENDED' => 'Ended',
       'WAITING' => 'Waiting for clearance${task!.waitingFor.isEmpty ? '' : ': ${task.waitingFor}'}',

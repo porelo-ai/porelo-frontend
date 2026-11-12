@@ -303,6 +303,7 @@ class ActivityMark extends StatelessWidget {
       Activity.waiting => (Icons.pan_tool_outlined, scheme.error),
       Activity.working => (Icons.play_circle_outline, scheme.primary),
       Activity.idle => (Icons.pause_circle_outline, scheme.outline),
+      Activity.atRest => (Icons.pause_circle_outline, scheme.primary),
       Activity.dead => (Icons.stop_circle_outlined, scheme.outlineVariant),
       // Its agent said it is done: at rest, whether or not its container is up.
       Activity.done => (Icons.check_circle_outline, scheme.outline),

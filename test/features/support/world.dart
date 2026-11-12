@@ -3407,6 +3407,7 @@ class World {
     bool running = true,
     Map<String, dynamic>? agentEnded,
     int waiting = 0,
+    String mode = 'UNATTENDED',
   }) {
     final was = backend.tasksNow.firstWhere((task) => task.name == name);
     backend.publish(<Task>[
@@ -3424,7 +3425,7 @@ class World {
             'startAction': running ? 'RUNNING' : 'RESUME',
             'helpers': was.helpers,
             'agent': 'an-agent',
-            'mode': 'UNATTENDED',
+            'mode': mode,
             'branch': 'refs/porelo/incoming/shell',
             'since': since,
             'activity': activity,

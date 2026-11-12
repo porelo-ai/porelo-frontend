@@ -269,6 +269,10 @@ class Activity {
   /// Up, producing nothing, and not waiting for anybody as far as anything can tell.
   static const idle = Activity('IDLE');
 
+  /// Attached, and its agent's screen shows it at its prompt, by the agent's own declaration of rest. **Not idle**,
+  /// which is a guess from a quiet log: this is read, so it is never shown as one.
+  static const atRest = Activity('AT_REST');
+
   /// Its agent has ended, whatever else the container does: [Task.agentEnded] says how. It
   /// wins over working and idle, which an ended agent's container can still look like.
   static const ended = Activity('ENDED');
@@ -285,7 +289,7 @@ class Activity {
   static const unknown = Activity('UNKNOWN');
 
   /// The values this build knows. Not a validation list.
-  static const known = <Activity>[done, dead, waiting, working, idle, ended, unknown];
+  static const known = <Activity>[done, dead, waiting, working, idle, atRest, ended, unknown];
 
   /// Whether this build knows what it means.
   bool get recognized => known.any((value) => value.name == name);
@@ -297,6 +301,7 @@ class Activity {
     'WAITING' => 'waiting',
     'WORKING' => 'working',
     'IDLE' => 'idle',
+    'AT_REST' => 'at rest',
     'ENDED' => 'its agent ended',
     'UNKNOWN' => 'cannot be seen',
     '' => 'not recorded',

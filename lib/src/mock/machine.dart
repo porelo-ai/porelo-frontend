@@ -2269,6 +2269,9 @@ deleted file mode 100644
     // Started with enforcement off: nothing will ever be asked about what it reaches, which
     // is a choice somebody made and the interface has to show.
     _task('porelo-billing-audit', 'billing', helpers: 0, activity: 'UNKNOWN', mode: 'AGENT', clearance: 'off'),
+    // Attached agents that declare their rest: the machine reads it from their screens, so neither is a guess.
+    _task('porelo-billing-pairing', 'billing', activity: 'AT_REST', mode: 'AGENT', minutesAgo: 12),
+    _task('porelo-checkout-pairing', 'checkout', activity: 'WORKING', mode: 'AGENT', minutesAgo: 3),
     // A failed run is no longer swept away: a non-zero exit stops the container and leaves it
     // in place, workspace and logs intact, because the run worth looking at is the one that
     // went wrong. So a list has more exited tasks on it than it used to.

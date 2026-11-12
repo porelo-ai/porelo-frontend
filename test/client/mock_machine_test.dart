@@ -140,8 +140,8 @@ void main() {
     await client.remove('porelo-checkout-migrate');
     await second.future;
 
-    expect(seen.first, 6);
-    expect(seen.last, 5);
+    expect(seen.first, 8);
+    expect(seen.last, 7);
     await watching.cancel();
   });
 

@@ -66,6 +66,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A tile of an attached agent says *At rest* where the machine reads from the agent's screen that it waits at its prompt for its next turn, and *Working* where it reads it at work; neither is marked as a guess. A question about it still comes first, and a machine that cannot say, or an agent that declares no rest, shows *Running* as before.
 - The command finder lists, beside a planning action that cannot run now, the way on porelo-planner names for it, such as the run that needs attention, as an entry that runs; it never runs the action itself, and an action that can run offers none.
 - A discussion of an idea the window started for the planner hands its idea to the planner when it ends: the result file it wrote, read from the machine it ran on, goes once with the discussion's offer, also after a restart of the window, and the story it was saved as is said in the window's log; a discussion that left no idea, or an idea the planner refused, is said with the planner's faults, and the file stays in the task.
 - *Options* → *Logs* sets how much the logs hold, *ERROR*, *WARN*, *INFO* (the usual) or *DEBUG*: the window's log follows at once, and the planner is told the level when the window finds it and on each change; where the planner is at another level, or cannot take it, *Logs* says so.

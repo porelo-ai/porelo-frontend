@@ -23,6 +23,9 @@ import './step/the_tile_shows_the_state.dart';
 import './step/the_work_has_stopped.dart';
 import './step/i_select_the_project.dart';
 import './step/the_work_cannot_be_seen.dart';
+import './step/the_attached_agent_in_is_at_rest.dart';
+import './step/the_attached_agent_in_is_working.dart';
+import './step/other_work_is_blocked_reaching.dart';
 import './step/i_work_in_by_hand_from_its_tile.dart';
 import './step/the_session_runs.dart';
 import './step/i_leave_the_session.dart';
@@ -104,6 +107,26 @@ void main() {
       await theWorkCannotBeSeen(tester, 'porelo-checkout-shell');
       await theTileSays(tester, 'porelo-checkout-shell', 'Running');
       await theTileIsNotMarkedAsAGuess(tester, 'porelo-checkout-shell');
+    });
+    testWidgets('''an attached agent at rest says so, and is not marked as a guess''', (tester) async {
+      await bddSetUp(tester);
+      await theAttachedAgentInIsAtRest(tester, 'porelo-checkout-shell');
+      await theTileSays(tester, 'porelo-checkout-shell', 'At rest');
+      await theTileDoesNotSay(tester, 'porelo-checkout-shell', 'Running');
+      await theTileIsNotMarkedAsAGuess(tester, 'porelo-checkout-shell');
+    });
+    testWidgets('''an attached agent at work says it works, never that it rests''', (tester) async {
+      await bddSetUp(tester);
+      await theAttachedAgentInIsWorking(tester, 'porelo-checkout-shell');
+      await theTileSays(tester, 'porelo-checkout-shell', 'Working');
+      await theTileDoesNotSay(tester, 'porelo-checkout-shell', 'At rest');
+    });
+    testWidgets('''a question about an attached agent at rest wins over its rest''', (tester) async {
+      await bddSetUp(tester);
+      await theAttachedAgentInIsAtRest(tester, 'porelo-billing-shell');
+      await otherWorkIsBlockedReaching(tester, 'files.example.test:22');
+      await theTileSays(tester, 'porelo-billing-shell', 'files.example.test:22');
+      await theTileDoesNotSay(tester, 'porelo-billing-shell', 'At rest');
     });
     testWidgets('''work is opened by hand from the work page, and leaving it comes back there''', (tester) async {
       await bddSetUp(tester);

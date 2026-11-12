@@ -16,6 +16,7 @@ import './step/the_work_is_dead.dart';
 import './step/the_work_has_been_idle_since_minutes_ago.dart';
 import './step/the_work_cannot_be_seen.dart';
 import './step/the_work_is_not_shown_as.dart';
+import './step/the_attached_agent_in_cannot_be_seen.dart';
 import './step/the_backend_says_it_is_waiting_on.dart';
 import './step/the_work_holds_for.dart';
 import './step/i_select_the_work.dart';
@@ -56,6 +57,12 @@ void main() {
       await theWorkCannotBeSeen(tester, 'porelo-checkout-shell');
       await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'Running');
       await theWorkIsNotShownAs(tester, 'porelo-checkout-shell', 'Quiet');
+    });
+    testWidgets('''an attached agent nothing can see is not reported as at rest''', (tester) async {
+      await bddSetUp(tester);
+      await theAttachedAgentInCannotBeSeen(tester, 'porelo-checkout-shell');
+      await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'Running');
+      await theWorkIsNotShownAs(tester, 'porelo-checkout-shell', 'At rest');
     });
     testWidgets('''a change of activity arrives without anybody asking for it''', (tester) async {
       await bddSetUp(tester);

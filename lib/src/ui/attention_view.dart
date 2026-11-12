@@ -1322,6 +1322,7 @@ abstract final class TileWords {
       Demand.ended => task?.agentEnded?.words ?? 'Its agent ended',
       Demand.gate => 'Its work waits for review',
       Demand.working => 'Working$forHowLong',
+      Demand.atRest => 'At rest$forHowLong',
       Demand.quiet => 'Quiet$forHowLong',
       // Only that it runs: nothing here can see what it is doing, and nothing claims to.
       Demand.unseen => 'Running$forHowLong',
@@ -1488,6 +1489,7 @@ class WorkRow extends StatelessWidget {
           Demand.ended => 'its agent ended',
           Demand.gate => 'waits for review',
           Demand.working => 'working',
+          Demand.atRest => 'at rest',
           Demand.quiet => 'quiet',
           Demand.unseen => 'running',
           Demand.done => 'done',
@@ -1559,7 +1561,7 @@ class WorkRow extends StatelessWidget {
                                 ? 'Needs you'
                                 : switch (tile.demand) {
                                     Demand.working || Demand.unseen when !terminalEnded => 'Running',
-                                    Demand.quiet => 'Waiting',
+                                    Demand.quiet || Demand.atRest => 'Waiting',
                                     _ => 'Stopped',
                                   },
                           ),
@@ -1851,6 +1853,7 @@ class _StateMark extends StatelessWidget {
       Demand.unseen => (states.working, false, 'Running'),
       Demand.done => (states.stopped, false, 'Done'),
       Demand.quiet => (states.waiting, false, 'Waiting'),
+      Demand.atRest => (states.waiting, false, 'At rest'),
       Demand.stopped => (states.stopped, false, 'Stopped'),
     };
     return Tooltip(

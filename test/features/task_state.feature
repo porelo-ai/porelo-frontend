@@ -28,6 +28,12 @@ Feature: What a piece of work is doing, and how long it has been
         Then the work {'porelo-checkout-shell'} is shown as {'Running'}
         And the work {'porelo-checkout-shell'} is not shown as {'Quiet'}
 
+    # An older machine, or an agent that declares no rest, answers as it always has for an attached agent.
+    Scenario: an attached agent nothing can see is not reported as at rest
+        Given the attached agent in {'porelo-checkout-shell'} cannot be seen
+        Then the work {'porelo-checkout-shell'} is shown as {'Running'}
+        And the work {'porelo-checkout-shell'} is not shown as {'At rest'}
+
     Scenario: a change of activity arrives without anybody asking for it
         Given the work {'porelo-checkout-shell'} is idle
         When the backend says it is waiting on {'api.example.test:443'}

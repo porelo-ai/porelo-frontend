@@ -32,6 +32,9 @@ enum Demand {
   /// Producing output.
   working,
 
+  /// Attached, and its agent's screen shows it at its prompt, waiting for its next turn. Read, not guessed.
+  atRest,
+
   /// Quiet, as far as anything can tell. A guess.
   quiet,
 
@@ -1177,6 +1180,7 @@ class Attention extends ChangeNotifier {
     if (task.activity == Activity.dead || !task.running) return Demand.stopped;
     return switch (task.activity.name) {
       'WORKING' => Demand.working,
+      'AT_REST' => Demand.atRest,
       'IDLE' => Demand.quiet,
       _ => Demand.unseen,
     };

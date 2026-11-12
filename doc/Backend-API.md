@@ -160,6 +160,10 @@ Worth knowing before designing around them:
 - **A task whose agent said its work is done** has activity `DONE` and state `done`, whether its container
   is up or stopped. It is shown as done, never as running, and no count of running work here counts it; it
   needs a person only for what else it holds, such as work at the gate.
+- **An attached agent at rest** has activity `AT_REST`: its screen shows it at its prompt by the agent's own
+  declaration of rest, on two looks apart, so it is shown as *At rest* and never as a guess. An attached agent that
+  declares its rest and is not at rest answers `WORKING`; one that declares none, a question to a person on its
+  screen, and an older machine answer `UNKNOWN`, shown as *Running*. A question for it wins over its rest.
 - **`Stop` refuses.** A task holding commits that never reached the gate comes back as
   `HOLDS_WORK` and is left exactly as it was. That refusal is a feature and needs a real place in
   the interface, not an error toast.
