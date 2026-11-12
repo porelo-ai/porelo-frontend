@@ -60,6 +60,12 @@ Feature: Work in its machine's area, as tiles that carry their own actions
         Then the tile {'porelo-billing-shell'} says {'files.example.test:22'}
         And the tile {'porelo-billing-shell'} does not say {'At rest'}
 
+    # Its pushes wait for a person, and its rest must not hide them.
+    Scenario: work of an attached agent at rest that waits at the gate says so, not its rest
+        Given the attached agent in {'porelo-checkout-shell'} rests with its work at the gate
+        Then the tile {'porelo-checkout-shell'} says {'waits for review'}
+        And the tile {'porelo-checkout-shell'} does not say {'At rest'}
+
     # Reported: opened from Running and put away, it came back to the work's project.
     Scenario: work is opened by hand from the work page, and leaving it comes back there
         When I work in {'porelo-billing-shell'} by hand from its tile

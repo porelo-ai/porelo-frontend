@@ -26,6 +26,7 @@ import './step/the_work_cannot_be_seen.dart';
 import './step/the_attached_agent_in_is_at_rest.dart';
 import './step/the_attached_agent_in_is_working.dart';
 import './step/other_work_is_blocked_reaching.dart';
+import './step/the_attached_agent_in_rests_with_its_work_at_the_gate.dart';
 import './step/i_work_in_by_hand_from_its_tile.dart';
 import './step/the_session_runs.dart';
 import './step/i_leave_the_session.dart';
@@ -127,6 +128,12 @@ void main() {
       await otherWorkIsBlockedReaching(tester, 'files.example.test:22');
       await theTileSays(tester, 'porelo-billing-shell', 'files.example.test:22');
       await theTileDoesNotSay(tester, 'porelo-billing-shell', 'At rest');
+    });
+    testWidgets('''work of an attached agent at rest that waits at the gate says so, not its rest''', (tester) async {
+      await bddSetUp(tester);
+      await theAttachedAgentInRestsWithItsWorkAtTheGate(tester, 'porelo-checkout-shell');
+      await theTileSays(tester, 'porelo-checkout-shell', 'waits for review');
+      await theTileDoesNotSay(tester, 'porelo-checkout-shell', 'At rest');
     });
     testWidgets('''work is opened by hand from the work page, and leaving it comes back there''', (tester) async {
       await bddSetUp(tester);

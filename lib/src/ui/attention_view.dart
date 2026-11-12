@@ -1322,7 +1322,8 @@ abstract final class TileWords {
       Demand.ended => task?.agentEnded?.words ?? 'Its agent ended',
       Demand.gate => 'Its work waits for review',
       Demand.working => 'Working$forHowLong',
-      Demand.atRest => 'At rest$forHowLong',
+      // No length: the machine says it rests, never since when, and the task's own age is not its rest's.
+      Demand.atRest => 'At rest',
       Demand.quiet => 'Quiet$forHowLong',
       // Only that it runs: nothing here can see what it is doing, and nothing claims to.
       Demand.unseen => 'Running$forHowLong',
