@@ -42,7 +42,7 @@ Each point is to be checked against the code before it is fixed.
   state, not as the least advanced ones; the two agreed only while the board followed the rule above.
 - Placed by the operator (2026-11-10): the two points above are built here; a board without streaming saying it is
   not live went to [F467](README.md#f467); the finder's planning commands and the start dialog's machine choice went
-  to [F450](README.md#f450).
+  to [F496](README.md#f496).
 - Built: the mock's board puts each story in the earliest open state of its issues; the six stories above now hold
   issues that fit the state they stand in, so the features that drag them keep their columns. A story's move takes its
   least advanced issues - those in the earliest open state in workflow order, or in the earliest closed state when all

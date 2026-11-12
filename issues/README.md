@@ -77,8 +77,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | - | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | - |
-| <a id="f450"></a>[F450](F450-The-Window-s-Tests-Follow-The-Test-Pyramid.md) | XL | - | The window's tests moved to the test pyramid's shares: waits, network and processes faked, flows proven below the end-to-end runs, logic out of the widgets. | 2 |
-| <a id="f479"></a>[F479](F479-A-Planner-The-Window-Started-Ends-With-It.md) | M | - | A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running. | 1 |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | - | Windows notifications from the MSIX's identity. | - |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | - | A fine-grained token waiting for an organisation's approval said as waiting. | - |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | - | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | - |
@@ -89,8 +87,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | M | - | A host pull request's state and approval, and approved work brought on to the central forge bound to commit, repository and pull request, with level, class and checks in one line. | - |
 | <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | M | - | Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or refused alone, a person's own from IntelliJ too, bound to commit and pull request. | - |
 | <a id="f394"></a>[F394](F394-A-Tunnel-Forward-Only-The-Person-Reaches.md) | M | - | What the window forwards from a machine is reached only by the person: a relay of the window's own lets in only the person's connections, the host refusing other sites' requests to the forge's web. | 2 |
-| <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | - | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. | 1 |
-| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | S | - | The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts. | 1 |
 
 ## Estimated
 
@@ -110,6 +106,14 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | - | The setup script verified by its signature before it runs. |
 | <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | - | A nickname for each agent. |
 | <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | - | An organisation's policy shown. |
+| <a id="f479"></a>[F479](F479-A-Planner-The-Window-Started-Ends-With-It.md) | M | - | A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running. |
+| <a id="f495"></a>[F495](F495-The-Windows-Tests-Wait-On-No-Clock-Network-Or-Process.md) | M | - | The window's unit tests wait on no real time, network or process: an injected clock under fakeAsync, an in-memory varlink connection, fake process starts, one smoke test each. |
+| <a id="f496"></a>[F496](F496-Flows-Proven-Only-End-To-End-Proven-Below.md) | M | - | The flows proven only by the end-to-end or live runs proven below them: MockMachine handlers and wire tests, a test that every client method is known to the mock, the planning commands and the start dialog's machine change. |
+| <a id="f497"></a>[F497](F497-The-Gherkin-Suites-Rules-As-Unit-Tests.md) | L | [F495](README.md#f495) | The slow Gherkin suites' rules moved into unit tests on StartWork, ShellModel, commands.dart, a wizard model, AgentSignIn, Logs and the organization projections; each feature keeps what the window adds. |
+| <a id="f498"></a>[F498](F498-The-Shells-Controller-Out-Of-Its-Widget.md) | L | [F497](README.md#f497) | Task start, sign-in recovery and gate forwarding moved out of _ShellState into plain classes behind the interfaces the shell holds, each with its unit tests. |
+| <a id="f499"></a>[F499](F499-The-Model-Less-Dialogs-Given-Models.md) | L | [F498](README.md#f498) | The host dialog's state machine, the organization pages and dialogs and the other model-less views each given a model with unit tests; the window's tests then measured at the test pyramid's shares. |
+| <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | - | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
+| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | S | - | Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have. |
 
 ## Backlog
 
@@ -421,6 +425,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f450"></a>F450 | The Window's Tests Follow The Test Pyramid | Split by the operator (2026-11-12) into five issues of their own: [F495](#f495), [F496](#f496), [F497](#f497), [F498](#f498) and [F499](#f499), which keeps its measurement. |
 | <a id="f284"></a>F284 | The Subagent Number Chosen When Starting | The number of subagents now follows the number of Agent issues in the story, so it is not chosen when starting (operator, 2026-11-12; ST52 rejected). |
 | <a id="f467"></a>F467 | A Board Without Streaming Says It Is Not Live | Moved to the planner's package: porelo-planner's PL23, on its `main`, builds the board's stream, its lost connection, *Retry* and *Reload* (operator, 2026-11-11). |
 | <a id="f307"></a>F307 | Push And Pull Show Their Progress In The Interface | Nothing left to apply to: the terminal push and pull were removed for *Bring it to central…*, which says each repository's answer in the interface ([F460](#f460); operator, 2026-11-10). |

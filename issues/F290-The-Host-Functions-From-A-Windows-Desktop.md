@@ -5,13 +5,12 @@
   "$schema": "issue-1.json",
   "id": "F290",
   "title": "The Host Functions From A Windows Desktop",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "M",
   "priority": "Medium",
-  "rank": 24,
+  "rank": 22,
   "blockedBy": [],
-  "covers": "Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master.",
-  "openQuestions": 1
+  "covers": "Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master."
 }
 ```
 
@@ -20,6 +19,12 @@ relay, the host reads' ssh and their tests, all in this repository; Core's and M
 
 **What must be true.** On Windows, a person connects to a machine, and a Machine Admin prepares it and names its
 people, as on Linux: through the host's card, with the same `-F` file and the same fixed ports. Linux stays as it is.
+
+## Decided by the operator (2026-11-12)
+
+- On Windows every user of the host opens its own connection: the tunnel, the relay, Core's unlock and each host read.
+  The key is used there once per session, with no confirmation per use: KeePassXC's agent is not asked to confirm each
+  connection.
 
 ## How it stands
 
@@ -45,6 +50,9 @@ The card connection of today, adapted; no new design.
 - **No `ControlMaster` on Windows.** The config written there leaves out `ControlMaster`, `ControlPath` and
   `ControlPersist`, and the tunnel is started without `-M`. Whoever else needs the host, such as Core's `porelo host
   unlock`, opens a connection of its own through the same `-F` file.
+- **One use of the key per session.** The person's key is held by KeePassXC's agent while the database is open, with
+  no confirmation per use, so the several connections ask nothing of the person. The window asks for no confirmation
+  of its own.
 
 ## Plan
 
@@ -79,7 +87,8 @@ The card connection of today, adapted; no new design.
 
 Each is its own piece, agreed in the room before this is built:
 - **Core:** `porelo host unlock <host>` and the host commands work through the card's `-F` file without a master,
-  opening their own connection.
+  opening their own connection. Where Core puts the person's key into KeePassXC on Windows, it sets no confirmation
+  per use.
 - **Matrix:** the messenger offers its return endpoint as a TCP port on `127.0.0.1` on Windows, which this interface
   forwards with `-R`.
 
@@ -88,14 +97,10 @@ Each is its own piece, agreed in the room before this is built:
 - On Windows, with the ssh stand-in: one ssh process per card with the TCP forwards and the return forward; the
   daemon reached through the relay; Core's unlock started as its own process with `-F`; nothing is a local unix
   socket and nothing asks for a master.
+- In the operator's Windows test, Connect and Prepare ask for no confirmation of the key per connection once
+  KeePassXC's database is open.
 - On Linux, the card tunnel's arguments and config are unchanged; the existing tests stay green unchanged.
 - In the operator's Windows test: Connect and Prepare against a real host.
-
-## Open questions
-
-- Every user of the host now opens its own connection, so the KeePassXC agent asks for its confirmation once for
-  each: the tunnel, the relay, Core's unlock and each host read. Is that accepted on Windows, or is the key to be
-  used there without a confirmation per use?
 
 ## To be checked
 

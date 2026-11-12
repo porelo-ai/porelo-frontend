@@ -5,40 +5,31 @@
   "$schema": "issue-1.json",
   "id": "F288",
   "title": "Small Leftovers Of The One-Click Flow",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "S",
   "priority": "Medium",
-  "rank": 26,
+  "rank": 23,
   "blockedBy": [],
-  "covers": "The small edge cases left over from the one-click flow gathered in one place for the operator to place: address forms, test gaps, texts.",
-  "openQuestions": 1
+  "covers": "Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have."
 }
 ```
 
-**Why this size.** S: the buildable part is the two gathered points, a test's bounds in `test/app/pty_test.dart` and
-one condition in `lib/src/ui/organization_project_pages.dart`, each with its test; the rest is no buildable piece.
+**Why this size.** S: a test's bounds in `test/app/pty_test.dart` and one condition in
+`lib/src/ui/organization_project_pages.dart`, each with its test.
 
-**What must be true.** Small edge cases left over from the one-click flow's build are kept in one place, for the operator to place:
-address forms, quoting, encodings, texts and test gaps. A grave finding never goes here; it gets an issue of its own.
+**What must be true.** The terminal close test names the wait that timed out, and a repository's menu offers only the
+review policy it does not have, as the project's menu does.
 
-Each point is to be checked against the code before it is fixed.
+## Decided by the operator (2026-11-12)
+
+- F288 shrinks to its two gathered points. The lists of what the finished one-click issues left open and of what was
+  declined from the reading of the walk's fixes are dropped here; git history keeps them.
 
 ## How it stands
 
 `test/app/pty_test.dart` uses `os._exit(0)` in the detached child's release path.
-`Tunnel._itEnded` in `lib/src/app/tunnel.dart` cancels the card's unlocker when SSH ends.
-`HomeserverForwards._raiseOnce` in `lib/src/app/homeserver_forwards.dart` closes a forward that arrives after disposal.
-`lib/src/app/key_recovery.dart` implements backup-key requests and keeps uncertain requests for retry.
-`HostRuns._addHost` in `lib/src/app/host_runs.dart` saves `rememberHostUp` before adding the machine.
-The remaining live-host, Core contract and CI load claims below are not established by this source reading.
-
-The requirement below to withhold project person actions until the host answers each person's applied state is
-not met by `lib/src/ui/organization_project_pages.dart`: its member menus offer removal, locking and unlocking
-from the project read, without that host answer.
 
 ## Plan
-
-This is a gathering list, not one piece. Two points are buildable here and now; the rest is not.
 
 - **The terminal close test's bound** (`test/app/pty_test.dart`, *termination and close wait for the output consumer
   to reach EOF*). Each of its waits has its own five seconds, but `await stopping` has none, and two rounds run inside
@@ -52,10 +43,6 @@ This is a gathering list, not one piece. Two points are buildable here and now; 
   `repository.review`, so a repository not read still offers both. Red first: in
   `test/ui/project_init_dialog_test.dart`, beside *review changes follow the Project Admin role*, a repository with
   `review: 'required'` offers `repositoryReview/demo/optional` and not `repositoryReview/demo/required`.
-- **The rest is not built from here.** Most points under *Left open* wait on a contract of another repository
-  (Core's verbs and typed results, the registry's IDL, porelo-host's answers, the messenger's endpoint, the forge
-  clients) or fall away with the organization model; the points under *Declined* were never reproduced. Each is
-  read again against the code where it still holds and filed as its own issue, with its red test, or dropped.
 
 ## Gathered
 
@@ -66,86 +53,10 @@ This is a gathering list, not one piece. Two points are buildable here and now; 
 2. **A repository's menu offers the policy it has:** on a project's page a repository's menu offers both review
    policies, the one it already has too, where the project's menu offers only the other.
 
-## Left open by the finished one-click issues
-
-What the finished issues of the one-click flow had deferred or still to check, kept here so it is not lost. Much of it changes or falls away with the organization model; each point
-is read against that model before it is placed.
-
-- **Keys and cards:** after a create, rotate or lost-key run in the KeePassXC terminal, a reason that does not fit on
-  the terminal's last line is read back from Core; a filed card is committed, not pushed, until the registry's
-  publication step; *Make a backup key…* refuses until Core's backup-key verb is served. Core's recovery identifiers,
-  reset completion after an interruption, host-vault reset over SSH, and per-host KRL and lock acknowledgment are
-  still to be confirmed against Core and the host.
-- **Registry reads:** Core's served registry IDL (last-good revision, per-card eligibility, signer and rejection
-  fields); a checkout path on the daemon's machine, never a desktop path given to a remote daemon; fetch serialized
-  with pending writes; the contact view when an admin's card has no email.
-- **Card tunnels:** a port reservation can leak when a card machine becomes card-less or is renamed during an
-  overlapping edit (freed on restart); a locked signer is told apart from a refused admission only once Core answers
-  it in a typed result; `.localhost` URLs in browsers and Element and the exposure of loopback ports to other local
-  users are to be measured; the machine list is to read the host state and problem the fleet model holds.
-- **Host administration:** a host card filed through the agent needs a card the host admin signed; host-wide lock,
-  let back in and account deletion have no Core verb; the daemon's `RegistryFile` takes the text as `content`, the
-  CLI `--file`; the host's `registry status` answer is built to the shape porelo-host stated and was not run live;
-  Scaleway preparation stays refused until Core's rental and identity adapter is there.
-- **Project administration:** Remove, Lock, Let back in and accepting a new key stay unavailable until the host
-  answers each person's applied state; the host has no own-account registration a project admin can run without a
-  hand step; automatic collaborator grants on the central forge are not built.
-- **Joining:** the card tunnel of a join carries no `-R` return forward until the messenger gives a socket; a follow
-  is taken as confirmed without the daemon naming its signers; a card host on another SSH port or an IPv6 address
-  cannot open its vault until Core's `host unlock` takes a port; a refresh can start while `registry joinable` runs.
-- **Central transfers:** central pull requests and reviews need list, read and create calls the forge clients lack;
-  the host-forge refresh needs a served contract that never contacts the central forge; the five-minute terminal
-  deadline and thirty-second review bound are unmeasured; the legacy bring token entry is not migrated.
-- **Sign-in flow:** the wire spelling of `login.flow` and how a refused loopback flow on a host account reaches the
-  terminal are to be confirmed with Core.
-- **Removed VPN era:** project take-off goes through the host's access list; the Connections private-key form,
-  machine-signers texts and the VPN-era forwards in `tunnel.dart` and `homeserver_forwards.dart` are still to go;
-  operating-system VPN and trust artifacts left by older versions need a reviewed, ownership-checked migration.
-- **Signing:** workspace commits and merges are checked against Core's signer lines only once Core names the project
-  of a forge repository; the key choice in the binding views and the forge-derived signer list in machine binding
-  wait for the binding path over the host forge's Git socket.
-- **Pages:** older guided walks, tests and tooling still hold machine-specific values; the action models for gathered
-  push and pull and for the backup key are to be checked against their final contracts.
-
-## Declined from the reading of the walk's fixes
-
-A reading of the fixes made during the walk reported these. None was reproduced by a test, so each is an unconfirmed
-finding; each is declined with its reason, and is read again where its code is rebuilt.
-
-- **Register, Add and the developers dialog** (not fixed: the organization model removes these dialogs). Reported:
-  closing the Register dialog while a step runs leaves the project's access
-  work running, and reopening it reads into the same checkouts; *Verify* carries a filed change on to the host;
-  the change's own registry wait is not bounded where it files; a registry read that fails while the dialog is open
-  empties the person picker without saying why; a registry refresh started by a change is not bounded; a `replace`
-  or `lock` the host took in an earlier sync is not confirmed on retry. Each must hold in the rebuilt flow: no
-  background work outlives its dialog unseen, a read never changes a host, and every wait is bounded.
-- **The busy port's holder** is named from `ss` across address families: another account's listener on
-  `127.0.0.1` can be passed over for this account's on `[::1]`. Only the sentence can name the wrong process; nothing
-  is ended from it.
-- **Callers that word a refusal again:** some callers of local commands catch every exception and show their own
-  sentence ("Git could not be run on this computer."), so a command ended at its limit loses its own words there.
-- **A copy over ssh with a deadline and agent-only identities:** no caller combines the two.
-- **A card's address, against what can be reached:** a saved card takes `::`, `0.0.0.0` and a multicast address, which the check of a server's completion refuses; the upload and the stop feed then ask ssh for it, and the pinned host key still decides.
-- **A server that reports no usable address:** given by name or IPv6 address, it fails as "did not confirm completion" rather than in its own words; no server does it while the host's play needs an IPv4 default route.
-- **Push and pull in the command finder** stand only in the project's menu, as the project's other actions do.
-- **`test/ui/project_room_test.dart`:** the tests cover machine-specific project actions and room joins; there are
-  no `project == null` branches to discard.
-- **`packages/porelo_host` tests over a real terminal or a process** (`secret_store_test`, `forge_key_test`, `project_transfer_test`, `down_cli_test`) run out of their 30 seconds when the machine is under a load of 30 or more, and pass when run alone.
-- **`HostRuns`** (`lib/src/app/host_runs.dart`) resumes setup through `again` and `resume`; it has no `setupAgain`
-  or `_replaceLegacy` method.
-- **A setup taken up again** writes its machine file anew under the data folder of that moment and reads the path it saved: the two differ only if the data folder has moved since.
-- **After a card's address moves:** the old connection lives on while the page says *Not connected yet*, until the next *Connect* replaces it.
-- **Prepare a server, after a card is made or a host named:** the access read at start stays until a full refresh, so the command stays off with the old reason meanwhile. Not reproduced, and older than the change it was read in.
-
 ## Acceptance
 
-- Each point placed gets a test that goes red with its harm first. Seen to fail: the close test timing out without
+- Each point gets a test that goes red with its harm first. Seen to fail: the close test timing out without
   naming its wait, and a repository with review required offering *Require review…*.
-
-## Open questions
-
-- May F288 shrink to the two gathered points, with the rest left to git history, or filed one by one where it
-  still holds?
 
 ## To be checked
 
