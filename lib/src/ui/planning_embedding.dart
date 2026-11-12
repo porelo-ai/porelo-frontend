@@ -426,7 +426,14 @@ class MachinePlanningAgents implements PlanningAgents {
   @override
   Future<PlanningAgentList> on(PlanningSource source) async {
     final machine = planningMachineOf(machines, client, source, project: project());
-    if (machine == null) throw StateError('This window no longer knows the machine of ${source.label}.');
+    if (machine == null) {
+      final followed = client.providers.any((provider) => identical(provider.source, source));
+      throw StateError(switch ((followed, project() ?? client.chosenProject)) {
+        (false, _) => 'This window no longer follows ${source.label}.',
+        (true, null) => 'This window does not know which project ${source.label} starts on.',
+        (true, final project?) => 'This window no longer knows the machine that carries $project.',
+      });
+    }
     try {
       final listed = await machines.of(machine).backend.agentsOn();
       return PlanningAgentList([

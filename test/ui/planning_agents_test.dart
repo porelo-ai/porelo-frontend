@@ -23,6 +23,26 @@ void main() {
     final offered = await MachinePlanningAgents(machines, client, project: () => 'foo-project').on(source);
     expect(offered.agents.map((each) => each.name), ['an-agent', 'other-agent']);
   });
+
+  test('a refusal of the agents says which part of the machine is not known', () async {
+    final machines = Machines(
+      Settings(MemorySettingsStore()),
+      reach: (_) => FakeBackend(const []),
+      tunnels: FakeTunnels(),
+    );
+    addTearDown(machines.dispose);
+    final source = _Source();
+    final client = _PathPlanner(source);
+
+    await expectLater(
+      MachinePlanningAgents(machines, client).on(source),
+      throwsA(predicate((error) => '$error'.contains('which project planner starts on'))),
+    );
+    await expectLater(
+      MachinePlanningAgents(machines, client, project: () => 'foo-project').on(_Source()),
+      throwsA(predicate((error) => '$error'.contains('no longer follows planner'))),
+    );
+  });
 }
 
 /// The planner found on the path: a provider named as no watched machine is.
