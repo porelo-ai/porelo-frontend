@@ -289,17 +289,27 @@ Future<void> untilQuiet(
   required Duration within,
 }) async {
   final by = DateTime.now().add(within);
-  var shown = terminal.buffer.getText();
+  var shown = _withoutTheStatusLine(terminal);
   var since = DateTime.now();
   while (DateTime.now().difference(since) < quiet) {
     if (DateTime.now().isAfter(by)) fail('the session did not fall quiet within ${within.inMinutes} minutes');
     await pumpFor(tester, const Duration(seconds: 2));
-    final now = terminal.buffer.getText();
+    final now = _withoutTheStatusLine(terminal);
     if (now != shown) {
       shown = now;
       since = DateTime.now();
     }
   }
+}
+
+/// What [terminal] shows without its last line: the session's tmux status line, whose clock moves on its own.
+String _withoutTheStatusLine(Terminal terminal) {
+  final lines = terminal.buffer.getText().split('\n').map((each) => each.trimRight()).toList();
+  while (lines.isNotEmpty && lines.last.isEmpty) {
+    lines.removeLast();
+  }
+  if (lines.isNotEmpty) lines.removeLast();
+  return lines.join('\n');
 }
 
 /// The story's issues as the probe lists them, each `<id> <repository> <state> …`, with the state each is in.
