@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "F93",
   "title": "Connections: Its Rare Actions Out Of The Way",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
-  "rank": 2,
+  "rank": 11,
   "blockedBy": [],
   "covers": "Connections' rare actions in its ⋮."
 }

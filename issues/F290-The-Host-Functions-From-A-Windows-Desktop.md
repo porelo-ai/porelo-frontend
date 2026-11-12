@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "F290",
   "title": "The Host Functions From A Windows Desktop",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 22,
+  "rank": 13,
   "blockedBy": [],
   "covers": "Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master."
 }

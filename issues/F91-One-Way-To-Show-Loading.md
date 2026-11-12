@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "F91",
   "title": "One Way To Show Loading",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 3,
+  "rank": 10,
   "blockedBy": [],
   "covers": "Every view shows the same way that it is reading."
 }

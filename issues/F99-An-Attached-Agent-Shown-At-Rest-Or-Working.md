@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "F99",
   "title": "An Attached Agent Shown At Rest Or Working",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
-  "rank": 4,
+  "rank": 12,
   "blockedBy": [],
   "covers": "A work tile says whether an attached agent is at rest or working; waits for a Tasks1 answer that says an attached agent is at rest."
 }

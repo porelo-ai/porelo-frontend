@@ -92,10 +92,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | - | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
-| <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | - | Connections' rare actions in its ⋮. |
-| <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | - | Every view shows the same way that it is reading. |
 | <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | - | A project's keys told in one place, the signing key checked against a branch rule. |
-| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working; waits for a Tasks1 answer that says an attached agent is at rest. |
 | <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | - | Making a project from a repository measured against GitHub. |
 | <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | - | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | - | A machine reached without an `ssh` binary. |
@@ -111,8 +108,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f497"></a>[F497](F497-The-Gherkin-Suites-Rules-As-Unit-Tests.md) | L | [F495](README.md#f495) | The slow Gherkin suites' rules moved into unit tests on StartWork, ShellModel, commands.dart, a wizard model, AgentSignIn, Logs and the organization projections; each feature keeps what the window adds. |
 | <a id="f498"></a>[F498](F498-The-Shells-Controller-Out-Of-Its-Widget.md) | L | [F497](README.md#f497) | Task start, sign-in recovery and gate forwarding moved out of _ShellState into plain classes behind the interfaces the shell holds, each with its unit tests. |
 | <a id="f499"></a>[F499](F499-The-Model-Less-Dialogs-Given-Models.md) | L | [F498](README.md#f498) | The host dialog's state machine, the organization pages and dialogs and the other model-less views each given a model with unit tests; the window's tests then measured at the test pyramid's shares. |
-| <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | - | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
-| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | S | - | Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have. |
 
 ## Backlog
 
@@ -131,6 +126,11 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | - | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | - | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. |
+| <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | - | Every view shows the same way that it is reading. |
+| <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | - | Connections' rare actions in its ⋮. |
+| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working; waits for a Tasks1 answer that says an attached agent is at rest. |
+| <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | M | - | Connect and Prepare from a Windows desktop: one ssh per host card with loopback TCP ends, the daemon through the relay, no master. |
+| <a id="f288"></a>[F288](F288-Small-Leftovers-Of-The-One-Click-Flow.md) | S | - | Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have. |
 | <a id="f490"></a>[F490](F490-The-Command-Finder-Offers-A-Planning-Actions-Way-On.md) | S | - | An unavailable planning action in the command finder offers its way on, a runnable step to what holds it, beside the disabled action. |
 
 ## Implementing

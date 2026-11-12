@@ -5,10 +5,10 @@
   "$schema": "issue-1.json",
   "id": "F288",
   "title": "Small Leftovers Of The One-Click Flow",
-  "state": "Estimated",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
-  "rank": 23,
+  "rank": 14,
   "blockedBy": [],
   "covers": "Two leftovers of the one-click flow: the terminal close test bounded per wait under load, and a repository's menu offering only the review policy it does not have."
 }
