@@ -569,7 +569,8 @@ if in_order:
     noting = [n for n, (_, sentence) in enumerate(steps, 1) if sentence != "the interface is running"]
     # Said in the feature's words where it held; in the walk's, with what was asked and got, where it failed.
     noted = {
-        n: ("OK", m[3], steps[n - 1][1]) if m[1] != "FAIL" else (m[1], m[3], m[4]) for n, m in zip(noting, lines)
+        n: ("OK", m[3], steps[n - 1][1]) if m[1] != "FAIL" else (m[1], m[3], m[4].removeprefix("read: "))
+        for n, m in zip(noting, lines)
     }
 else:
     noted = {int(m[2]): (m[1], m[3], m[4]) for m in lines if m[1] != "SKIPPED"}
