@@ -5,7 +5,7 @@
 #   tool/walk_idea.sh check --vm USER@VM --vm-key FILE [--planner DIR]
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
 #                           [--porelo-project foo-project] [--mail keep|drop] [--project NAME] [--issue-repo foo-1]... [--budget-minutes 180]
-#                           [--porelo DIR] [--test walking_an_idea|forwarding_to_a_branch]
+#                           [--porelo DIR] [--test walking_an_idea|a_tasks_results_land|the_planner_moves_work_on|forwarding_to_a_branch]
 #   tool/walk_idea.sh resume --vm USER@VM --vm-key FILE --report DIR --from N
 #   tool/walk_idea.sh clean  --vm USER@VM --vm-key FILE --report DIR
 #
@@ -25,7 +25,8 @@
 # step (`OK` or `FAIL` with what was asked and got), a picture of the window where it failed, the HTML and JUnit
 # report, and the test's own output.
 #
-# --test names the integration test the window runs: walking_an_idea (the default) needs --planner and --seed;
+# --test names the integration test the window runs: walking_an_idea (the default), a_tasks_results_land and
+# the_planner_moves_work_on need --planner and --seed;
 # forwarding_to_a_branch needs neither. It has a task of the first --issue-repo push to its gate and the person forward
 # it upstream at GitHub, onto a branch the script made at the default branch's tip and onto a new one typed: both are
 # named for the run, so its ending deletes them; the window reaches GitHub with the run's token from the run's vault.
@@ -78,7 +79,7 @@ done
 case "$mode" in check | run | resume | clean) ;; *) usage ;; esac
 case "$from" in '' | *[!0-9]*) echo "walk: --from is a step's number" >&2 && exit 64 ;; esac
 case "$mail" in keep | drop) ;; *) usage ;; esac
-case "$test" in walking_an_idea | forwarding_to_a_branch) ;; *) usage ;; esac
+case "$test" in walking_an_idea | a_tasks_results_land | the_planner_moves_work_on | forwarding_to_a_branch) ;; *) usage ;; esac
 [ -n "$vm" ] && [ -n "$vm_key" ] || usage
 case "$budget" in '' | *[!0-9]*) echo "walk: --budget-minutes is a whole number of minutes" >&2 && exit 64 ;; esac
 # Every task of the walk runs this agent and model: the discussion, the builder and the reader.
@@ -207,7 +208,7 @@ if [ "$mode" = check ]; then
 fi
 
 [ -n "$report" ] || usage
-if [ "$mode" = run ] && { [ -z "$org" ] || { [ "$test" = walking_an_idea ] && { [ -z "$planner" ] || [ -z "$seed" ]; }; }; }; then
+if [ "$mode" = run ] && { [ -z "$org" ] || { [ "$test" != forwarding_to_a_branch ] && { [ -z "$planner" ] || [ -z "$seed" ]; }; }; }; then
     usage
 fi
 [ "$mode" = run ] || [ -f "$report/state.sh" ] || {
@@ -222,7 +223,7 @@ seeded=()
     shaped "the seed's directory" "$each" '[A-Za-z0-9][A-Za-z0-9._-]{0,99}'
     seeded+=("$each")
 done
-[ "$mode" != run ] || [ "$test" != walking_an_idea ] || [ ${#seeded[@]} -gt 0 ] || {
+[ "$mode" != run ] || [ "$test" = forwarding_to_a_branch ] || [ ${#seeded[@]} -gt 0 ] || {
     echo "walk: $seed holds no directory named for a repository to seed" >&2
     exit 1
 }
@@ -838,12 +839,12 @@ if on_vm "[ -d ~/$run/pictures ]" </dev/null; then on_vm "tar -C ~/$run -c pictu
 [ "$status" -ne 124 ] || echo "walk: the window's part ran out its $budget minutes and was stopped" | tee -a "$report/run.log" >&2
 
 (cd "$here" && dart tool/test_report.dart "$report/results.json" "$report/report.html" "$report/results.xml" \
-    --heading="$([ "$test" = walking_an_idea ] && echo 'A real idea walked in the window' || echo 'Work forwarded to a branch at GitHub')" --against="$vm, project $project" --lines="$report/scenarios.txt") || true
+    --heading="$(case "$test" in walking_an_idea) echo 'A real idea walked in the window' ;; a_tasks_results_land) echo "A task's results landing, walked in the window" ;; the_planner_moves_work_on) echo 'Work moving on by itself, walked in the window' ;; *) echo 'Work forwarded to a branch at GitHub' ;; esac)" --against="$vm, project $project" --lines="$report/scenarios.txt") || true
 # Passed only where the scenarios passed and none failed, and, for the walk that notes its steps, a step of this attempt
 # was read and none failed.
 if ! grep -q '^OK ' "$report/scenarios.txt" 2>/dev/null || grep -q '^FAIL ' "$report/scenarios.txt" ||
     grep -q '^FAIL ' "$work/these-steps" ||
-    { [ "$test" = walking_an_idea ] && ! grep -q '^OK ' "$work/these-steps"; }; then
+    { [ "$test" != forwarding_to_a_branch ] && ! grep -q '^OK ' "$work/these-steps"; }; then
     [ "$status" -ne 0 ] || status=1
 fi
 cat "$report/steps.txt"

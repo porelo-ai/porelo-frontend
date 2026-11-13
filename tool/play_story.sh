@@ -5,7 +5,7 @@
 #   tool/play_story.sh check --story NAME [--vm USER@VM --vm-key FILE] [--packages DIR] [--report DIR]
 #   tool/play_story.sh run   --story NAME --report DIR [--vm USER@VM --vm-key FILE] [--packages DIR]
 #                            [--expect PART=ISSUE]... [--budget-minutes 60]
-#                            [--org ORG] [--seed DIR] [--issue-repo REPO]... [--porelo-project NAME]
+#                            [--org ORG] [--seed DIR] [--issue-repo REPO]... [--porelo-project NAME] [--planner DIR]
 #
 # NAME is a story of the `case` below: integration_test/NAME.feature and its generated NAME_test.dart, played on the
 # machine the case names, and the Windows builds it names, read on GitHub from here. A step names in its line the part
@@ -60,7 +60,7 @@ while [ $# -gt 0 ]; do
     --packages) packages=$2 ;;
     --expect) expects+=("$2") ;;
     --budget-minutes) budget=$2 ;;
-    --org | --seed | --issue-repo | --porelo-project) walk+=("$1" "$2") ;;
+    --org | --seed | --issue-repo | --porelo-project | --planner) walk+=("$1" "$2") ;;
     *) usage ;;
     esac
     shift 2
