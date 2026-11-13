@@ -81,10 +81,23 @@ class ProposedIssue {
 /// Hands [issue] to [source] as a new issue in Idea of [project], with no size, and answers its id.
 typedef IssueFromIdea = Future<String> Function(PlanningSource source, String project, ProposedIssue issue);
 
-/// The planner's `createIssue`. The pinned planning package's call takes no task name yet, so the issue goes in without
-/// the name of the task it came from.
-Future<String> issueFromIdea(PlanningSource source, String project, ProposedIssue issue) async =>
-    (await source.createIssue(project, issue.repository, issue.title, issue.mustBeTrue, null, issue.revision)).id;
+/// The task names the planner takes, matched whole; a name outside them would hold its idea back at every start.
+final _plannerTaskName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$');
+
+/// The planner's `createIssue`, naming the task the idea came from where the planner takes its name.
+Future<String> issueFromIdea(PlanningSource source, String project, ProposedIssue issue) async {
+  final task = _plannerTaskName.hasMatch(issue.task) ? issue.task : null;
+  final added = await source.createIssue(
+    project,
+    issue.repository,
+    issue.title,
+    issue.mustBeTrue,
+    null,
+    issue.revision,
+    task: task,
+  );
+  return added.id;
+}
 
 /// Porelo's record of how an agent ended, as the planner takes it: every field as the machine gave it, none mapped.
 ///

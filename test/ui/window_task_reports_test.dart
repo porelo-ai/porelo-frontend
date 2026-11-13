@@ -900,6 +900,38 @@ void main() {
       expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 1']);
     });
 
+    // Harm: the planner's issue does not name the task an idea came from, so nobody knows whom to ask.
+    test('reaches the planner naming the task it came from', () async {
+      lists('porelo-demo-pi', [idea(1)]);
+
+      await swept();
+
+      expect(planner.tasksNamed, ['pi']);
+    });
+
+    // Harm: a task's name the planner would refuse holds its idea back at every start of the window.
+    test('reaches the planner without a task name the planner does not take', () async {
+      final (_, reports) = window(
+        handIssue: (source, project, issue) => issueFromIdea(
+          source,
+          project,
+          ProposedIssue(
+            repository: issue.repository,
+            title: issue.title,
+            mustBeTrue: issue.mustBeTrue,
+            revision: issue.revision,
+            task: '-not a name',
+          ),
+        ),
+      );
+      lists('porelo-demo-pi', [idea(1)]);
+
+      await swept(reports);
+
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1']);
+      expect(planner.tasksNamed, [null]);
+    });
+
     // Harm: the task an idea came from is not handed with it, so nobody knows whom to ask.
     test('is handed with the name of the task it came from', () async {
       final named = <String>[];
@@ -1185,6 +1217,9 @@ class _Planner extends Fake implements PlanningSource {
   /// Each new issue asked for: project, repository, title, what must be true, size and revision.
   final issues = <(String, String, String, String, String?, String)>[];
 
+  /// The task each issue was handed with, in the order of [issues].
+  final tasksNamed = <String?>[];
+
   /// What the next new issues are answered, an id when nothing is queued.
   final issueAnswers = <Object>[];
 
@@ -1206,8 +1241,10 @@ class _Planner extends Fake implements PlanningSource {
     String? size,
     String revision, {
     IssueWorker worker = IssueWorker.agent,
+    String? task,
   }) async {
     issues.add((project, repository, title, mustBeTrue, size, revision));
+    tasksNamed.add(task);
     final next = issueAnswers.isEmpty ? null : issueAnswers.removeAt(0);
     if (next is Exception) throw next;
     return PlanningIssueAdded(id: 'F${900 + issues.length}', revision: 'r8');

@@ -87,8 +87,7 @@ The contracts it builds against:
 
 ## To be checked
 
-- The pinned screen package's `createIssue` (and porelo-planner's main) takes no task name; once the planner's package
-  carries it, the window's hand-over passes it on, and the acceptance's "naming the task" holds.
-- Decided (2026-11-13): ideas are handed in now without the task's name, not held back. The acceptance's "naming the
-  task" is not met by this build; it closes with the move of the window's pin to a screen package whose `createIssue`
-  takes the task, and this issue is done only then.
+- Decided (2026-11-13): ideas were handed in first without the task's name, not held back, until the window's pin
+  moved to a screen package whose `createIssue` takes the task. The pin has moved: each issue now names its task, the
+  name the planner takes (`[A-Za-z0-9][A-Za-z0-9_.-]{0,127}`, matched whole); a name outside it goes without, so its
+  idea is not held back at every start.
