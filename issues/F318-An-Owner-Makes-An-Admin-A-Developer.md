@@ -7,7 +7,7 @@
   "title": "An Owner Makes An Admin A Developer",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 12,
   "blockedBy": [],
   "covers": "An Organization Admin turns a project's admin into a developer with an entry on the organization page."

@@ -7,7 +7,7 @@
   "title": "Menus Beside What They Act On",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 17,
   "blockedBy": [],
   "covers": "Each ⋮ menu placed with the row, section or title it acts on."

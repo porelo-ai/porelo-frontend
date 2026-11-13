@@ -7,7 +7,7 @@
   "title": "The Host's Forge Switched Off In The Server Setup",
   "state": "Estimated",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 1,
   "blockedBy": [],
   "covers": "*Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`."

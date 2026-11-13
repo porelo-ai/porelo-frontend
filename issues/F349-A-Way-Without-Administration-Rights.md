@@ -7,7 +7,7 @@
   "title": "A Way Without Administration Rights",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 9,
   "blockedBy": [],
   "covers": "A person creates the repository and enters each deploy key by hand, so their token needs no Administration."

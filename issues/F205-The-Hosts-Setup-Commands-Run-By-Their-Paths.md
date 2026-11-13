@@ -7,7 +7,7 @@
   "title": "The Host's Setup Commands Run By Their Paths",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 38,
   "blockedBy": [],
   "covers": "Every command `porelo-host` runs on the host over ssh, and through `sudo` above all, named by its absolute path."

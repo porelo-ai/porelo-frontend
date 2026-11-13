@@ -7,7 +7,7 @@
   "title": "The Host's VM Pool Switched On",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 40,
   "blockedBy": [],
   "covers": "The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts."

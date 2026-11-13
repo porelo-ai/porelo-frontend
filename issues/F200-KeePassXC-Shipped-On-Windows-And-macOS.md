@@ -7,7 +7,7 @@
   "title": "KeePassXC Shipped On Windows And macOS",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 43,
   "blockedBy": [],
   "covers": "KeePassXC's signed build shipped with the interface on Windows and macOS, with its license and source offer, for the person's secrets file."

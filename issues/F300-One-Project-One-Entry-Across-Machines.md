@@ -7,7 +7,7 @@
   "title": "One Project, One Entry Across Machines",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 19,
   "blockedBy": [],
   "covers": "One project read as one entry under Projects, with the machines it is on under it."

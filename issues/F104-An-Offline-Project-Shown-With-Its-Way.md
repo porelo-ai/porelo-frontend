@@ -7,7 +7,7 @@
   "title": "An Offline Project Shown With Its Way",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 12,
   "blockedBy": [],
   "covers": "An offline project shown, with the way to make one by hand named."

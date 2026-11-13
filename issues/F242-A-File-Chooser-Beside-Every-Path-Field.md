@@ -7,7 +7,7 @@
   "title": "A File Chooser Beside Every Path Field",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 32,
   "blockedBy": [],
   "covers": "A *Choose…* button and the known default beside the KeePassXC database fields."

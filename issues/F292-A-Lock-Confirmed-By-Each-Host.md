@@ -7,7 +7,7 @@
   "title": "A Lock Confirmed By Each Host",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 23,
   "blockedBy": [],
   "covers": "*Lock* and *Let back in* shown as under way on each host until `org status` there confirms them; adding counts as done once signed."

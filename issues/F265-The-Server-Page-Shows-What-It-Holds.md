@@ -7,7 +7,7 @@
   "title": "The Server Page Shows What It Holds",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 35,
   "blockedBy": ["F266"],
   "covers": "A server's page shows its own state, its projects and its persons with their state; actions chosen from the rows."

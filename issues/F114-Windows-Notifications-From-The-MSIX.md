@@ -7,7 +7,7 @@
   "title": "Windows Notifications From The MSIX",
   "state": "Analyzed",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 2,
   "blockedBy": [],
   "covers": "Windows notifications from the MSIX's identity."

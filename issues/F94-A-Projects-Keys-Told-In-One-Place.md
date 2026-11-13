@@ -7,7 +7,7 @@
   "title": "A Project's Keys Told In One Place",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 4,
   "blockedBy": [],
   "covers": "A project's keys told in one place, the signing key checked against a branch rule."

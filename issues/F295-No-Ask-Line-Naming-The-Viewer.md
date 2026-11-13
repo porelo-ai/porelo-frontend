@@ -7,7 +7,7 @@
   "title": "No \"Ask\" Line Naming The Viewer",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 21,
   "blockedBy": [],
   "covers": "No refusal ends with \"Ask <name>\" when the named person is the one at this interface."

@@ -7,7 +7,7 @@
   "title": "Leftovers Of Sprint 6q",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 25,
   "blockedBy": [],
   "covers": "What sprint 6q's issues named as not built, gathered for the operator to place: organization rows, a machine's page, a project's central state, lists and the card's renewal."

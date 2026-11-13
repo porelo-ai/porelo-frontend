@@ -7,7 +7,7 @@
   "title": "All Of A Piece's Logs In One Timeline",
   "state": "Backlog",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 7,
   "blockedBy": [],
   "covers": "All of a piece's logs in one timeline, by time, filterable by source."

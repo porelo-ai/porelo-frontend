@@ -7,7 +7,7 @@
   "title": "The Interface On macOS, With Porelo In A Local VM",
   "state": "Estimated",
   "size": "XL",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 11,
   "blockedBy": [],
   "covers": "The interface on macOS, with Porelo in a local Lima VM set up from the window, and remote machines over ssh."

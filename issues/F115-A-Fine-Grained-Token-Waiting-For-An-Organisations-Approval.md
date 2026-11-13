@@ -7,7 +7,7 @@
   "title": "A Fine-Grained Token Waiting For An Organisation's Approval",
   "state": "Analyzed",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 3,
   "blockedBy": [],
   "covers": "A fine-grained token waiting for an organisation's approval said as waiting."

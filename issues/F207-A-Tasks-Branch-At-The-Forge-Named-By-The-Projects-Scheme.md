@@ -7,7 +7,7 @@
   "title": "A Task's Branch At The Forge Named By The Project's Scheme",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 37,
   "blockedBy": [],
   "covers": "A task's branch at the forge from the project's scheme, shown, named at the start and approved to by default."

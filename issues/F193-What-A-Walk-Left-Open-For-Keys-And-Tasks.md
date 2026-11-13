@@ -7,7 +7,7 @@
   "title": "What A Walk Left Open For Keys And Tasks",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 42,
   "blockedBy": [],
   "covers": "Key handling, one way to a running task and the proposed project model, built or decided against."

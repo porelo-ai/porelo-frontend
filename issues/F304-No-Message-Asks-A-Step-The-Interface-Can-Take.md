@@ -7,7 +7,7 @@
   "title": "No Message Asks A Step The Interface Can Take",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 16,
   "blockedBy": [],
   "covers": "No message tells the person to do a step the interface can take itself; actions read what they need and say so."

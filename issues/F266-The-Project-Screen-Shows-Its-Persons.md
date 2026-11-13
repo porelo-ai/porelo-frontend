@@ -7,7 +7,7 @@
   "title": "The Project Screen Shows Its Persons",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 36,
   "blockedBy": [],
   "covers": "A project's screen shows its server and its persons with their state; actions chosen from the rows."

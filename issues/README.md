@@ -28,10 +28,14 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f491"></a>[F491](F491-A-Work-Row-Names-Its-Repository.md) | S | - | A row under Work names the repository its work is in, also in a project of one repository; where it says so is the person's to decide. |
 | <a id="f351"></a>[F351](F351-A-Host-Reached-From-Windows.md) | - | - | A host reached from Windows, measured first, probably by WSL's ssh. |
 | <a id="f352"></a>[F352](F352-A-Rental-State-Kept-Beyond-One-Computer.md) | - | - | OpenTofu's state in the organization's repository or at the provider. |
+| <a id="f489"></a>[F489](F489-The-Fallback-Ubuntu-Mirror-Removed-After-The-Outage.md) | XS | - | Once Canonical's Ubuntu archive answers again, cached-apt no longer points Ubuntu's sources at a fallback mirror after giving up on Canonical's, and a miss fetches from Canonical's archive alone, as before the outage of 2026-11-11. |
+| <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | - | - | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
+| <a id="f354"></a>[F354](F354-The-Integration-Leg-On-A-Machine-Of-The-Hosts-Pool.md) | - | - | The Build's integration leg on a host's Forgejo against a machine its pool lends by kind. |
+| <a id="f355"></a>[F355](F355-One-Order-For-A-New-Person.md) | - | - | One order in the window for a person starting from a GitHub organization, with or without a key, each step showing its state, so *Create it* is reached only when it can work. |
+| <a id="f423"></a>[F423](F423-The-Window-Laid-Out-By-What-Each-Part-Acts-On.md) | - | - | The side bar as a folding tree by what each part acts on: each machine with its sections, each organization with its sections, *My cards & keys* in place of its dialog; a page with entries under it shows facts and actions, only a leaf a list. |
 | <a id="f349"></a>[F349](F349-A-Way-Without-Administration-Rights.md) | - | - | A person creates the repository and enters each deploy key by hand, so their token needs no Administration. |
 | <a id="f328"></a>[F328](F328-Letters-Doubled-In-A-Slow-Window.md) | - | - | A key pressed once reaching a console once, however slowly the window answers. |
 | <a id="f324"></a>[F324](F324-Removing-A-Project-On-Windows.md) | - | - | A local project removed from the interface on Windows, where it runs in a WSL distribution. |
-| <a id="f489"></a>[F489](F489-The-Fallback-Ubuntu-Mirror-Removed-After-The-Outage.md) | XS | - | Once Canonical's Ubuntu archive answers again, cached-apt no longer points Ubuntu's sources at a fallback mirror after giving up on Canonical's, and a miss fetches from Canonical's archive alone, as before the outage of 2026-11-11. |
 | <a id="f318"></a>[F318](F318-An-Owner-Makes-An-Admin-A-Developer.md) | - | - | An Organization Admin turns a project's admin into a developer with an entry on the organization page. |
 | <a id="f317"></a>[F317](F317-A-Homeservers-Token-Reaches-The-Host.md) | - | - | A homeserver's registration token comes along with `porelo host unlock` through Core, and lies in the host's vault. |
 | <a id="f308"></a>[F308](F308-The-Needs-You-Header-Counts-What-It-Lists.md) | - | - | The *Needs you* header, the rail's badge and the rows agree on what needs the person. |
@@ -44,7 +48,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f293"></a>[F293](F293-Host-Deliveries-Hardened.md) | M | - | Host deliveries hardened: git in a clean environment, commands without the login shell or a deliberate exception. |
 | <a id="f292"></a>[F292](F292-A-Lock-Confirmed-By-Each-Host.md) | M | - | *Lock* and *Let back in* shown as under way on each host until `org status` there confirms them; adding counts as done once signed. |
 | <a id="f395"></a>[F395](F395-Leftovers-Of-Sprint-6q.md) | - | - | What sprint 6q's issues named as not built, gathered for the operator to place: organization rows, a machine's page, a project's central state, lists and the card's renewal. |
-| <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | - | - | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
 | <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | S | - | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
 | <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | XS | - | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
 | <a id="f240"></a>[F240](F240-The-Walk-Hand-Over-Carries-Porelo-Host.md) | S | - | The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence. |
@@ -60,24 +63,19 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | - | - | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
 | <a id="f193"></a>[F193](F193-What-A-Walk-Left-Open-For-Keys-And-Tasks.md) | - | - | Key handling, one way to a running task and the proposed project model, built or decided against. |
 | <a id="f200"></a>[F200](F200-KeePassXC-Shipped-On-Windows-And-macOS.md) | - | - | KeePassXC's signed build shipped with the interface on Windows and macOS, with its license and source offer, for the person's secrets file. |
-| <a id="f354"></a>[F354](F354-The-Integration-Leg-On-A-Machine-Of-The-Hosts-Pool.md) | - | - | The Build's integration leg on a host's Forgejo against a machine its pool lends by kind. |
-| <a id="f355"></a>[F355](F355-One-Order-For-A-New-Person.md) | - | - | One order in the window for a person starting from a GitHub organization, with or without a key, each step showing its state, so *Create it* is reached only when it can work. |
-| <a id="f423"></a>[F423](F423-The-Window-Laid-Out-By-What-Each-Part-Acts-On.md) | - | - | The side bar as a folding tree by what each part acts on: each machine with its sections, each organization with its sections, *My cards & keys* in place of its dialog; a page with entries under it shows facts and actions, only a leaf a list. |
 | <a id="f506"></a>[F506](F506-The-Setup-Chat-Lets-The-Person-Choose-Its-Provider.md) | - | - | The chat beside the setup wizard answers through a provider the person chooses, not only through the agent they signed in. |
 
 ## Accepted
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | - | - | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | - | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
+| <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | - | - | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 
 ## Analyzed
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | - | Windows notifications from the MSIX's identity. | - |
-| <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | - | A fine-grained token waiting for an organisation's approval said as waiting. | - |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | - | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | - |
 | <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | S | - | A waiting push decided without an IDE: source level, highest risk class, files in risk order with their class, *Let it through…* or *Turn it away*, a second ask for `C3` files; the code read in IntelliJ. | - |
 | <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | M | [F78](README.md#f78) | Per waiting push the open finding and thread counts and each check's completeness, anything but complete never shown as clean; comments read and written in IntelliJ. | - |
@@ -86,11 +84,19 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | M | - | A host pull request's state and approval, and approved work brought on to the central forge bound to commit, repository and pull request, with level, class and checks in one line. | - |
 | <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | M | - | Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or refused alone, a person's own from IntelliJ too, bound to commit and pull request. | - |
 | <a id="f394"></a>[F394](F394-A-Tunnel-Forward-Only-The-Person-Reaches.md) | M | - | What the window forwards from a machine is reached only by the person: a relay of the window's own lets in only the person's connections, the host refusing other sites' requests to the forge's web. | 2 |
+| <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | - | Windows notifications from the MSIX's identity. | - |
+| <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | - | A fine-grained token waiting for an organisation's approval said as waiting. | - |
 
 ## Estimated
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | - | The setup script verified by its signature before it runs. |
+| <a id="f495"></a>[F495](F495-The-Windows-Tests-Wait-On-No-Clock-Network-Or-Process.md) | M | - | The window's unit tests wait on no real time, network or process: an injected clock under fakeAsync, an in-memory varlink connection, fake process starts, one smoke test each. |
+| <a id="f496"></a>[F496](F496-Flows-Proven-Only-End-To-End-Proven-Below.md) | M | - | The flows proven only by the end-to-end or live runs proven below them: MockMachine handlers and wire tests, a test that every client method is known to the mock, the planning commands and the start dialog's machine change. |
+| <a id="f497"></a>[F497](F497-The-Gherkin-Suites-Rules-As-Unit-Tests.md) | L | [F495](README.md#f495) | The slow Gherkin suites' rules moved into unit tests on StartWork, ShellModel, commands.dart, a wizard model, AgentSignIn, Logs and the organization projections; each feature keeps what the window adds. |
+| <a id="f498"></a>[F498](F498-The-Shells-Controller-Out-Of-Its-Widget.md) | L | [F497](README.md#f497) | Task start, sign-in recovery and gate forwarding moved out of _ShellState into plain classes behind the interfaces the shell holds, each with its unit tests. |
+| <a id="f499"></a>[F499](F499-The-Model-Less-Dialogs-Given-Models.md) | L | [F498](README.md#f498) | The host dialog's state machine, the organization pages and dialogs and the other model-less views each given a model with unit tests; the window's tests then measured at the test pyramid's shares. |
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | - | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
 | <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | - | A project's keys told in one place, the signing key checked against a branch rule. |
 | <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | - | Making a project from a repository measured against GitHub. |
@@ -99,14 +105,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | - | A device's key released only behind a TPM2 PIN; a touch later. |
 | <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Porelo-In-A-Local-VM.md) | XL | - | The interface on macOS, with Porelo in a local Lima VM set up from the window, and remote machines over ssh. |
 | <a id="f104"></a>[F104](F104-An-Offline-Project-Shown-With-Its-Way.md) | M | - | An offline project shown, with the way to make one by hand named. |
-| <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | - | The setup script verified by its signature before it runs. |
 | <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | - | A nickname for each agent. |
 | <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | - | An organisation's policy shown. |
-| <a id="f495"></a>[F495](F495-The-Windows-Tests-Wait-On-No-Clock-Network-Or-Process.md) | M | - | The window's unit tests wait on no real time, network or process: an injected clock under fakeAsync, an in-memory varlink connection, fake process starts, one smoke test each. |
-| <a id="f496"></a>[F496](F496-Flows-Proven-Only-End-To-End-Proven-Below.md) | M | - | The flows proven only by the end-to-end or live runs proven below them: MockMachine handlers and wire tests, a test that every client method is known to the mock, the planning commands and the start dialog's machine change. |
-| <a id="f497"></a>[F497](F497-The-Gherkin-Suites-Rules-As-Unit-Tests.md) | L | [F495](README.md#f495) | The slow Gherkin suites' rules moved into unit tests on StartWork, ShellModel, commands.dart, a wizard model, AgentSignIn, Logs and the organization projections; each feature keeps what the window adds. |
-| <a id="f498"></a>[F498](F498-The-Shells-Controller-Out-Of-Its-Widget.md) | L | [F497](README.md#f497) | Task start, sign-in recovery and gate forwarding moved out of _ShellState into plain classes behind the interfaces the shell holds, each with its unit tests. |
-| <a id="f499"></a>[F499](F499-The-Model-Less-Dialogs-Given-Models.md) | L | [F498](README.md#f498) | The host dialog's state machine, the organization pages and dialogs and the other model-less views each given a model with unit tests; the window's tests then measured at the test pyramid's shares. |
 
 ## Backlog
 
@@ -124,8 +124,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f522"></a>[F522](F522-A-Tasks-Results-Landing-Played-Through-On-The-VM.md) | M | - | Story ST313, a task's results land where the next step and others find them, played once on the test VM in the window as a person would, for ST347's gathered story run: a reading's findings kept as a file, worked off and deleted by a rework, an idea brought back as an issue in Idea, both commits seen from another computer. |
 | <a id="f523"></a>[F523](F523-Work-Moving-On-By-Itself-Played-Through-On-The-VM.md) | M | - | Story ST314, the planner moves work on from state to state by itself, played once on the test VM in the window as a person would, for ST347's gathered story run: DONE work set to Reading with its reader started unasked, an OK reading set to Review, a blocking one to Reworking with a Needs-you entry, a failed task kept with a warning. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
-| <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | - | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
-| <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | - | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working, from the AT_REST activity the machine serves for it. |
 | <a id="f510"></a>[F510](F510-Small-Points-Of-The-Walk-27-Reading.md) | S | - | The small points a reading by another model found in the window's start and end reports built for walk 27: a task found again only within its own project, a start that is never kept ended, the right task paired when two starts run at once. |
@@ -136,6 +134,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f538"></a>[F538](F538-The-Planner-Ends-Gracefully-On-Windows.md) | S | - | On Windows the planner the window started is asked to end through its own stop on its input, and is ended hard only when it does not end in time. |
 | <a id="f540"></a>[F540](F540-The-Default-Projects-Page-Lists-Its-Repositories.md) | S | - | The page of the project default lists every repository the machine holds in it, under Repositories, as any other project's page lists its own; nothing the daemon already answers is dropped. |
 | <a id="f541"></a>[F541](F541-Each-Repository-Of-Default-Says-Where-It-Is-And-Can-Be-Taken-Out.md) | M | [F540](README.md#f540) | Each repository row on the page of default shows its upstream, the checkout's path or the remote's address, and offers to take it out of default as the command line does: its mirror stays, and each deploy key forgotten is said. |
+| <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | - | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
+| <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f505"></a>[F505](F505-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The repository's daily shared-rules run checks its issues' heads with `issues check issues` from the released porelo-release, as the build tools' own shared rules do. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |

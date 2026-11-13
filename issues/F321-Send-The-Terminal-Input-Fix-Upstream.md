@@ -7,7 +7,7 @@
   "title": "Send The Terminal Input Fix Upstream",
   "state": "Backlog",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 4,
   "blockedBy": [],
   "covers": "The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it."

@@ -7,7 +7,7 @@
   "title": "Where A Machine And A Project Stand In Their Organisation's Tree",
   "state": "Accepted",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 2,
   "blockedBy": [],
   "covers": "Where a machine and a project stand in their organisation's tree, and which settings bind them."

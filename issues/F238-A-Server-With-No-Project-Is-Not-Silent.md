@@ -7,7 +7,7 @@
   "title": "A Server With No Project Is Not Silent",
   "state": "Idea",
   "size": "XS",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 30,
   "blockedBy": [],
   "covers": "A server prepared with no project not raised as *Not answering*; its row says \"No project yet\"."

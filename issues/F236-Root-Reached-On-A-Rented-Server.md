@@ -7,7 +7,7 @@
   "title": "Root Reached On A Rented Server",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 29,
   "blockedBy": [],
   "covers": "Root allowed in the rental's cloud-config; a \"Please login as\" answer refused at once, naming the user."

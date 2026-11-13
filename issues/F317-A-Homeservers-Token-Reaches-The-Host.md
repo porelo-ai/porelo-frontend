@@ -7,7 +7,7 @@
   "title": "A Homeserver's Token Reaches The Host",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 13,
   "blockedBy": [],
   "covers": "A homeserver's registration token comes along with `porelo host unlock` through Core, and lies in the host's vault."

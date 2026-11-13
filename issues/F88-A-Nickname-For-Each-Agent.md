@@ -7,7 +7,7 @@
   "title": "A Nickname For Each Agent",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 14,
   "blockedBy": [],
   "covers": "A nickname for each agent."

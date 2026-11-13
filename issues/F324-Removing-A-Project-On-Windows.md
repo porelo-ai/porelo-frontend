@@ -7,7 +7,7 @@
   "title": "Removing A Project On Windows",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 11,
   "blockedBy": [],
   "covers": "A local project removed from the interface on Windows, where it runs in a WSL distribution."

@@ -7,7 +7,7 @@
   "title": "Known Values Offered In The Wizards",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 33,
   "blockedBy": [],
   "covers": "Known values offered: the organization's repository address and the KeePassXC database."

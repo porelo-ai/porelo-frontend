@@ -7,7 +7,7 @@
   "title": "A Panel Plans The Release",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 41,
   "blockedBy": [],
   "covers": "A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file."

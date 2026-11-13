@@ -7,7 +7,7 @@
   "title": "Release A Device's Key Only With A Touch Or A PIN",
   "state": "Estimated",
   "size": "XL",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 10,
   "blockedBy": [],
   "covers": "A device's key released only behind a TPM2 PIN; a touch later."

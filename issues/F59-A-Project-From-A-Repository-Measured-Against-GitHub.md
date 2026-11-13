@@ -7,7 +7,7 @@
   "title": "A Project From A Repository, Measured Against GitHub",
   "state": "Estimated",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 7,
   "blockedBy": [],
   "covers": "Making a project from a repository measured against GitHub."

@@ -7,7 +7,7 @@
   "title": "Card Endpoints Per Login",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 20,
   "blockedBy": [],
   "covers": "Card endpoints per login, so two instances of one account each hold a tunnel to one host; a master this person left ended on raise."

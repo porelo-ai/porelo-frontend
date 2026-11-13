@@ -7,7 +7,7 @@
   "title": "Forges Beyond GitHub",
   "state": "Estimated",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 8,
   "blockedBy": [],
   "covers": "Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own."

@@ -7,7 +7,7 @@
   "title": "Refresh Shows What It Did",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 18,
   "blockedBy": [],
   "covers": "Refresh shows that it runs and ends with what it read or what failed."

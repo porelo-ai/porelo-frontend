@@ -7,7 +7,7 @@
   "title": "A Host On Fedora From The Same Command",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 39,
   "blockedBy": [],
   "covers": "`porelo-host` bringing a Fedora host up and down as it does Ubuntu 26.04."

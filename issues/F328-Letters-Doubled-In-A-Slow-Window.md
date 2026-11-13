@@ -7,7 +7,7 @@
   "title": "Letters Doubled In A Slow Window",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 10,
   "blockedBy": [],
   "covers": "A key pressed once reaching a console once, however slowly the window answers."

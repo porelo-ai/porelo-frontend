@@ -7,7 +7,7 @@
   "title": "The Walk Hand-Over Carries Porelo-Host",
   "state": "Idea",
   "size": "S",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 31,
   "blockedBy": [],
   "covers": "The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence."

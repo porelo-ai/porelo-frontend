@@ -7,7 +7,7 @@
   "title": "The Needs You Header Counts What It Lists",
   "state": "Idea",
   "size": "-",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 14,
   "blockedBy": [],
   "covers": "The *Needs you* header, the rail's badge and the rows agree on what needs the person."

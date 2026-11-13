@@ -7,7 +7,7 @@
   "title": "Lock And Purge Say What They Do",
   "state": "Idea",
   "size": "XS",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 34,
   "blockedBy": [],
   "covers": "A project member's *Lock* says what it does."

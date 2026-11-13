@@ -7,7 +7,7 @@
   "title": "Host Deliveries Hardened",
   "state": "Idea",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 22,
   "blockedBy": [],
   "covers": "Host deliveries hardened: git in a clean environment, commands without the login shell or a deliberate exception."

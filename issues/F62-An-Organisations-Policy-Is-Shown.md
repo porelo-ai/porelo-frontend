@@ -7,7 +7,7 @@
   "title": "An Organisation's Policy Is Shown",
   "state": "Estimated",
   "size": "M",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 15,
   "blockedBy": [],
   "covers": "An organisation's policy shown."

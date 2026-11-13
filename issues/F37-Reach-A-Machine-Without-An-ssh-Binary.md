@@ -7,7 +7,7 @@
   "title": "Reach A Machine Without An ssh Binary",
   "state": "Estimated",
   "size": "L",
-  "priority": "Medium",
+  "priority": "Low",
   "rank": 9,
   "blockedBy": [],
   "covers": "A machine reached without an `ssh` binary."
