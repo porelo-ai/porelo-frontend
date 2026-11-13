@@ -535,15 +535,23 @@ Future<void> pickFromTheMoveMenu(WidgetTester tester, String issue, Key pick, St
 /// planner refused it.
 Future<void> moveAndSave(WidgetTester tester, String issue, String state) async {
   await pickFromTheMoveMenu(tester, issue, Key('planning-move-to $issue $state'), 'the move of $issue to $state');
-  final save = find.byKey(const Key('planning-save-moves'));
-  await pumpUntil(tester, () => save.evaluate().isNotEmpty, what: 'Save changes');
-  await tester.tap(save.first);
+  // A move is saved at once; one that can do harm is warned of first, and the person goes on.
+  final confirm = find.byKey(const Key('planning-move-confirm'));
+  final pending = find.byKey(Key('planning-move-pending $issue'));
+  final error = find.byKey(const Key('planning-move-error'));
   await pumpUntil(
     tester,
-    () =>
-        find.byKey(const Key('planning-moves-pending')).evaluate().isEmpty ||
-        find.byKey(Key('planning-move-problem $issue')).evaluate().isNotEmpty ||
-        find.byKey(const Key('planning-move-error')).evaluate().isNotEmpty,
+    () => confirm.evaluate().isNotEmpty || pending.evaluate().isEmpty || error.evaluate().isNotEmpty,
+    timeout: const Duration(minutes: 2),
+    what: 'the planner to save the move of $issue to $state',
+  );
+  if (confirm.evaluate().isNotEmpty) {
+    await tester.tap(confirm.first);
+    await pumpFor(tester);
+  }
+  await pumpUntil(
+    tester,
+    () => pending.evaluate().isEmpty || error.evaluate().isNotEmpty,
     timeout: const Duration(minutes: 2),
     what: 'the planner to save the move of $issue to $state',
   );
