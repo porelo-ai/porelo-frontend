@@ -733,7 +733,10 @@ cleanup() {
             case " $before_tasks " in *" $each "*) ;; *) listed+="$each " ;; esac
         done
     fi
-    tasks=$({ on_vm "cat ~/$run/tasks.txt 2>/dev/null" </dev/null || true; printf '%s\n' "$listed"; } | tr ' ' '\n' |
+    tasks=$({
+        on_vm "cat ~/$run/tasks.txt 2>/dev/null" </dev/null || true
+        printf '%s\n' "$listed"
+    } | tr ' ' '\n' |
         grep -Ex '[A-Za-z0-9][A-Za-z0-9._-]{2,}' | sort -u || true)
     if [ -n "$taken" ]; then
         # Judged by what porelod lists afterwards: the clear's exit also counts what it could not reach of the run's vault.
@@ -772,9 +775,9 @@ cleanup() {
             if [ -n "$removed" ]; then
                 echo "walk: $porelo_project is taken out of the organization" >&2
             else
-                left+=("$porelo_project in the organization, which said: $(printf '%s' "$said" | tr -s '\n' ' ' | cut -c1-300)" \
-                    "(porelo org project remove $porelo_project, as the test person on $vm, with the forge token" \
-                    "declared anew in a vault: the run's declaration is forgotten below)")
+                left+=("$porelo_project in the organization, which said: $(printf '%s' "$said" | tr -s '\n' ' ' | cut -c1-300)"
+                "(porelo org project remove $porelo_project, as the test person on $vm, with the forge token"
+                "declared anew in a vault: the run's declaration is forgotten below)")
             fi
             ;;
         no) ;;
@@ -796,7 +799,7 @@ cleanup() {
     # makes them anew under the same names, and would read this run's as its own.
     if [ -n "$own_planner" ]; then
         on_vm "rm -rf -- ~/.local/state/porelo-planner/'$project' ~/.cache/porelo-planner/'$project'" </dev/null ||
-            left+=("the planner's state and cache of $project on $vm" \
+            left+=("the planner's state and cache of $project on $vm"
                 "(~/.local/state/porelo-planner/$project, ~/.cache/porelo-planner/$project)")
     fi
     if [ -n "$declared" ]; then
