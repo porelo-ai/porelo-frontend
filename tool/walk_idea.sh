@@ -127,18 +127,19 @@ for each in vm_key vm_known_hosts vm_jump_known_hosts; do
         echo "walk: --${each//_/-} ${!each} is no readable file" >&2
         exit 64
     }
-    # Absolute and plain, as the hop's command line is read by a shell: no space, no quote.
     printf -v "$each" '%s' "$(readlink -f -- "${!each}")"
-    shaped "--${each//_/-}" "${!each}" '/[A-Za-z0-9_./+-]+'
 done
 ssh_options=(-o BatchMode=yes -o IdentitiesOnly=yes -i "$vm_key")
 if [ -n "$vm_known_hosts" ]; then
-    ssh_options+=(-o "UserKnownHostsFile=$vm_known_hosts" -o StrictHostKeyChecking=yes)
+    ssh_options+=(-o "UserKnownHostsFile=$vm_known_hosts" -o GlobalKnownHostsFile=/dev/null -o StrictHostKeyChecking=yes)
     reached+=(--vm-known-hosts "$vm_known_hosts")
 fi
 if [ -n "$vm_jump" ]; then
+    # Read by a shell as the hop's command line: each path in it absolute and plain, no space, no quote.
+    for each in vm_key vm_jump_known_hosts; do shaped "--${each//_/-}" "${!each}" '/[A-Za-z0-9_./+-]+'; done
     hop="ssh -x -o BatchMode=yes -o IdentitiesOnly=yes -o ForwardAgent=no -i $vm_key"
-    [ -z "$vm_jump_known_hosts" ] || hop+=" -o UserKnownHostsFile=$vm_jump_known_hosts -o StrictHostKeyChecking=yes"
+    [ -z "$vm_jump_known_hosts" ] ||
+        hop+=" -o UserKnownHostsFile=$vm_jump_known_hosts -o GlobalKnownHostsFile=/dev/null -o StrictHostKeyChecking=yes"
     ssh_options+=(-o "ProxyCommand=$hop -W %h:%p $vm_jump")
     reached+=(--vm-jump "$vm_jump")
     [ -z "$vm_jump_known_hosts" ] || reached+=(--vm-jump-known-hosts "$vm_jump_known_hosts")
@@ -671,10 +672,17 @@ make_repository() {
     local template=$1 repository branch=${branch_of_template[$1]} status
     repository=$(own "$template")
     status=$(github POST "/orgs/$org/repos" "{\"name\": \"$repository\", \"private\": ${private_of_template[$template]}, \"auto_init\": false, \"description\": \"The walk $name of $test, a copy of $template; deleted at its end\"}")
-    [ "$status" = 201 ] || {
+    if [ "$status" != 201 ]; then
+        # No answer, or the forge's own fault, may still have made it: taken as the run's only where it carries this
+        # run's description, never one of that name made by anyone else.
+        if [[ $status == 000 || $status == 5?? ]] && [ "$(github GET "/repos/$org/$repository")" = 200 ] &&
+            [ "$(python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1])).get("description") or "")' "$work/answer" |
+                cut -c1-$((${#name} + 12)))" = "The walk $name of" ]; then
+            created+=("$repository")
+        fi
         echo "walk: $org/$repository could not be made ($status)" >&2
         exit 1
-    }
+    fi
     created+=("$repository")
     as_the_person_on_vm "set -e; d=~/$run/fill/$repository; rm -rf \$d
         git clone -q --single-branch --branch '$branch' 'git@github.com:$org/$template.git' \$d" </dev/null >&2 || {

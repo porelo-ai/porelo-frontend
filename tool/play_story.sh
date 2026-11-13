@@ -165,12 +165,14 @@ for each in vm_known_hosts vm_jump_known_hosts; do
 done
 [ -z "$vm_jump" ] || reach+=(--vm-jump "$vm_jump")
 ssh_options=(-o BatchMode=yes -o IdentitiesOnly=yes -i "$vm_key")
-[ -z "$vm_known_hosts" ] || ssh_options+=(-o "UserKnownHostsFile=$vm_known_hosts" -o StrictHostKeyChecking=yes)
+[ -z "$vm_known_hosts" ] ||
+    ssh_options+=(-o "UserKnownHostsFile=$vm_known_hosts" -o GlobalKnownHostsFile=/dev/null -o StrictHostKeyChecking=yes)
 if [ -n "$vm_jump" ]; then
     # Read by a shell as the hop's command line: every path in it plain, no space, no quote.
     for each in "$vm_key" "$vm_jump_known_hosts"; do shaped "the path $each" "$each" '[A-Za-z0-9_./+~-]+'; done
     hop="ssh -x -o BatchMode=yes -o IdentitiesOnly=yes -o ForwardAgent=no -i $vm_key"
-    [ -z "$vm_jump_known_hosts" ] || hop+=" -o UserKnownHostsFile=$vm_jump_known_hosts -o StrictHostKeyChecking=yes"
+    [ -z "$vm_jump_known_hosts" ] ||
+        hop+=" -o UserKnownHostsFile=$vm_jump_known_hosts -o GlobalKnownHostsFile=/dev/null -o StrictHostKeyChecking=yes"
     ssh_options+=(-o "ProxyCommand=$hop -W %h:%p $vm_jump")
 fi
 on_vm() {
