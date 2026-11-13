@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F501",
   "title": "A Started Offer Is Found Again By Its Key",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 2,
@@ -39,3 +39,31 @@ Found in [F492](README.md#f492)'s runs 24 to 26.
 - A window killed right after Start's answer reports that task's start and end to the planner under its offer after
   its restart.
 - No offer is reported for a task whose key names no offer this window handed.
+
+## Decided
+
+- porelo's Start takes `callerKey` (at most 200 characters, no control characters), keeps it with the task from its
+  creation, across a resume and every restart, and gives it back on the task's row in List and Watch as `callerKey`.
+  The window sends it only where the machine's Start declares it, so an older machine starts the task without it and
+  only the kept pair finds that task again.
+- An offer handed to Start is kept with what keeping its task needs (machine, provider, project, story, whether it is
+  a discussion) until its pair is kept or its start refused, so the sweep after a restart can keep the pair.
+
+## How it was built
+
+- `startOrdered` and `startDiscussion` (`lib/src/app/fleet_backend.dart`) take `callerKey`, which
+  `PoreloClient.start` sends where Start declares it; `WindowTaskStarts` (`planning_embedding.dart`) passes the offer
+  for both, and keeps a `PendingStart` in the settings when it hands the offer, dropped once the pair is kept or the
+  start is refused.
+- `Task` (`models.dart`) reads `callerKey` from the row, "" where none was given.
+- The report sweep (`planning_reports.dart`) first keeps, for each pending start not being started in this window, the
+  listed task on its machine whose key is the offer: as a story's task, or as a discussion. It then reports as before,
+  so its start and any end it shows go out once under its offer. A listed task whose key names no offer this window
+  handed is left alone.
+- Tests: `test/client/start_key_test.dart` sends the key only where Start declares it and reads it from a row;
+  `test/ui/window_task_reports_test.dart` hands an offer whose start never answers, reopens the window twice and sees
+  the start reported once under the offer, and with an end that came while the window was closed, the start and the
+  end once each; a task whose key names no offer is not reported; `test/ui/window_task_starts_test.dart` sees a
+  discussion's Start given the offer. Red: without the offer on the ordered start, the reports tests got no key and
+  no report; without the offer on the discussion's start, its Start got no key; with the sweep keeping nothing found
+  again, or the row's key not read, nothing was reported and the row gave back "".

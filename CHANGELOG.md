@@ -52,6 +52,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A task the window started for a planner's offer is reported to the planner under that offer, its start and its ends, also when the window ended right after the machine started it and before it kept the offer: each start gives the machine the offer as the task's own key, and after a restart the window finds the task by it. A machine whose Start takes no such key starts the task as before.
 - A task started for a planner's offer is told to the planner as started once its agent runs, no longer when the agent's run ends, so the next offer of the story starts at once instead of waiting on a builder that works for half an hour.
 - While a machine reconnects, or a host's card is replaced, the window no longer shows an error in place of its pages: that machine shows as not answering yet until it is watched again, and a reconnect whose connection could not be taken down leaves the machine connected as it was.
 - An ended discussion whose idea was handed in stays on its machine while the machine's listing still holds back ideas it proposed, so those ideas are not removed with it before the planner has them.

@@ -359,6 +359,28 @@ void main() {
     ]);
   });
 
+  // Harm: the end of a task whose start the window never heard is never reported, or reported twice.
+  test('a task started just before the window ended reports its end under its offer, once', () async {
+    final (starts, _) = window();
+    final order = (await plannedOrders()).first;
+    machine.hangAfterStart = true;
+    unawaited(starts(planner, 'demo', 'ST291', order));
+    await pumpEventQueue();
+    machine.end('porelo-demo-porelo', {'at': 'while closed', 'finished': true, 'answer': 'Done.'});
+
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+    final (_, again) = window(kept: await loaded());
+    again.sweep();
+    await again.idle;
+
+    expect(planner.calls.map((call) => (call.event, call.offer)), [
+      (PlanningTaskEvent.started, order.offer),
+      (PlanningTaskEvent.ended, order.offer),
+    ]);
+  });
+
   // Harm: a task some other caller started is reported under an offer of this window.
   test('a listed task whose key names no offer this window handed is not reported', () async {
     final (_, reports) = window();
@@ -1391,6 +1413,7 @@ class _Machine extends Fake implements FleetBackend {
       'running': false,
       'since': since,
       'result': result,
+      'callerKey': ?_keyOf(task),
     });
   }
 
@@ -1406,8 +1429,12 @@ class _Machine extends Fake implements FleetBackend {
       'run': ?task.run,
       'agentEnded': ended,
       'landed': ?landed,
+      'callerKey': ?_keyOf(task),
     });
   }
+
+  /// The key [task]'s start gave it, which the machine keeps through every change of the task.
+  static String? _keyOf(Task task) => task.callerKey.isEmpty ? null : task.callerKey;
 
   /// The ended task in [container]'s work has left the gate for [landed].
   void land(String container, List<Map<String, dynamic>> landed) {

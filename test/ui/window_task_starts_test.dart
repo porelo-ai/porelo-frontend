@@ -182,6 +182,7 @@ void main() {
         'mode': 'AGENT',
         'prompt': order.prompt,
         'result': 'idea.json',
+        'callerKey': order.offer!,
       });
       expect(started.container, 'porelo-demo-discussion');
       expect(started.task, 'discussion');
@@ -418,6 +419,7 @@ class _Starting extends Fake implements FleetBackend {
       'mode': mode.name,
       'prompt': prompt,
       'result': result,
+      'callerKey': ?callerKey,
     });
     final container = 'porelo-$project-discussion';
     _listed.add(Task.from({'name': container, 'task': 'discussion', 'project': project, 'running': true}));
