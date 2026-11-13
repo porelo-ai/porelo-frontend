@@ -26,24 +26,34 @@ often the row is seen and whether the window restarted meanwhile, so ideas becom
 
 The contracts it builds against:
 
-- **Porelo:** each task's row in `List` and `Watch` lists the ideas the task proposed, each with its title (one line)
-  and what must be true (one or two sentences), in the order proposed; an idea stays on the row once listed.
+- **Porelo:** each task's row in `List` and `Watch` lists the ideas the task proposed (`ideas`, `[]` when none), oldest
+  first, each with its id (`idea-1`, `idea-2`, ... counted per task), its title (one line, at most 120 characters), what
+  must be true (at most 1000 characters, line breaks allowed) and when the host kept it; an idea stays on the row until
+  the task is removed, and a later start keeps it. A project allows at most 100 ideas per task. The text is the
+  agent's own, so the window takes it as untrusted input.
 - **The planner:** `POST /projects/{project}/issues` takes the repository, title, what must be true, no size, the
   board's revision it was made against, and the name of the task the issue came from; it saves the issue in Idea,
   answers its id, and refuses a stale revision (`StaleRevision`) or a field at fault in its own words.
 
 ## Plan
 
-- `lib/src/client/models.dart`: a `ProposedIdea` with `title` and `mustBeTrue`, and `Task.ideas`, read from the row,
-  null from a machine that does not list them. A red test first in `test/client/`.
+- `lib/src/client/models.dart`: a `ProposedIdea` with `id`, `title`, `mustBeTrue` and `at`, and `Task.ideas`, read from
+  the row, null from a machine that does not list them. A red test first in `test/client/`. The mock machine lists
+  `ideas: []` on every row, and an idea only where a test proposes one, so a mock walk never hands one to a real
+  planner.
 - `lib/src/app/settings.dart`: a kept mark of each idea handed, by machine, the task's run (`Task.run`, the container
-  where none) and the idea's title and text, so a later task under the same container name hands its own; forgotten
-  with the task's other kept records.
+  where none), the idea's id and a digest of its title and text, so a later task under the same container name hands
+  its own; forgotten with the task's other kept records, the oldest dropped past a bound.
+- Before it is handed, an idea is held to the bounds Porelo states (an id `idea-<n>`, a title of one line of at most
+  120 characters, at most 1000 characters of what must be true, no control characters but its line breaks); one out
+  of them is marked and said, never handed or quoted.
 - `WindowTaskReports` (`lib/src/ui/planning_reports.dart`) takes every task on every watched machine, not only those
   it started; `_sweepNow` hands each idea not marked, in order, through a new `_handProposed`. The issue goes to the
   task's project, its repository is the task's (`Project.repositoryOf`), its title and what must be true as the task
   wrote them, no size, the task named by its name in the project. It goes through the provider's source's
   `createIssue` with the revision read just before by `stories`, read again and sent once more on a stale revision.
+  The window passes the task's name through a hand-over of its own, as the screen package's `createIssue` takes no
+  task yet; until the pinned package carries it, the issue goes in without the task's name.
 - An idea saved, or refused for its fields, is marked and not handed again; a refusal is said once where the window
   shows planning problems, with the planner's faults, as an ended discussion's refused idea is today. A planner not
   reached, or a project no watched machine names the repository of yet, is said once and tried at the next sweep, as
@@ -60,3 +70,8 @@ The contracts it builds against:
 - Each idea becomes one issue, also when the window restarts or the row is seen many times; two ideas become two.
 - An idea the planner refuses is said once with its faults and not sent again; one sent while no planner was reached
   goes once one is.
+
+## To be checked
+
+- The pinned screen package's `createIssue` (and porelo-planner's main) takes no task name; once the planner's package
+  carries it, the window's hand-over passes it on, and the acceptance's "naming the task" holds.
