@@ -25,17 +25,20 @@
 # branch, for the porelo project's template, the issue repositories, the seeded ones and every repository the porelo
 # project's project.yml names; in the porelo project's copy every template's name is the story's from then on, in the
 # seed too. Two runs of one story never run at once: where a story's repository is in ORG already, left by a run that
-# failed, the run refuses to start and names it. The seed holds one directory per repository, named for its template,
-# whose files are written over that repository's at the same paths and pushed as one commit, after each repository's tip
-# was noted as T0. A top-level <name>.diff whose first line is `--- <repository>/<file>` is applied to that file as it
-# is at T0 instead of copying it, and the run stops before any push where it does not apply. The porelo project's
-# repository is signed anew as the person (`porelo project sign`) on the pushed tip. The planner's project is the porelo
-# project (--project defaults to the story's porelo project), whose own repository is the one of that name. It copies
-# this checkout's HEAD to the VM, puts the planner of DIR first on the window's path and runs
-# integration_test/walking_an_idea_test.dart there through tool/e2e.sh, and writes the report into DIR: one line per
-# step (`OK` or `FAIL` with what was asked and got), a picture of the window where it failed, the HTML and JUnit report,
-# and the test's own output, and probe.log: every call of the planner's probe, its arguments, exit code and whole
-# output, OK or not, never a token.
+# failed, or the organization lists the story's porelo project already, the run refuses to start and names it. porelo
+# knows a project by the organization's entry alone: the story's porelo project is added to the organization with the
+# test person as its first admin, its repository given its first commit by `porelo project create-repository` and the
+# template's tree put over that, and the entry taken out again on every ending, touching no other project's. The seed
+# holds one directory per repository, named for its template, whose files are written over that repository's at the same
+# paths and pushed as one commit, after each repository's tip was noted as T0. A top-level <name>.diff whose first line
+# is `--- <repository>/<file>` is applied to that file as it is at T0 instead of copying it, and the run stops before
+# any push where it does not apply. The porelo project's repository is signed anew as the person (`porelo project sign`)
+# on the pushed tip. The planner's project is the porelo project (--project defaults to the story's porelo project),
+# whose own repository is the one of that name. It copies this checkout's HEAD to the VM, puts the planner of DIR first
+# on the window's path and runs integration_test/walking_an_idea_test.dart there through tool/e2e.sh, and writes the
+# report into DIR: one line per step (`OK` or `FAIL` with what was asked and got), a picture of the window where it
+# failed, the HTML and JUnit report, and the test's own output, and probe.log: every call of the planner's probe, its
+# arguments, exit code and whole output, OK or not, never a token.
 #
 # A VM behind another machine is reached through it: --vm-jump names that hop, reached with the same --vm-key, and
 # every ssh of the run goes through it, the test person's agent forwarded to the VM alone, never to the hop.
@@ -594,6 +597,13 @@ github() {
     exit 1
 }
 
+# Whether the organization, read anew, lists the porelo project: yes, no, or nothing where it cannot be asked.
+in_the_organization() {
+    as_the_person_on_vm "${in_vault:-}porelo org --json --refresh" </dev/null 2>/dev/null | python3 -I -c 'import json, sys
+print("yes" if any(p.get("project") == sys.argv[1] for p in json.load(sys.stdin)["projects"]) else "no")' "$porelo_project" ||
+        true
+}
+
 # The templates the story's repositories are copied from, each with its default branch and whether it is private: the
 # porelo project's, every repository its project.yml names, the issue repositories and the seeded ones. None of the
 # story's own may be there yet: one left by a failed run is named with what deletes it, and nothing is made.
@@ -633,6 +643,12 @@ print(answer["default_branch"], "true" if answer["private"] else "false")' "$wor
         *) refused "whether $org/$(own "$each") is there could not be asked" ;;
         esac
     done
+    case $(in_the_organization) in
+    no) ;;
+    yes) refused "the organization lists $porelo_project already, left by a run of $test that failed or is kept; take it out" \
+        "with: porelo org project remove $porelo_project (as the test person on $vm), and delete its repository" ;;
+    *) refused "whether the organization lists $porelo_project could not be asked on $vm" ;;
+    esac
     if [ ${#there[@]} -gt 0 ]; then
         echo "walk: the story's repositories are in $org already, left by a run of $test that failed or is kept; nothing is made" >&2
         echo "walk: where its report DIR is kept, tool/walk_idea.sh clean ${reached[*]} --report DIR takes them away; else:" >&2
@@ -664,6 +680,8 @@ before_tasks='' before_known=''
 declare -A branch_of=() t0_of=()
 # The story's repositories this run made, deleted on its ending: never one it did not make.
 created=()
+# Whether the run asked the organization for the story's project, and the person who is its first admin.
+org_added='' person=''
 left=()
 # A kept run is taken up again as it was left; a red step keeps it so.
 kept=''
@@ -726,6 +744,17 @@ cleanup() {
                 porelo task stop -- '$each' >/dev/null 2>&1; porelo task remove --force -- '$each' >/dev/null; fi" </dev/null ||
             left+=("the task $each on $vm (porelo task remove --force $each there)")
     done
+    # The story's project out of the organization, where it is listed there: the run added it, as its start found it not.
+    if [ -n "$org_added" ]; then
+        case $(in_the_organization) in
+        yes)
+            as_the_person_on_vm "${in_vault:-}porelo org project remove --id '$name-org-remove' '$porelo_project'" </dev/null >/dev/null 2>&1 ||
+                left+=("$porelo_project in the organization (porelo org project remove $porelo_project, as the test person on $vm)")
+            ;;
+        no) ;;
+        *) left+=("whether $porelo_project is in the organization could not be asked (porelo org project remove $porelo_project)") ;;
+        esac
+    fi
     # Deleted whole, with every branch, pull request and commit of the run in them.
     for each in "${created[@]}"; do
         case $(github DELETE "/repos/$org/$each") in
@@ -876,22 +905,46 @@ make_repository() {
         exit 1
     fi
     created+=("$repository")
-    as_the_person_on_vm "set -e; d=~/$run/fill/$repository; rm -rf \$d
-        git clone -q --single-branch --branch '$branch' 'git@github.com:$org/$template.git' \$d" </dev/null >&2 || {
-        echo "walk: $org/$template could not be cloned on $vm" >&2
-        exit 1
-    }
+    if [ "$template" = "$porelo_template" ]; then
+        # porelo knows a project by the organization's entry alone, and files its address only for a repository it
+        # filled first: the entry is added with the person as its first admin, porelo's first signed commit made in
+        # the still empty repository, and the template's tree put over it in one commit. Noted before it is asked
+        # for, so every ending takes the entry out again where the organization lists it.
+        org_added=yes
+        as_the_person_on_vm "set -e; ${in_vault}porelo org project add --id '$name-org-add' --admin='$person' '$repository' >/dev/null
+            ${in_vault}porelo project create-repository --id '$name-repository' --review optional '$repository' >/dev/null
+            ${in_vault}porelo org --refresh >/dev/null" </dev/null >&2 || {
+            echo "walk: $repository could not be added to the organization and given its repository on $vm" >&2
+            exit 1
+        }
+        as_the_person_on_vm "set -e; d=~/$run/fill/$repository; t=~/$run/fill/$repository.template; rm -rf \$d \$t
+            git clone -q 'git@github.com:$org/$repository.git' \$d
+            git clone -q --depth 1 --single-branch --branch '$branch' 'git@github.com:$org/$template.git' \$t
+            git -C \$d rm -rq --ignore-unmatch -- .
+            git -C \$t archive --format=tar HEAD | tar -x -C \$d" </dev/null >&2 || {
+            echo "walk: $org/$template could not be put over $org/$repository on $vm" >&2
+            exit 1
+        }
+    else
+        as_the_person_on_vm "set -e; d=~/$run/fill/$repository; rm -rf \$d
+            git clone -q --single-branch --branch '$branch' 'git@github.com:$org/$template.git' \$d" </dev/null >&2 || {
+            echo "walk: $org/$template could not be cloned on $vm" >&2
+            exit 1
+        }
+    fi
     if [ "$template" = "$porelo_template" ]; then
         # shellcheck disable=SC2015 # either failing stops the run
         on_vm "cd ~/$run/fill/'$repository' && python3 -I - '$story-' '${templates[*]}' ." <"$work/rename.py" >&2 &&
             on_vm "set -e; cd ~/$run/fill/'$repository'; git add -A; git diff --cached --quiet ||
-                git -c user.name='Porelo walk' -c user.email=walk@example.org commit -q -m 'Name the repositories for the walk $name'" \
+                git -c user.name='Porelo walk' -c user.email=walk@example.org commit -q -m 'Take the template $template for the walk $name'" \
                 </dev/null >&2 || {
             echo "walk: the copy of $template could not be named for the story on $vm" >&2
             exit 1
         }
     fi
-    as_the_person_on_vm "git -C ~/$run/fill/'$repository' push -q 'git@github.com:$org/$repository.git' HEAD:'refs/heads/$branch'" \
+    # The porelo project's onto the branch porelo's first commit made, any other onto its template's.
+    as_the_person_on_vm "cd ~/$run/fill/'$repository' && if [ '$template' = '$porelo_template' ]; then git push -q origin HEAD
+        else git push -q 'git@github.com:$org/$repository.git' HEAD:'refs/heads/$branch'; fi" \
         </dev/null >&2 || {
         echo "walk: $org/$repository could not be filled from $org/$template" >&2
         exit 1
@@ -1003,7 +1056,9 @@ if [ "$mode" = run ]; then
     fetch_flutter
 
     # The account's card is the person's only while the forwarded agent holds its key.
-    holds=$(as_the_person_on_vm "porelo identity show --json" </dev/null | python3 -I -c 'import json,sys; print(json.load(sys.stdin).get("agent_holds_key"))' || true)
+    read -r holds person < <(as_the_person_on_vm "porelo identity show --json" </dev/null |
+        python3 -I -c 'import json,sys; a = json.load(sys.stdin); print(a.get("agent_holds_key"), a.get("login") or "-")' || true) || true
+    shaped "the person's login" "${person:-}" '[A-Za-z0-9][A-Za-z0-9-]{0,38}'
     [ "$holds" = True ] || {
         echo "walk: the agent forwarded to $vm does not hold the key of the card there" >&2
         exit 1
@@ -1151,7 +1206,7 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
     fi
 
     # What a resume or a clean takes the run up with.
-    declare -p created before_tasks before_known test vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
+    declare -p created org_added person before_tasks before_known test vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
         declared pointed agent_before swapped porelo_commit taken planned branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
 fi
 
