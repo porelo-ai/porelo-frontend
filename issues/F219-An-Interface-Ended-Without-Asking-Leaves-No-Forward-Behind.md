@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F219",
   "title": "An Interface Ended Without Asking Leaves No Forward Behind",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 9,
@@ -91,6 +91,31 @@ Card control masters are already ended at the start by `Tunnel._endOrphanedMaste
 - An endpoint served by anything this interface did not record is left alone.
 - Seen to fail: the tests red with the machine refused while the old forward still runs.
 
-## To be checked
+## Checked
 
-- Which signal `q` in `flutter run` sends a Linux desktop app.
+- `q` in `flutter run` ends a Linux desktop app with SIGTERM: the tool's desktop device stops the app by killing its
+  pid with the default signal. The window watches SIGTERM, so `q` lets go of the forwards as closing the window does.
+
+## How it was built
+
+- `lib/src/app/forward_records.dart` keeps a record of each forward under `$XDG_RUNTIME_DIR/porelo-forwards`, reached
+  by a chain of directory descriptors, each checked for this uid and 0700, the record 0600, written to a temporary
+  file and renamed, following no link; it holds the pid, the start time, the boot id and the arguments launched. A
+  record is removed when its forward ends, and one whose process cannot be read, or whose boot cannot be told, stays.
+- `Tunnel.raise` (`lib/src/app/tunnel.dart`) and the login forward (`lib/src/app/login_forward.dart`, started through
+  the seam `startLoginForward`) end a recorded forward before refusing an endpoint already served: only a live process
+  of this account with the recorded start time, boot and argument vector, forwarding this very endpoint, never one
+  this run holds, signalled through a pidfd (by the system call where glibc has no `pidfd_open`); then a bounded wait
+  of 20 × 100 ms, and an endpoint still answered is refused as before. The sweep runs only after `OneInstance.take`.
+- `lib/src/app/ending_signals.dart` watches SIGINT and, off Windows, SIGTERM from `lib/main.dart`, and lets go of the
+  tunnels, the forwards and a planner the window started all at once (`letGoTogether`), exiting after them or after
+  five seconds; the bound is cancelled once every clean-up has ended. Closing the window lets go through the same
+  `letGoTogether`.
+- Tests: `test/app/tunnel_test.dart` (a forward a killed run left is ended and the machine raised; an endpoint with no
+  record of ours, another command line, start time, boot, socket or account, a record of another uid, wider than
+  0600, a link, or in a directory others may read or write, are all left alone; a bounded wait then a refusal; a
+  record gone after a normal close), `test/app/login_reply_test.dart` (a login forward a killed run left on the port is
+  ended and raised again) and `test/app/ending_signals_test.dart` (a signal lets go and exits, also when letting go
+  hangs or throws).
+- A reading by another model filed its grave points as [F513](README.md#f513) and its small ones as
+  [F514](README.md#f514).
