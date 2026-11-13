@@ -1,0 +1,73 @@
+import 'dart:io';
+
+import 'forward_records.dart' show LinuxProcessTable, PathFacts, ReadPathFacts, pathFactsOf;
+
+/// The environment variable that names Porelo's executable to the planner the window starts.
+const poreloExecutableVariable = 'PORELO_EXECUTABLE';
+
+/// Where Porelo's own installs put it, in the order the window takes them: the account's own install, which its login
+/// shell finds first, then the package's. Never a search path, a setting, or anything a repository controls.
+List<String> poreloPlaces(Map<String, String> environment) => <String>[
+  if (environment['HOME'] case final home? when home.startsWith('/') && !home.split('/').contains('..'))
+    '$home/.local/bin/porelo',
+  '/usr/bin/porelo',
+];
+
+/// Porelo's executable as the window found it: an absolute path with its links followed, or why none is given.
+typedef PoreloFound = ({String? path, String? refused});
+
+/// Finds Porelo at the first of [places] where anything is, follows its links, and gives its path only where neither
+/// the file nor any folder up to `/` can be written by anybody but its owner and root, and each is owned by root or
+/// by [me]. On Windows ([onWindows]) the window has no Porelo of its own, so none is given.
+PoreloFound findPoreloExecutable({List<String>? places, bool? onWindows, ReadPathFacts? facts, int? me}) {
+  if (onWindows ?? Platform.isWindows) return (path: null, refused: null);
+  final read = facts ?? pathFactsOf;
+  final uid = me ?? const LinuxProcessTable().myUid;
+  for (final place in places ?? poreloPlaces(Platform.environment)) {
+    if (FileSystemEntity.typeSync(place, followLinks: false) == FileSystemEntityType.notFound) continue;
+    // The first place where anything is decides: a refused one is never passed over for the next.
+    final String resolved;
+    try {
+      resolved = File(place).resolveSymbolicLinksSync();
+    } on FileSystemException catch (failure) {
+      return (
+        path: null,
+        refused: '$place cannot be followed to a file: ${failure.osError?.message ?? failure.message}',
+      );
+    }
+    if (uid == null) return (path: null, refused: 'the account this window runs as cannot be told');
+    final file = read(resolved, null);
+    if (file == null || file.type != FileSystemEntityType.file) {
+      return (path: null, refused: '$resolved is no file');
+    }
+    if (_whyNot(resolved, file, uid) case final why?) return (path: null, refused: why);
+    var folder = resolved.substring(0, resolved.lastIndexOf('/'));
+    while (true) {
+      final shown = folder.isEmpty ? '/' : folder;
+      final facts = read(shown, null);
+      if (facts == null || facts.type != FileSystemEntityType.directory) {
+        return (path: null, refused: 'the folder $shown of $resolved cannot be read');
+      }
+      if (_whyNot(shown, facts, uid) case final why?) return (path: null, refused: '$why, and $resolved lies in it');
+      if (folder.isEmpty) break;
+      folder = folder.substring(0, folder.lastIndexOf('/'));
+    }
+    return (path: resolved, refused: null);
+  }
+  return (path: null, refused: null);
+}
+
+/// Why [path] could be swapped by somebody else, or null where it cannot.
+String? _whyNot(String path, PathFacts facts, int me) {
+  if (facts.owner != 0 && facts.owner != me) return '$path is owned by another account';
+  if (facts.permissions & 0x12 != 0) return '$path can be written by others than its owner';
+  return null;
+}
+
+/// The environment of a planner the window starts: [inherited] without any Porelo path it names, in any case of the
+/// name as Windows reads it, then [added]. The planner is given only the Porelo the window found itself.
+Map<String, String> plannerEnvironment(Map<String, String> inherited, Map<String, String> added) => <String, String>{
+  for (final entry in inherited.entries)
+    if (entry.key.toUpperCase() != poreloExecutableVariable) entry.key: entry.value,
+  ...added,
+};

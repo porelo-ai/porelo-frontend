@@ -100,7 +100,9 @@ void main() {
     String? Function()? runtimeDirectory,
     OpenPlanner? open,
     Duration? follow,
+    String? poreloExecutable,
   }) => LocalPlanner(
+    poreloExecutable: poreloExecutable,
     projects: () => ['demo'],
     repositories: (project) => PlannerProject('https://example.org/$project.git'),
     runtimeDirectory: runtimeDirectory == null ? runtime.path : runtimeDirectory(),
@@ -159,6 +161,25 @@ void main() {
     expect(starts.single.$2, {'XDG_RUNTIME_DIR': runtime.path});
     expect(local.notReached, isNull);
     expect(local.providers.single.connected, isTrue);
+  });
+
+  // Harm: the planner the window starts looks Porelo up on a path of its own, or is never told the one the window found.
+  test("a planner the window starts is given Porelo's path the window found", () async {
+    final started = await planner();
+    final starts = <Map<String, String>>[];
+    final local = client(
+      candidates: [await program()],
+      poreloExecutable: '/usr/lib/porelo/bin/porelo',
+      start: (_, environment) async {
+        starts.add(environment);
+        unawaited(Future<void>.delayed(const Duration(milliseconds: 50), () => started.announce(runtime.path)));
+        return PlannerProcess();
+      },
+    );
+
+    await local.reach();
+
+    expect(starts.single, {'XDG_RUNTIME_DIR': runtime.path, 'PORELO_EXECUTABLE': '/usr/lib/porelo/bin/porelo'});
   });
 
   // Harm: a planner that never answers leaves the place waiting forever, or has the window start planner after planner.

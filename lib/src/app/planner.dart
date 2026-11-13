@@ -20,6 +20,7 @@ import '../client/models.dart' show Project, defaultProject;
 import 'machines.dart';
 import 'owned_process.dart';
 import 'planner_log_level.dart';
+import 'porelo_executable.dart';
 import 'window_log.dart' show LogLevel, windowLog;
 
 /// Where the package puts the planner, which the window starts as it needs it.
@@ -56,7 +57,8 @@ typedef PlanningReport = Future<void> Function(
   List<PlanningLanding> landed,
 });
 
-/// Starts the planner at [executable] with [environment] added to the window's own, answering the process started.
+/// Starts the planner at [executable] with [environment] added to the window's own, which never passes on a Porelo
+/// path it inherited, answering the process started.
 typedef StartPlanner = Future<Process> Function(String executable, Map<String, String> environment);
 
 /// The most of one line of a started planner's output the window holds before it logs it, in characters, so output
@@ -151,6 +153,7 @@ class LocalPlanner extends ChangeNotifier
     Map<String, String>? environment,
     this._logLevel,
     TellPlannerLevel? tellLevel,
+    this._poreloExecutable,
   }) : _onWindows = onWindows ?? Platform.isWindows,
        _environment = environment ?? Platform.environment,
        _tellLevel = tellLevel ?? tellPlannerLevel,
@@ -177,6 +180,7 @@ class LocalPlanner extends ChangeNotifier
     ValueListenable<LogLevel>? logLevel,
   }) => LocalPlanner(
     logLevel: logLevel,
+    poreloExecutable: _poreloOnce(),
     projects: () => plannedProjects(machines),
     repositories: (project) => plannerProjectOf(machines, project),
     chosenProject: () => machines.fleet.selectedProject?.name,
@@ -189,6 +193,20 @@ class LocalPlanner extends ChangeNotifier
 
   /// The provider's name, shown beside its answers.
   static const name = 'porelo-planner';
+
+  /// Finds Porelo's executable for the planner, once, and says in the window's log why none is given where one was
+  /// refused.
+  static String? _poreloOnce() {
+    final found = findPoreloExecutable();
+    if (found.refused case final why?) {
+      windowLog.warn('The planner is not given Porelo, so it reads public repositories only: $why.');
+    }
+    return found.path;
+  }
+
+  /// Porelo's executable, absolute with its links followed, given to a planner the window starts; null where the
+  /// window found none it can vouch for.
+  final String? _poreloExecutable;
 
   /// The runtime directory the planner writes its address under, `XDG_RUNTIME_DIR` when null; a blank one is none, and
   /// on Windows there is none: the planner writes it under `LOCALAPPDATA`.
@@ -339,7 +357,9 @@ class LocalPlanner extends ChangeNotifier
           _process = null;
           await _stop(before);
         }
-        _keep(await _start(program, {'XDG_RUNTIME_DIR': ?runtimeDirectory}));
+        _keep(
+          await _start(program, {'XDG_RUNTIME_DIR': ?runtimeDirectory, poreloExecutableVariable: ?_poreloExecutable}),
+        );
         return null;
       } on ProcessException catch (error) {
         // Not started at all, as for a file this account may not run: the next may be.
@@ -590,8 +610,13 @@ class LocalPlanner extends ChangeNotifier
 
   // Normal, so the planner gets a pipe for its input that closes when the window goes, a hard kill included, and
   // answers its exit code.
-  static Future<Process> _startWithItsInput(String executable, Map<String, String> environment) =>
-      Process.start(executable, const [plannerEndsWithInput], environment: environment);
+  static Future<Process> _startWithItsInput(String executable, Map<String, String> environment) => Process.start(
+    executable,
+    const [plannerEndsWithInput],
+    // Its own, so a Porelo path the window inherited never reaches the planner.
+    environment: plannerEnvironment(Platform.environment, environment),
+    includeParentEnvironment: false,
+  );
 
   /// Reads [output] of a planner the window started into the window's log, line by line, so the planner never blocks
   /// on a full pipe; a line longer than [plannerOutputLine] is logged in pieces of that length.
