@@ -16,6 +16,39 @@ class RelayDisconnected extends VarlinkDisconnected {
   final int? exitCode;
 }
 
+/// What a connection through a relay is for, which decides the place it waits for.
+class RelayUse {
+  /// A single call, answered within its deadline.
+  const RelayUse.call() : watch = null, long = false;
+
+  /// A stream, or a call that may wait long: it has no deadline to free its place by.
+  const RelayUse.stream() : watch = null, long = true;
+
+  /// The watch [method], which holds a place of its own for as long as it runs.
+  const RelayUse.watch(String method) : watch = method, long = true;
+
+  /// The watch's method, or null for any other connection.
+  final String? watch;
+
+  /// Whether it may hold its place without end.
+  final bool long;
+}
+
+/// A place a relay's process holds while it runs.
+abstract interface class RelayPlace {
+  /// Gives the place back; only the first call counts.
+  void leave();
+}
+
+/// Admits the processes of one relay, each to a place of its own, in turn.
+abstract interface class RelayAdmission {
+  /// Waits for a place for [use], or answers null once [abandoned] completed before one was given.
+  Future<RelayPlace?> enter(RelayUse use, {Future<void>? abandoned});
+}
+
+/// Starts a relay's process, for a test to stand in.
+typedef StartRelay = Future<Process> Function(String executable, List<String> arguments);
+
 /// Where a backend is.
 ///
 /// Local and remote differ by one string - the socket path - because a remote daemon is reached
@@ -43,23 +76,71 @@ class Backend {
   /// reaches, and this is where a WSL distribution that is stopped stays stopped.
   final Future<String?> Function()? whyNotNow;
 
-  /// Constructor with the socket and how to name it.
-  const Backend({required this.socketPath, required this.label, this.notReachable, this.relay, this.whyNotNow});
+  /// Admits each process of [relay] to a place, or null where they are not bounded here.
+  final RelayAdmission? admission;
 
-  /// Opens a connection to it, or says in [notReachable]'s words why there is none.
-  Future<VarlinkConnection> open() async {
+  /// How a process of [relay] is started.
+  final StartRelay startRelay;
+
+  /// Constructor with the socket and how to name it.
+  const Backend({
+    required this.socketPath,
+    required this.label,
+    this.notReachable,
+    this.relay,
+    this.whyNotNow,
+    this.admission,
+    this.startRelay = Process.start,
+  });
+
+  /// Opens a connection to it for [use], or says in [notReachable]'s words why there is none.
+  ///
+  /// Through a relay with an [admission], it first waits for a place, which is given back once the relay's process
+  /// exited; once [abandoned] completes, a wait still under way ends, and nothing is started.
+  Future<VarlinkConnection> open({RelayUse use = const RelayUse.call(), Future<void>? abandoned}) async {
     final why = notReachable;
     if (why != null) throw VarlinkDisconnected(why);
     final through = relay;
     if (through == null) return VarlinkConnection.open(socketPath);
     final notNow = await whyNotNow?.call();
     if (notNow != null) throw VarlinkDisconnected(notNow);
+    final RelayPlace? place;
+    if (admission case final admission?) {
+      place = await admission.enter(use, abandoned: abandoned);
+      if (place == null) throw VarlinkDisconnected('The connection to $label was no longer wanted.');
+    } else {
+      place = null;
+    }
     final Process process;
     try {
-      process = await Process.start(through.first, through.sublist(1));
+      process = await startRelay(through.first, through.sublist(1));
     } on ProcessException catch (failed) {
+      place?.leave();
       throw VarlinkDisconnected('`${through.first}` could not be started: ${failed.message}');
+    } on Object {
+      place?.leave();
+      rethrow;
     }
+    var exited = false;
+    // Its place is free only once it exited.
+    unawaited(
+      process.exitCode.then<void>(
+        (_) {
+          exited = true;
+          place?.leave();
+        },
+        onError: (Object _) {
+          exited = true;
+          place?.leave();
+        },
+      ),
+    );
+    void end() {
+      process.kill();
+      // One that does not end when asked would keep its place for good.
+      if (place != null) Timer(const Duration(seconds: 2), () => exited || process.kill(ProcessSignal.sigkill));
+    }
+
     final lastBytes = <int>[];
     // Bound diagnostics even when a relay prints endlessly without a newline.
     final diagnostics = process.stderr.forEach((bytes) {
@@ -79,12 +160,7 @@ class Backend {
       throw await ended();
     }
 
-    return VarlinkConnection.over(
-      incoming: incoming(),
-      outgoing: process.stdin,
-      destroy: process.kill,
-      writeFailure: ended,
-    );
+    return VarlinkConnection.over(incoming: incoming(), outgoing: process.stdin, destroy: end, writeFailure: ended);
   }
 
   /// The daemon on this machine.
@@ -468,9 +544,10 @@ class PoreloClient {
     final waited = StreamController<SignInWaited>();
     VarlinkConnection? connection;
     var left = false;
+    final leaving = Completer<void>();
     waited.onListen = () => unawaited(() async {
       try {
-        final opened = await backend.open();
+        final opened = await backend.open(use: const RelayUse.stream(), abandoned: leaving.future);
         if (left) return unawaited(opened.close());
         connection = opened;
         final reply = await opened.call('$interfaceName.AgentSignInWait', <String, dynamic>{
@@ -489,6 +566,7 @@ class PoreloClient {
     }());
     waited.onCancel = () async {
       left = true;
+      if (!leaving.isCompleted) leaving.complete();
       final open = connection;
       connection = null;
       await open?.close();
@@ -1531,18 +1609,53 @@ class PoreloClient {
     }
   }
 
-  Stream<Map<String, dynamic>> _callMore(String method, [Map<String, dynamic> parameters = const {}]) async* {
-    final connection = await backend.open();
-    try {
-      yield* connection
+  /// The watches the window holds while it watches a machine, each on a connection of its own for as long as it runs.
+  static const watches = {'Watch', 'Prompts', 'Talk', 'Authorizations'};
+
+  /// A stream on a connection of its own; canceled while it still waits for a place, it starts nothing.
+  Stream<Map<String, dynamic>> _callMore(String method, [Map<String, dynamic> parameters = const {}]) {
+    final use = watches.contains(method) ? RelayUse.watch(method) : const RelayUse.stream();
+    final left = Completer<void>();
+    final replies = StreamController<Map<String, dynamic>>();
+    VarlinkConnection? connection;
+    StreamSubscription<Map<String, dynamic>>? reading;
+    replies.onListen = () => unawaited(() async {
+      final VarlinkConnection opened;
+      try {
+        opened = await backend.open(use: use, abandoned: left.future);
+      } on Object catch (error, stack) {
+        if (!left.isCompleted) {
+          replies.addError(error, stack);
+          await replies.close();
+        }
+        return;
+      }
+      if (left.isCompleted) return unawaited(opened.close());
+      connection = opened;
+      reading = opened
           .callMore('$interfaceName.$method', parameters)
           .handleError(
             (Object error) => throw FeatureNotSupported(method),
             test: (dynamic error) => error is VarlinkException && error.isMethodNotFound,
+          )
+          .listen(
+            replies.add,
+            onError: replies.addError,
+            onDone: () async {
+              await opened.close();
+              await replies.close();
+            },
           );
-    } finally {
-      await connection.close();
-    }
+      if (replies.isPaused) reading!.pause();
+    }());
+    replies.onPause = () => reading?.pause();
+    replies.onResume = () => reading?.resume();
+    replies.onCancel = () async {
+      if (!left.isCompleted) left.complete();
+      await reading?.cancel();
+      await connection?.close();
+    };
+    return replies.stream;
   }
 
   static List<Task> _tasksOf(Map<String, dynamic> reply) {

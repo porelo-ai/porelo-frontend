@@ -22,7 +22,8 @@ graded GRAVE there. Not settled in that build: it needs a design decision.
 
 **What must be true.** On Windows, the ssh processes the window starts for one host's card with the person's key,
 for its daemon as well as for its forge and homeserver, stay within caps the person can name, as the carrier's own
-connections already do (16 per card, 48 in all, 8 starts a second per card).
+connections already do (16 per card, 48 in all, 8 starts a second per card); its daemon has one place for each of
+its four watches and 4 for every other call, of which a stream holds at most 3, all counted under the cap of all.
 
 ## How it stands
 

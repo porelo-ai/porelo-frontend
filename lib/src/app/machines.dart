@@ -14,6 +14,7 @@ import 'package:porelo_frontend/client.dart';
 import 'fleet_backend.dart';
 import 'fleet_model.dart';
 import 'host_keys.dart';
+import 'loopback_carrier.dart';
 import 'machine_setup.dart';
 import 'tunnel.dart';
 import 'wsl.dart';
@@ -467,7 +468,7 @@ class Machines extends ChangeNotifier {
        hostKeys = hostKeys ?? SshHostKeys(),
        setup = setup ?? MachineSetup(),
        _answers = answers ?? _answersAt,
-       tunnels = tunnels ?? Tunnels() {
+       tunnels = tunnels ?? Tunnels(carrierBudget: CarrierBudget.window) {
     // On Windows the distribution is found again by [load], for this list, whatever an earlier one found.
     if (desk.isWindows) Machine.thisComputersDistribution = null;
     final local = Machine.local();
@@ -563,13 +564,29 @@ class Machines extends ChangeNotifier {
 
   /// Where [machine]'s daemon is: its socket, or the relay into its WSL distribution, which is
   /// asked before each connection whether the distribution runs.
-  static Backend backendFor(Machine machine) => Backend(
-    socketPath: machine.socketPath,
-    label: machine.name,
-    notReachable: machine.whyNotReachableHere,
-    relay: machine.relay?.command,
-    whyNotNow: machine.kind == 'wsl' && desk.isWindows ? () => Wsl().whyNotNow(machine.distribution) : null,
-  );
+  static Backend backendFor(Machine machine) =>
+      backendOn(machine, windows: desk.isWindows, environment: desk.environment, budget: CarrierBudget.window);
+
+  /// [backendFor] without consulting the test machine's platform or environment: on Windows, the daemon's ssh relays
+  /// of each machine wait for places of [budget]'s, which counts them under its cap of all.
+  static Backend backendOn(
+    Machine machine, {
+    required bool windows,
+    required Map<String, String> environment,
+    required CarrierBudget budget,
+    StartRelay startRelay = Process.start,
+  }) {
+    final relay = machine.relayOn(windows: windows, environment: environment);
+    return Backend(
+      socketPath: machine.socketPath,
+      label: machine.name,
+      notReachable: machine.whyNotReachableOn(windows: windows),
+      relay: relay?.command,
+      whyNotNow: machine.kind == 'wsl' && windows ? () => Wsl().whyNotNow(machine.distribution) : null,
+      admission: relay?.kind == 'ssh' ? budget.daemonOf(machine.name) : null,
+      startRelay: startRelay,
+    );
+  }
 
   /// Where Porelo's socket is for the account `host` logs in as, asked of the machine, or null when
   /// it could not be asked.

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:porelo_frontend/client.dart' show RelayAdmission, RelayPlace, RelayUse;
+
 /// A service of a host's card that the window carries a loopback port to, named by the role the host maps to its one
 /// fixed socket: the host's relay command takes the role alone, never a path.
 enum CarriedRole {
@@ -47,20 +49,34 @@ class CarrierRefused implements Exception {
 
 /// What every carrier of the window may spend together, and each alone: the person's key is used once for each
 /// connection carried, so they are bounded.
+///
+/// A card's daemon is reached over ssh children of the window too, in places of its own ([daemonOf]): one for each
+/// watch and [daemonCalls] for everything else, which wait for a place in turn instead of being refused. The cap of all
+/// counts them beside the carried connections.
 class CarrierBudget {
   /// Constructor taking the bounds, and the clock a test stands in for.
   CarrierBudget({
     this.perCard = 16,
     this.inAll = 48,
+    this.daemonCalls = 4,
     this.startsPerSecond = 8,
     this.bufferedBytes = 256 * 1024,
     this.handshake = const Duration(seconds: 30),
     this.stalled = const Duration(seconds: 30),
     DateTime Function()? now,
-  }) : now = now ?? DateTime.now;
+  }) : now = now ?? DateTime.now {
+    // A stream never takes the pool's last place, so a pool of one would admit none.
+    if (daemonCalls < 2) throw ArgumentError.value(daemonCalls, 'daemonCalls', 'must be at least 2');
+  }
 
-  /// The most connections, pending and carried, of one card.
+  /// The budget every card of this window shares.
+  static final window = CarrierBudget();
+
+  /// The most connections, pending and carried, of one card's services.
   final int perCard;
+
+  /// The most connections to one card's daemon besides its watches; a stream holds one of them but never the last.
+  final int daemonCalls;
 
   /// The most connections, pending and carried, of every card together.
   final int inAll;
@@ -83,6 +99,12 @@ class CarrierBudget {
 
   int _held = 0;
 
+  /// How many places of all the daemons' watches and streams hold: never the last one, which is kept for a call.
+  int _daemonLong = 0;
+
+  /// The daemon relays that hold a place of their card and wait for one of all, in the order they asked.
+  final List<_Ask> _waiting = [];
+
   /// Takes a place under [inAll] for one more ssh child of the window, or answers false when every place is taken.
   bool take() {
     if (_held >= inAll) return false;
@@ -91,7 +113,119 @@ class CarrierBudget {
   }
 
   /// Gives back a place [take] took, once its child has exited.
-  void giveBack() => _held--;
+  void giveBack() {
+    _held--;
+    _admitWaiting();
+  }
+
+  /// Gives each daemon relay waiting, in turn, a place of all it may take now.
+  void _admitWaiting() {
+    for (final ask in [..._waiting]) {
+      if (_held >= inAll) return;
+      if (ask.use.long && _daemonLong >= inAll - 1) continue;
+      _waiting.remove(ask);
+      _held++;
+      if (ask.use.long) _daemonLong++;
+      ask.admitted();
+    }
+  }
+
+  final Map<String, DaemonRelays> _daemons = {};
+
+  /// The places of the daemon of the card named [card], the same for every connection to it.
+  DaemonRelays daemonOf(String card) => _daemons[card] ??= DaemonRelays._(this);
+}
+
+/// The places of one card's daemon relays: one for each watch, held for as long as it runs, and a pool of
+/// [CarrierBudget.daemonCalls] for every other connection, whose streams never take its last place.
+///
+/// Each relay first waits for a place of its card, then for one of all; both are waited for in turn and never refused.
+class DaemonRelays implements RelayAdmission {
+  DaemonRelays._(this.budget);
+
+  /// The budget whose cap of all it counts under.
+  final CarrierBudget budget;
+
+  final Set<String> _watches = {};
+  int _calls = 0;
+  int _streams = 0;
+  final List<_Ask> _asks = [];
+
+  @override
+  Future<RelayPlace?> enter(RelayUse use, {Future<void>? abandoned}) {
+    final ask = _Ask(this, use);
+    _asks.add(ask);
+    _admitWaiting();
+    abandoned?.then<void>((_) => _abandon(ask), onError: (Object _) => _abandon(ask));
+    return ask.answer.future;
+  }
+
+  /// Gives each relay waiting, in turn, a place of the card it may take now, and has it wait for one of all.
+  void _admitWaiting() {
+    for (final ask in [..._asks]) {
+      final watch = ask.use.watch;
+      if (watch != null) {
+        if (_watches.contains(watch)) continue;
+        _watches.add(watch);
+      } else {
+        if (_calls >= budget.daemonCalls) continue;
+        if (ask.use.long && _streams >= budget.daemonCalls - 1) continue;
+        _calls++;
+        if (ask.use.long) _streams++;
+      }
+      _asks.remove(ask);
+      budget._waiting.add(ask);
+    }
+    budget._admitWaiting();
+  }
+
+  void _giveBackCardPlace(_Ask ask) {
+    final watch = ask.use.watch;
+    if (watch != null) {
+      _watches.remove(watch);
+    } else {
+      _calls--;
+      if (ask.use.long) _streams--;
+    }
+  }
+
+  /// A relay no longer wanted while it waits: it is never admitted, and the card's place it held is given back.
+  void _abandon(_Ask ask) {
+    if (ask.answer.isCompleted) return;
+    if (!_asks.remove(ask)) {
+      budget._waiting.remove(ask);
+      _giveBackCardPlace(ask);
+    }
+    ask.answer.complete(null);
+    _admitWaiting();
+  }
+}
+
+/// One relay's wait for its places, and then the places it holds.
+class _Ask implements RelayPlace {
+  _Ask(this.relays, this.use);
+
+  final DaemonRelays relays;
+  final RelayUse use;
+  final answer = Completer<RelayPlace?>();
+  bool _holding = false;
+
+  void admitted() {
+    _holding = true;
+    answer.complete(this);
+  }
+
+  @override
+  void leave() {
+    if (!_holding) return;
+    _holding = false;
+    final budget = relays.budget;
+    budget._held--;
+    if (use.long) budget._daemonLong--;
+    relays._giveBackCardPlace(this);
+    relays._admitWaiting();
+    budget._admitWaiting();
+  }
 }
 
 /// The loopback ports of one host's card, held by the window itself on both families, exclusively, with each

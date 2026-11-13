@@ -2,6 +2,7 @@
 @Tags(<String>['linux'])
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -11,6 +12,7 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/connection_trial.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/loopback_carrier.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
@@ -278,5 +280,229 @@ void main() {
     const backend = Backend(socketPath: '', label: 'missing', relay: <String>['a-program-that-is-not-there']);
 
     await expectLater(backend.open(), throwsA(isA<VarlinkDisconnected>()));
+  });
+
+  group("on Windows a machine's daemon relays wait for places of their own", () {
+    const remote = '/run/user/1000/porelo/porelod.sock';
+    const machine = Machine(name: 'box', socketPath: '', host: 'user@box', remoteSocket: remote);
+    late MockDaemon mock;
+    late int started;
+    late int live;
+    late int most;
+
+    setUp(() async {
+      mock = MockDaemon();
+      await mock.start();
+      addTearDown(mock.stop);
+      started = 0;
+      live = 0;
+      most = 0;
+    });
+
+    /// Stands in for ssh with a relay to the mock, counting the relays started and those still running.
+    Future<Process> relayWith(String program) async {
+      final process = await Process.start('python3', <String>['-c', program, mock.socketPath]);
+      started++;
+      live++;
+      if (live > most) most = live;
+      unawaited(process.exitCode.then((_) => live--));
+      return process;
+    }
+
+    Future<Process> relay(String executable, List<String> arguments) => relayWith(joins);
+
+    Future<void> until(bool Function() holds, String what) async {
+      final deadline = DateTime.now().add(const Duration(seconds: 10));
+      while (!holds()) {
+        if (DateTime.now().isAfter(deadline)) fail('waited ten seconds for $what');
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    }
+
+    test('a flood of calls beside a watch starts no relay past the places, and every call is answered', () async {
+      final gate = Completer<void>();
+      final arrived = <Object?>[];
+      mock.method('Stop', (parameters) async {
+        arrived.add(parameters['task']);
+        await gate.future;
+        return <String, dynamic>{'outcome': 'STOPPED'};
+      });
+      final events = StreamController<Map<String, dynamic>>();
+      addTearDown(events.close);
+      mock.pushes('Watch', (_) => events.stream);
+      final backend = Machines.backendOn(
+        machine,
+        windows: true,
+        environment: const <String, String>{},
+        budget: CarrierBudget(daemonCalls: 2),
+        startRelay: relay,
+      );
+      final client = await PoreloClient.connect(backend);
+      final seen = <List<Task>>[];
+      final watching = client.watchTasks().listen(seen.add);
+      addTearDown(watching.cancel);
+
+      final stops = [for (var i = 0; i < 6; i++) client.stop('t$i')];
+      await until(() => arrived.length >= 2, 'two calls to arrive');
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(arrived, hasLength(2), reason: 'two places for calls, so the other four wait without a relay');
+      expect(live, 3, reason: 'the watch and the two calls each hold a relay, and nothing else runs');
+
+      gate.complete();
+      final answered = await Future.wait(stops).timeout(const Duration(seconds: 20));
+      expect([for (final each in answered) each.outcome.name], everyElement('STOPPED'), reason: 'none is refused');
+      expect(started, 8, reason: 'one relay for the connect, one for the watch and one for each call');
+      expect(most, lessThanOrEqualTo(3), reason: 'never more relays at once than the watch and the two places');
+
+      events.add(<String, dynamic>{'tasks': <Object?>[]});
+      await until(() => seen.isNotEmpty, 'the watch to answer');
+    });
+
+    test('with a small cap of all, a watch, a flood of calls and of carried connections stay within it', () async {
+      final budget = CarrierBudget(inAll: 5, daemonCalls: 2, startsPerSecond: 1000);
+      var carried = 0;
+      var most = 0;
+      void count(int by) {
+        carried += by;
+        if (carried + live > most) most = carried + live;
+      }
+
+      final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final port = probe.port;
+      await probe.close();
+      final carrier = LoopbackCarrier(
+        {port: CarriedRole.forgeWeb},
+        budget: budget,
+        carry: (role) async {
+          // A service that never answers holds its place until its connection ends.
+          final process = await Process.start('python3', <String>['-c', 'import sys\nsys.stdin.buffer.read()']);
+          count(1);
+          unawaited(process.exitCode.then((_) => count(-1)));
+          return process;
+        },
+      );
+      addTearDown(carrier.release);
+      await carrier.hold();
+      carrier.carrying = true;
+      final gate = Completer<void>();
+      mock.method('Stop', (parameters) async {
+        await gate.future;
+        return <String, dynamic>{'outcome': 'STOPPED'};
+      });
+      final events = StreamController<Map<String, dynamic>>();
+      addTearDown(events.close);
+      mock.pushes('Watch', (_) => events.stream);
+      final backend = Machines.backendOn(
+        machine,
+        windows: true,
+        environment: const <String, String>{},
+        budget: budget,
+        startRelay: (executable, arguments) async {
+          final process = await relay(executable, arguments);
+          count(0);
+          return process;
+        },
+      );
+      final client = await PoreloClient.connect(backend);
+      final seen = <List<Task>>[];
+      final watching = client.watchTasks().listen(seen.add);
+      addTearDown(watching.cancel);
+      await until(() => live == 1 && mock.openConnections == 1, 'the watch alone to hold a relay');
+
+      final clients = [for (var i = 0; i < 8; i++) await Socket.connect(InternetAddress.loopbackIPv4, port)];
+      for (final each in clients) {
+        addTearDown(each.destroy);
+      }
+      await until(() => carrier.connections == 4 && carried == 4, 'the carried connections to fill the cap of all');
+      final stops = [for (var i = 0; i < 3; i++) client.stop('t$i')];
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(carried + live, 5, reason: 'the watch and four carried connections hold the cap of all, the calls wait');
+
+      for (final each in clients) {
+        each.destroy();
+      }
+      gate.complete();
+      final answered = await Future.wait(stops).timeout(const Duration(seconds: 20));
+      expect([for (final each in answered) each.outcome.name], everyElement('STOPPED'), reason: 'every call answers');
+      events.add(<String, dynamic>{'tasks': <Object?>[]});
+      await until(() => seen.isNotEmpty, 'the watch to answer');
+      expect(most, lessThanOrEqualTo(5), reason: 'no ssh child of the window ever ran past the cap of all');
+    });
+
+    test('a stream left while it waits for a place starts no relay', () async {
+      mock.pushes('Tail', (_) => StreamController<Map<String, dynamic>>().stream);
+      final backend = Machines.backendOn(
+        machine,
+        windows: true,
+        environment: const <String, String>{},
+        budget: CarrierBudget(daemonCalls: 2),
+        startRelay: relay,
+      );
+      final client = await PoreloClient.connect(backend);
+      await until(() => live == 0, 'the connect relay to exit');
+      final first = client.tailLog('t', 'task.log').listen((_) {});
+      await until(() => started == 2, 'the first tail to start its relay');
+      final second = client.tailLog('t', 'task.log').listen((_) {});
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(started, 2, reason: 'a stream may not take the place kept for calls');
+      await second.cancel();
+      await first.cancel();
+      await until(() => live == 0, 'the first tail to exit');
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(started, 2, reason: 'the stream that was left never starts a relay');
+    });
+
+    test('a place is free again once its relay could not start', () async {
+      var refusals = 2;
+      final backend = Machines.backendOn(
+        machine,
+        windows: true,
+        environment: const <String, String>{},
+        budget: CarrierBudget(daemonCalls: 2, inAll: 1),
+        startRelay: (executable, arguments) async {
+          if (refusals-- > 0) throw const ProcessException('ssh', <String>[], 'not there');
+          return relay(executable, arguments);
+        },
+      );
+      for (var i = 0; i < 2; i++) {
+        await expectLater(backend.open().timeout(const Duration(seconds: 5)), throwsA(isA<VarlinkDisconnected>()));
+      }
+      final connection = await backend.open().timeout(const Duration(seconds: 5));
+      addTearDown(connection.close);
+      expect((await connection.call('org.varlink.service.GetInfo'))['product'], isNotNull);
+    });
+
+    test('a relay that does not end when it is closed is ended by force, and its place is free again', () async {
+      final backend = Machines.backendOn(
+        machine,
+        windows: true,
+        environment: const <String, String>{},
+        budget: CarrierBudget(daemonCalls: 2, inAll: 1),
+        startRelay: (executable, arguments) =>
+            relayWith('import signal\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\n$joins'),
+      );
+      final stubborn = await backend.open();
+      await stubborn.call('org.varlink.service.GetInfo');
+      await stubborn.close();
+      final next = await backend.open().timeout(const Duration(seconds: 8));
+      addTearDown(next.close);
+      expect(started, 2);
+    });
+
+    test('on Linux a machine is reached over its socket as before, with no relay to admit', () async {
+      final backend = Machines.backendOn(
+        Machine(name: 'here', socketPath: mock.socketPath, host: 'user@box', remoteSocket: remote),
+        windows: false,
+        environment: const <String, String>{},
+        budget: CarrierBudget(daemonCalls: 2, inAll: 1),
+        startRelay: relay,
+      );
+      final connections = [for (var i = 0; i < 4; i++) await backend.open().timeout(const Duration(seconds: 5))];
+      for (final each in connections) {
+        addTearDown(each.close);
+      }
+      await until(() => mock.openConnections == 4, 'every connection to reach the daemon');
+      expect(started, 0, reason: 'nothing is started on Linux');
+    });
   });
 }
