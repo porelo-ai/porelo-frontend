@@ -38,6 +38,11 @@ gap here is a backend method that has to be added, not a workaround waiting to b
   project; the window reads that name from `List` by the container, and refuses to answer a start whose container
   the list does not show.
 
+- **A waiting push's source level and risk class** (no field on `PendingPush` or `ReviewFile` yet). A push waiting at
+  the gate is decided better when its page shows how far its source is trusted (`E0`, `E1`, `I1`, `A`), its highest
+  risk class (`C0`-`C3`) and each file's class; the daemon derives neither yet, so the review keeps git's diff and
+  the machine's rank of each file.
+
 - **A pushed commit's whole message** (a `message` on `PendingPush` and `ReviewCommit`, agreed for `Tasks1`, not
   served yet). The window reads it already: until it is served the trailer check cannot be made, since a
   `Co-Authored-By` outside git's trailer block is in no trailer line; the review shows no message body.

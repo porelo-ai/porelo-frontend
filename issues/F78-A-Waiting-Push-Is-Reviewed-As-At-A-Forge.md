@@ -93,3 +93,10 @@ without the source-level and risk-class header or the `C3` and incomplete-check 
 ## To be checked
 
 - The field names the daemon gives the source level and the classes on `PendingPush` and `ReviewFile`.
+
+## Why it is not built yet
+
+- The daemon answers neither a source level nor a risk class: `PendingPush` and `ReviewFile` in `Tasks1` carry no
+  such field, and deriving them is still an idea in Porelo. Building the header on fields not yet named would guess
+  the contract, and dropping the diff before the classes come would leave the page with "not reported" in their
+  place and less to decide by than today. The gap is on `doc/Contract-Gaps.md`; the issue waits for the fields.
