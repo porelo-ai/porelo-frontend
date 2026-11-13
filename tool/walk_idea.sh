@@ -3,7 +3,7 @@
 # display against that VM's own porelo and the planner given, never on this computer's.
 #
 #   tool/walk_idea.sh check --vm USER@VM --vm-key FILE [--planner DIR]
-#   tool/walk_idea.sh prepare --vm USER@VM --vm-key FILE [--planner DIR] [--porelo DIR]
+#   tool/walk_idea.sh prepare --vm USER@VM --vm-key FILE [--planner DIR] [--porelo DIR] [--identity DIR --organization FILE]
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
 #                           [--porelo-project foo-project] [--mail drop|keep] [--project NAME] [--issue-repo foo-1]... [--budget-minutes 180]
 #                           [--porelo DIR] [--test walking_an_idea|a_tasks_results_land|the_planner_moves_work_on|forwarding_to_a_branch]
@@ -44,7 +44,9 @@
 #
 # `prepare` sets up what a run needs on the VM once per package state, for a snapshot of the VM to keep: porelo and
 # porelod of --porelo in ~/.local/bin (the ones there kept beside as *.walk-kept), Flutter, and the pub cache of this
-# checkout's pubspec.lock. It names no repository, places no project and declares nothing. The package state is one
+# checkout's pubspec.lock; with --identity DIR (the test person's card and key.pub, as porelo keeps them in
+# ~/.config/porelo/identity) and --organization FILE (the organization.yml porelo follows), those two put where the VM's
+# porelo reads them, never over another card. It names no repository, places no project and declares nothing. The package state is one
 # short id hashed from the porelo of --porelo (its COMMIT) or else the VM's own (`porelo --version`), the planner's
 # SHA256SUMS, the Flutter version and pubspec.lock; it is written to ~/.walk-prepared/STATE on the VM and named in
 # the snapshot prepare asks for, walk-prepared-<id>: whoever keeps the VM's snapshots takes it, the VM shut down.
@@ -85,7 +87,7 @@ usage() {
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-test=walking_an_idea from=1 vm='' vm_key='' vm_jump='' vm_known_hosts='' vm_jump_known_hosts='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=drop report='' budget=180 snapshot='' revert_hook=${WALK_REVERT_HOOK:-}
+test=walking_an_idea from=1 vm='' vm_key='' vm_jump='' vm_known_hosts='' vm_jump_known_hosts='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=drop report='' budget=180 snapshot='' revert_hook=${WALK_REVERT_HOOK:-} identity='' organization=''
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
@@ -107,6 +109,8 @@ while [ $# -gt 0 ]; do
     --report) report=$2 ;;
     --budget-minutes) budget=$2 ;;
     --snapshot) snapshot=$2 ;;
+    --identity) identity=$2 ;;
+    --organization) organization=$2 ;;
     --revert-hook) revert_hook=$2 ;;
     *) usage ;;
     esac
@@ -119,6 +123,14 @@ shaped() {
         exit 64
     }
 }
+# The person's card and organization come with a prepare alone, both or neither.
+if [ -n "$identity$organization" ]; then
+    [ "$mode" = prepare ] && [ -n "$identity" ] && [ -n "$organization" ] || usage
+    [ -s "$identity/card" ] && [ -s "$identity/key.pub" ] && [ -f "$organization" ] && [ -s "$organization" ] || {
+        echo "walk: --identity names no folder holding card and key.pub, or --organization no file" >&2
+        exit 64
+    }
+fi
 # A scenario starts from the VM's snapshot only in a run, and only with the program that takes the VM back to it.
 if [ -n "$snapshot" ]; then
     [ "$mode" = run ] || usage
@@ -350,6 +362,22 @@ prepare_vm() {
             return 1
         }
     fi
+    if [ -n "$identity" ]; then
+        # The card the forwarded agent's key must stand for; one there already is kept where it is the same, and
+        # another refused: the VM's person is not changed by a walk.
+        local there
+        there=$(on_vm "cat ~/.config/porelo/identity/card 2>/dev/null" </dev/null || true)
+        if [ -n "$there" ] && [ "$there" != "$(cat "$identity/card")" ]; then
+            echo "walk: $vm holds another person's card already; it is left as it is" >&2
+            return 1
+        fi
+        tar -C "$identity" -c card key.pub | on_vm "set -e; umask 077; mkdir -p ~/.config/porelo/identity
+            chmod 700 ~/.config/porelo ~/.config/porelo/identity; tar -x --no-same-owner -C ~/.config/porelo/identity
+            chmod 600 ~/.config/porelo/identity/card ~/.config/porelo/identity/key.pub"
+        on_vm "set -e; umask 077; cat >~/.config/porelo/organization.yml.walk-new
+            mv ~/.config/porelo/organization.yml.walk-new ~/.config/porelo/organization.yml" <"$organization"
+        echo "walk: the card of $(sed -n 's/^login: *"\{0,1\}\([A-Za-z0-9-]*\).*/\1/p' "$identity/card" | head -1) and its organization are in place on $vm"
+    fi
     fetch_flutter
     # The pub cache of this checkout's packages, so a run's build fetches none of them.
     git -C "$here" archive --format=tar HEAD pubspec.yaml pubspec.lock |
@@ -369,8 +397,10 @@ if [ "$mode" = check ]; then
     exit
 fi
 if [ "$mode" = prepare ]; then
-    check
+    # What check asks for that prepare brings is not missing for it.
+    check || [ -n "$identity" ]
     prepare_vm
+    check
     exit
 fi
 
