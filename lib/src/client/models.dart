@@ -617,6 +617,7 @@ class Task {
     this.callerKey = '',
     this.landed,
     this.ideas,
+    this.ideasHeldBack = 0,
     this.handInLimit,
     this.files,
     this.builds,
@@ -647,6 +648,10 @@ class Task {
   /// The ideas it proposed for itself, oldest first, as the machine kept them. **Null is not empty**: a machine that
   /// does not list them cannot say, which is not *it proposed none*. Their text is the task's agent's own.
   final List<ProposedIdea>? ideas;
+
+  /// How many of its ideas the machine's listing left out for room, to come in a later listing; 0 where it listed
+  /// them all, and from a machine that does not say.
+  final int ideasHeldBack;
 
   /// The bytes one file handed to this task may have. Null from a machine without hand-in, which
   /// is no limit of zero.
@@ -730,6 +735,9 @@ class Task {
               ProposedIdea.from(entry is Map<String, dynamic> ? entry : const <String, dynamic>{}),
           ])
         : null,
+    ideasHeldBack: map['ideasHeldBack'] is num && (map['ideasHeldBack'] as num) > 0
+        ? (map['ideasHeldBack'] as num).toInt()
+        : 0,
     handInLimit: map['handInLimit'] is num ? (map['handInLimit'] as num).toInt() : null,
     files: map['files'] is List
         ? (map['files'] as List).whereType<Map<String, dynamic>>().map(HandedFile.from).toList()

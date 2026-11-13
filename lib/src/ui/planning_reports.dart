@@ -584,7 +584,10 @@ class WindowTaskReports {
   bool _ideasWaiting(String machine, String container) {
     final task = tasksOn(machine)?.where((each) => each.name == container).firstOrNull;
     final ideas = task?.ideas;
-    if (task == null || ideas == null) return false;
+    if (task == null) return false;
+    // Ideas the listing held back for room come later: the discussion waits for them too.
+    if (task.ideasHeldBack > 0) return true;
+    if (ideas == null) return false;
     final run = _runKey(task);
     return ideas
         .take(mostIdeasOfATask)

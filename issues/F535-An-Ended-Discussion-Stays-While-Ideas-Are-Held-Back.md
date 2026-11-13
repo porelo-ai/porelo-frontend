@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F535",
   "title": "An Ended Discussion Stays While Its Ideas Are Held Back",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 97,
@@ -20,8 +20,8 @@ and their tests.
 **What must be true.**
 - Porelo's listing of tasks (List and Watch) carries at most 1 MiB of ideas in one reply. A task's later ideas wait
   for a later reply, and its row says how many were left out (`ideasHeldBack`, 0 when all are listed).
-- The window reads that count. An ended discussion whose idea was handed in is removed only once the count is 0 and
-  every idea its row lists was handed in; until then it stays, as one with ideas not yet handed does today.
+- The window reads that count. An ended discussion whose idea was handed in is removed only where the count is 0 and
+  every idea its row lists was handed in; otherwise it stays, as one with ideas not yet handed does.
 - A daemon that does not send the count is taken as having listed every idea, as today.
 
 ## How it stands

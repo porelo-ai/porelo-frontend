@@ -736,6 +736,30 @@ void main() {
       expect(removed, isEmpty);
     });
 
+    // Harm: ideas the machine's listing left out for room are lost with a discussion removed once the listed ones were
+    // handed in.
+    test('stays while the listing holds back ideas it proposed', () async {
+      final (reports, _, saved) = await discussed();
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      machine.end('porelo-demo-discussion', endAt('2026-11-12T01:00:00Z', result: ideaFile));
+      final index = machine.listed.indexWhere((task) => task.name == 'porelo-demo-discussion');
+      final row = machine.listed[index];
+      machine.listed[index] = Task.from({
+        'name': row.name,
+        'task': row.task,
+        'project': 'demo',
+        'running': false,
+        'run': row.run!,
+        'agentEnded': endAt('2026-11-12T01:00:00Z', result: ideaFile),
+        'ideas': <Object>[],
+        'ideasHeldBack': 2,
+      });
+
+      await sweeps(reports);
+      expect(saved, ['demo ST900']);
+      expect(removed, isEmpty, reason: 'two of its ideas were not listed yet');
+    });
+
     // Harm: an ended discussion stays on the machine after its idea was saved, or one whose idea was not saved goes,
     // and the person's agreed idea with it.
     test('removes the ended discussion once the planner saved its idea, and keeps one it did not', () async {
