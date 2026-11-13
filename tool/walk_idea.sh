@@ -313,6 +313,8 @@ github() {
 # repository, each noted repository's tree as at its T0, the forge's
 # token and its declaration, porelod's agent put back, the run's copy.
 porelo_commit='' swapped='' pointed='' agent_before='' holder='' central_match='' vault='' declared='' taken='' planned=''
+# The tasks of the porelo project porelod listed before the window's part began: never the run's.
+before_tasks=''
 # Each noted repository's default branch and its tip at T0, by name; only a noted one is restored.
 declare -A branch_of=() t0_of=()
 left=()
@@ -350,8 +352,14 @@ cleanup() {
             rm -f ~/$run.planner-state.tar" </dev/null ||
             left+=("the planner's state of $project on $vm (~/.local/state/porelo-planner/$project; before the run: ~/$run.planner-state.tar)")
     fi
-    local tasks=''
-    tasks=$(on_vm "tr ' ' '\\n' <~/$run/tasks.txt 2>/dev/null" </dev/null | grep -Ex '[A-Za-z0-9][A-Za-z0-9._-]{2,}' || true)
+    local tasks='' listed='' each
+    # The tasks the window noted, and every task of the project porelod lists now that was not there before the
+    # window's part: one the window started after it last looked, such as a reader of a rework, or in a resume.
+    for each in $(project_tasks); do
+        case " $before_tasks " in *" $each "*) ;; *) listed+="$each " ;; esac
+    done
+    tasks=$({ on_vm "cat ~/$run/tasks.txt 2>/dev/null" </dev/null || true; printf '%s\n' "$listed"; } | tr ' ' '\n' |
+        grep -Ex '[A-Za-z0-9][A-Za-z0-9._-]{2,}' | sort -u || true)
     if [ -n "$taken" ]; then
         # Judged by what porelod lists afterwards: the clear's exit also counts what it could not reach of the run's vault.
         # The project is the run's alone, so a task of it still up (a discussion nobody ended) goes with it.
@@ -362,7 +370,6 @@ cleanup() {
             left+=("$porelo_project placed on $vm (PORELO_VAULT=~/$run.vault/vault.bin porelo project clear --yes --force $porelo_project there)")
         fi
     fi
-    local each
     # A task the window noted that the project's clear did not take (a project placed before the run is not cleared):
     # stopped and removed by its name.
     for each in $tasks; do
@@ -599,6 +606,14 @@ while not b.endswith(bytes(1)):
     b += got
 print(b.rstrip(bytes(1)).decode())' $1 '$2'" </dev/null
 }
+# The containers and task names of the porelo project's tasks porelod lists, one a line; none where it cannot be asked.
+project_tasks() {
+    porelod_call List '{}' 2>/dev/null | python3 -I -c 'import json, sys
+for task in json.load(sys.stdin)["parameters"]["tasks"]:
+    if task.get("project") == sys.argv[1]:
+        print(task.get("container") or task.get("name") or "", task.get("task") or "")' "$porelo_project" 2>/dev/null |
+        tr ' ' '\n' | grep -Ex '[A-Za-z0-9][A-Za-z0-9._-]{2,}' || true
+}
 placed() { porelod_call Projects '{}' | python3 -I -c 'import json, sys
 print(any(p.get("name") == sys.argv[1] for p in json.load(sys.stdin)["parameters"]["projects"]))' "$porelo_project"; }
 trap cleanup EXIT
@@ -801,8 +816,9 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
         esac
     fi
 
+    before_tasks=$(project_tasks | tr '\n' ' ')
     # What a resume or a clean takes the run up with.
-    declare -p test vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
+    declare -p before_tasks test vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
         declared pointed agent_before swapped porelo_commit taken planned branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
 fi
 
