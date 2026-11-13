@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F513",
   "title": "The Window Removes Only Its Own Sockets",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 86,
@@ -99,6 +99,40 @@ network namespace that shares the folder is not seen.
 - After any raise, reconnect, drop or start, a file or another program's socket at the path is still there and still
   answers.
 - A socket the window's own ssh left behind after a crash is still cleared at the next raise.
+
+## Decided
+
+2026-11-13: ssh is told `StreamLocalBindUnlink=no` on every forward and card master, whatever the person's ssh config
+says, so ssh never removes what is at a socket path before it binds there; a path somebody else holds then fails the
+launch instead of being taken. The one-instance socket is bound by the window itself through the folder's descriptor
+(`UnixListener`), not by `dart:io`, so no close unlinks a path behind the window's back.
+
+## How it was built
+
+- `lib/src/app/forward_records.dart`: `HeldSocket` holds a socket file by an `O_PATH|O_NOFOLLOW` descriptor, its
+  parent reached one component at a time from `/`; `boundSockets` asks the kernel (`sock_diag`) which unix sockets are
+  bound to which file; `isOwnDirectory` checks that a folder is this account's alone; `removeSocketIfStill` reads the
+  name once more with `statx` through the held parent and removes it with `unlinkat` only while it is still the held
+  socket; `linkSocketName` gives a socket file a second name only while that name is free.
+- `lib/src/app/own_sockets.dart`: `madeBy` holds the file only where the launched process holds a listening socket
+  bound to it and the listener reached through the held file is that process's; `removeLeftover` removes a path only
+  when it is a socket nobody binds, a connect is refused and both still hold after the probe; `inOwnDirectory`.
+- `lib/src/app/tunnel.dart`: raise, reconnect, drop and a card's endpoints keep the held file of what their ssh was
+  seen to make, and remove only that; a leftover is cleared through `removeLeftover`, each card endpoint on its own
+  before the orphaned master is looked for; a machine socket or card endpoint in a folder that is not this account's
+  alone is refused before anything is launched.
+- `lib/src/app/one_instance.dart`: bound at a private name and linked to the shared one; the probe keeps its three
+  answers, so a probe that fails for a reason of its own (EMFILE among them) ends the launch with words and touches
+  nothing; `release()` removes the shared name only while it is still the held socket.
+- Tests: `test/app/tunnel_test.dart` (a plain file survives raise and drop, a
+  socket put in place after the raise survives drop and reconnect and still answers, one bound by somebody else is
+  never taken for the forward, a swap between probe and removal survives, a bound socket not listening is no leftover,
+  folders others may write or of another account are refused before a launch, real leftover sockets made by another
+  process in `test/support/other_sockets.dart`); `test/app/one_instance_test.dart` (a file or a failing probe leaves
+  the path, the shared or private name replaced while running survives `release()`, a folder others may write is not
+  used); `test/app/host_card_tunnel_test.dart` (a card endpoint replaced after its master answered survives shutdown,
+  an endpoint left without its control socket is cleared and the card raised, a card folder others may write is
+  refused).
 
 ## Estimate
 
