@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -7,6 +10,7 @@ import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/planner.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/window_log.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart';
 import 'package:porelo_frontend/src/ui/planning_reports.dart';
 import 'package:porelo_planning/porelo_planning.dart';
@@ -42,6 +46,7 @@ void main() {
     Settings? kept,
     bool Function()? reached,
     IssueFromIdea? handIssue,
+    DateTime Function()? now,
   }) {
     final starts = WindowTaskStarts(
       machineFor: (_) => on,
@@ -69,6 +74,7 @@ void main() {
       ideaPlanner: () => reached?.call() ?? true ? (_provider, planner) : null,
       repositoryOf: (name, task) => name == on.name && task.repository.isNotEmpty ? task.repository : null,
       handIssue: handIssue ?? issueFromIdea,
+      now: now ?? DateTime.now,
     );
     reports.onFollowUps = (source, project, story, tasks) async => shown.add((project, story, tasks));
     return (starts, reports);
@@ -661,8 +667,11 @@ void main() {
       'result': ?result,
     };
 
-    Future<(WindowTaskReports, List<String>, List<String>)> discussed({Settings? kept}) async {
-      final (starts, reports) = window(kept: kept);
+    Future<(WindowTaskReports, List<String>, List<String>)> discussed({
+      Settings? kept,
+      DateTime Function()? now,
+    }) async {
+      final (starts, reports) = window(kept: kept, now: now);
       final problems = <String>[], saved = <String>[];
       reports.onProblem = (provider, project, error) =>
           problems.add('$provider $project ${planningFailureWords(error)}');
@@ -763,15 +772,64 @@ void main() {
 
     // Harm: a left discussion that wrote no idea says nothing, and the person waits for a story that never comes.
     test('says once that a discussion whose session was left wrote no idea', () async {
-      final (reports, problems, _) = await discussed();
+      var at = DateTime.utc(2026, 11, 13, 3);
+      final (reports, problems, _) = await discussed(now: () => at);
       machine.leave('porelo-demo-discussion', {'name': 'idea.json', 'state': 'missing'});
 
+      await sweeps(reports);
+      at = at.add(const Duration(minutes: 1));
       await sweeps(reports);
       expect(handed, isEmpty);
       expect(problems, [
         'porelo-planner demo The discussion porelo-demo-discussion ended with no idea to hand to the planner: it '
             'wrote no idea.json.',
       ]);
+    });
+
+    // Harm: a discussion listed after its container was made, before its task started, shows as left with no result;
+    // taken as its end, the idea the person agrees on afterwards is never handed in, and the planner waits for good.
+    test('a left discussion whose result is missing is looked at again before it is said to have none', () async {
+      var at = DateTime.utc(2026, 11, 13, 3);
+      final (reports, problems, saved) = await discussed(now: () => at);
+      machine.leave('porelo-demo-discussion', {'name': 'idea.json', 'state': 'missing'});
+
+      await sweeps(reports);
+      at = at.add(const Duration(seconds: 59));
+      await sweeps(reports);
+      expect(problems, isEmpty, reason: 'a result read before the task started is missing for a while');
+
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      machine.leave('porelo-demo-discussion', ideaFile);
+      await sweeps(reports);
+      expect(handed.map((each) => each.$3), [idea]);
+      expect(saved, ['demo ST900']);
+      expect(problems, isEmpty);
+    });
+
+    // Harm: why an idea was not handed in is shown on the board alone; once the board is gone, nothing tells it.
+    test('what is said of an idea is written to the window\'s log too', () async {
+      final logs = Directory(
+        '${Directory.systemTemp.path}/porelo-reports-logs-${DateTime.now().microsecondsSinceEpoch}',
+      )..createSync();
+      final before = windowLog;
+      windowLog = WindowLog(logs.path, level: ValueNotifier(LogLevel.debug), keepPrivate: (_) async {});
+      addTearDown(() {
+        windowLog = before;
+        logs.deleteSync(recursive: true);
+      });
+      var at = DateTime.utc(2026, 11, 13, 3);
+      final (reports, problems, _) = await discussed(now: () => at);
+      machine.leave('porelo-demo-discussion', {'name': 'idea.json', 'state': 'missing'});
+
+      await sweeps(reports);
+      at = at.add(const Duration(minutes: 1));
+      await sweeps(reports);
+      expect(problems, hasLength(1));
+      final log = File('${logs.path}/${WindowLog.fileName}');
+      expect(
+        log.existsSync() ? log.readAsStringSync() : '',
+        contains('The discussion porelo-demo-discussion ended with no idea to hand to the planner'),
+      );
     });
 
     // Harm: an idea an earlier run of the container wrote is handed in as this discussion's, under its offer.

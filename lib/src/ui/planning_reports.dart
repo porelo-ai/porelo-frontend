@@ -146,6 +146,8 @@ class WindowTaskReports {
     this.ideaPlanner = _noPlanner,
     this.repositoryOf = _noRepository,
     this.handIssue = issueFromIdea,
+    this.missingSettles = const Duration(minutes: 1),
+    this.now = DateTime.now,
   }) {
     starts.onConfirmed = started;
   }
@@ -232,6 +234,13 @@ class WindowTaskReports {
   /// How a task's idea is handed to the planner as a new issue.
   final IssueFromIdea handIssue;
 
+  /// How long a discussion left with its result file missing is looked at again before it is said to have written no
+  /// idea: a task listed after its container was made, before it started, shows as stopped with its result missing.
+  final Duration missingSettles;
+
+  /// The time now.
+  final DateTime Function() now;
+
   /// Told the story an ended discussion's idea was saved as.
   void Function(KeptDiscussion discussion, String story)? onIdeaHanded;
 
@@ -262,6 +271,10 @@ class WindowTaskReports {
   /// Discussion ends whose idea could not be handed in this window's life, by offer and end, so it is not tried again
   /// on every change of the machine; the next start of the window tries once more.
   final _ideasNotHanded = <(String, String)>{};
+
+  /// When each left discussion was first seen with its result file missing, by offer and end, so it is looked at again
+  /// until [missingSettles] passed.
+  final _missingSince = <(String, String), DateTime>{};
 
   /// Whether a planner not reached for an idea was said since the last idea that went through.
   bool _ideaUnreachedSaid = false;
@@ -399,7 +412,7 @@ class WindowTaskReports {
         // A prompt run records how its agent ended, with its result.
         Task(agentEnded: final ended?) => (plannedEndKey(ended), ended.result),
         // An attended session records no end of its agent: a stopped task with its result file is its end.
-        Task(running: false, result: final result?) => ('left|${task.since}', result),
+        Task(running: false, result: final result?) => ('$_left${task.since}', result),
         _ => null,
       };
       if (ending case (final end, final named) when end != kept.ended && !_ideasNotHanded.contains((kept.offer, end))) {
@@ -591,12 +604,19 @@ class WindowTaskReports {
   }
 
   void _sayProposed(String? provider, String project, String words) =>
-      _say(provider, project.isEmpty ? null : project, PlanningRefusal('IdeaNotHanded', {'detail': words}, words));
+      _sayLogged(provider, project.isEmpty ? null : project, words);
 
   /// Hands the idea [kept]'s discussion wrote to the planner, once for its [end]: an idea handed in, refused for its
   /// faults or never written is not handed again, also across restarts; the result file stays in the task either way.
   Future<void> _handIdea(KeptDiscussion kept, TaskResult? named, String end) async {
     if (named == null) return _noIdea(kept, end, 'it was asked for no result file');
+    if (named.state == ResultState.missing && end.startsWith(_left)) {
+      // No change of the machine may come once it settled: a sweep then looks again.
+      if (!_missingSince.containsKey((kept.offer, end))) Timer(missingSettles, sweep);
+      final first = _missingSince.putIfAbsent((kept.offer, end), now);
+      if (now().difference(first) < missingSettles) return;
+    }
+    _missingSince.remove((kept.offer, end));
     if (named.state != ResultState.handed) {
       return _noIdea(kept, end, switch (named.state) {
         ResultState.missing => 'it wrote no ${named.name}',
@@ -679,8 +699,15 @@ class WindowTaskReports {
         'Its result file stays in the task.';
   }
 
-  void _sayIdea(KeptDiscussion kept, String words) =>
-      _say(kept.provider, kept.project, PlanningRefusal('IdeaNotHanded', {'detail': words}, words));
+  void _sayIdea(KeptDiscussion kept, String words) => _sayLogged(kept.provider, kept.project, words);
+
+  /// Says what became of an idea where the window shows planning problems, and writes it to the window's log too, so
+  /// it is still known once the board is gone.
+  void _sayLogged(String? provider, String? project, String words) {
+    final refusal = PlanningRefusal('IdeaNotHanded', {'detail': words}, words);
+    if (onProblem != null) windowLog.warn('Planning: ${planningFailureWords(refusal)}');
+    _say(provider, project, refusal);
+  }
 
   /// Sends one report and starts what its answer orders; a refusal that will not change by itself is not sent again in
   /// this window's life. A report told meanwhile, of the same offer, is not sent again.
@@ -807,6 +834,9 @@ class WindowTaskReports {
       windowLog.warn('Planning: ${planningFailureWords(error)}');
     }
   }
+
+  /// How the end of a discussion left by its person is keyed: a stopped task with its result file.
+  static const _left = 'left|';
 
   static List<String> _noMachines() => const [];
 
