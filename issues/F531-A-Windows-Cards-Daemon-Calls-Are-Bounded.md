@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F531",
   "title": "A Windows Card's Daemon Calls Are Bounded Like Its Carried Connections",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 103,
