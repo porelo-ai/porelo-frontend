@@ -72,10 +72,11 @@ class PersonOnlyRelay {
   static Future<ServerSocket> bindExclusive(InternetAddress address, int port) =>
       ServerSocket.bind(address, port, v6Only: address.type == InternetAddressType.IPv6, shared: false);
 
-  /// Whether a socket may be relayed to now; one that is not, or while nothing is, is closed at once.
-  bool Function(String socket) relaysTo = _nothing;
+  /// Where a connection for a socket is relayed to now: the path to connect to, naming the very socket the forward was
+  /// proven to make; null where nothing may be, and the connection is closed at once.
+  String? Function(String socket) routeTo = _nowhere;
 
-  static bool _nothing(String _) => false;
+  static String? _nowhere(String _) => null;
 
   final List<ServerSocket> _listeners = [];
   final Set<Socket> _open = {};
@@ -120,7 +121,8 @@ class PersonOnlyRelay {
 
   Future<void> _accepted(Socket client, String socket) async {
     // Asked before anything is read: a connection of another account, or one whose owner cannot be told, gets nothing.
-    if (_closed || !relaysTo(socket) || _owner(client) != _person) {
+    final to = _closed ? null : routeTo(socket);
+    if (to == null || _owner(client) != _person) {
       client.destroy();
       return;
     }
@@ -128,7 +130,7 @@ class PersonOnlyRelay {
     final Socket upstream;
     try {
       upstream = await Socket.connect(
-        InternetAddress(socket, type: InternetAddressType.unix),
+        InternetAddress(to, type: InternetAddressType.unix),
         0,
         timeout: const Duration(seconds: 5),
       );
@@ -182,43 +184,75 @@ class PersonOnlyRelay {
     _listeners.clear();
   }
 
-  /// The uid owning the other end of [accepted] on Linux, read from the kernel's table of TCP sockets: the row whose
-  /// own address is the connection's remote one and whose remote address is its local one. Null where no such row is
-  /// found, or not on Linux.
+  /// The uid owning the other end of [accepted] on Linux, read from the kernel's tables of TCP sockets: the row whose
+  /// own address is the connection's remote one and whose remote address is its local one. A client reaching an IPv4
+  /// port through an IPv6 socket has its row in the IPv6 table, its addresses mapped: both tables are read for those.
+  /// Null where no such row is found, or not on Linux.
   static int? ownerOnLinux(Socket accepted, {@visibleForTesting String? Function(String path)? read}) {
     if (!Platform.isLinux && read == null) return null;
-    final String local;
-    final String remote;
-    final String table;
+    final List<(String, String, String)> asked;
     try {
-      local = kernelAddress(accepted.remoteAddress, accepted.remotePort);
-      remote = kernelAddress(accepted.address, accepted.port);
-      table = accepted.address.type == InternetAddressType.IPv6 ? '/proc/net/tcp6' : '/proc/net/tcp';
+      final six = accepted.address.type == InternetAddressType.IPv6;
+      asked = [
+        (
+          six ? '/proc/net/tcp6' : '/proc/net/tcp',
+          kernelAddress(accepted.remoteAddress, accepted.remotePort),
+          kernelAddress(accepted.address, accepted.port),
+        ),
+        if (!six)
+          (
+            '/proc/net/tcp6',
+            kernelAddress(_mapped(accepted.remoteAddress), accepted.remotePort),
+            kernelAddress(_mapped(accepted.address), accepted.port),
+          ),
+      ];
     } on Object {
       return null;
     }
-    final String? rows;
-    try {
-      rows = (read ?? _readFile)(table);
-    } on FileSystemException {
-      return null;
+    final found = <List<String>>[];
+    for (final (table, local, remote) in asked) {
+      final String? rows;
+      try {
+        rows = (read ?? _readFile)(table);
+      } on FileSystemException {
+        continue; // a table not there holds no row: IPv6 may be off
+      }
+      found.addAll(_rowsOf(rows ?? '', local, remote));
     }
-    return ownerIn(rows ?? '', local: local, remote: remote);
+    return _ownerOf(found);
   }
 
   static String? _readFile(String path) => File(path).readAsStringSync();
 
+  /// [address], an IPv4 one, as an IPv6 socket names it: `::ffff:a.b.c.d`.
+  static InternetAddress _mapped(InternetAddress address) =>
+      InternetAddress.fromRawAddress(Uint8List.fromList([...List.filled(10, 0), 0xff, 0xff, ...address.rawAddress]));
+
+  /// The states of a client's end that is still its own: connected (`01`), or done writing and still held (`04`,
+  /// `05`). Others, and any end no process holds any more (inode 0, whose uid the kernel gives as 0), name nobody.
+  static const _live = {'01', '04', '05'};
+
   /// The uid of the one row of [rows], a `/proc/net/tcp` table, whose own address is [local] and whose remote one is
-  /// [remote], both as [kernelAddress] writes them; null where there is none, or more than one owner.
+  /// [remote], both as [kernelAddress] writes them, held by a process and still connected; null where there is none,
+  /// or more than one owner. A row of an end no process holds is never read for its owner, as its uid reads 0, root's.
   @visibleForTesting
-  static int? ownerIn(String rows, {required String local, required String remote}) {
+  static int? ownerIn(String rows, {required String local, required String remote}) =>
+      _ownerOf(_rowsOf(rows, local, remote));
+
+  static List<List<String>> _rowsOf(String rows, String local, String remote) => [
+    for (final line in rows.split('\n').skip(1))
+      if (line.trim().split(RegExp(r'\s+')) case final fields
+          when fields.length >= 10 && fields[1].toUpperCase() == local && fields[2].toUpperCase() == remote)
+        fields,
+  ];
+
+  static int? _ownerOf(List<List<String>> rows) {
     int? owner;
-    for (final line in rows.split('\n').skip(1)) {
-      final fields = line.trim().split(RegExp(r'\s+'));
-      if (fields.length < 8) continue;
-      if (fields[1].toUpperCase() != local || fields[2].toUpperCase() != remote) continue;
+    for (final fields in rows) {
       final uid = int.tryParse(fields[7]);
-      if (uid == null || (owner != null && owner != uid)) return null;
+      final inode = int.tryParse(fields[9]);
+      if (uid == null || inode == null || inode == 0 || !_live.contains(fields[3].toUpperCase())) return null;
+      if (owner != null && owner != uid) return null;
       owner = uid;
     }
     return owner;

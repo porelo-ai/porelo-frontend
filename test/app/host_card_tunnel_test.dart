@@ -1968,6 +1968,45 @@ void main() {
     await expectLater(Socket.connect(InternetAddress.loopbackIPv4, web), throwsA(isA<SocketException>()));
   });
 
+  // Harm: ports a dropped card's relay bound after the drop held against every program until the window closes.
+  test("a card dropped while its ports are asked about holds none of them afterwards", () async {
+    final bindBefore = PersonOnlyRelay.bindPort;
+    addTearDown(() => PersonOnlyRelay.bindPort = bindBefore);
+    PersonOnlyRelay.bindPort = PersonOnlyRelay.bindExclusive;
+    final web = await freePort();
+    final card = HostCardSsh.fromStored({
+      ...host.hostCard!.stored,
+      'services': {
+        'forge': {'web_port': web, 'git_port': await freePort()},
+        'matrix': null,
+      },
+    });
+    final relayed = Machine.fromHostCard(card, socketPath: host.socketPath, sshConfig: host.sshConfig);
+    final asked = Completer<void>();
+    final answer = Completer<void>();
+    final tunnel = Tunnel(
+      relayed,
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
+      keyAvailable: (_) async => false,
+      portsAvailable: (_) async {
+        asked.complete();
+        await answer.future;
+      },
+      unlocker: unlock,
+      start: (_) async => _Process(),
+      run: (_) async => ProcessResult(0, 1, '', ''),
+    );
+    final raising = tunnel.raise();
+    await asked.future;
+
+    await tunnel.drop();
+    answer.complete();
+    await raising;
+
+    final again = await ServerSocket.bind(InternetAddress.loopbackIPv4, web);
+    await again.close();
+  });
+
   // Prevents a real stand-in process and its owned Unix endpoints from surviving shutdown.
   test('shutdown removes both owned sockets and the SSH stand-in process', () async {
     final children = <Process>[];

@@ -45,7 +45,7 @@ void main() {
       loopbacks: [InternetAddress.loopbackIPv4, if (HostCardSsh.ipv6Loopback) InternetAddress.loopbackIPv6],
       bind: PersonOnlyRelay.bindExclusive,
       owner: owner,
-    )..relaysTo = (to) => relays && to == socket;
+    )..routeTo = (to) => relays && to == socket ? socket : null;
     await relay.hold();
     addTearDown(relay.close);
     return relay;
@@ -147,6 +147,107 @@ void main() {
     expect(PersonOnlyRelay.kernelAddress(InternetAddress.loopbackIPv6, 8080), '00000000000000000000000001000000:1F90');
     expect(PersonOnlyRelay.ownerIn(rows, local: '0100007F:0001', remote: '0100007F:1F90'), isNull);
   });
+
+  // Harm: a socket put at the forward's path after its ssh was proven to make it reached in its place.
+  test('a connection goes to the socket the forward names for it, never to whatever is at the path now', () async {
+    final proven = '${folder.path}/proven';
+    final other = await ServerSocket.bind(InternetAddress(proven, type: InternetAddressType.unix), 0);
+    addTearDown(other.close);
+    other.listen((connection) {
+      connection.write('proven');
+      unawaited(connection.flush().then((_) => connection.destroy()));
+    });
+    final relay = await held();
+    relay.routeTo = (to) => to == socket ? proven : null;
+
+    expect(await through(relay.bound[0]!.first, 'hello'), 'proven');
+    expect(reached, 0);
+  });
+
+  /// One TCP table row, as the kernel writes it: [local] and [remote] in its form, its state, owner and inode.
+  String row(String local, String remote, {String state = '01', int uid = 1000, int inode = 7}) =>
+      '   0: $local $remote $state 00000000:00000000 00:00000000 00000000 $uid        0 $inode 1\n';
+  const head = '  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n';
+  final client = PersonOnlyRelay.kernelAddress(InternetAddress.loopbackIPv4, 0x9876);
+  final server = PersonOnlyRelay.kernelAddress(InternetAddress.loopbackIPv4, 0x1F90);
+
+  // Harm: a connection whose client closed before it was looked up, its socket orphaned and owned by root in the
+  // kernel's table, let in as root's when the window runs as root.
+  test("a client end no process holds any more names no owner, whatever uid the table gives it", () {
+    for (final orphan in [
+      row(client, server, state: '04', uid: 0, inode: 0),
+      row(client, server, state: '01', uid: 0, inode: 0),
+      row(client, server, state: '06', uid: 0, inode: 9),
+      row(client, server, state: '07', uid: 0, inode: 9),
+    ]) {
+      final rows = '$head${row(server, client, uid: 0)}$orphan';
+
+      expect(
+        PersonOnlyRelay.ownerIn(rows, local: client, remote: server),
+        isNull,
+        reason: orphan,
+      );
+    }
+    // A client still holding its end, done writing, is still the person's.
+    expect(
+      PersonOnlyRelay.ownerIn(
+        '$head${row(client, server, state: '05', uid: 1000)}',
+        local: client,
+        remote: server,
+      ),
+      1000,
+    );
+  });
+
+  // Harm: the row of a connection from the same port to another place taken for this one's, letting its owner in.
+  test("only the row whose remote address is the connection's own end is read", () {
+    final elsewhere = PersonOnlyRelay.kernelAddress(InternetAddress.loopbackIPv4, 80);
+    final rows = '$head${row(client, elsewhere, uid: 1002)}${row(client, server, uid: 1001)}';
+
+    expect(PersonOnlyRelay.ownerIn(rows, local: client, remote: server), 1001);
+  });
+
+  // Harm: of two rows naming the same connection, the last one's owner believed.
+  test('two rows naming the connection with different owners name no owner', () {
+    final rows = '$head${row(client, server, uid: 1001)}${row(client, server, uid: 1002, inode: 8)}';
+
+    expect(PersonOnlyRelay.ownerIn(rows, local: client, remote: server), isNull);
+  });
+
+  // Harm: the window's own end read for who opened the connection, which is always the person, letting anybody in.
+  test("the owner of an accepted connection is its client's, read from the kernel's table as it stands", () async {
+    final listener = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(listener.close);
+    final accepted = listener.first;
+    final opened = await Socket.connect(InternetAddress.loopbackIPv4, listener.port);
+    addTearDown(opened.destroy);
+    final served = await accepted;
+    addTearDown(served.destroy);
+    final mine = PersonOnlyRelay.kernelAddress(opened.address, opened.port);
+    // The kernel's own table, with the client's end given to another account.
+    String? another(String path) => [
+      for (final line in File(path).readAsLinesSync())
+        if (line.trim().split(RegExp(r'\s+')) case final fields when fields.length > 9 && fields[1] == mine)
+          ([...fields]..[7] = '4242').join(' ')
+        else
+          line,
+    ].join('\n');
+
+    expect(PersonOnlyRelay.ownerOnLinux(served, read: another), 4242);
+  });
+
+  // Harm: the person's own client, connecting to the IPv4 port through an IPv6 socket, turned away.
+  test("a client reaching the IPv4 port through an IPv6 socket is the person's own", () async {
+    final listener = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(listener.close);
+    final accepted = listener.first;
+    final opened = await Socket.connect(InternetAddress('::ffff:127.0.0.1'), listener.port);
+    addTearDown(opened.destroy);
+    final served = await accepted;
+    addTearDown(served.destroy);
+
+    expect(PersonOnlyRelay.ownerOnLinux(served), accountUid());
+  }, skip: HostCardSsh.ipv6Loopback ? null : 'no IPv6 here');
 
   // Harm: a port another program holds on either loopback left to it beside the window's own.
   test('a port held by another program on either loopback refuses, holding none', () async {

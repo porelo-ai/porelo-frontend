@@ -102,6 +102,14 @@ login) ... *planned* (the forge's gates)") are where H1 belongs.
   and each connection goes to the master's socket.
 - 2026-11-13: tests bind the relay on a port of the system's choosing (`test/flutter_test_config.dart`), so fixed ports
   of test files running side by side never meet; a test that needs the fixed port asks for it.
+- 2026-11-13: a card's sign-in forward proves the master's pid, not that of the ssh that asked: a card reaches its
+  machine only through its master (`ProxyCommand=false`), so `ControlPath=none` would reach nothing. The window asks the
+  master it holds for the card (`ssh -O forward`), proves the socket made by that master's pid, and cancels it with
+  `ssh -O cancel` when the forward goes; a card whose master this window does not hold forwards nothing.
+- 2026-11-13: each connection goes to the very socket ssh was proven to make, through the descriptor the window holds
+  on it (`/proc/self/fd/<n>`), never by its name again: a socket put at the name later is not reached.
+- 2026-11-13: a row of `/proc/net/tcp` names an owner only while a process holds it (inode not 0) and it is connected
+  (`ESTABLISHED`, or `FIN_WAIT1`/`FIN_WAIT2` for a client done writing): an orphaned end reads uid 0, root's.
 
 ## How it was built
 
@@ -109,17 +117,20 @@ login) ... *planned* (the forge's gates)") are where H1 belongs.
   loopback, `::1`, exclusively; a port held by somebody else on either refuses with `RelayRefused` and holds none. Each
   accepted connection is asked its owner before anything is read: `ownerOnLinux` finds the row of the connection's
   other end in `/proc/net/tcp` or `tcp6` (its own address the connection's remote one and the other way round) and
-  reads its uid. Only this account's uid, for a socket the forward says it relays to, is relayed byte for byte to the
+  reads its uid, only from a row a process holds and that is still connected; a client reaching the IPv4 port through
+  an IPv6 socket is found in `tcp6` under its mapped address. Only this account's uid, for a socket the forward says it relays to, is relayed byte for byte to the
   unix socket; anything else, or no row found, is closed.
 - `lib/src/app/tunnel.dart`: a card's master forwards `-L <config folder>/f-<card>-<port>:<host socket>` for the forge's
   web and Git and the homeserver, ssh binding no port; the window holds the ports through the relay once the fixed-port
-  check said they are free, and relays only to sockets the master was seen to make while the card is up. The relayed
+  check said they are free, and relays only to sockets the master was seen to make while the card is up, through the
+  descriptor held on each. A raise dropped while its ports are asked about binds none. The relayed
   sockets are checked, cleared as leftovers and removed like the card's other endpoints.
 - `lib/src/app/login_forward.dart`: a sign-in's redirect and a joined homeserver forward
   `-L <runtime folder>/l-<port>:localhost:<port>`, with `StreamLocalBindUnlink=no`; the window holds the port itself,
   so the check before ssh, and its race, go; a port taken is refused in the same words. The forward is up once the
   kernel shows its ssh listening on that socket; an ssh that ends lets go of the port, so the homeservers' look raises
-  it again. `forwardsPort` finds a left-behind forward of either form.
+  it again. `forwardsPort` finds a left-behind forward of either form. For a card the forward is asked of its master
+  (`ssh -O forward`, then `-O cancel`), and the socket proven made by the master's pid (`Tunnel.masterOf`).
 - `packages/porelo_host`: `HostCardSsh.relaySocket`.
 - Tests: `test/app/host_card_tunnel_test.dart` (the card's forwards go to sockets of its private
   folder; the person's own connection to each card port reaches the host's service through the window on both
@@ -127,8 +138,16 @@ login) ... *planned* (the forge's gates)") are where H1 belongs.
   the window, its ssh forwarding a socket of the person's own, gone after close);
   `test/app/person_only_relay_test.dart` (another account's connection, and one whose owner cannot be told, closed
   with nothing read or sent on, seen red with the owner check taken out; the person's relayed; the lookup against a
-  real connection here; only the other end's row is read; a port held on either loopback refuses);
+  real connection here; only the other end's row is read; a port held on either loopback refuses; an orphaned or
+  closed client row names no owner; the row whose remote address is the connection's own end is the one read; two rows
+  with different owners name none; the kernel's real table, the client's end given another uid, read through
+  `ownerOnLinux` names that uid; a client through an IPv6 socket to the IPv4 port is the person's; a connection goes to
+  the path the forward names, not the socket's name); the reply going to the proven socket after another is put at its
+  name, and a card's reply asked of, proven by and canceled with its master, or refused without one
+  (`login_reply_test.dart`); a card dropped while its ports are asked about holds none (`host_card_tunnel_test.dart`);
   `packages/porelo_host/test/host_card_ssh_test.dart` (each relayed socket beside the control socket). Red was seen
-  for the card's forwards, the card's ports through the window, the reply's port and another account's connection.
+  for the card's forwards, the card's ports through the window, the reply's port and another account's connection,
+  and after the Codex reading for the orphaned row, the IPv6 client, the socket put at the name, the card's sign-in
+  and the drop while the ports are asked about.
 - Not run yet: the VM check with a second local account, whose `curl` to each port must be refused.
 

@@ -7,6 +7,7 @@ import 'forward_records.dart';
 import 'machines.dart';
 import 'own_sockets.dart';
 import 'person_only_relay.dart';
+import 'tunnel.dart' show Tunnel;
 
 /// A forward held open for one agent login, taken down when the login's terminal goes.
 abstract interface class HeldForward {
@@ -40,6 +41,13 @@ typedef StartLoginForward = Future<Process> Function(List<String> command);
 StartLoginForward startLoginForward = _startIt;
 
 Future<Process> _startIt(List<String> command) => Process.start(command.first, command.skip(1).toList());
+
+/// The pid of the master this window started and holds for a card, by its control socket; null where it holds none.
+/// Injectable, so a test's stand-in plays the master.
+typedef CardMaster = int? Function(String control);
+
+/// What names it: the card's tunnel, while its master runs.
+CardMaster cardMaster = Tunnel.masterOf;
 
 /// The forwards raised through [raiseForward] and not yet taken down.
 final Set<HeldForward> _held = <HeldForward>{};
@@ -81,6 +89,14 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
   if (!PersonOnlyRelay.here) return _bySshAlone(machine, port);
   // The window holds the port and lets only the person in; ssh forwards a socket in a folder of the person's alone.
   final socket = loginForwardSocket(machine, port);
+  // A card's machine is reached only through its master, which makes the socket: it must be the one this window holds.
+  final card = machine.hostCard;
+  final master = card == null ? null : cardMaster(card.controlSocket(machine.sshConfig));
+  if (card != null && master == null) {
+    throw ForwardRefused(
+      'The browser’s answer could not be forwarded to ${machine.name}: it is not connected in this window yet.',
+    );
+  }
   if (!inOwnDirectory(socket)) {
     throw ForwardRefused(
       'The browser’s answer could not be forwarded to ${machine.name}: the folder of $socket is not yours alone.',
@@ -116,8 +132,14 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
     }
   }
   HeldSocket? made;
-  relay.relaysTo = (to) => made != null && to == socket;
+  // Only to the very socket ssh was seen to make, whatever is put at its name later.
+  relay.routeTo = (to) => to == socket ? made?.through : null;
   try {
+    if (master != null) {
+      final asked = await _askedOfTheMaster(machine, master, port, socket);
+      made = asked;
+      return _Relayed(relay, socket, asked, () => _toTheMaster(machine, 'cancel', port, socket));
+    }
     final command = loginForwardCommand(machine, port, socket: socket);
     final ssh = await startLoginForward(command);
     final records = forwardRecords?..record(ssh.pid, command);
@@ -137,7 +159,10 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
         made = madeBy(ssh.pid, socket);
       }
       if (made != null) {
-        final held = _Relayed(ssh, relay, socket, made);
+        final held = _Relayed(relay, socket, made, () async {
+          ssh.kill();
+          await ssh.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => -1);
+        });
         // An ssh that ends by itself lets go of the port too, so whoever looks finds the forward gone.
         unawaited(
           ssh.exitCode.then((_) {
@@ -157,6 +182,68 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
     rethrow;
   }
 }
+
+/// Asks the master of [machine]'s card, process [master], to forward [socket] here to [port] on the machine, and proves
+/// that the master made the socket: a client of it only passes the request on and ends.
+Future<HeldSocket> _askedOfTheMaster(Machine machine, int master, int port, String socket) async {
+  final asked = await startLoginForward(cardForwardCommand(machine, 'forward', port, socket));
+  unawaited(asked.stdout.drain<void>());
+  final said = asked.stderr.transform(const SystemEncoding().decoder).join();
+  final exited = await asked.exitCode.timeout(
+    const Duration(seconds: 10),
+    onTimeout: () {
+      asked.kill();
+      return -1;
+    },
+  );
+  if (exited != 0) {
+    final words = (await said.timeout(const Duration(seconds: 1), onTimeout: () => '')).trim();
+    throw ForwardRefused(
+      'The browser’s answer could not be forwarded to ${machine.name}: '
+      '${words.isEmpty ? 'ssh ended with $exited' : words}',
+    );
+  }
+  for (var tries = 0; tries < 50; tries++) {
+    if (FileSystemEntity.typeSync(socket, followLinks: false) == FileSystemEntityType.unixDomainSock) {
+      if (madeBy(master, socket) case final made?) return made;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+  await _toTheMaster(machine, 'cancel', port, socket);
+  throw ForwardRefused('Nothing on ${machine.name} answered on port $port for the browser’s answer.');
+}
+
+/// Tells the master of [machine]'s card to [operation] (`cancel`) the forward of [socket] to [port], and waits for it.
+Future<void> _toTheMaster(Machine machine, String operation, int port, String socket) async {
+  try {
+    final told = await startLoginForward(cardForwardCommand(machine, operation, port, socket));
+    unawaited(told.stdout.drain<void>());
+    unawaited(told.stderr.drain<void>());
+    await told.exitCode.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        told.kill();
+        return -1;
+      },
+    );
+  } on ProcessException {
+    // Nothing to tell it with: the master's own end takes the forward down.
+  }
+}
+
+/// A card's request to its master: [operation] (`forward` or `cancel`) the forward of [socket] here to [port] on the
+/// machine. The card reaches its machine only through the master, so the master, not this ssh, makes the socket.
+List<String> cardForwardCommand(Machine machine, String operation, int port, String socket) => <String>[
+  openSsh('ssh'),
+  ...machine.loginSshOptions,
+  '-o',
+  'StreamLocalBindUnlink=no',
+  '-O',
+  operation,
+  '-L',
+  '$socket:localhost:$port',
+  machine.host,
+];
 
 /// Where a login forward's ssh listens for [port] here, beside [machine]'s own socket.
 String loginForwardSocket(Machine machine, int port) =>
@@ -232,14 +319,14 @@ class _Ssh implements HeldForward {
   }
 }
 
-/// A login forward the window relays: its port, held here, and the ssh that forwards the socket behind it.
+/// A login forward the window relays: its port, held here, and the forward behind it, taken down by [_end].
 class _Relayed implements HeldForward {
-  _Relayed(this._process, this._relay, this._socket, this._made);
+  _Relayed(this._relay, this._socket, this._made, this._end);
 
-  final Process _process;
   final PersonOnlyRelay _relay;
   final String _socket;
   final HeldSocket _made;
+  final Future<void> Function() _end;
   bool _closed = false;
 
   @override
@@ -247,8 +334,7 @@ class _Relayed implements HeldForward {
     if (_closed) return;
     _closed = true;
     await _relay.close();
-    _process.kill();
-    await _process.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => -1);
+    await _end();
     // Only the very socket its ssh was seen to make, and only while it is still that one.
     removeSocketIfStill(_socket, _made);
     _made.release();

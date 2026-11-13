@@ -555,12 +555,14 @@ class Tunnel {
     if (_relay != null) return true;
     // Asked first for its words: who holds a port, where it can say.
     await (portsAvailable?.call(card) ?? card.checkPortsAvailable());
+    // Dropped or raised again meanwhile: whatever comes next holds the ports, never this raise after a drop.
+    if (generation != _generation) return false;
     final relay = _relay = PersonOnlyRelay(
       {for (final (port, _) in card.forwards) port: card.relaySocket(machine.sshConfig, port)},
       loopbacks: [InternetAddress.loopbackIPv4, if (HostCardSsh.ipv6Loopback) InternetAddress.loopbackIPv6],
     );
-    // Only a socket its master was seen to make, while the card is up: anything else is closed at once.
-    relay.relaysTo = (socket) => state == TunnelState.up && _ownEndpoints.containsKey(socket);
+    // Only the very socket its master was seen to make, while the card is up: anything else is closed at once.
+    relay.routeTo = (socket) => state == TunnelState.up ? _ownEndpoints[socket]?.through : null;
     try {
       await relay.hold();
     } on RelayRefused catch (refused) {
@@ -570,7 +572,13 @@ class Tunnel {
       problem = 'Machine ${card.name} cannot connect: $refused.';
       return false;
     }
-    return generation == _generation;
+    if (generation == _generation) return true;
+    // A drop meanwhile closed the relay it found; one it did not find is closed here.
+    if (!_wanted && identical(_relay, relay)) {
+      _relay = null;
+      await relay.close();
+    }
+    return false;
   }
 
   /// On Windows, whose OpenSSH holds no master and binds a `-L` port it cannot prove its own, the window holds the
@@ -883,6 +891,10 @@ class Tunnel {
   // The card masters a tunnel of this program started and still runs, by control socket: a master on a control socket
   // not among them was left by an earlier run of this interface, or is another instance's.
   static final Map<String, Tunnel> _mastersHere = {};
+
+  /// The pid of the master a tunnel of this window started for the card whose control socket is [control], while it
+  /// runs; null where none does.
+  static int? masterOf(String control) => _mastersHere[control]?._process?.pid;
 
   /// How long a forward left behind is given to stop answering once it was asked to end.
   static const leftoverEnds = Duration(seconds: 2);

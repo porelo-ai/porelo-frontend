@@ -869,6 +869,10 @@ class HeldSocket {
 
   int _descriptor;
 
+  /// The path that reaches the socket bound to this very file while it is held, whatever is put at its name meanwhile;
+  /// null once let go. It names a descriptor of this process: only this process may connect through it.
+  String? get through => _descriptor < 0 ? null : '/proc/self/fd/$_descriptor';
+
   /// The held file's identity.
   final SocketIdentity identity;
 

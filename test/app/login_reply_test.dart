@@ -9,6 +9,7 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/person_only_relay.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/session.dart';
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh;
 
 import '../features/support/world.dart';
 
@@ -221,6 +222,7 @@ void main() {
       late Set<Process> ended;
       late Machine here;
       final startedBefore = startLoginForward;
+      final masterBefore = cardMaster;
       final bindBefore = PersonOnlyRelay.bindPort;
 
       setUp(() async {
@@ -239,6 +241,7 @@ void main() {
       tearDown(() async {
         forwardRecords = null;
         startLoginForward = startedBefore;
+        cardMaster = masterBefore;
         PersonOnlyRelay.bindPort = bindBefore;
         for (final process in started) {
           process.kill(ProcessSignal.sigkill);
@@ -363,6 +366,131 @@ void main() {
         await expectLater(Socket.connect(InternetAddress.loopbackIPv4, port), throwsA(isA<SocketException>()));
       });
 
+      // Harm: a socket another program of the person's puts at the forward's path, after its ssh was proven to make it,
+      // handed the sign-in's redirect.
+      test("a reply goes to the socket its ssh was seen to make, not to one put at its path later", () async {
+        final port = await freePort();
+        startLoginForward = forwarding;
+        final held = await withSsh(here, port);
+        addTearDown(held.close);
+        final path = '${where.path}/l-$port';
+        File(path).deleteSync();
+        final impostor = await ServerSocket.bind(InternetAddress(path, type: InternetAddressType.unix), 0);
+        addTearDown(impostor.close);
+        impostor.listen((connection) {
+          connection.write('impostor');
+          unawaited(connection.flush().then((_) => connection.destroy()));
+        });
+
+        final connection = await Socket.connect(InternetAddress.loopbackIPv4, port);
+        connection.write('/callback?code=1');
+        await connection.flush();
+        expect(utf8.decode(await connection.timeout(const Duration(seconds: 2)).first), '/callback?code=1');
+        connection.destroy();
+      });
+
+      group('through a card', () {
+        late Machine card;
+        late Process master;
+        late List<List<String>> commands;
+
+        setUp(() async {
+          card = Machine.fromHostCard(
+            HostCardSsh(
+              name: 'alpha',
+              address: 'alpha.example.org',
+              sshPort: 22,
+              hostKey: _cardKey,
+              login: 'alice',
+              publicKey: _cardKey,
+            ),
+            socketPath: '${where.path}/d',
+            sshConfig: '${where.path}/ssh/alpha.conf',
+          );
+          commands = [];
+          // The card's master as this window started it: it binds the socket a forward asked of it names, and lets go
+          // of it when the forward is canceled; a client of it ends at once.
+          master = await Process.start('python3', [
+            '-c',
+            'import socket,sys,threading,time,os,signal\n'
+                'os.umask(0o177)\n'
+                'held=[]\n'
+                'def echo(c):\n'
+                '  while True:\n'
+                '    d=c.recv(4096)\n'
+                '    if not d: break\n'
+                '    c.sendall(d)\n'
+                '  c.close()\n'
+                'def serve(s):\n'
+                '  try:\n'
+                '    while True:\n'
+                '      c,_=s.accept(); threading.Thread(target=echo,args=(c,),daemon=True).start()\n'
+                '  except OSError: pass\n'
+                'def forward(*_):\n'
+                '  s=socket.socket(socket.AF_UNIX); s.bind(open(sys.argv[1]).read()); s.listen(8); held.append(s)\n'
+                '  threading.Thread(target=serve,args=(s,),daemon=True).start()\n'
+                'def cancel(*_):\n'
+                '  for s in held:\n'
+                '    try: s.shutdown(socket.SHUT_RDWR)\n'
+                '    except OSError: pass\n'
+                '    s.close()\n'
+                '  held.clear()\n'
+                'signal.signal(signal.SIGUSR1,forward)\n'
+                'signal.signal(signal.SIGUSR2,cancel)\n'
+                'print("ready",flush=True)\n'
+                'while True: time.sleep(1)\n',
+            '${where.path}/asked',
+          ]);
+          started.add(master);
+          await master.stdout.transform(utf8.decoder).firstWhere((line) => line.contains('ready'));
+          cardMaster = (control) => control == card.hostCard!.controlSocket(card.sshConfig) ? master.pid : null;
+          startLoginForward = (command) {
+            commands.add(command);
+            final asked = command.contains('-O') ? command[command.indexOf('-O') + 1] : null;
+            if (asked == 'forward') {
+              File('${where.path}/asked').writeAsStringSync(command[command.indexOf('-L') + 1].split(':').first);
+              master.kill(ProcessSignal.sigusr1);
+            } else if (asked == 'cancel') {
+              master.kill(ProcessSignal.sigusr2);
+            }
+            return Process.start('true', const []);
+          };
+        });
+
+        // Harm: a sign-in through a card's machine refused, its forward added to the master and never taken down.
+        test("a reply's socket is asked of the card's master, proven its, and canceled with the forward", () async {
+          final port = await freePort();
+          final held = await withSsh(card, port);
+
+          final forward = commands.single;
+          expect(forward.sublist(forward.indexOf('-O'), forward.indexOf('-O') + 2), ['-O', 'forward']);
+          expect(forward[forward.indexOf('-L') + 1], '${where.path}/l-$port:localhost:$port');
+          final connection = await Socket.connect(InternetAddress.loopbackIPv4, port);
+          connection.write('/callback?code=2');
+          await connection.flush();
+          expect(utf8.decode(await connection.timeout(const Duration(seconds: 2)).first), '/callback?code=2');
+          connection.destroy();
+
+          await held.close();
+          final cancel = commands.last;
+          expect(cancel.sublist(cancel.indexOf('-O'), cancel.indexOf('-O') + 2), ['-O', 'cancel']);
+          expect(cancel[cancel.indexOf('-L') + 1], '${where.path}/l-$port:localhost:$port');
+          expect(FileSystemEntity.typeSync('${where.path}/l-$port'), FileSystemEntityType.notFound);
+          await expectLater(Socket.connect(InternetAddress.loopbackIPv4, port), throwsA(isA<SocketException>()));
+        });
+
+        // Harm: a socket at the forward's path taken for the master's when this window raised no master to make it.
+        test("a card whose master this window does not hold forwards nothing, and says so", () async {
+          cardMaster = (_) => null;
+
+          await expectLater(
+            withSsh(card, await freePort()),
+            throwsA(isA<ForwardRefused>().having((refused) => refused.words, 'words', contains('not connected'))),
+          );
+          expect(commands, isEmpty);
+        });
+      });
+
       // Harm: a forward this run holds for one login ended by another login asking for the same port.
       test('a second forward for a port this run holds ends nothing', () async {
         final port = await freePort();
@@ -427,3 +555,5 @@ class _SlowToClose implements SessionChannel {
     if (!_ended.isCompleted) _ended.complete(129);
   }
 }
+
+const _cardKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
