@@ -1139,11 +1139,43 @@ class Settings extends ChangeNotifier {
     if (_planningOffers.remove((machine, container)) != null) await _write();
   }
 
-  /// Drops the offer and the discussion kept for the task in [container] on [machine], once that task is removed.
+  /// Drops the offer, the discussion and the marks of handed ideas kept for the task in [container] on [machine], once
+  /// that task is removed.
   Future<void> forgetPlanningOffer(String machine, String container) async {
     final offer = _planningOffers.remove((machine, container));
     final discussion = _discussions.remove((machine, container));
-    if (offer != null || discussion != null) await _write();
+    final marks = _ideasHanded.length;
+    _ideasHanded.removeWhere((key, _) => key.$1 == machine && key.$2 == container);
+    if (offer != null || discussion != null || marks != _ideasHanded.length) await _write();
+  }
+
+  /// The ideas handed to the planner, or marked not to be, by machine, container and the task's run: each as the
+  /// digest of its id and words.
+  final _ideasHanded = <(String, String, String), Set<String>>{};
+
+  /// How many tasks' marks are kept: far more than propose ideas between two removals of their tasks.
+  static const mostTasksWithIdeas = 500;
+
+  static final _ideaMark = RegExp(r'^[0-9a-f]{32}$');
+
+  /// Whether the idea of the task [run] in [container] on [machine] whose id and words have the digest [mark] was
+  /// handed to the planner or marked not to be.
+  bool ideaHanded(String machine, String container, String run, String mark) =>
+      _ideasHanded[(machine, container, run)]?.contains(mark) ?? false;
+
+  /// Marks the idea of the task [run] in [container] on [machine] whose id and words have the digest [mark] as handed
+  /// to the planner or not to be; the oldest task's marks go past [mostTasksWithIdeas].
+  Future<void> markIdeaHanded(String machine, String container, String run, String mark) async {
+    if (!_validOffer(machine, container, run) || !_ideaMark.hasMatch(mark)) {
+      throw ArgumentError('A machine, a container, a run and the digest of an idea must be given.');
+    }
+    final key = (machine, container, run);
+    final marks = _ideasHanded.remove(key) ?? <String>{};
+    _ideasHanded[key] = marks..add(mark);
+    while (_ideasHanded.length > mostTasksWithIdeas) {
+      _ideasHanded.remove(_ideasHanded.keys.first);
+    }
+    await _write();
   }
 
   // The planner sends an offer of at most 200 characters; a longer one was not written by this window.
@@ -1210,6 +1242,25 @@ class Settings extends ChangeNotifier {
         }
       }
     }
+    _ideasHanded.clear();
+    if (stored['ideasHanded'] case final List<dynamic> handed) {
+      for (final value in handed) {
+        if (value
+            case {
+              'machine': final String machine,
+              'container': final String container,
+              'run': final String run,
+              'ideas': final List<dynamic> ideas,
+            }
+            when _validOffer(machine, container, run)) {
+          final marks = ideas.whereType<String>().where(_ideaMark.hasMatch).toSet();
+          if (marks.isNotEmpty) _ideasHanded[(machine, container, run)] = marks;
+        }
+      }
+      while (_ideasHanded.length > mostTasksWithIdeas) {
+        _ideasHanded.remove(_ideasHanded.keys.first);
+      }
+    }
     _handedOffers.clear();
     if (stored['planningOffersHanded'] case final List<dynamic> handed) {
       _handedOffers.addAll(handed.whereType<String>().where(_validLabel));
@@ -1256,6 +1307,10 @@ class Settings extends ChangeNotifier {
             if (kept.landedReported) 'landedReported': true,
           },
         },
+    ],
+    'ideasHanded': [
+      for (final MapEntry(key: (machine, container, run), value: ideas) in _ideasHanded.entries)
+        {'machine': machine, 'container': container, 'run': run, 'ideas': ideas.toList()},
     ],
     'planningOffersHanded': _handedOffers.toList(),
     'planningStartsPending': [

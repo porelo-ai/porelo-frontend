@@ -37,7 +37,12 @@ void main() {
   }
 
   /// The window's starts and reports as they stand after a start of the window on [settings].
-  (WindowTaskStarts, WindowTaskReports) window({Machine on = _laptop, Settings? kept, bool Function()? reached}) {
+  (WindowTaskStarts, WindowTaskReports) window({
+    Machine on = _laptop,
+    Settings? kept,
+    bool Function()? reached,
+    IssueFromIdea? handIssue,
+  }) {
     final starts = WindowTaskStarts(
       machineFor: (_) => on,
       backendOf: (_) => machine,
@@ -60,6 +65,10 @@ void main() {
         if (next is Exception) throw next;
         return next as String;
       },
+      watched: () => [on.name],
+      ideaPlanner: () => reached?.call() ?? true ? (_provider, planner) : null,
+      repositoryOf: (name, task) => name == on.name && task.repository.isNotEmpty ? task.repository : null,
+      handIssue: handIssue ?? issueFromIdea,
     );
     reports.onFollowUps = (source, project, story, tasks) async => shown.add((project, story, tasks));
     return (starts, reports);
@@ -797,6 +806,211 @@ void main() {
     });
   });
 
+  group('an idea a task proposed', () {
+    /// The task [container] on the machine as it lists it, with [ideas] proposed, of [run].
+    void lists(String container, List<Map<String, Object>> ideas, {String run = 'run-1', String repository = 'shop'}) {
+      machine.listed.removeWhere((task) => task.name == container);
+      machine.listed.add(
+        Task.from({
+          'name': container,
+          'task': 'pi',
+          'project': 'demo',
+          'repository': repository,
+          'running': true,
+          'run': run,
+          'ideas': ideas,
+        }),
+      );
+    }
+
+    Map<String, Object> idea(int number, {String? title, String? text}) => {
+      'id': 'idea-$number',
+      'title': title ?? 'Idea $number',
+      'whatMustBeTrue': text ?? 'What idea $number makes true.',
+      'at': '2026-11-13T00:0$number:00Z',
+    };
+
+    Future<WindowTaskReports> swept([WindowTaskReports? reports]) async {
+      final (_, sweeping) = reports == null ? window() : (null, reports);
+      sweeping.sweep();
+      await sweeping.idle;
+      return sweeping;
+    }
+
+    late List<String> problems;
+
+    setUp(() => problems = []);
+
+    WindowTaskReports said(WindowTaskReports reports) =>
+        reports
+          ..onProblem = (provider, project, error) => problems.add('$provider $project ${planningFailureWords(error)}');
+
+    // Harm: an idea a task proposed never reaches the board, reaches it twice, or lands in another repository.
+    test('is handed once, as the task wrote it, into the task\'s repository, also across a restart', () async {
+      lists('porelo-demo-pi', [idea(1)]);
+
+      final reports = await swept();
+      await swept(reports);
+      await swept(window(kept: await loaded()).$2);
+
+      expect(planner.issues.map((issue) => issue.toString()), [
+        '(demo, shop, Idea 1, What idea 1 makes true., null, r7)',
+      ]);
+      expect(planner.boardsRead, ['demo']);
+
+      lists('porelo-demo-pi', [idea(1), idea(2)]);
+      await swept(reports);
+
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 2']);
+    });
+
+    // Harm: a later task under a removed task's container name has its own ideas taken for those already handed.
+    test('of a later task under the same container is its own', () async {
+      lists('porelo-demo-pi', [idea(1)]);
+      final reports = await swept();
+
+      lists('porelo-demo-pi', [idea(1, title: 'Another idea')], run: 'run-2');
+      await swept(reports);
+
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Another idea']);
+    });
+
+    // Harm: the task an idea came from is not handed with it, so nobody knows whom to ask.
+    test('is handed with the name of the task it came from', () async {
+      final named = <String>[];
+      final (_, reports) = window(
+        handIssue: (source, project, issue) {
+          named.add(issue.task);
+          return issueFromIdea(source, project, issue);
+        },
+      );
+      lists('porelo-demo-pi', [idea(1)]);
+
+      await swept(reports);
+
+      expect(named, ['pi']);
+    });
+
+    // Harm: an idea is lost because the board moved on while it was handed.
+    test('is read against the board again and sent once more when the board moved on', () async {
+      planner.issueAnswers.add(const PlanningRefusal('StaleRevision', {}, 'The board changed.'));
+      lists('porelo-demo-pi', [idea(1)]);
+
+      await swept();
+
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 1']);
+      expect(planner.boardsRead, ['demo', 'demo']);
+    });
+
+    // Harm: an idea proposed while no planner answers is lost, its successor overtakes it, or the person is told of
+    // it on every change of a machine.
+    test('waits, in order, while no planner is reached, said once, and goes once one is', () async {
+      var reached = false;
+      final (_, reports) = window(reached: () => reached);
+      said(reports);
+      lists('porelo-demo-pi', [idea(1), idea(2)]);
+      await swept(reports);
+      await swept(reports);
+
+      expect(planner.issues, isEmpty);
+      expect(problems, hasLength(1));
+
+      reached = true;
+      planner.issueAnswers.add(const PlanningRefusal('PlannerUnreachable', {}, 'The planner cannot be reached.'));
+      await swept(reports);
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1']);
+
+      await swept(reports);
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 1', 'Idea 2']);
+      expect(problems, hasLength(1));
+    });
+
+    // Harm: an idea the planner refused for its fields is sent again on every change of a machine, or its refusal is
+    // never said.
+    test('the planner refuses is said once with its words and not sent again, also across a restart', () async {
+      planner.issueAnswers.add(const PlanningRefusal('IssueNotAllowed', {'detail': 'title: Too long.'}, 'Refused.'));
+      lists('porelo-demo-pi', [idea(1), idea(2)]);
+      final reports = said(window().$2);
+
+      await swept(reports);
+      await swept(reports);
+      await swept(said(window(kept: await loaded()).$2));
+
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 2']);
+      expect(problems, hasLength(1));
+      expect(problems.single, contains('title: Too long.'));
+    });
+
+    // Harm: an idea is lost because the planner could not save it once for a reason of its own, not of the idea.
+    test('the planner could not save is said once and tried again at the next start of the window', () async {
+      planner.issueAnswers.add(const PlanningRefusal('CredentialRefused', {}, 'The forge refused the token.'));
+      lists('porelo-demo-pi', [idea(1)]);
+      final reports = said(window().$2);
+
+      await swept(reports);
+      await swept(reports);
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1']);
+      expect(problems, hasLength(1));
+
+      await swept(window(kept: await loaded()).$2);
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 1']);
+    });
+
+    // Harm: a task's agent puts words the planner never checks, or lines of its own, into the window's problems, or
+    // floods the board past what Porelo allows a task.
+    test('out of the bounds Porelo states is never handed or quoted, and said once', () async {
+      final bad = [
+        idea(1, title: 'Two\nlines'),
+        idea(2, title: 'x' * 121),
+        idea(3, text: 'y' * 1001),
+        idea(4, text: 'A bell \u0007 rings.'),
+        idea(5, title: ' '),
+        {...idea(6), 'id': 'idea-6\nforged'},
+        idea(7, text: ''),
+      ];
+      lists('porelo-demo-pi', [...bad, idea(8, title: 'x' * 120, text: 'Two\nlines, ${'y' * 980}')]);
+      final reports = said(window().$2);
+
+      await swept(reports);
+      await swept(reports);
+      await swept(said(window(kept: await loaded()).$2));
+
+      expect(planner.issues.map((issue) => issue.$3), ['x' * 120]);
+      expect(problems, hasLength(bad.length));
+      expect(problems.join(), isNot(contains('Two\nlines')));
+      expect(problems.join(), isNot(contains('\u0007')));
+      expect(problems.join(), isNot(contains('forged')));
+    });
+
+    // Harm: an idea is handed into a repository nobody named, or lost while no machine names its repository yet.
+    test('waits while no watched machine names its repository, and goes once one does', () async {
+      lists('porelo-demo-pi', [idea(1)], repository: '');
+      final reports = said(window().$2);
+      await swept(reports);
+      await swept(reports);
+
+      expect(planner.issues, isEmpty);
+      expect(problems, hasLength(1));
+
+      lists('porelo-demo-pi', [idea(1)]);
+      await swept(reports);
+
+      expect(planner.issues.map((issue) => issue.$2), ['shop']);
+    });
+
+    // Harm: the marks of removed tasks grow without bound in the settings every window rewrites.
+    test('a removed task\'s marks go with it', () async {
+      lists('porelo-demo-pi', [idea(1)]);
+      lists('porelo-demo-ui', [idea(1)]);
+      await swept();
+      expect(jsonEncode(await store.read()), allOf(contains('porelo-demo-pi'), contains('porelo-demo-ui')));
+
+      await settings.forgetPlanningOffer('laptop', 'porelo-demo-pi');
+
+      expect(jsonEncode(await store.read()), allOf(isNot(contains('porelo-demo-pi')), contains('porelo-demo-ui')));
+    });
+  });
+
   test('a report refused for want of the project\'s repository goes once a machine names it', () async {
     final (starts, reports) = window();
     planner.answers.add(const PlanningRefusal('NoRepository', {}, 'No watched machine names demo\'s repository.'));
@@ -894,6 +1108,37 @@ typedef _Call = ({
 class _Planner extends Fake implements PlanningSource {
   final calls = <_Call>[];
   final answers = <Object>[];
+
+  /// Each new issue asked for: project, repository, title, what must be true, size and revision.
+  final issues = <(String, String, String, String, String?, String)>[];
+
+  /// What the next new issues are answered, an id when nothing is queued.
+  final issueAnswers = <Object>[];
+
+  /// The projects whose board was read, in order.
+  final boardsRead = <String>[];
+
+  @override
+  Future<PlanningSnapshot> stories(String project) async {
+    boardsRead.add(project);
+    return PlanningSnapshot.from({'revision': 'r7', 'stories': <Object>[]});
+  }
+
+  @override
+  Future<PlanningIssueAdded> createIssue(
+    String project,
+    String repository,
+    String title,
+    String mustBeTrue,
+    String? size,
+    String revision, {
+    IssueWorker worker = IssueWorker.agent,
+  }) async {
+    issues.add((project, repository, title, mustBeTrue, size, revision));
+    final next = issueAnswers.isEmpty ? null : issueAnswers.removeAt(0);
+    if (next is Exception) throw next;
+    return PlanningIssueAdded(id: 'F${900 + issues.length}', revision: 'r8');
+  }
 
   /// Held until completed: the answer a report waits for meanwhile.
   Completer<void>? hold;
