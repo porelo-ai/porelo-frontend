@@ -5,13 +5,12 @@
   "$schema": "issue-1.json",
   "id": "F394",
   "title": "A Tunnel Forward Only The Person Reaches",
-  "state": "Analyzed",
+  "state": "Review",
   "size": "M",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 11,
   "blockedBy": [],
-  "covers": "What the window forwards from a machine is reached only by the person: a relay of the window's own lets in only the person's connections, the host refusing other sites' requests to the forge's web.",
-  "openQuestions": 2
+  "covers": "What the window forwards from a machine is reached only by the person: a relay of the window's own lets in only the person's connections, the host refusing other sites' requests to the forge's web."
 }
 ```
 
@@ -74,16 +73,62 @@ asks the kernel who opened it, and relays only the person's own to the socket; a
 Core needs nothing for the relay. Its planned gates for the forge (`issues/base/B355` in Core: "`web.sock` (peer's
 login) ... *planned* (the forge's gates)") are where H1 belongs.
 
-## Open questions
+## Answered
 
-- **H1 is outside this repository:** does the operator want it asked of Agent Machines now, apart from this issue, since
-  every browser page reaches it today?
-- **Windows:** if the owner of a connection cannot be read there, or Windows' ssh cannot forward to a Unix socket, does the
-  window keep today's loopback port there, saying so, or does it wait for H2?
+- **H1** (2026-11-13): built on the host by Agent Machines. The host's front of `web.sock` refuses a request whose
+  `Host` is not the card's own with 403, and for anything but GET and HEAD also one whose `Origin` is foreign or whose
+  `Sec-Fetch-Site` is not same-origin or none (porelo's `ForgeRoutes`, its `doc/local-forge.md`). So the browser's
+  `Host` must carry the host's forge port, and the card's local `webPort` must equal it (3000 by default). The relay
+  keeps that: it holds the card's own port numbers and passes every byte as it came, `Host` included. It did not
+  block the relay.
+- **Windows** (2026-11-13): stays as it is today. The window already holds a card's ports itself there
+  (`LoopbackCarrier`) and every local account reaches them; a login forward is still bound by ssh. Telling who opened a
+  connection there, and whether Win32-OpenSSH forwards to an `AF_UNIX` socket, is [F542](README.md#f542).
 
-## To be checked
+## Checked
 
-- Windows: `GetExtendedTcpTable` names the owning process of a loopback connection, and from it its account; whether
-  Win32-OpenSSH's `-L` forwards to an `AF_UNIX` socket. Both are measured before Windows is planned.
-- Whether a sign-in's listener on the machine sees any change through the relay: the browser's request is relayed byte
-  for byte.
+- A sign-in's listener on the machine sees no change through the relay: the browser's request is relayed byte for byte
+  (`test/app/login_reply_test.dart`, `test/app/person_only_relay_test.dart`).
+- Windows is [F542](README.md#f542).
+
+## Decided
+
+- 2026-11-13: the relay is used where the kernel names who opened a connection, Linux (`PersonOnlyRelay.here`).
+  Elsewhere ssh binds the port as before.
+- 2026-11-13: a card's ports are held by the window from the first raise until the card is dropped, as Windows'
+  carrier holds them, so a reconnect never leaves a port free for another program. While the card is not up, or for a
+  socket its master was not seen to make ([F513](README.md#f513)'s proof), a connection is closed at once.
+- 2026-11-13: re-adding the forge's forward on a live master is not needed with the relay: the window holds the port,
+  and each connection goes to the master's socket.
+- 2026-11-13: tests bind the relay on a port of the system's choosing (`test/flutter_test_config.dart`), so fixed ports
+  of test files running side by side never meet; a test that needs the fixed port asks for it.
+
+## How it was built
+
+- `lib/src/app/person_only_relay.dart`, new: `PersonOnlyRelay` holds each port on `127.0.0.1` and, with an IPv6
+  loopback, `::1`, exclusively; a port held by somebody else on either refuses with `RelayRefused` and holds none. Each
+  accepted connection is asked its owner before anything is read: `ownerOnLinux` finds the row of the connection's
+  other end in `/proc/net/tcp` or `tcp6` (its own address the connection's remote one and the other way round) and
+  reads its uid. Only this account's uid, for a socket the forward says it relays to, is relayed byte for byte to the
+  unix socket; anything else, or no row found, is closed.
+- `lib/src/app/tunnel.dart`: a card's master forwards `-L <config folder>/f-<card>-<port>:<host socket>` for the forge's
+  web and Git and the homeserver, ssh binding no port; the window holds the ports through the relay once the fixed-port
+  check said they are free, and relays only to sockets the master was seen to make while the card is up. The relayed
+  sockets are checked, cleared as leftovers and removed like the card's other endpoints.
+- `lib/src/app/login_forward.dart`: a sign-in's redirect and a joined homeserver forward
+  `-L <runtime folder>/l-<port>:localhost:<port>`, with `StreamLocalBindUnlink=no`; the window holds the port itself,
+  so the check before ssh, and its race, go; a port taken is refused in the same words. The forward is up once the
+  kernel shows its ssh listening on that socket; an ssh that ends lets go of the port, so the homeservers' look raises
+  it again. `forwardsPort` finds a left-behind forward of either form.
+- `packages/porelo_host`: `HostCardSsh.relaySocket`.
+- Tests: `test/app/host_card_tunnel_test.dart` (the card's forwards go to sockets of its private
+  folder; the person's own connection to each card port reaches the host's service through the window on both
+  loopbacks, and nothing holds the port after the drop); `test/app/login_reply_test.dart` (a reply's port is held by
+  the window, its ssh forwarding a socket of the person's own, gone after close);
+  `test/app/person_only_relay_test.dart` (another account's connection, and one whose owner cannot be told, closed
+  with nothing read or sent on, seen red with the owner check taken out; the person's relayed; the lookup against a
+  real connection here; only the other end's row is read; a port held on either loopback refuses);
+  `packages/porelo_host/test/host_card_ssh_test.dart` (each relayed socket beside the control socket). Red was seen
+  for the card's forwards, the card's ports through the window, the reply's port and another account's connection.
+- Not run yet: the VM check with a second local account, whose `curl` to each port must be refused.
+

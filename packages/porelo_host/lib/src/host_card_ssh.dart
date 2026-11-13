@@ -174,6 +174,13 @@ class HostCardSsh {
     'c-${sha256.convert(utf8.encode(name)).toString().substring(0, 16)}',
   );
 
+  /// The socket the card's master listens on for local [port], beside its control socket: the window holds [port]
+  /// itself and relays only the person's own connections to it, so ssh binds no port anybody else reaches.
+  String relaySocket(String config, int port) => path.join(
+    File(config).absolute.parent.path,
+    'f-${sha256.convert(utf8.encode(name)).toString().substring(0, 16)}-$port',
+  );
+
   /// The public adapter values persisted with the machine entry.
   Map<String, Object?> get stored => {
     'name': name,

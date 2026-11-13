@@ -13,6 +13,7 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/host_follow.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_connections.dart';
+import 'package:porelo_frontend/src/app/person_only_relay.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
@@ -1032,6 +1033,10 @@ void main() {
   // Harm: raising the forge's forward anew cuts the person's terminals, daemon link and vault over the same master.
   // Harm: the forward raised anew holds 127.0.0.1 alone, and ::1 is left to whoever listens there.
   test("raising the forward anew re-adds only the forge's forward on the live master", () async {
+    // Where ssh binds the forge's port itself; the window's relay needs nothing raised anew.
+    final relayedBefore = PersonOnlyRelay.here;
+    addTearDown(() => PersonOnlyRelay.here = relayedBefore);
+    PersonOnlyRelay.here = false;
     final before = HostCardSsh.ipv6Loopback;
     addTearDown(() => HostCardSsh.ipv6Loopback = before);
     HostCardSsh.ipv6Loopback = true;
@@ -1067,6 +1072,10 @@ void main() {
   // Harm: ssh cancelled the forward, raised it again on 127.0.0.1 alone and refused [::1], where another program had
   // taken the port meanwhile; the forward left half up sends a browser that tries ::1 first to that program.
   test('a forward refused when raised anew is cancelled again, not left half up', () async {
+    // Where ssh binds the forge's port itself; the window's relay needs nothing raised anew.
+    final relayedBefore = PersonOnlyRelay.here;
+    addTearDown(() => PersonOnlyRelay.here = relayedBefore);
+    PersonOnlyRelay.here = false;
     final before = HostCardSsh.ipv6Loopback;
     addTearDown(() => HostCardSsh.ipv6Loopback = before);
     HostCardSsh.ipv6Loopback = true;
@@ -1083,6 +1092,10 @@ void main() {
 
   // Harm: every click raises the forward again while the cause is on the host.
   test('a second raise within half a minute raises nothing and says the cause is on the host', () async {
+    // Where ssh binds the forge's port itself; the window's relay needs nothing raised anew.
+    final relayedBefore = PersonOnlyRelay.here;
+    addTearDown(() => PersonOnlyRelay.here = relayedBefore);
+    PersonOnlyRelay.here = false;
     var now = DateTime.utc(2026, 11, 8, 20);
     final made = await connections(_mia(), now: () => now);
     await made.connect('build');
@@ -1098,6 +1111,23 @@ void main() {
     now = now.add(const Duration(seconds: 30));
     await made.raiseForwardAnew('build');
     expect(ran, hasLength(4));
+  });
+
+  // Harm: the master's forward cancelled and re-added under the window's relay, leaving its port's socket to chance.
+  test('where the window relays the forge\'s port, raising it anew runs nothing and keeps the master', () async {
+    final relayedBefore = PersonOnlyRelay.here;
+    addTearDown(() => PersonOnlyRelay.here = relayedBefore);
+    PersonOnlyRelay.here = true;
+    final made = await connections(_mia());
+    await made.connect('build');
+    ran.clear();
+
+    await made.raiseForwardAnew('build');
+
+    expect(ran, isEmpty);
+    expect(launches, hasLength(1));
+    expect(masters.single.ended, isFalse);
+    expect(made.up('build'), isTrue);
   });
 
   // Harm: a raise asked of a machine this person is not connected to makes a connection nobody asked for.

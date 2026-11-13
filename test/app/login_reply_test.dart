@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/forward_records.dart';
 import 'package:porelo_frontend/src/app/login_forward.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/person_only_relay.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/session.dart';
 
@@ -114,9 +115,18 @@ void main() {
   test('a port already in use here is said before anything is started', () async {
     final taken = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(taken.close);
+    final private = Directory.systemTemp.createTempSync('lp-');
+    addTearDown(() => private.deleteSync(recursive: true));
+    Process.runSync('chmod', <String>['700', private.path]);
+    final bindBefore = PersonOnlyRelay.bindPort;
+    addTearDown(() => PersonOnlyRelay.bindPort = bindBefore);
+    PersonOnlyRelay.bindPort = PersonOnlyRelay.bindExclusive;
 
     await expectLater(
-      withSsh(vm, taken.port),
+      withSsh(
+        Machine(name: 'vm', socketPath: '${private.path}/vm.sock', host: 'alice@vm', remoteSocket: '/run/s.sock'),
+        taken.port,
+      ),
       throwsA(
         isA<ForwardRefused>().having((refused) => refused.words, 'words', contains('already in use on this computer')),
       ),
@@ -209,7 +219,9 @@ void main() {
       late String records;
       late List<Process> started;
       late Set<Process> ended;
+      late Machine here;
       final startedBefore = startLoginForward;
+      final bindBefore = PersonOnlyRelay.bindPort;
 
       setUp(() async {
         where = Directory.systemTemp.createTempSync('lf-');
@@ -218,11 +230,16 @@ void main() {
         records = '${where.path}/records';
         started = <Process>[];
         ended = <Process>{};
+        // Its socket beside the machine's, in a folder of this account's alone, as the runtime directory is.
+        here = Machine(name: 'vm', socketPath: '${where.path}/vm.sock', host: 'alice@vm', remoteSocket: '/run/s.sock');
+        // The port asked for, held by the window as it is outside a test.
+        PersonOnlyRelay.bindPort = PersonOnlyRelay.bindExclusive;
       });
 
       tearDown(() async {
         forwardRecords = null;
         startLoginForward = startedBefore;
+        PersonOnlyRelay.bindPort = bindBefore;
         for (final process in started) {
           process.kill(ProcessSignal.sigkill);
           await process.exitCode;
@@ -263,6 +280,36 @@ void main() {
         return (process: process, command: command);
       }
 
+      /// The stand-in of a login forward's ssh, started from its [command]: it listens where the `-L` says, on a
+      /// socket where that is a path, else on the port, and echoes what it hears.
+      Future<Process> forwarding(List<String> command, {bool stubborn = false}) async {
+        final local = command[command.indexOf('-L') + 1].split(':').first;
+        final process = await Process.start('python3', [
+          '-c',
+          'import socket,sys,threading,time,os,signal\n'
+              '${stubborn ? 'signal.signal(signal.SIGTERM,signal.SIG_IGN)\n' : ''}'
+              'os.umask(0o177)\n'
+              'p=sys.argv[1]\n'
+              'if p.startswith("/"):\n'
+              '  s=socket.socket(socket.AF_UNIX); s.bind(p)\n'
+              'else:\n'
+              '  s=socket.socket(); s.bind(("127.0.0.1",int(p)))\n'
+              's.listen(8)\n'
+              'def echo(c):\n'
+              '  while True:\n'
+              '    d=c.recv(4096)\n'
+              '    if not d: break\n'
+              '    c.sendall(d)\n'
+              '  c.close()\n'
+              'while True:\n'
+              '  c,_=s.accept(); threading.Thread(target=echo,args=(c,),daemon=True).start()\n',
+          local,
+        ]);
+        started.add(process);
+        unawaited(process.exitCode.then((_) => ended.add(process)));
+        return process;
+      }
+
       Future<bool> alive(Process process) async {
         await Future<void>.delayed(const Duration(milliseconds: 300));
         return !ended.contains(process);
@@ -274,9 +321,9 @@ void main() {
         final left = await listening(port);
         ForwardRecords(records).record(left.process.pid, left.command);
         forwardRecords = ForwardRecords(records);
-        startLoginForward = (_) async => (await listening(port)).process;
+        startLoginForward = forwarding;
 
-        final held = await withSsh(vm, port);
+        final held = await withSsh(here, port);
         addTearDown(held.close);
 
         expect(await alive(left.process), isFalse, reason: 'the forward left behind was ended');
@@ -286,12 +333,34 @@ void main() {
       test('a forward taken down stays recorded while its process still runs', () async {
         final port = await freePort();
         forwardRecords = ForwardRecords(records);
-        startLoginForward = (_) async => (await listening(port, stubborn: true)).process;
+        startLoginForward = (command) => forwarding(command, stubborn: true);
 
-        final held = await withSsh(vm, port);
+        final held = await withSsh(here, port);
         await held.close();
 
         expect(File('$records/${started.last.pid}.forward').existsSync(), isTrue);
+      });
+
+      // Harm: a reply's port ssh binds on the loopback lets any local account send the sign-in its redirect first.
+      test("a reply's port is held by the window, its ssh forwarding a socket of the person's own", () async {
+        final port = await freePort();
+        final commands = <List<String>>[];
+        startLoginForward = (command) {
+          commands.add(command);
+          return forwarding(command);
+        };
+        final held = await withSsh(here, port);
+        addTearDown(held.close);
+
+        expect(commands.single[commands.single.indexOf('-L') + 1], '${where.path}/l-$port:localhost:$port');
+        final connection = await Socket.connect(InternetAddress.loopbackIPv4, port);
+        connection.write('/callback?code=1');
+        await connection.flush();
+        expect(utf8.decode(await connection.timeout(const Duration(seconds: 2)).first), '/callback?code=1');
+        connection.destroy();
+        await held.close();
+        expect(FileSystemEntity.typeSync('${where.path}/l-$port'), FileSystemEntityType.notFound);
+        await expectLater(Socket.connect(InternetAddress.loopbackIPv4, port), throwsA(isA<SocketException>()));
       });
 
       // Harm: a forward this run holds for one login ended by another login asking for the same port.
@@ -301,7 +370,7 @@ void main() {
         forwardRecords = ForwardRecords(records)..record(held.process.pid, held.command);
 
         await expectLater(
-          withSsh(vm, port),
+          withSsh(here, port),
           throwsA(isA<ForwardRefused>().having((refused) => refused.words, 'words', contains('already in use'))),
         );
         expect(await alive(held.process), isTrue);

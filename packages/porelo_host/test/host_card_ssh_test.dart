@@ -24,6 +24,21 @@ Map<String, Object?> cardValues() => {
 };
 
 void main() {
+  // Harm: a card's relayed sockets laid where another card's, or another account, could put theirs.
+  test("each forwarded port's socket lies beside the card's control socket, one per port and card", () {
+    final card = HostCardSsh.fromStored(cardValues());
+    final other = HostCardSsh.fromStored({...cardValues(), 'name': 'beta'});
+    const config = '/run/user/1000/porelo/ssh/alpha.conf';
+
+    final sockets = [for (final port in card.ports) card.relaySocket(config, port)];
+
+    for (final socket in sockets) {
+      expect(File(socket).parent.path, File(card.controlSocket(config)).parent.path);
+    }
+    expect(sockets.toSet(), hasLength(3));
+    expect(other.relaySocket(config, 18080), isNot(card.relaySocket(config, 18080)));
+  });
+
   // Harm: a host with no forge or homeserver cannot be connected to, or a port forward points at no service.
   test('a host with no forge or homeserver reserves and forwards only what it runs', () {
     final card = HostCardSsh.fromStored({

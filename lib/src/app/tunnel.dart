@@ -14,6 +14,7 @@ import 'own_sockets.dart';
 import 'fleet_backend.dart';
 import 'forward_records.dart';
 import 'loopback_carrier.dart';
+import 'person_only_relay.dart';
 import 'owned_process.dart';
 import 'ssh_words.dart';
 
@@ -128,6 +129,10 @@ class Tunnel {
   /// On Windows, the card's ports the window holds itself, from the first raise until [drop].
   LoopbackCarrier? _carrier;
 
+  /// On Linux, the card's ports the window holds itself, from the first raise until [drop], relaying only the person's
+  /// own connections to the sockets its master listens on.
+  PersonOnlyRelay? _relay;
+
   /// The vault refusal beside an SSH-reached host, independent of daemon readiness.
   String? vaultProblem;
 
@@ -235,7 +240,11 @@ class Tunnel {
       '-o',
       'ServerAliveCountMax=2',
       for (final (port, socket) in card.forwards)
-        for (final spec in HostCardSsh.listenSpecs(port, socket)) ...['-L', spec],
+        if (PersonOnlyRelay.here) ...[
+          '-L',
+          '${card.relaySocket(machine.sshConfig, port)}:$socket',
+        ] else
+          for (final spec in HostCardSsh.listenSpecs(port, socket)) ...['-L', spec],
       // Whatever the card's config says, ssh never removes what is at the socket path before it binds there.
       '-o',
       'StreamLocalBindUnlink=no',
@@ -431,7 +440,7 @@ class Tunnel {
       if (messengerSocket != null) HostCardSsh.checkMessengerSocket(messengerSocket!);
       await _endOrphanedMaster(card);
       if (generation != _generation) return;
-      for (final endpoint in [machine.socketPath, card.controlSocket(machine.sshConfig)]) {
+      for (final endpoint in _cardEndpoints(card)) {
         // A leftover nobody holds goes; anything else stays and is said.
         if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.notFound) {
           await removeLeftover(endpoint, connect: _connect);
@@ -443,7 +452,7 @@ class Tunnel {
           return;
         }
       }
-      await (portsAvailable?.call(card) ?? card.checkPortsAvailable());
+      if (!await _holdPorts(card, generation)) return;
       final available = await (keyAvailable?.call(card) ?? _agentHasKey(card));
       if (generation != _generation) return;
       if (!available) {
@@ -454,7 +463,7 @@ class Tunnel {
       await card.publish(machine.sshConfig, writer: writer, environment: configEnvironment, windows: false);
       if (generation != _generation) return;
       // Only where nobody else can put a file is what is found there later told apart; anywhere else nothing is launched.
-      for (final endpoint in [machine.socketPath, card.controlSocket(machine.sshConfig)]) {
+      for (final endpoint in _cardEndpoints(card)) {
         if (Platform.isLinux && !inOwnDirectory(endpoint)) {
           state = TunnelState.down;
           problem = 'Machine ${card.name} cannot connect: the folder of $endpoint is not yours alone.';
@@ -485,7 +494,7 @@ class Tunnel {
         if (generation != _generation || state != TunnelState.raising) return;
         if (check.exitCode == 0) {
           // Its endpoints, as bound by this master, once it answers: only these are ever removed by this tunnel.
-          for (final endpoint in [machine.socketPath, card.controlSocket(machine.sshConfig)]) {
+          for (final endpoint in _cardEndpoints(card)) {
             if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.unixDomainSock) {
               continue;
             }
@@ -525,6 +534,43 @@ class Tunnel {
         _clearOwnedCardEndpoints();
       }
     }
+  }
+
+  /// The card's endpoints its master makes here: the daemon's, the control socket and, where the window relays the
+  /// card's ports, the socket of each.
+  List<String> _cardEndpoints(HostCardSsh card) => [
+    machine.socketPath,
+    card.controlSocket(machine.sshConfig),
+    if (PersonOnlyRelay.here)
+      for (final (port, _) in card.forwards) card.relaySocket(machine.sshConfig, port),
+  ];
+
+  /// Holds the card's ports where the window relays them, once from the first raise until [drop]; false, with the
+  /// problem said, where one is held by somebody else. Elsewhere only checks that they are free.
+  Future<bool> _holdPorts(HostCardSsh card, int generation) async {
+    if (!PersonOnlyRelay.here) {
+      await (portsAvailable?.call(card) ?? card.checkPortsAvailable());
+      return true;
+    }
+    if (_relay != null) return true;
+    // Asked first for its words: who holds a port, where it can say.
+    await (portsAvailable?.call(card) ?? card.checkPortsAvailable());
+    final relay = _relay = PersonOnlyRelay(
+      {for (final (port, _) in card.forwards) port: card.relaySocket(machine.sshConfig, port)},
+      loopbacks: [InternetAddress.loopbackIPv4, if (HostCardSsh.ipv6Loopback) InternetAddress.loopbackIPv6],
+    );
+    // Only a socket its master was seen to make, while the card is up: anything else is closed at once.
+    relay.relaysTo = (socket) => state == TunnelState.up && _ownEndpoints.containsKey(socket);
+    try {
+      await relay.hold();
+    } on RelayRefused catch (refused) {
+      if (identical(_relay, relay)) _relay = null;
+      if (generation != _generation) return false;
+      state = TunnelState.down;
+      problem = 'Machine ${card.name} cannot connect: $refused.';
+      return false;
+    }
+    return generation == _generation;
   }
 
   /// On Windows, whose OpenSSH holds no master and binds a `-L` port it cannot prove its own, the window holds the
@@ -740,7 +786,7 @@ class Tunnel {
     for (var wait = 0; wait < 20 && await probeSocket(control, connectToSocket) != SocketProbe.nobody; wait++) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
-    for (final endpoint in [control, machine.socketPath]) {
+    for (final endpoint in _cardEndpoints(card)) {
       await removeLeftover(endpoint);
     }
   }
@@ -813,6 +859,9 @@ class Tunnel {
     final carrier = _carrier;
     _carrier = null;
     await carrier?.release();
+    final relay = _relay;
+    _relay = null;
+    await relay?.close();
     if (machine.hostCard == null) {
       // Only an endpoint this tunnel's ssh made: one refused as somebody else's stays where it is.
       _removeWhatWeMade();
@@ -1473,6 +1522,8 @@ class Tunnels extends ChangeNotifier {
     if (of(machine)?.state != TunnelState.up) return 'The connection to ${card.name} is not up.';
     // On Windows the window holds the forge's port itself and each connection opens its own ssh: nothing to raise anew.
     if (of(machine)?._carrier != null) return null;
+    // On Linux the window holds it too, and relays each connection to the master's socket: nothing to raise anew.
+    if (of(machine)?._relay != null) return null;
     final spec = [
       for (final listen in HostCardSsh.listenSpecs(forward.$1, forward.$2)) ...['-L', listen],
       card.name,

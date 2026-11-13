@@ -16,6 +16,7 @@ import 'package:porelo_frontend/src/app/fleet_model.dart';
 import 'package:porelo_frontend/src/app/homeserver_forwards.dart';
 import 'package:porelo_frontend/src/app/login_forward.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/person_only_relay.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/ssh_words.dart';
 import 'package:porelo_frontend/src/app/session.dart';
@@ -1340,13 +1341,12 @@ void main() {
       for (var i = 0; i < command.length - 1; i++)
         if (command[i] == '-L') command[i + 1],
     ];
+    // Harm: a port ssh binds on the loopback is reached by every local account, each one the person on the forge.
+    final private = File(host.sshConfig).absolute.parent.path;
     expect(forwards, [
-      '127.0.0.1:18080:/run/porelo-forge/web.sock',
-      '[::1]:18080:/run/porelo-forge/web.sock',
-      '127.0.0.1:18081:/run/porelo-forge/git.sock',
-      '[::1]:18081:/run/porelo-forge/git.sock',
-      '127.0.0.1:18082:/run/porelo-matrix/client.sock',
-      '[::1]:18082:/run/porelo-matrix/client.sock',
+      matches(RegExp('^${RegExp.escape(private)}/[^/:]+:/run/porelo-forge/web.sock\$')),
+      matches(RegExp('^${RegExp.escape(private)}/[^/:]+:/run/porelo-forge/git.sock\$')),
+      matches(RegExp('^${RegExp.escape(private)}/[^/:]+:/run/porelo-matrix/client.sock\$')),
       '${host.socketPath}:/run/porelo-host/people/alice/porelod.sock',
     ]);
     expect(command.where((word) => word == '-R'), hasLength(1));
@@ -1358,26 +1358,13 @@ void main() {
     expect(host.hostCard!.matrixUrl, 'http://alpha.localhost:18082/');
   });
 
-  // Harm: without ::1 a forward asked there fails every tunnel, and an address by name may leave the forward unused.
-  test('without an IPv6 loopback the forwards and the addresses hold 127.0.0.1 alone', () async {
+  // Harm: without ::1 an address by name may reach a port the window does not hold.
+  test('without an IPv6 loopback the addresses name 127.0.0.1', () async {
     final before = HostCardSsh.ipv6Loopback;
     addTearDown(() => HostCardSsh.ipv6Loopback = before);
     HostCardSsh.ipv6Loopback = false;
     expect(await tunnels.raiseFor(host), isTrue);
-    final command = launches.single;
-    expect(command, contains('ExitOnForwardFailure=yes'));
-    expect(
-      [
-        for (var i = 0; i < command.length - 1; i++)
-          if (command[i] == '-L') command[i + 1],
-      ],
-      [
-        '127.0.0.1:18080:/run/porelo-forge/web.sock',
-        '127.0.0.1:18081:/run/porelo-forge/git.sock',
-        '127.0.0.1:18082:/run/porelo-matrix/client.sock',
-        '${host.socketPath}:/run/porelo-host/people/alice/porelod.sock',
-      ],
-    );
+    expect(launches.single, contains('ExitOnForwardFailure=yes'));
     expect(host.hostCard!.forgeUrl, 'http://127.0.0.1:18080/');
     expect(host.hostCard!.matrixUrl, 'http://127.0.0.1:18082/');
   });
@@ -1883,6 +1870,103 @@ void main() {
     });
     return owned;
   }
+
+  /// Tunnels whose `ssh` is a real stand-in process that listens on the daemon endpoint, the control socket and every
+  /// socket a `-L` names here, echoing what comes on those last, as a card's master relays to the host's services.
+  Tunnels relayingStandIn(Machine machine, List<Process> children) {
+    final control = machine.hostCard!.controlSocket(machine.sshConfig);
+    final owned = Tunnels(
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
+      keyAvailable: (_) async => true,
+      portsAvailable: (_) async {},
+      unlocker: unlock,
+      start: (command) async {
+        final forwarded = [
+          for (var i = 0; i < command.length - 1; i++)
+            if (command[i] == '-L' && command[i + 1].startsWith('/')) command[i + 1].split(':').first,
+        ]..remove(machine.socketPath);
+        final child = await Process.start('python3', [
+          '-c',
+          'import socket,sys,time,os,threading\n'
+              'os.umask(0o177)\n'
+              'def echo(c):\n'
+              '  while True:\n'
+              '    d=c.recv(4096)\n'
+              '    if not d: break\n'
+              '    c.sendall(d)\n'
+              '  c.close()\n'
+              'def serve(s):\n'
+              '  while True:\n'
+              '    c,_=s.accept(); threading.Thread(target=echo,args=(c,),daemon=True).start()\n'
+              'def bound(p):\n'
+              '  s=socket.socket(socket.AF_UNIX); s.bind(p); s.listen(8); return s\n'
+              'keep=[bound(sys.argv[1]),bound(sys.argv[2])]\n'
+              'for p in sys.argv[3:]: threading.Thread(target=serve,args=(bound(p),),daemon=True).start()\n'
+              'time.sleep(300)\n',
+          machine.socketPath,
+          control,
+          ...forwarded,
+        ]);
+        children.add(child);
+        return child;
+      },
+      run: (_) async =>
+          ProcessResult(0, FileSystemEntity.typeSync(control) == FileSystemEntityType.unixDomainSock ? 0 : 1, '', ''),
+    );
+    addTearDown(() async {
+      await owned.dropEverything();
+      owned.dispose();
+    });
+    return owned;
+  }
+
+  Future<int> freePort() async {
+    final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final port = probe.port;
+    await probe.close();
+    return port;
+  }
+
+  Future<String> through(InternetAddress loopback, int port, String said) async {
+    final connection = await Socket.connect(loopback, port, timeout: const Duration(seconds: 2));
+    connection.write(said);
+    await connection.flush();
+    final heard = await connection.timeout(const Duration(seconds: 2)).first;
+    connection.destroy();
+    return utf8.decode(heard);
+  }
+
+  // Harm: a card's forge port ssh binds on the loopback is reached by every local account, each the person on the forge.
+  test("the person's own connection to a card's ports reaches the host through the window, ssh binding none", () async {
+    final bindBefore = PersonOnlyRelay.bindPort;
+    addTearDown(() => PersonOnlyRelay.bindPort = bindBefore);
+    PersonOnlyRelay.bindPort = PersonOnlyRelay.bindExclusive;
+    final web = await freePort();
+    final git = await freePort();
+    final matrix = await freePort();
+    final card = HostCardSsh.fromStored({
+      ...host.hostCard!.stored,
+      'services': {
+        'forge': {'web_port': web, 'git_port': git},
+        'matrix': {'port': matrix},
+      },
+    });
+    final relayed = Machine.fromHostCard(card, socketPath: host.socketPath, sshConfig: host.sshConfig);
+    final children = <Process>[];
+    final owned = relayingStandIn(relayed, children);
+
+    expect(await owned.raiseFor(relayed), isTrue, reason: owned.of(relayed)?.problem);
+
+    for (final port in [web, git, matrix]) {
+      expect(await through(InternetAddress.loopbackIPv4, port, 'to $port'), 'to $port');
+      if (HostCardSsh.ipv6Loopback) {
+        expect(await through(InternetAddress.loopbackIPv6, port, 'six $port'), 'six $port');
+      }
+    }
+    await owned.dropEverything();
+    await children.single.exitCode.timeout(const Duration(seconds: 1));
+    await expectLater(Socket.connect(InternetAddress.loopbackIPv4, web), throwsA(isA<SocketException>()));
+  });
 
   // Prevents a real stand-in process and its owned Unix endpoints from surviving shutdown.
   test('shutdown removes both owned sockets and the SSH stand-in process', () async {

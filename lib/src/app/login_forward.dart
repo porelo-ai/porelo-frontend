@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh;
+
 import 'forward_records.dart';
 import 'machines.dart';
+import 'own_sockets.dart';
+import 'person_only_relay.dart';
 
 /// A forward held open for one agent login, taken down when the login's terminal goes.
 abstract interface class HeldForward {
@@ -74,7 +78,97 @@ class _Tracked implements HeldForward {
 Future<HeldForward> _withSsh(Machine machine, int port) async {
   if (machine.host.startsWith('-')) throw const ForwardRefused('A machine’s ssh address must not start with a dash.');
   if (machine.host.isEmpty) return const _Nothing();
-  // A forward a run of this interface left behind when it ended without asking holds the port: it is ended first.
+  if (!PersonOnlyRelay.here) return _bySshAlone(machine, port);
+  // The window holds the port and lets only the person in; ssh forwards a socket in a folder of the person's alone.
+  final socket = loginForwardSocket(machine, port);
+  if (!inOwnDirectory(socket)) {
+    throw ForwardRefused(
+      'The browser’s answer could not be forwarded to ${machine.name}: the folder of $socket is not yours alone.',
+    );
+  }
+  // A forward a run of this interface left behind when it ended without asking holds the socket, or the port where it
+  // was raised before the window held it: it is ended first, and given a moment to let go.
+  final ended = forwardRecords?.endLeftovers((line) => forwardsPort(line, port)) ?? false;
+  final waited = Stopwatch()..start();
+  while (FileSystemEntity.typeSync(socket, followLinks: false) != FileSystemEntityType.notFound &&
+      !await removeLeftover(socket) &&
+      ended &&
+      waited.elapsed < const Duration(seconds: 2)) {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+  if (FileSystemEntity.typeSync(socket, followLinks: false) != FileSystemEntityType.notFound) {
+    throw ForwardRefused(
+      'The browser’s answer could not be forwarded to ${machine.name}: something is at $socket, and it was left alone.',
+    );
+  }
+  final relay = PersonOnlyRelay(
+    {port: socket},
+    loopbacks: [InternetAddress.loopbackIPv4, if (HostCardSsh.ipv6Loopback) InternetAddress.loopbackIPv6],
+  );
+  // One ended a moment ago may still hold the port.
+  while (true) {
+    try {
+      await relay.hold();
+      break;
+    } on RelayRefused {
+      if (!ended || waited.elapsed >= const Duration(seconds: 2)) throw _inUse(machine, port);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+  HeldSocket? made;
+  relay.relaysTo = (to) => made != null && to == socket;
+  try {
+    final command = loginForwardCommand(machine, port, socket: socket);
+    final ssh = await startLoginForward(command);
+    final records = forwardRecords?..record(ssh.pid, command);
+    final said = ssh.stderr.transform(const SystemEncoding().decoder).join();
+    // Proven by the kernel, never by ssh staying up: its own process listens on the very socket the relay goes to.
+    for (var tries = 0; tries < 50; tries++) {
+      final exited = await ssh.exitCode.timeout(const Duration(milliseconds: 100), onTimeout: () => -1);
+      if (exited != -1) {
+        records?.forget(ssh.pid);
+        final words = (await said).trim();
+        throw ForwardRefused(
+          'The browser’s answer could not be forwarded to ${machine.name}: '
+          '${words.isEmpty ? 'ssh ended with $exited' : words}',
+        );
+      }
+      if (FileSystemEntity.typeSync(socket, followLinks: false) == FileSystemEntityType.unixDomainSock) {
+        made = madeBy(ssh.pid, socket);
+      }
+      if (made != null) {
+        final held = _Relayed(ssh, relay, socket, made);
+        // An ssh that ends by itself lets go of the port too, so whoever looks finds the forward gone.
+        unawaited(
+          ssh.exitCode.then((_) {
+            records?.forget(ssh.pid);
+            unawaited(held.close());
+          }),
+        );
+        return held;
+      }
+    }
+    ssh.kill();
+    await ssh.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => -1);
+    records?.forget(ssh.pid);
+    throw ForwardRefused('Nothing on ${machine.name} answered on port $port for the browser’s answer.');
+  } on Object {
+    await relay.close();
+    rethrow;
+  }
+}
+
+/// Where a login forward's ssh listens for [port] here, beside [machine]'s own socket.
+String loginForwardSocket(Machine machine, int port) =>
+    '${machine.socketPath.substring(0, machine.socketPath.lastIndexOf('/'))}/l-$port';
+
+ForwardRefused _inUse(Machine machine, int port) => ForwardRefused(
+  'Port $port is already in use on this computer, so the browser’s answer '
+  'could not reach ${machine.name}. Close what uses it and try again.',
+);
+
+/// Where the kernel cannot name who opened a connection: ssh binds the port itself, as before.
+Future<HeldForward> _bySshAlone(Machine machine, int port) async {
   if (forwardRecords?.endLeftovers((line) => forwardsPort(line, port)) ?? false) {
     final waited = Stopwatch()..start();
     while (waited.elapsed < const Duration(seconds: 2) && !await _free(port)) {
@@ -82,12 +176,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
     }
   }
   // Asked before, because ssh with ExitOnForwardFailure says only that it failed.
-  if (!await _free(port)) {
-    throw ForwardRefused(
-      'Port $port is already in use on this computer, so the browser’s answer '
-      'could not reach ${machine.name}. Close what uses it and try again.',
-    );
-  }
+  if (!await _free(port)) throw _inUse(machine, port);
   final command = loginForwardCommand(machine, port);
   final ssh = await startLoginForward(command);
   final records = forwardRecords?..record(ssh.pid, command);
@@ -143,6 +232,29 @@ class _Ssh implements HeldForward {
   }
 }
 
+/// A login forward the window relays: its port, held here, and the ssh that forwards the socket behind it.
+class _Relayed implements HeldForward {
+  _Relayed(this._process, this._relay, this._socket, this._made);
+
+  final Process _process;
+  final PersonOnlyRelay _relay;
+  final String _socket;
+  final HeldSocket _made;
+  bool _closed = false;
+
+  @override
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    await _relay.close();
+    _process.kill();
+    await _process.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => -1);
+    // Only the very socket its ssh was seen to make, and only while it is still that one.
+    removeSocketIfStill(_socket, _made);
+    _made.release();
+  }
+}
+
 class _Nothing implements HeldForward {
   const _Nothing();
 
@@ -151,7 +263,8 @@ class _Nothing implements HeldForward {
 }
 
 /// The reply forward, sharing the login terminal's destination and host-key policy.
-List<String> loginForwardCommand(Machine machine, int port) => <String>[
+/// [socket], where given, is where ssh listens here instead of on [port]: the window holds the port itself.
+List<String> loginForwardCommand(Machine machine, int port, {String? socket}) => <String>[
   openSsh('ssh'),
   ...machine.loginSshOptions,
   '-N',
@@ -166,7 +279,12 @@ List<String> loginForwardCommand(Machine machine, int port) => <String>[
   ],
   '-o',
   'ExitOnForwardFailure=yes',
+  if (socket != null) ...<String>[
+    // Whatever the person's config says, ssh never removes what is at the socket path before it binds there.
+    '-o',
+    'StreamLocalBindUnlink=no',
+  ],
   '-L',
-  '$port:localhost:$port',
+  '${socket ?? port}:localhost:$port',
   machine.host,
 ];

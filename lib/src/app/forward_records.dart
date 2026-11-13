@@ -260,8 +260,12 @@ class _Pidfd {
 /// Whether [command] forwards the unix socket [socket] here.
 bool forwardsSocket(List<String> command, String socket) => _forwards(command, (spec) => spec.startsWith('$socket:'));
 
-/// Whether [command] forwards port [port] here to the same port on the far end, as a login forward does.
-bool forwardsPort(List<String> command, int port) => _forwards(command, (spec) => spec == '$port:localhost:$port');
+/// Whether [command] forwards port [port] here to the same port on the far end, as a login forward does: from the port
+/// itself, or from a socket of its own the window relays the port to.
+bool forwardsPort(List<String> command, int port) => _forwards(
+  command,
+  (spec) => spec == '$port:localhost:$port' || (spec.startsWith('/') && spec.endsWith('/l-$port:localhost:$port')),
+);
 
 bool _forwards(List<String> command, bool Function(String spec) matches) {
   for (var i = 0; i + 1 < command.length; i++) {
@@ -915,6 +919,9 @@ bool isOwnDirectory(String directory) {
     _Libc.instance.close(opened);
   }
 }
+
+/// The uid this process runs as: the person the window runs for.
+int accountUid() => _Libc.instance.getuid();
 
 bool _isOwn(String path, int descriptor) {
   final facts = pathFactsOf(path, descriptor);
