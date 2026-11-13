@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F522",
   "title": "A Tasks Results Landing Played Through On The VM",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 95,
@@ -97,6 +97,21 @@ next reading finds nothing blocking and sets the issue to Review; an idea a task
 - One run on the test VM with a report naming each step: OK, FAIL with what was asked and got, or EXPECTED with the
   missing issue.
 - The test organization's repositories stand at T0 after the run.
+
+## How it was built
+
+- The green run: run 16 of story `a_tasks_results_land` (its report story-f522-16), all 23
+  steps OK with no hand repairs, on the local VM with Core's packages 95edd73df, the planner at 2f194b5, and the
+  window and its tooling from the walk2 worktree at 4bb5b227 (6b1a5df6 with [F510](README.md#f510)'s pairing of a
+  start by its key).
+- The walk runs in repositories of its own, named for the story (`tasks-results-foo-project`, `-foo-1`, `-foo-2`),
+  copied from the templates, its project added to the organization for the run and taken out at its end
+  (`tool/walk_idea.sh`).
+- Three races in the walk's steps were fixed on the way: a quick reader's blocking findings after the builder's end
+  are the reading's, not the builder's (8352c60e); a builder run that ended before its start was read is taken as
+  ended (00aedd8e); an issue whose quick reading stopped on findings is taken as read (6b1a5df6).
+- The steps judge a run only once its offers are bound to their tasks (e1d9f119): before, a builder bound late was no
+  task of the run yet, and the run was taken as ended with its issue still in Backlog.
 
 ## Estimate
 
