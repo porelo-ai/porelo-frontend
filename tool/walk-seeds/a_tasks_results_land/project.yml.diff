@@ -1,0 +1,22 @@
+--- foo-project/project.yml (T0, as read 2026-11-12)
++++ foo-project/project.yml (the run's)
+@@ project:
+   name: foo-project
++  central: https://github.com/porelo-ai-test/foo-project
+@@ project:
+-  security_class: guarded
++  security_class: online
+@@ repositories.foo-1:
+     agent: "pi"
++    issues: ["TP"]
+@@ repositories.foo-2:
+     agent: "pi"
++    issues: ["TQ"]
+@@ providers.openrouter:
+     model: "z-ai/glm-5.3-flash"
++limits:
++  ideas: 1
++mcp:
++  methods: ["ProposeIdea"]
++  agents:
++    pi:
