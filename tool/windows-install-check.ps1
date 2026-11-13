@@ -264,6 +264,18 @@ try {
       }
     } catch { $cleanupFailures.Add("Remove '$path': $_") }
   }
+  # What the started program said, once it is stopped, before its folder goes: a start that failed shows why there.
+  if ($failure -and $workDir) {
+    foreach ($name in 'out.txt', 'err.txt') {
+      $file = Join-Path $workDir $name
+      if (Test-Path -LiteralPath $file) {
+        "--- last 50 lines of $Alias's $name ---"
+        Get-Content -LiteralPath $file -Tail 50 -ErrorAction SilentlyContinue
+      } else {
+        "--- $Alias wrote no $name ---"
+      }
+    }
+  }
   # The app's own files only once it was started: before, any of them is somebody else's. One flat list: the
   # leftovers given as an element of the list would be one array, removed and tested as one path.
   $cleanupPaths = [System.Collections.Generic.List[string]]::new()
