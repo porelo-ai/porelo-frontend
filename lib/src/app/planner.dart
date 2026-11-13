@@ -68,6 +68,11 @@ const plannerOutputLine = 64 * 1024;
 /// The planner's option that has it end once its standard input closes, as when the window that holds it ends.
 const plannerEndsWithInput = '--end-with-input';
 
+/// How long a planner the window started on Windows, which has no SIGTERM, has to end by itself once its input is
+/// closed; with the two seconds a hard end then has, the whole end stays within the five seconds the window gives its
+/// ends on a signal.
+const plannerInputEndWait = Duration(seconds: 3);
+
 /// Opens the planner's board reads from the address file under [runtimeDirectory], the account's own when null.
 typedef OpenPlanner = Future<HttpPlanningSource> Function(PlannerProjects projects, {String? runtimeDirectory});
 
@@ -149,6 +154,7 @@ class LocalPlanner extends ChangeNotifier
     this.wait = const Duration(seconds: 20),
     this.poll = const Duration(milliseconds: 200),
     this.follow = const Duration(seconds: 2),
+    this.inputEndWait = plannerInputEndWait,
     bool? onWindows,
     Map<String, String>? environment,
     this._logLevel,
@@ -224,6 +230,10 @@ class LocalPlanner extends ChangeNotifier
   /// How often the address file of a planner found is read again, to follow the planner to a new address.
   final Duration follow;
 
+  /// How long a planner the window started on Windows has to end by itself once its input is closed, before it is
+  /// ended hard.
+  final Duration inputEndWait;
+
   final List<String> Function() _projects;
   final PlannerProjects _repositories;
   final String? Function()? _chosen;
@@ -270,8 +280,15 @@ class LocalPlanner extends ChangeNotifier
   /// The exit code of the planner this window started, where it ended before it said where it answers.
   int? _endedEarly;
 
-  /// The end of the planner this window started while it runs, which every caller meanwhile waits for.
+  /// The window's end of the planner it started, once asked: every later caller waits for the same end, and no planner
+  /// is started after it began.
   Future<void>? _ending;
+
+  /// The start under way, a stop of the planner it replaces included, which an end waits for.
+  Future<Object?>? _starting;
+
+  /// Whether the window may no longer start a planner: its end began, or it was disposed.
+  bool get _over => _ending != null || _disposed;
 
   @override
   String? get notReached => _notReached;
@@ -328,7 +345,11 @@ class LocalPlanner extends ChangeNotifier
       // One ask, one start: a planner gone later is offered again.
       _asked = false;
     }
-    if (await _startOneOf(programs) case final failure?) {
+    final starting = _starting = _startOneOf(programs);
+    final failure = await starting;
+    if (identical(_starting, starting)) _starting = null;
+    if (_over) return;
+    if (failure != null) {
       // A start the person asked for that failed may be asked for again.
       _offered = _onWindows;
       return _say('porelo-planner could not be started: $failure');
@@ -357,9 +378,23 @@ class LocalPlanner extends ChangeNotifier
           _process = null;
           await _stop(before);
         }
-        _keep(
-          await _start(program, {'XDG_RUNTIME_DIR': ?runtimeDirectory, poreloExecutableVariable: ?_poreloExecutable}),
-        );
+        // The window's end or dispose began meanwhile: no planner may outlive it.
+        if (_over) {
+          _started = false;
+          return null;
+        }
+        final process = await _start(program, {
+          'XDG_RUNTIME_DIR': ?runtimeDirectory,
+          poreloExecutableVariable: ?_poreloExecutable,
+        });
+        _keep(process);
+        // An end that began during the start waits for it, so the planner just started is stopped here: the end could
+        // not tell it from one that took its place once it wrote its address.
+        if (_ending != null) {
+          _process = null;
+          _started = false;
+          await _stop(process);
+        }
         return null;
       } on ProcessException catch (error) {
         // Not started at all, as for a file this account may not run: the next may be.
@@ -570,9 +605,11 @@ class LocalPlanner extends ChangeNotifier
   }
 
   @override
-  Future<void> end() => _ending ??= _end().whenComplete(() => _ending = null);
+  Future<void> end() => _ending ??= _end();
 
   Future<void> _end() async {
+    // A start under way stops the planner it replaces first, and starts none once this end began.
+    await _starting;
     final process = _process;
     if (process == null) return;
     _process = null;
@@ -587,14 +624,36 @@ class LocalPlanner extends ChangeNotifier
     await _stop(process);
   }
 
-  /// Stops [process], a planner the window started, with SIGTERM and then SIGKILL, and says so in the window's log.
-  static Future<void> _stop(Process process) async {
+  /// Stops [process], a planner the window started, and says so in the window's log: on Windows, which has no SIGTERM,
+  /// through its input, elsewhere with SIGTERM and then SIGKILL.
+  Future<void> _stop(Process process) async {
     windowLog.info('Ending porelo-planner, which the window started.');
     try {
-      await stopOwnedProcess(process);
+      await (_onWindows ? _endThroughItsInput(process) : stopOwnedProcess(process));
       windowLog.info('porelo-planner, which the window started, ended with exit code ${await process.exitCode}.');
     } on TimeoutException {
-      windowLog.error('porelo-planner, which the window started, did not end even on SIGKILL.');
+      windowLog.error(
+        _onWindows
+            ? 'porelo-planner, which the window started, did not end even when ended hard.'
+            : 'porelo-planner, which the window started, did not end even on SIGKILL.',
+      );
+    }
+  }
+
+  /// Closes the input of [process], on whose end a planner started with [plannerEndsWithInput] ends by itself, and
+  /// ends it hard only where it still runs after [inputEndWait].
+  Future<void> _endThroughItsInput(Process process) async {
+    // The input of a planner that already ended fails to close, which changes nothing here.
+    unawaited(process.stdin.close().then<void>((_) {}, onError: (Object _) {}));
+    try {
+      await process.exitCode.timeout(inputEndWait);
+    } on TimeoutException {
+      windowLog.warn(
+        'porelo-planner, which the window started, did not end within ${inputEndWait.inMilliseconds} ms of its input '
+        'closing, so it is ended hard; what it was writing may be lost.',
+      );
+      process.kill(ProcessSignal.sigkill);
+      await process.exitCode.timeout(const Duration(seconds: 2));
     }
   }
 

@@ -253,6 +253,32 @@ rm -f "\$dir/planner.json"''');
     expect(second.signals, isEmpty);
   });
 
+  // Harm: the window's end during a restart returns while the old planner still runs, and a new one is started after
+  // the window ended, so either outlives it and holds the address file.
+  test('an end asked while a restart stops the old planner waits for it and starts no new one', () async {
+    // It ignores SIGTERM, so its stop takes the bounded wait before SIGKILL.
+    final first = PlannerProcess(ignoresTerm: true);
+    var starts = 0;
+    final local = client(
+      candidates: [await program()],
+      follow: const Duration(milliseconds: 20),
+      start: (_, _) async {
+        starts++;
+        await announce(token: 'token-of-start-$starts');
+        return starts == 1 ? first : PlannerProcess();
+      },
+    );
+    await local.reach();
+    await addressFile().delete();
+    await until(() => first.signals.isNotEmpty);
+
+    await local.end();
+
+    expect(first.ended, isTrue, reason: 'the end answers only once the old planner ended');
+    await local.reach();
+    expect(starts, 1, reason: 'no planner is started once the end began');
+  });
+
   // Harm: a planner the window started that moved to another port outlives the window.
   test('a planner the window started that wrote a new address is still ended', () async {
     final started = PlannerProcess();
@@ -337,6 +363,144 @@ rm -f "\$dir/planner.json"''');
         'x' * (200 * 1024 - 3 * plannerOutputLine),
         'last',
       ]);
+    });
+  });
+
+  group('how a planner the window started is ended', () {
+    late Directory logs;
+    late WindowLog before;
+
+    setUp(() async {
+      logs = await Directory.systemTemp.createTemp('planner-end-logs-');
+      before = windowLog;
+      windowLog = WindowLog(logs.path, level: ValueNotifier(LogLevel.debug), keepPrivate: (_) async {});
+    });
+
+    tearDown(() async {
+      windowLog = before;
+      await logs.delete(recursive: true);
+    });
+
+    List<String> hardEnds() => [
+      for (final line in File(
+        '${logs.path}/${WindowLog.fileName}',
+      ).let((file) => file.existsSync() ? file.readAsLinesSync() : const <String>[]))
+        if (line.contains(' WARN ') && line.contains('ended hard')) line,
+    ];
+
+    /// A planner as the window starts one: it writes its address where the test reads it and records in [record] its
+    /// process number, then how it ended - by its input closing where [endsWithItsInput], [takes] seconds after it
+    /// closed, or on SIGTERM.
+    Future<String> standIn(String record, {required bool endsWithItsInput, int takes = 0}) => program(
+      '''
+echo "\$\$" > '$record'
+dir='${runtime.path}/porelo-planner'
+${endsWithItsInput ? 'exec 3<&0\ncat <&3 > /dev/null &\nreader=\$!' : 'reader='}
+trap 'kill \$reader 2>/dev/null; echo signalled >> "$record"; rm -f "\$dir/planner.json"; exit 0' TERM
+mkdir -p "\$dir" && chmod 700 "\$dir"
+printf '{"port":${server.port},"token":"token-of-the-script"}' > "\$dir/planner.json.new"
+chmod 600 "\$dir/planner.json.new" && mv "\$dir/planner.json.new" "\$dir/planner.json"
+${endsWithItsInput ? 'wait \$reader\nsleep $takes\necho "input closed" >> \'$record\'\nrm -f "\$dir/planner.json"' : 'while :; do sleep 0.1; done'}''',
+    );
+
+    /// Stops whatever the window left running of the stand-in that recorded into [record], so no script outlives the
+    /// test.
+    void stopAfterwards(String record) => addTearDown(() async {
+      final lines = await File(record).readAsLines().catchError((_) => <String>[]);
+      if (lines.isNotEmpty) Process.killPid(int.parse(lines.first), ProcessSignal.sigkill);
+    });
+
+    LocalPlanner onWindows(String program, {Duration? inputEndWait}) => LocalPlanner(
+      projects: () => ['demo'],
+      repositories: (project) => PlannerProject('https://example.org/$project.git'),
+      candidates: [program],
+      environment: {'LOCALAPPDATA': runtime.path},
+      // On Windows the planner's package reads LOCALAPPDATA itself; here it reads the test's folder.
+      open: (projects, {runtimeDirectory}) =>
+          HttpPlanningSource.fromAddressFile(projects, runtimeDirectory: runtime.path),
+      wait: const Duration(seconds: 5),
+      poll: const Duration(milliseconds: 20),
+      onWindows: true,
+      inputEndWait: inputEndWait ?? const Duration(seconds: 5),
+    )..let(clients.add);
+
+    // Harm: on Windows a planner that would have ended by itself is ended hard and loses what it was writing.
+    test('on Windows a planner that ends when its input closes is not ended hard', () async {
+      final record = '${bin.path}/record';
+      final local = onWindows(await standIn(record, endsWithItsInput: true));
+      stopAfterwards(record);
+      await local.reach();
+      await local.startNow();
+      expect(local.notReached, isNull, reason: 'the started stand-in wrote its address');
+
+      await local.end();
+
+      expect((await File(record).readAsLines()).skip(1), ['input closed'], reason: 'it ended by its input alone');
+      expect(hardEnds(), isEmpty);
+    });
+
+    // Harm: on Windows a planner still finishing its stop is ended hard and loses what it was writing.
+    test(
+      'on Windows a planner that takes a while to end after its input closes, within the wait, is not ended hard',
+      () async {
+        final record = '${bin.path}/record';
+        final local = onWindows(
+          await standIn(record, endsWithItsInput: true, takes: 1),
+          inputEndWait: const Duration(seconds: 3),
+        );
+        stopAfterwards(record);
+        await local.reach();
+        await local.startNow();
+        expect(local.notReached, isNull, reason: 'the started stand-in wrote its address');
+
+        await local.end();
+
+        expect((await File(record).readAsLines()).skip(1), ['input closed'], reason: 'it ended by itself, late');
+        expect(hardEnds(), isEmpty);
+      },
+    );
+
+    // Harm: on Windows a planner that does not end when asked outlives the window and holds the address file, a hard
+    // end nobody is told of hides why its work was lost, and one that comes early cuts a stop short.
+    test('on Windows a planner that ignores its input is ended hard after the wait, and the log says so', () async {
+      const wait = Duration(milliseconds: 500);
+      final record = '${bin.path}/record';
+      final local = onWindows(await standIn(record, endsWithItsInput: false), inputEndWait: wait);
+      stopAfterwards(record);
+      await local.reach();
+      await local.startNow();
+      expect(local.notReached, isNull, reason: 'the started stand-in wrote its address');
+
+      final ending = Stopwatch()..start();
+      await local.end();
+
+      expect(ending.elapsed, greaterThanOrEqualTo(wait), reason: 'ended hard no earlier than the wait');
+      final lines = await File(record).readAsLines();
+      expect(Directory('/proc/${lines.first}').existsSync(), isFalse, reason: 'it no longer runs');
+      expect(lines.skip(1), isEmpty, reason: 'ended hard, never asked by a signal Windows does not have');
+      expect(hardEnds(), hasLength(1));
+    });
+
+    // Harm: on Linux a planner the window started is left to an input the window holds open, and outlives it.
+    test('on Linux a planner the window started is still ended with SIGTERM, its input left open', () async {
+      final record = '${bin.path}/record';
+      final local = LocalPlanner(
+        projects: () => ['demo'],
+        repositories: (project) => PlannerProject('https://example.org/$project.git'),
+        runtimeDirectory: runtime.path,
+        candidates: [await standIn(record, endsWithItsInput: true)],
+        wait: const Duration(seconds: 5),
+        poll: const Duration(milliseconds: 20),
+        onWindows: false,
+      )..let(clients.add);
+      stopAfterwards(record);
+      await local.reach();
+      expect(local.notReached, isNull, reason: 'the started stand-in wrote its address');
+
+      await local.end();
+
+      expect((await File(record).readAsLines()).skip(1), ['signalled']);
+      expect(hardEnds(), isEmpty);
     });
   });
 

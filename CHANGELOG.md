@@ -55,6 +55,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - *Put it on the machine* stays open until the organization answers: a refusal is said there, and a placing taken always goes on in its own dialog to its end.
 - A machine's page of a project lists the repositories it carries first and folds the others under *Not carried here*, with their count; the host's `not-carried` reads as "not carried here".
 - A saved story move on *Planning* counts as made once the machine moves the story's least advanced issues, as the machine chooses them, rather than staying pending with *The machine did not confirm this destination* when the card shows the story ahead of its issues.
+- On Windows a porelo-planner the window started is asked to end by closing its input, and ended hard only when it still runs three seconds later, which the window's log then says; on Linux it is still ended with SIGTERM, then SIGKILL.
 
 ### Fixed
 
