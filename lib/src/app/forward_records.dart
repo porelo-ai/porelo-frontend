@@ -9,10 +9,13 @@ import 'package:flutter/foundation.dart';
 @immutable
 class PathFacts {
   /// Constructor taking its owner, its permission bits and its type.
-  const PathFacts({required this.owner, required this.permissions, required this.type});
+  const PathFacts({required this.owner, required this.permissions, required this.type, this.group = -1});
 
   /// The uid that owns it.
   final int owner;
+
+  /// The gid that owns it, or -1 where it was not read.
+  final int group;
 
   /// Its permission bits, `0777` at most.
   final int permissions;
@@ -616,11 +619,12 @@ _Recorded? _parse(String name, List<int> bytes) {
 /// given; null where it cannot be read.
 PathFacts? pathFactsOf(String path, int? descriptor) => _native((libc, arena) {
   final buffer = arena.allocate(256);
-  // AT_FDCWD or the descriptor with AT_EMPTY_PATH, AT_SYMLINK_NOFOLLOW, STATX_TYPE | STATX_MODE | STATX_UID; the layout
-  // of struct statx is the same on every architecture: stx_uid at 20, stx_mode at 28.
+  // AT_FDCWD or the descriptor with AT_EMPTY_PATH, AT_SYMLINK_NOFOLLOW, STATX_TYPE | STATX_MODE | STATX_UID |
+  // STATX_GID; the layout of struct statx is the same on every architecture: stx_uid at 20, stx_gid at 24, stx_mode
+  // at 28.
   final asked = descriptor == null
-      ? libc.statx(-100, arena.string(path), 0x100, 0x1 | 0x2 | 0x8, buffer)
-      : libc.statx(descriptor, arena.string(''), 0x1000 | 0x100, 0x1 | 0x2 | 0x8, buffer);
+      ? libc.statx(-100, arena.string(path), 0x100, 0x1 | 0x2 | 0x8 | 0x10, buffer)
+      : libc.statx(descriptor, arena.string(''), 0x1000 | 0x100, 0x1 | 0x2 | 0x8 | 0x10, buffer);
   if (asked != 0) return null;
   final data = ByteData.sublistView(buffer.cast<Uint8>().asTypedList(256));
   final mode = data.getUint16(28, Endian.host);
@@ -630,7 +634,12 @@ PathFacts? pathFactsOf(String path, int? descriptor) => _native((libc, arena) {
     0xa000 => FileSystemEntityType.link,
     _ => FileSystemEntityType.unixDomainSock,
   };
-  return PathFacts(owner: data.getUint32(20, Endian.host), permissions: mode & 0x1ff, type: type);
+  return PathFacts(
+    owner: data.getUint32(20, Endian.host),
+    group: data.getUint32(24, Endian.host),
+    permissions: mode & 0x1ff,
+    type: type,
+  );
 });
 
 /// For a test: asked before each allocation of a native call here, which fails where it answers true, as one whose

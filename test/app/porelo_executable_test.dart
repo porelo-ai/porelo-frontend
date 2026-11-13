@@ -34,11 +34,13 @@ void main() {
       ? pathFactsOf(path, descriptor)
       : const PathFacts(owner: 0, permissions: 0x1ed, type: FileSystemEntityType.directory);
 
-  PoreloFound find({List<String>? places}) => findPoreloExecutable(
+  /// The test's own files carry the gid it runs as; [group] is that gid, or another.
+  PoreloFound find({List<String>? places, ReadPathFacts? facts, int? group}) => findPoreloExecutable(
     places: places ?? poreloPlaces(<String, String>{'HOME': home}),
-    onWindows: false,
-    facts: system,
+    onLinux: true,
+    facts: facts ?? system,
     me: me,
+    myGroup: group ?? pathFactsOf(real, null)!.group,
   );
 
   // Harm: the planner given a relative or linked path, which another file swapped in later would answer for.
@@ -62,8 +64,13 @@ void main() {
   // Harm: the planner lends the person's forge tokens through a program another account could swap.
   test('a Porelo that others could swap is refused, and the next place is not taken instead', () {
     Link('$home/.local/bin/porelo').createSync(real);
-    Process.runSync('chmod', <String>['775', real]);
-    expect(find(places: <String>['$home/.local/bin/porelo', '/usr/bin/porelo']).path, isNull);
+    // A second Porelo the check would pass, where a refused first place falling through would find it.
+    final next = '${where.path}/opt/porelo/next';
+    File(next).writeAsStringSync('#!/bin/sh\n');
+    Process.runSync('chmod', <String>['755', next]);
+    expect(find(places: <String>[next]).path, next, reason: 'the next place alone would be taken');
+    Process.runSync('chmod', <String>['757', real]);
+    expect(find(places: <String>['$home/.local/bin/porelo', next]).path, isNull);
     expect(find().refused, contains('can be written by others'));
 
     Process.runSync('chmod', <String>['755', real]);
@@ -75,24 +82,32 @@ void main() {
     PathFacts? foreign(String path, int? descriptor) => path == real
         ? const PathFacts(owner: 4242, permissions: 0x1ed, type: FileSystemEntityType.file)
         : system(path, descriptor);
-    final owned = findPoreloExecutable(
-      places: <String>['$home/.local/bin/porelo'],
-      onWindows: false,
-      facts: foreign,
-      me: me,
-    );
+    final owned = find(places: <String>['$home/.local/bin/porelo'], facts: foreign);
     expect(owned.path, isNull);
     expect(owned.refused, contains('owned by another account'));
   });
 
-  // Harm: a planner given a path no Porelo lies at, or one on Windows, where the window has no Porelo of its own.
-  test('nothing is given where no Porelo is installed, or on Windows', () {
+  // Harm: a planner given a path no Porelo lies at, or one off Linux, where the window has no Porelo of its own.
+  test('nothing is given where no Porelo is installed, or off Linux, and nothing is refused', () {
     expect(find(places: <String>['$home/.local/bin/porelo']), (path: null, refused: null));
     Link('$home/.local/bin/porelo').createSync(real);
-    expect(findPoreloExecutable(places: <String>['$home/.local/bin/porelo'], onWindows: true, facts: system, me: me), (
+    expect(findPoreloExecutable(places: <String>['$home/.local/bin/porelo'], onLinux: false, facts: system, me: me), (
       path: null,
       refused: null,
     ));
+  });
+
+  // Harm: private repositories silently not read where the person's umask is 002 with a group of their own; or a
+  // Porelo another group may write lent the person's tokens.
+  test("a Porelo its owner's own group may write is taken, another group's refused", () {
+    Link('$home/.local/bin/porelo').createSync(real);
+    Process.runSync('chmod', <String>['775', real, '$home/.local/bin', '${where.path}/opt']);
+    final mine = pathFactsOf(real, null)!.group;
+
+    expect(find(group: mine), (path: real, refused: null), reason: 'the group is the person\'s own');
+    final other = find(group: mine + 1);
+    expect(other.path, isNull);
+    expect(other.refused, contains('a group other than your own'));
   });
 
   // Harm: a Porelo path the window inherited, which anybody who started it could choose, handed on to the planner.
