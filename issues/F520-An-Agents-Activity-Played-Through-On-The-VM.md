@@ -7,7 +7,7 @@
   "title": "An Agents Activity Played Through On The VM",
   "state": "Backlog",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 93,
   "blockedBy": [],
   "covers": "Story ST33, an agent shown working, resting or waiting, played once on the test VM in the window and at the command line as a person would, for ST347's gathered story run: the task card and the CLI compared while an agent works, rests and waits, with Porelo's stub agent and with pi."

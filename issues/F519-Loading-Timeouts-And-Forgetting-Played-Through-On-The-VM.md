@@ -7,7 +7,7 @@
   "title": "Loading Timeouts And Forgetting Played Through On The VM",
   "state": "Backlog",
   "size": "S",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 92,
   "blockedBy": [],
   "covers": "Story ST32, load, time out and forget one connection, played once on the test VM in the window as a person would, for ST347's gathered story run: a first load and a rare action showing one loading state, a server that never answers ending in a named timeout, one connection forgotten and the others kept."

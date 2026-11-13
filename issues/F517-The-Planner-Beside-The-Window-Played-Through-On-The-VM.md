@@ -7,7 +7,7 @@
   "title": "The Planner Beside The Window Played Through On The VM",
   "state": "Backlog",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 90,
   "blockedBy": [],
   "covers": "Story ST335, the planner runs beside the window and follows its updates, played once on the test VM in the window as a person would, for ST347's gathered story run: the planner updated while the window is open, the window closed and opened again, the planner killed and found again."

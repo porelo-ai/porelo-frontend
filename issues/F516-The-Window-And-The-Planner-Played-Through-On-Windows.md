@@ -7,7 +7,7 @@
   "title": "The Window And The Planner Played Through On Windows",
   "state": "Backlog",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 89,
   "blockedBy": [],
   "covers": "Story ST334, the window and the planner on Windows, played once on a Windows test machine as a person would, for ST347's gathered story run: both installed, Planning opened, the board read through the local planner, both Windows builds green."

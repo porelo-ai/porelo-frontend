@@ -7,7 +7,7 @@
   "title": "A Machine And A Host Played Through From Windows",
   "state": "Backlog",
   "size": "L",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 94,
   "blockedBy": [],
   "covers": "Story ST50, a machine and a host reached from Windows, played once from the Windows build as a person would, for ST347's gathered story run: the test VM watched over ssh with its projects, work, terminal and gate, and a host from its card joined, prepared, admitted and added to."

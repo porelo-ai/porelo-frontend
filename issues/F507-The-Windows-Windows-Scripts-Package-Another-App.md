@@ -7,7 +7,7 @@
   "title": "The Window's Windows Scripts Package Another App",
   "state": "Implementing",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 20,
   "blockedBy": [],
   "covers": "The Windows packing and install check take the app's name, version, files, manifest and start as parameters, so another repository's Windows build calls them at a pinned commit; the window's own packages stay as they are, and neither script leaves a signing key or the app's files behind."

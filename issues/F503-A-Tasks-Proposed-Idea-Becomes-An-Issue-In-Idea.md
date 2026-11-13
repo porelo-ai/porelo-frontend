@@ -7,7 +7,7 @@
   "title": "A Task's Proposed Idea Becomes An Issue In Idea",
   "state": "Backlog",
   "size": "S",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 19,
   "blockedBy": [],
   "covers": "Each idea a task on a watched machine proposes is handed once to the planner as a new issue in Idea of the task's repository, naming the task it came from, also across restarts of the window; a refusal is said once, a planner not reached is tried again."

@@ -7,7 +7,7 @@
   "title": "A Terminal And Live List Played Through On The VM",
   "state": "Backlog",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 88,
   "blockedBy": [],
   "covers": "Story ST47, a terminal and live list used together, played once on the test VM in the window as a person would, for ST347's gathered story run: a task's terminal used as an ordinary terminal, task list --watch open beside it, Ctrl-C giving the terminal back."

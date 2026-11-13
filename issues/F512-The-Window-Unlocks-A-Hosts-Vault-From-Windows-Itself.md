@@ -7,7 +7,7 @@
   "title": "The Window Unlocks A Host's Vault From Windows Itself",
   "state": "Backlog",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 85,
   "blockedBy": [],
   "covers": "On Windows the window opens a host's vault itself, over the card's own ssh config: the pin, the agent's key, the share from its signature, and Porelo's vault commands on the host."

@@ -7,7 +7,7 @@
   "title": "The Chosen Branch Played Through On The VM",
   "state": "Backlog",
   "size": "M",
-  "priority": "High",
+  "priority": "Medium",
   "rank": 91,
   "blockedBy": [],
   "covers": "Story ST38, the chosen branch receives the work, played once on the test VM in the window as a person would, for ST347's gathered story run: a branch template and an explicit branch chosen, the work approved, the result read on GitHub, another's branch refused."
