@@ -22,6 +22,7 @@ import '../app/machines.dart';
 import '../app/planner.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
+import '../app/window_log.dart';
 import '../client/models.dart' show AgentEnded, Mode, Task;
 import '../client/porelo_client.dart' show FeatureNotSupported, StartProgress;
 import '../wire/varlink_exception.dart';
@@ -99,6 +100,9 @@ class WindowTaskStarts {
 
   /// Told the task a discussion started, as the machine lists it, so the person is shown its session.
   void Function(Machine machine, Task task)? onDiscussionStarted;
+
+  /// Told what a refused planned Start said, so the person sees it at once, beside the planning screen's own line.
+  void Function(String words)? onStartRefused;
 
   static Machine? _noMachine(String name) => null;
 
@@ -221,9 +225,11 @@ class WindowTaskStarts {
       answer = await start();
     } on VarlinkException catch (error) {
       await _refused(task.offer);
+      _sayRefused(machine, project, story, task, error.toString());
       throw PlanningRefusal(error.simpleName, error.parameters, error.toString(), error.isMethodNotFound);
     } on Exception catch (error) {
       await _refused(task.offer);
+      _sayRefused(machine, project, story, task, '$error');
       // The window's refusals of a start, each already in words.
       throw PlanningRefusal('StartRefused', {'detail': '$error'}, '$error');
     }
@@ -235,6 +241,7 @@ class WindowTaskStarts {
           ? printed
           : '${machine.name} answered Start with ${answer.action?.name ?? 'no action'} and exit code '
                 '${answer.exitCode ?? 'none'}, starting no task.';
+      _sayRefused(machine, project, story, task, words);
       throw PlanningRefusal('StartRefused', {'detail': words}, words);
     }
     _startedOn[(project, container)] = machine;
@@ -282,6 +289,17 @@ class WindowTaskStarts {
       if (settings.plannedOffer(machine.name, container) case final kept?) onConfirmed?.call(kept);
     }
     return PlanningTaskStarted(task: name, container: container);
+  }
+
+  /// Writes a refused Start of [task] to the window's log and tells [onStartRefused], alike on every way Start refuses:
+  /// what the person asked for is never lost to a quiet line alone.
+  void _sayRefused(Machine machine, String project, String story, PlanningTaskOrder task, String words) {
+    final what = task.role == 'DISCUSSION'
+        ? 'a discussion'
+        : 'the ${task.role.toLowerCase()} task of $story${task.repository == null ? '' : ' in ${task.repository}'}';
+    final said = 'Start of $what for $project on ${machine.name} was refused: $words';
+    windowLog.warn('Planning: $said', machine: machine.name);
+    onStartRefused?.call(said);
   }
 
   /// No task stands for [offer]: nothing is left to find again.

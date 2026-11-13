@@ -511,7 +511,8 @@ class _ShellState extends State<Shell> {
     }
     widget.planning?.starts
       ?..chooseDiscussion = _chooseDiscussion
-      ..onDiscussionStarted = _discussionStarted;
+      ..onDiscussionStarted = _discussionStarted
+      ..onStartRefused = _plannedStartRefused;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
@@ -1040,6 +1041,21 @@ class _ShellState extends State<Shell> {
       _plannersLog = now;
       _plannersLevel = level;
     });
+  }
+
+  /// Says a planned Start the machine refused where every page shows it, as the planning screen's line is easily missed.
+  void _plannedStartRefused(String words) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const Key('planned-start-refused'),
+          content: Text(words),
+          duration: const Duration(seconds: 20),
+          showCloseIcon: true,
+        ),
+      );
   }
 
   /// Opens a log and says what came of it where every page shows it, since not every page has a status line.
@@ -6917,7 +6933,8 @@ class _ShellState extends State<Shell> {
     }
     widget.planning?.starts
       ?..chooseDiscussion = null
-      ..onDiscussionStarted = null;
+      ..onDiscussionStarted = null
+      ..onStartRefused = null;
     _attention.dispose();
     _planning?.dispose();
     widget.machines.pauseAutomaticRetries();

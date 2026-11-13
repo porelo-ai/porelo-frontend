@@ -659,12 +659,16 @@ class FakeBackend implements FleetBackend {
     String? callerKey,
   }) async {
     discussed.add((project: project, agent: agent, model: model, mode: mode, prompt: prompt, result: result));
+    if (discussionAnswer case final answer?) return answer;
     final ordered = FakeBackend.ordered;
     if (ordered == null) throw UnimplementedError('No scenario starts a discussion on this stand-in.');
     final started = await ordered();
     bringsUp(Task.from({'name': started.container, 'task': started.task, 'project': project, 'running': true}));
     return StartProgress(container: started.container, exitCode: 0, action: StartAction.create);
   }
+
+  /// What Start answers a discussion with, where set, instead of starting one.
+  StartProgress? discussionAnswer;
 
   /// Each discussion of an idea started on this machine, as Start was asked.
   final discussed = <({String project, String agent, String model, Mode mode, String prompt, String result})>[];
