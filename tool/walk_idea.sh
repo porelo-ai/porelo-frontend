@@ -4,6 +4,7 @@
 #
 #   tool/walk_idea.sh check --vm USER@VM --vm-key FILE [--planner DIR]
 #   tool/walk_idea.sh prepare --vm USER@VM --vm-key FILE [--planner DIR] [--porelo DIR] [--identity DIR --organization FILE]
+#                             [--known-hosts FILE]
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
 #                           [--porelo-project foo-project] [--mail drop|keep] [--project NAME] [--issue-repo foo-1]... [--budget-minutes 180]
 #                           [--porelo DIR] [--test walking_an_idea|a_tasks_results_land|the_planner_moves_work_on|forwarding_to_a_branch]
@@ -46,16 +47,17 @@
 # porelod of --porelo in ~/.local/bin (the ones there kept beside as *.walk-kept), Flutter, and the pub cache of this
 # checkout's pubspec.lock; with --identity DIR (the test person's card and key.pub, as porelo keeps them in
 # ~/.config/porelo/identity) and --organization FILE (the organization.yml porelo follows), those two put where the VM's
-# porelo reads them, never over another card. It names no repository, places no project and declares nothing. The
-# package state is one short id hashed from the porelo of --porelo (its COMMIT and SHA256SUMS) or else the VM's own (`porelo
-# --version`), the planner's SHA256SUMS, the Flutter version and pubspec.lock; it is written to ~/.walk-prepared/STATE
-# on the VM and named in the snapshot prepare asks for, walk-prepared-<id>: whoever keeps the VM's snapshots takes it,
-# the VM shut down. `run --snapshot NAME` starts a scenario from that snapshot: the program of --revert-hook (or
-# WALK_REVERT_HOOK) is called with NAME alone and takes the VM back to it, the run then waits for the VM, and starts
-# only where the VM's STATE is this run's package state, so it is given the --porelo and --planner its prepare had;
-# nothing is installed again, porelo is not swapped. Everything that names the story's repositories (the project placed,
-# the vault, the declaration, the planner's state) is made by the run after the revert. A `resume` never reverts: it
-# goes on with the kept VM as it is.
+# porelo reads them, never over another card; with --known-hosts FILE (github.com's host key lines), each line not there
+# yet added to ~/.local/state/porelo/known_hosts, where porelo reads the forge's host key, not ~/.ssh/known_hosts. It
+# names no repository, places no project and declares nothing. The package state is one short id hashed from the porelo
+# of --porelo (its COMMIT and SHA256SUMS) or else the VM's own (`porelo --version`), the planner's SHA256SUMS, the
+# Flutter version and pubspec.lock; it is written to ~/.walk-prepared/STATE on the VM and named in the snapshot prepare
+# asks for, walk-prepared-<id>: whoever keeps the VM's snapshots takes it, the VM shut down. `run --snapshot NAME`
+# starts a scenario from that snapshot: the program of --revert-hook (or WALK_REVERT_HOOK) is called with NAME alone and
+# takes the VM back to it, the run then waits for the VM, and starts only where the VM's STATE is this run's package
+# state, so it is given the --porelo and --planner its prepare had; nothing is installed again, porelo is not swapped.
+# Everything that names the story's repositories (the project placed, the vault, the declaration, the planner's state)
+# is made by the run after the revert. A `resume` never reverts: it goes on with the kept VM as it is.
 #
 # --mail drop, the default, applies the porelo project without its mail section; keep applies it as it is, which only a
 # VM whose porelo applies a project's mail section takes: until the VM's porelo does, a walk goes without mail.
@@ -81,14 +83,14 @@
 set -euo pipefail
 
 usage() {
-    sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
 }
 
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-test=walking_an_idea from=1 vm='' vm_key='' vm_jump='' vm_known_hosts='' vm_jump_known_hosts='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=drop report='' budget=180 snapshot='' revert_hook=${WALK_REVERT_HOOK:-} identity='' organization=''
+test=walking_an_idea from=1 vm='' vm_key='' vm_jump='' vm_known_hosts='' vm_jump_known_hosts='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=drop report='' budget=180 snapshot='' revert_hook=${WALK_REVERT_HOOK:-} identity='' organization='' known_hosts=''
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
@@ -112,6 +114,7 @@ while [ $# -gt 0 ]; do
     --snapshot) snapshot=$2 ;;
     --identity) identity=$2 ;;
     --organization) organization=$2 ;;
+    --known-hosts) known_hosts=$2 ;;
     --revert-hook) revert_hook=$2 ;;
     *) usage ;;
     esac
@@ -131,6 +134,16 @@ if [ -n "$identity$organization" ]; then
         echo "walk: --identity names no folder holding card and key.pub, or --organization no file" >&2
         exit 64
     }
+fi
+if [ -n "$known_hosts" ]; then
+    [ "$mode" = prepare ] || usage
+    # Host key lines alone, at least one: they reach the VM's command line read by a shell as data.
+    if [ ! -f "$known_hosts" ] || ! grep -Eqv '^[[:space:]]*(#|$)' "$known_hosts" ||
+        grep -Ev '^[[:space:]]*(#|$)' "$known_hosts" |
+        grep -Evq '^[^[:space:]]+ (ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)) [A-Za-z0-9+/=]+$'; then
+        echo "walk: --known-hosts names no file of host key lines alone" >&2
+        exit 64
+    fi
 fi
 # A scenario starts from the VM's snapshot only in a run, and only with the program that takes the VM back to it.
 if [ -n "$snapshot" ]; then
@@ -382,6 +395,13 @@ prepare_vm() {
         on_vm "set -e; umask 077; cat >~/.config/porelo/organization.yml.walk-new
             mv ~/.config/porelo/organization.yml.walk-new ~/.config/porelo/organization.yml" <"$organization"
         echo "walk: the card of $(sed -n 's/^login: *"\{0,1\}\([A-Za-z0-9-]*\).*/\1/p' "$identity/card" | head -1) and its organization are in place on $vm"
+    fi
+    if [ -n "$known_hosts" ]; then
+        # porelo reads the forge's host key from its own state, not ~/.ssh/known_hosts: each line missing there added.
+        grep -Ev '^[[:space:]]*(#|$)' "$known_hosts" | on_vm "set -e; umask 077; mkdir -p ~/.local/state/porelo
+            f=~/.local/state/porelo/known_hosts; touch \$f
+            while IFS= read -r line; do grep -qxF -- \"\$line\" \$f || printf '%s\\n' \"\$line\" >>\$f; done"
+        echo "walk: the host keys of $known_hosts are in porelo's known_hosts on $vm"
     fi
     fetch_flutter
     # The pub cache of this checkout's packages, so a run's build fetches none of them.
