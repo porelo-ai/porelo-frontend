@@ -6,6 +6,7 @@
 #   tool/play_story.sh run   --story NAME --report DIR [--vm USER@VM --vm-key FILE] [--packages DIR]
 #                            [--expect PART=ISSUE]... [--budget-minutes 60]
 #                            [--org ORG] [--seed DIR] [--issue-repo REPO]... [--porelo-project NAME] [--planner DIR]
+#   each also with [--vm-known-hosts FILE] [--vm-jump USER@HOST [--vm-jump-known-hosts FILE]], as tool/walk_idea.sh
 #
 # NAME is a story of the `case` below: integration_test/NAME.feature and its generated NAME_test.dart, played on the
 # machine the case names, and the Windows builds it names, read on GitHub from here. A step names in its line the part
@@ -43,19 +44,22 @@
 set -euo pipefail
 
 usage() {
-    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
 }
 
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-vm='' vm_key='' story='' report='' packages='' budget=60 expects=() walk=()
+vm='' vm_key='' vm_jump='' vm_known_hosts='' vm_jump_known_hosts='' story='' report='' packages='' budget=60 expects=() walk=()
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
     --vm) vm=$2 ;;
     --vm-key) vm_key=$2 ;;
+    --vm-jump) vm_jump=$2 ;;
+    --vm-known-hosts) vm_known_hosts=$2 ;;
+    --vm-jump-known-hosts) vm_jump_known_hosts=$2 ;;
     --story) story=$2 ;;
     --report) report=$2 ;;
     --packages) packages=$2 ;;
@@ -78,6 +82,8 @@ shaped() {
     }
 }
 shaped --vm "$vm" '[A-Za-z0-9_][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9.:-]*'
+shaped --vm-jump "$vm_jump" '[A-Za-z0-9_][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9.:-]*'
+[ -n "$vm_jump" ] || [ -z "$vm_jump_known_hosts" ] || usage
 shaped --story "$story" '[a-z0-9][a-z0-9_]*'
 for each in "${expects[@]}"; do shaped --expect "$each" '[a-z][a-z0-9-]*=[A-Za-z0-9][A-Za-z0-9#._/-]*'; done
 
@@ -146,8 +152,27 @@ flutter_dir=".cache/porelo-frontend/flutter-$flutter_version"
 work=$(mktemp -d)
 
 # The machine is reached with its own key alone: never the operator's agent, never a password asked, no display
-# forwarded.
+# forwarded. Where given, through the hop --vm-jump with the same key, each with its pinned host key alone; the same
+# options go on to tool/walk_idea.sh.
+reach=()
+for each in vm_known_hosts vm_jump_known_hosts; do
+    [ -n "${!each}" ] || continue
+    [ -r "${!each}" ] && [ -f "${!each}" ] || {
+        echo "play: --${each//_/-} ${!each} is no readable file" >&2
+        exit 64
+    }
+    reach+=("--${each//_/-}" "${!each}")
+done
+[ -z "$vm_jump" ] || reach+=(--vm-jump "$vm_jump")
 ssh_options=(-o BatchMode=yes -o IdentitiesOnly=yes -i "$vm_key")
+[ -z "$vm_known_hosts" ] || ssh_options+=(-o "UserKnownHostsFile=$vm_known_hosts" -o StrictHostKeyChecking=yes)
+if [ -n "$vm_jump" ]; then
+    # Read by a shell as the hop's command line: every path in it plain, no space, no quote.
+    for each in "$vm_key" "$vm_jump_known_hosts"; do shaped "the path $each" "$each" '[A-Za-z0-9_./+~-]+'; done
+    hop="ssh -x -o BatchMode=yes -o IdentitiesOnly=yes -o ForwardAgent=no -i $vm_key"
+    [ -z "$vm_jump_known_hosts" ] || hop+=" -o UserKnownHostsFile=$vm_jump_known_hosts -o StrictHostKeyChecking=yes"
+    ssh_options+=(-o "ProxyCommand=$hop -W %h:%p $vm_jump")
+fi
 on_vm() {
     env -u SSH_AUTH_SOCK SSH_ASKPASS_REQUIRE=never ssh -x "${ssh_options[@]}" "$vm" "$(in_the_login_shell "$@")"
 }
@@ -283,7 +308,7 @@ check() {
 
 if [ "$mode" = check ] && [ -n "$handed" ]; then
     rm -rf "$work"
-    exec "$here/tool/walk_idea.sh" check --vm "$vm" --vm-key "$vm_key"
+    exec "$here/tool/walk_idea.sh" check --vm "$vm" --vm-key "$vm_key" "${reach[@]}"
 fi
 if [ "$mode" = check ]; then
     check
@@ -388,7 +413,7 @@ print(r[0][\"archive\"], r[0][\"sha256\"]) if r else None')
 # The story played by tool/walk_idea.sh; its report, in DIR/walk, taken up as this one's.
 play_walk() {
     local status=0
-    "$here/tool/walk_idea.sh" run --vm "$vm" --vm-key "$vm_key" --report "$report/walk" --test "$story" --mail drop \
+    "$here/tool/walk_idea.sh" run --vm "$vm" --vm-key "$vm_key" "${reach[@]}" --report "$report/walk" --test "$story" --mail drop \
         --budget-minutes "$budget" "${walk[@]}" || status=$?
     echo "play: tool/walk_idea.sh ended with $status"
     cp "$report/walk/scenarios.txt" "$report/scenarios.txt" 2>/dev/null || true

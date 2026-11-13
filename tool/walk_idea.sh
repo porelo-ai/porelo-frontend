@@ -8,6 +8,7 @@
 #                           [--porelo DIR] [--test walking_an_idea|a_tasks_results_land|the_planner_moves_work_on|forwarding_to_a_branch]
 #   tool/walk_idea.sh resume --vm USER@VM --vm-key FILE --report DIR --from N
 #   tool/walk_idea.sh clean  --vm USER@VM --vm-key FILE --report DIR
+#   each also with [--vm-known-hosts FILE] [--vm-jump USER@HOST [--vm-jump-known-hosts FILE]]
 #
 # A red step keeps the run: nothing is cleaned up, the VM's state stays for a repair by hand, and the report DIR holds
 # the run's state. `resume` copies this checkout's HEAD there again and walks on from step N (step 1, which opens the
@@ -33,6 +34,12 @@
 # and the test's own output, and probe.log: every call of the planner's probe, its arguments, exit code and whole
 # output, OK or not, never a token.
 #
+# A VM behind another machine is reached through it: --vm-jump names that hop, reached with the same --vm-key, and
+# every ssh of the run goes through it, the test person's agent forwarded to the VM alone, never to the hop.
+# --vm-known-hosts and --vm-jump-known-hosts each name a file holding the pinned host key of the VM and of the hop,
+# which is then the only key taken (StrictHostKeyChecking=yes). Nothing of the run needs sudo on the VM; what it lacks
+# there, check says with the line an operator installs it with.
+#
 # --mail drop, the default, applies the porelo project without its mail section; keep applies it as it is, which only a
 # VM whose porelo applies a project's mail section takes: until the VM's porelo does, a walk goes without mail.
 #
@@ -57,19 +64,22 @@
 set -euo pipefail
 
 usage() {
-    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
 }
 
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-test=walking_an_idea from=1 vm='' vm_key='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=drop report='' budget=180
+test=walking_an_idea from=1 vm='' vm_key='' vm_jump='' vm_known_hosts='' vm_jump_known_hosts='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=drop report='' budget=180
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
     --vm) vm=$2 ;;
     --vm-key) vm_key=$2 ;;
+    --vm-jump) vm_jump=$2 ;;
+    --vm-known-hosts) vm_known_hosts=$2 ;;
+    --vm-jump-known-hosts) vm_jump_known_hosts=$2 ;;
     --planner) planner=$2 ;;
     --porelo) porelo_dir=$2 ;;
     --from) from=$2 ;;
@@ -107,6 +117,34 @@ shaped() {
     }
 }
 shaped --vm "$vm" '[A-Za-z0-9_][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9.:-]*'
+shaped --vm-jump "$vm_jump" '[A-Za-z0-9_][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9.:-]*'
+# The VM's own key and, where given, the hop it is reached through and each one's pinned host key: every ssh of the
+# run takes the same options, the agent's forwarding to the VM included; the hop is never given the agent.
+reached=(--vm "$vm" --vm-key "$vm_key")
+for each in vm_key vm_known_hosts vm_jump_known_hosts; do
+    [ -n "${!each}" ] || continue
+    [ -r "${!each}" ] && [ -f "${!each}" ] || {
+        echo "walk: --${each//_/-} ${!each} is no readable file" >&2
+        exit 64
+    }
+    # Absolute and plain, as the hop's command line is read by a shell: no space, no quote.
+    printf -v "$each" '%s' "$(readlink -f -- "${!each}")"
+    shaped "--${each//_/-}" "${!each}" '/[A-Za-z0-9_./+-]+'
+done
+ssh_options=(-o BatchMode=yes -o IdentitiesOnly=yes -i "$vm_key")
+if [ -n "$vm_known_hosts" ]; then
+    ssh_options+=(-o "UserKnownHostsFile=$vm_known_hosts" -o StrictHostKeyChecking=yes)
+    reached+=(--vm-known-hosts "$vm_known_hosts")
+fi
+if [ -n "$vm_jump" ]; then
+    hop="ssh -x -o BatchMode=yes -o IdentitiesOnly=yes -o ForwardAgent=no -i $vm_key"
+    [ -z "$vm_jump_known_hosts" ] || hop+=" -o UserKnownHostsFile=$vm_jump_known_hosts -o StrictHostKeyChecking=yes"
+    ssh_options+=(-o "ProxyCommand=$hop -W %h:%p $vm_jump")
+    reached+=(--vm-jump "$vm_jump")
+    [ -z "$vm_jump_known_hosts" ] || reached+=(--vm-jump-known-hosts "$vm_jump_known_hosts")
+elif [ -n "$vm_jump_known_hosts" ]; then
+    usage
+fi
 shaped --org "$org" '[A-Za-z0-9][A-Za-z0-9-]{0,38}'
 # The planner and its probe take a project name in lower case alone.
 shaped --project "$project" '[a-z0-9][a-z0-9._-]{0,99}'
@@ -144,13 +182,13 @@ flutter_dir=".cache/porelo-frontend/flutter-$flutter_version"
 
 # The VM is reached with its own key alone: never the operator's agent, never a password asked.
 on_vm() {
-    env -u SSH_AUTH_SOCK SSH_ASKPASS_REQUIRE=never ssh -x -o BatchMode=yes -o IdentitiesOnly=yes -i "$vm_key" "$vm" \
+    env -u SSH_AUTH_SOCK SSH_ASKPASS_REQUIRE=never ssh -x "${ssh_options[@]}" "$vm" \
         "$(in_the_login_shell "$@")"
 }
 
 # The VM with the test person's agent forwarded, for the calls that reach the forge or the organization as that person.
 as_the_person_on_vm() {
-    SSH_ASKPASS_REQUIRE=never ssh -x -A -o BatchMode=yes -o IdentitiesOnly=yes -i "$vm_key" "$vm" \
+    SSH_ASKPASS_REQUIRE=never ssh -x -A "${ssh_options[@]}" "$vm" \
         "$(in_the_login_shell "$@")"
 }
 
@@ -404,7 +442,7 @@ print(answer["default_branch"], "true" if answer["private"] else "false")' "$wor
     done
     if [ ${#there[@]} -gt 0 ]; then
         echo "walk: the story's repositories are in $org already, left by a run of $test that failed or is kept; nothing is made" >&2
-        echo "walk: where its report DIR is kept, tool/walk_idea.sh clean --vm $vm --vm-key $vm_key --report DIR takes them away; else:" >&2
+        echo "walk: where its report DIR is kept, tool/walk_idea.sh clean ${reached[*]} --report DIR takes them away; else:" >&2
         for each in "${there[@]}"; do echo "  gh repo delete $org/$each --yes" >&2; done
         rm -rf "$work"
         exit 1
@@ -448,8 +486,8 @@ cleanup() {
         [ -z "$holder" ] || kill "$holder" 2>/dev/null || true
         token=''
         rm -rf "$work"
-        echo "walk: the run is kept on $vm as ~/$run; go on with: tool/walk_idea.sh resume --vm $vm --vm-key $vm_key --report $report --from <step>" >&2
-        echo "walk: or take it away with: tool/walk_idea.sh clean --vm $vm --vm-key $vm_key --report $report" >&2
+        echo "walk: the run is kept on $vm as ~/$run; go on with: tool/walk_idea.sh resume ${reached[*]} --report $report --from <step>" >&2
+        echo "walk: or take it away with: tool/walk_idea.sh clean ${reached[*]} --report $report" >&2
         return
     fi
     on_vm "if [ -f ~/$run/pid ]; then kill -TERM -- -\$(cat ~/$run/pid) 2>/dev/null || true; fi
