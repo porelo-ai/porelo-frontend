@@ -5,9 +5,9 @@
   "$schema": "issue-1.json",
   "id": "F479",
   "title": "A Planner The Window Started Ends With It",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 15,
   "blockedBy": [],
   "covers": "A planner the window started because none was serving ends when the window ends, so it neither holds the planner's address file nor stands in the way of the next planner; a planner the window found serving is left running."
@@ -73,5 +73,20 @@ instance one built from source, could not start until it was killed by hand.
 
 - The planner removes `planner.json` itself on a graceful stop (its address file closes with the planner's context and
   deletes the file while it holds the lock), so `end()` only ends the planner and leaves the file alone.
-- porelo-planner does not serve `--end-with-input` yet; a planner started with an option it does not know refuses to
-  start, so this issue is built only after it does.
+- porelo-planner serves `--end-with-input`: its changelog and documentation name the option.
+
+## How it was built
+
+- `LocalPlanner` (`lib/src/app/planner.dart`) starts the planner in `ProcessStartMode.normal` with `--end-with-input`
+  and keeps the process, its input open and never written; its output and error go into the window's log line by line,
+  a long line in pieces. It keeps the address the planner then wrote as the one it started.
+- `LocalPlanner.end()`, shared by every caller at once, ends only a planner the window started, and only while the
+  address file still names the address it started: SIGTERM, two seconds, then SIGKILL (`stopOwnedProcess`), each said
+  in the window's log. A planner found serving is never touched.
+- The window's ends call it through `EndsWithTheWindow`: `_letGo` in `lib/src/ui/shell.dart` once the person agreed to
+  leave, and the SIGTERM and SIGINT watch in `lib/main.dart` (`letGoOnSignals`), which lets go of the tunnels, the
+  forwards and the planner at once and exits within five seconds. A hard kill ends the planner by its closed input.
+- Tests: `test/app/planner_end_test.dart` (the start asks for `--end-with-input` and keeps the input open; a started
+  planner ended on `end()`, one found serving and one whose address file names another address left alone, one that
+  ignores SIGTERM killed), `test/ui/planner_ends_with_window_test.dart` (closing the window ends it) and
+  `test/app/ending_signals_test.dart` (a signal lets go of everything and exits, also when letting go hangs).
