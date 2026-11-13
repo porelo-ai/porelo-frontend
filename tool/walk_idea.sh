@@ -908,17 +908,24 @@ make_repository() {
     if [ "$template" = "$porelo_template" ]; then
         # porelo knows a project by the organization's entry alone, and files its address only for a repository it
         # filled first: the entry is added with the person as its first admin, porelo's first signed commit made in
-        # the still empty repository, and the template's tree put over it in one commit. Noted before it is asked
-        # for, so every ending takes the entry out again where the organization lists it.
-        org_added=yes
-        as_the_person_on_vm "set -e; ${in_vault}porelo org project add --id '$name-org-add' --admin='$person' '$repository' >/dev/null
-            ${in_vault}porelo project create-repository --id '$name-repository' --review optional '$repository' >/dev/null
-            ${in_vault}porelo org --refresh >/dev/null" </dev/null >&2 || {
-            echo "walk: $repository could not be added to the organization and given its repository on $vm" >&2
+        # the still empty repository on main, and the template's tree put over it in one commit. Noted once it was
+        # added, so every ending takes the entry out again; an add that failed is retried once under its id, and an
+        # entry listed after all is named, never taken out: it may be another's.
+        as_the_person_on_vm "${in_vault}porelo org project add --id '$name-org-add' --admin='$person' '$repository' >/dev/null ||
+            ${in_vault}porelo org project add --id '$name-org-add' --admin='$person' '$repository' >/dev/null" </dev/null >&2 || {
+            [ "$(in_the_organization)" != yes ] ||
+                left+=("$repository in the organization (porelo org project remove $repository, as the test person on $vm)")
+            echo "walk: $repository could not be added to the organization on $vm" >&2
             exit 1
         }
-        as_the_person_on_vm "set -e; d=~/$run/fill/$repository; t=~/$run/fill/$repository.template; rm -rf \$d \$t
-            git clone -q 'git@github.com:$org/$repository.git' \$d
+        org_added=yes
+        as_the_person_on_vm "set -e; ${in_vault}porelo project create-repository --id '$name-repository' --review optional '$repository' >/dev/null
+            ${in_vault}porelo org --refresh >/dev/null" </dev/null >&2 || {
+            echo "walk: $repository could not be given its repository by porelo on $vm" >&2
+            exit 1
+        }
+        as_the_person_on_vm "set -eo pipefail; d=~/$run/fill/$repository; t=~/$run/fill/$repository.template; rm -rf \$d \$t
+            git clone -q --branch main 'git@github.com:$org/$repository.git' \$d
             git clone -q --depth 1 --single-branch --branch '$branch' 'git@github.com:$org/$template.git' \$t
             git -C \$d rm -rq --ignore-unmatch -- .
             git -C \$t archive --format=tar HEAD | tar -x -C \$d" </dev/null >&2 || {
@@ -942,8 +949,8 @@ make_repository() {
             exit 1
         }
     fi
-    # The porelo project's onto the branch porelo's first commit made, any other onto its template's.
-    as_the_person_on_vm "cd ~/$run/fill/'$repository' && if [ '$template' = '$porelo_template' ]; then git push -q origin HEAD
+    # The porelo project's onto main, where porelo's first commit is, any other onto its template's branch.
+    as_the_person_on_vm "cd ~/$run/fill/'$repository' && if [ '$template' = '$porelo_template' ]; then git push -q origin HEAD:refs/heads/main
         else git push -q 'git@github.com:$org/$repository.git' HEAD:'refs/heads/$branch'; fi" \
         </dev/null >&2 || {
         echo "walk: $org/$repository could not be filled from $org/$template" >&2
@@ -1058,11 +1065,15 @@ if [ "$mode" = run ]; then
     # The account's card is the person's only while the forwarded agent holds its key.
     read -r holds person < <(as_the_person_on_vm "porelo identity show --json" </dev/null |
         python3 -I -c 'import json,sys; a = json.load(sys.stdin); print(a.get("agent_holds_key"), a.get("login") or "-")' || true) || true
-    shaped "the person's login" "${person:-}" '[A-Za-z0-9][A-Za-z0-9-]{0,38}'
     [ "$holds" = True ] || {
         echo "walk: the agent forwarded to $vm does not hold the key of the card there" >&2
         exit 1
     }
+    [ -n "${person:-}" ] && [ "$person" != - ] || {
+        echo "walk: the card on $vm names no login" >&2
+        exit 1
+    }
+    shaped "the person's login" "$person" '[A-Za-z0-9][A-Za-z0-9-]{0,38}'
 
 fi
 # porelod on the VM is given the person's forwarded agent for the run, as tool/rehearse_window.sh does it, and put
@@ -1094,6 +1105,11 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
     shaped 'the organization forge' "$central_match" 'https://[A-Za-z0-9.-]+/[A-Za-z0-9_.-]+/'
     [ -n "$central_match" ] || {
         echo "walk: porelo on $vm names no forge and owner of the organization" >&2
+        exit 1
+    }
+    # porelo looks for the project's repository beside the organization's: the story's are made under that owner.
+    [ "$central_match" = "https://github.com/$org/" ] || {
+        echo "walk: the organization porelo follows on $vm is kept at $central_match, not under --org $org" >&2
         exit 1
     }
     vault="\$HOME/$run/vault/vault.bin"
