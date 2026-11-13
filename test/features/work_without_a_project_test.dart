@@ -35,6 +35,9 @@ import './step/the_forge_holds_no_key_titled_at.dart';
 import './step/the_project_header_does_not_say.dart';
 import './step/the_project_header_says.dart';
 import './step/the_start_tile_says.dart';
+import './step/the_projects_repositories_are.dart';
+import './step/i_open_from_the_projects_of_this_machine.dart';
+import './step/the_project_lists_no_repositories.dart';
 import './step/default_holds_at_named_by_too.dart';
 import './step/default_no_longer_holds.dart';
 import './step/i_review_what_is_waiting_at_the_gate.dart';
@@ -129,6 +132,34 @@ void main() {
       await theProjectHeaderDoesNotSay(tester, 'environment not prepared');
       await theProjectHeaderSays(tester, 'worked on with Porelo’s own settings');
       await theStartTileSays(tester, 'Start work');
+    });
+    testWidgets('''default's page lists every repository it holds''', (tester) async {
+      await bddSetUp(tester);
+      await defaultHoldsAtAlready(tester, 'utils4j', 'git@example.org:acme/utils4j.git');
+      await defaultHoldsAtAlready(tester, 'units4j', 'git@example.org:acme/units4j.git');
+      await defaultHoldsAtAlready(tester, 'foo-2', 'git@example.org:acme/foo-2.git');
+      await iSelectTheProject(tester, 'default');
+      await theProjectsRepositoriesAre(tester, 'utils4j, units4j, foo-2');
+    });
+    testWidgets(
+      '''default's page opened from its machine lists every repository it holds, and no row named default''',
+      (tester) async {
+        await bddSetUp(tester);
+        await defaultHoldsAtAlready(tester, 'default', 'git@example.org:acme/default.git');
+        await defaultHoldsAtAlready(tester, 'utils4j', 'git@example.org:acme/utils4j.git');
+        await defaultHoldsAtAlready(tester, 'units4j', 'git@example.org:acme/units4j.git');
+        await defaultHoldsAtAlready(tester, 'foo-2', 'git@example.org:acme/foo-2.git');
+        await iOpenFromTheProjectsOfThisMachine(tester, 'default');
+        await theProjectsRepositoriesAre(tester, 'utils4j, units4j, foo-2');
+      },
+    );
+    testWidgets('''default holding nothing but an older Porelo's row named default lists no repositories''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await defaultHoldsAtAlready(tester, 'default', 'git@example.org:acme/default.git');
+      await iSelectTheProject(tester, 'default');
+      await theProjectListsNoRepositories(tester);
     });
     testWidgets('''a repository a project names too is offered to be taken out of default''', (tester) async {
       await bddSetUp(tester);

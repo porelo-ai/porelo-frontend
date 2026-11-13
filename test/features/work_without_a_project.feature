@@ -69,6 +69,30 @@ Feature: Work on a repository without writing a project first
         And the project header says {'worked on with Porelo’s own settings'}
         And the start tile says {'Start work'}
 
+    # Harm: the repositories default holds are nowhere on its page, so a person cannot see what it holds.
+    Scenario: default's page lists every repository it holds
+        Given default holds {'utils4j'} at {'git@example.org:acme/utils4j.git'} already
+        And default holds {'units4j'} at {'git@example.org:acme/units4j.git'} already
+        And default holds {'foo-2'} at {'git@example.org:acme/foo-2.git'} already
+        When I select the project {'default'}
+        Then the project's repositories are {'utils4j, units4j, foo-2'}
+
+    # Harm: default's page opened from its machine lists other rows than the same page opened from its row, as an older
+    # Porelo's row named default.
+    Scenario: default's page opened from its machine lists every repository it holds, and no row named default
+        Given default holds {'default'} at {'git@example.org:acme/default.git'} already
+        And default holds {'utils4j'} at {'git@example.org:acme/utils4j.git'} already
+        And default holds {'units4j'} at {'git@example.org:acme/units4j.git'} already
+        And default holds {'foo-2'} at {'git@example.org:acme/foo-2.git'} already
+        When I open {'default'} from the projects of this machine
+        Then the project's repositories are {'utils4j, units4j, foo-2'}
+
+    # Harm: an older Porelo's row named default shows as a repository default holds.
+    Scenario: default holding nothing but an older Porelo's row named default lists no repositories
+        Given default holds {'default'} at {'git@example.org:acme/default.git'} already
+        When I select the project {'default'}
+        Then the project lists no repositories
+
     # A project that names the repository takes it over for new tasks.
     Scenario: a repository a project names too is offered to be taken out of default
         Given default holds {'api'} at {'https://github.com/acme/api.git'}, named by {'payments'} too

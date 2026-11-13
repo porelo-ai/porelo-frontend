@@ -6370,8 +6370,7 @@ class _ShellState extends State<Shell> {
     final tasks = fleet != null && fleet.listRead && fleet.reachability == Reachability.connected ? fleet.tasks : null;
     final p = project.project;
     final listed = <String, Repository>{
-      for (final each in p.repositoryStates)
-        if (!each.own || p.repositoryStates.length == 1) each.name: each,
+      for (final each in workRepositoriesOf(project.name, p.repositoryStates)) each.name: each,
     };
     final names = listed.keys.toSet();
     if (!_onTheOrganizationsPage(machine)) {
@@ -6394,7 +6393,7 @@ class _ShellState extends State<Shell> {
         ...names,
         for (final row in said?.repositories ?? const <HostRepositoryProgress>[]) row.repository,
         ...?carriedAlone,
-      })
+      }.where((each) => isAWorkRepository(project.name, each)))
         name: (
           words: repositoryOnTheMachine(
             project: project.name,

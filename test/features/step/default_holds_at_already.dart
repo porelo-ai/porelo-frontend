@@ -9,4 +9,7 @@ Future<void> defaultHoldsAtAlready(WidgetTester tester, String name, String upst
     ...World.backend.inDefault,
     DefaultRepository(name: name, upstream: upstream, checkout: '', claimedBy: ''),
   ];
+  // Read again, as a machine answers what default holds in its list of projects too.
+  await World.machines.fleet.refresh(quietly: true);
+  await World.settle(tester);
 }

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F540",
   "title": "The Default Project's Page Lists Its Repositories",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 108,
@@ -17,7 +17,7 @@
 **Why this size.** S: one condition in the project header that leaves `default` out on purpose, a guard against a
 phantom row from an older Porelo, and a test on each of the two ways to the page.
 
-Found on 2026-11-13 with a window of snapshot.512: the page of `default` showed no *Repositories* section, while
+Found: the page of `default` showed no *Repositories* section, while
 `porelo projects` on the same machine said "3 repositories: utils4j, units4j, foo-2".
 
 **What must be true.** The page of `default` lists every repository the machine holds in it, a row each under
@@ -61,6 +61,32 @@ Read on `main` (`441a4663`) and on the daemon's `main` (`c1dade058`). The window
 - Both scenarios fail on `main` and pass after.
 - A `default` that holds nothing shows no section and no phantom row named `default`.
 - `test/features` and `test/ui` pass whole.
+
+## Decided
+
+- Both ways to the page list the same rows: one function, `workRepositoriesOf`, names the work repositories for the
+  project header and for what the machine holds of them. For `default` it lists every repository the daemon answers
+  but a row named `default`; for every other project it leaves the own repository out, as before.
+- The test step that puts a repository into `default` before the scenario reads the machine's projects again, as the
+  step that gives a project its repositories does, so the page shows what the backend holds.
+
+## How it was built
+
+- `lib/src/ui/machine_tree.dart`: `workRepositoriesOf` replaces the empty list `ProjectHeader` gave `default`.
+- `lib/src/ui/shell.dart`: `_onTheMachine` names the repositories through the same function, so the phantom row
+  stays out on the page opened from the machine too.
+- `isAWorkRepository` keeps a row named `default` off the page of `default` whoever names it: the header leaves it out
+  of the names the machine gives, and `_onTheMachine` out of those a host reports as carried or in progress.
+  `test/ui/project_header_test.dart` holds both sides: the row stays out on `default`'s page, and is a row on another
+  project's.
+- `test/features/work_without_a_project.feature`: three scenarios, under *My projects*, from the machine with the
+  phantom row among the three, and a `default` holding only the phantom row; new steps `the project's repositories
+  are` (the exact set of rows in the section) and `the project lists no repositories`.
+- Red: with `main`'s two files the first scenario failed on the missing `project-repositories` section, and the
+  second on the row `default` beside the three (the machine's way listed them on `main` already, as Found says, but
+  with the phantom); with the phantom filter taken out the third failed on the row `repository-default`. With the
+  header's filter of the names a machine gives taken out, the first case of `project_header_test.dart` failed on the
+  row `repository-default`.
 
 ## To be checked
 

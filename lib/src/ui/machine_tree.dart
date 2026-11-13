@@ -395,18 +395,11 @@ class ProjectHeader extends StatelessWidget {
     // default is no project anybody prepares: Porelo's own settings, fixed. What another
     // project lacks is not missing there, and saying so sent a new person looking for it.
     final isDefault = project.name == defaultProject;
-    // The repositories work is done in, one row each (walk 10): the project's own, which
-    // holds its file and planning and is never worked in, is not one of them.
-    final listed = isDefault
-        ? const <Repository>[]
-        : <Repository>[
-            for (final each in p.repositoryStates)
-              if (!each.own || p.repositoryStates.length == 1) each,
-          ];
+    final listed = workRepositoriesOf(project.name, p.repositoryStates);
     final workRepositories = <Repository>[
       ...listed,
       for (final name in onTheMachine?.keys ?? const <String>[])
-        if (!listed.any((each) => each.name == name)) Repository(name: name),
+        if (!listed.any((each) => each.name == name) && isAWorkRepository(project.name, name)) Repository(name: name),
     ];
     // What the machine carries first; what it does not carry folds below, counted, so the few placed there show.
     bool? carried(Repository repository) => onTheMachine?[repository.name]?.carried;
@@ -550,6 +543,20 @@ class ProjectHeader extends StatelessWidget {
     );
   }
 }
+
+/// The repositories work is done in on [project]'s page, one row each (walk 10), as the daemon names them.
+///
+/// Another project's own repository holds its file and planning and is never worked in, so it is not one of them, unless
+/// it is the only one. default has no own repository: every one it holds is listed, except a row named default, which
+/// an older Porelo answered for the project itself.
+List<Repository> workRepositoriesOf(String project, List<Repository> states) => <Repository>[
+  for (final each in states)
+    if (isAWorkRepository(project, each.name) && (project == defaultProject || !each.own || states.length == 1)) each,
+];
+
+/// Whether [repository] may be a row on [project]'s page, whoever names it, the daemon or a host: never a row named
+/// default on default's page, which an older Porelo answered for the project itself.
+bool isAWorkRepository(String project, String repository) => project != defaultProject || repository != defaultProject;
 
 /// A project's repositories, a card each, as machines and projects are listed.
 class _Repositories extends StatelessWidget {
