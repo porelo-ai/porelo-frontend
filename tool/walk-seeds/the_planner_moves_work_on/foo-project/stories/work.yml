@@ -1,0 +1,25 @@
+work:
+  Implementing:
+    from: [Backlog, Rework]
+    done: Review
+    then: Reading
+    per: repository
+    modes: [UNATTENDED]
+    order: "Build {issues} of {story}. Change only what the issues ask, not the tests already there."
+    models: {pi: z-ai/glm-5.3-flash}
+  Reading:
+    from: [Implementing]
+    done: Review
+    blocked: Reworking
+    per: repository
+    modes: [UNATTENDED]
+    order: "Read {tasks}. Read every test of the repository as well: a test that cannot pass as it is written is a blocking finding, named with its file and line."
+    models: {pi: z-ai/glm-5.3-flash}
+  Reworking:
+    from: [Reading]
+    done: Review
+    then: Reading
+    per: repository
+    modes: [UNATTENDED]
+    order: "Rework {issues} of {story}: work off every blocking finding of the reading, a test that cannot pass among them."
+    models: {pi: z-ai/glm-5.3-flash}

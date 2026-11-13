@@ -4,9 +4,10 @@ Feature: The planner moves work on from state to state by itself
 
     # The idea walk with two issue repositories, up to the end of its builders, on a seed whose second repository holds
     # a fault its reader blocks on. From there nothing is started by a step: what moves, the planner and the window
-    # move, and a step reads it on the board, in porelo and in the window. Last, a task fails on a key its provider
+    # move, and a step reads it on the board, in porelo and in the window; only where a reading stops on its blocking
+    # findings does the person choose, Rework, on its Needs-you entry. Last, a task fails on a key its provider
     # refuses, and its card is read.
-    Scenario: work ends, is read, and moves on to Review or Reworking with no start asked for
+    Scenario: work ends, is read and moves on by itself, and a stopped reading is reworked on a choice
         Given the interface is running
         When I open the planning of the walk project
         Then the planner from the path answers for the project
@@ -26,8 +27,8 @@ Feature: The planner moves work on from state to state by itself
         Then Reading is set and its reader runs with no dialog shown
         When the readers end
         Then the first issue stands in Review
-        And the second stands in Reworking and Needs you lists it
-        When I open its Needs-you entry
-        Then the Reworking dialog is open and no task was started
+        And the second's reading stops on its blocking findings and Needs you lists it
+        When I choose Rework on its Needs-you entry
+        Then the window runs the rework and it ends
         When a task fails on a key its provider refuses
         Then the failed task's card stays, with a warning and a Needs-you entry to its result

@@ -24,9 +24,9 @@ import './step/the_window_posts_the_end_of_the_builder_task.dart';
 import './step/reading_is_set_and_its_reader_runs_with_no_dialog_shown.dart';
 import './step/the_readers_end.dart';
 import './step/the_first_issue_stands_in_review.dart';
-import './step/the_second_stands_in_reworking_and_needs_you_lists_it.dart';
-import './step/i_open_its_needsyou_entry.dart';
-import './step/the_reworking_dialog_is_open_and_no_task_was_started.dart';
+import './step/the_seconds_reading_stops_on_its_blocking_findings_and_needs_you_lists_it.dart';
+import './step/i_choose_rework_on_its_needsyou_entry.dart';
+import './step/the_window_runs_the_rework_and_it_ends.dart';
 import './step/a_task_fails_on_a_key_its_provider_refuses.dart';
 import './step/the_failed_tasks_card_stays_with_a_warning_and_a_needsyou_entry_to_its_result.dart';
 
@@ -34,7 +34,9 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('''The planner moves work on from state to state by itself''', () {
-    testWidgets('''work ends, is read, and moves on to Review or Reworking with no start asked for''', (tester) async {
+    testWidgets('''work ends, is read and moves on by itself, and a stopped reading is reworked on a choice''', (
+      tester,
+    ) async {
       await theInterfaceIsRunning(tester);
       await iOpenThePlanningOfTheWalkProject(tester);
       await thePlannerFromThePathAnswersForTheProject(tester);
@@ -54,9 +56,9 @@ void main() {
       await readingIsSetAndItsReaderRunsWithNoDialogShown(tester);
       await theReadersEnd(tester);
       await theFirstIssueStandsInReview(tester);
-      await theSecondStandsInReworkingAndNeedsYouListsIt(tester);
-      await iOpenItsNeedsyouEntry(tester);
-      await theReworkingDialogIsOpenAndNoTaskWasStarted(tester);
+      await theSecondsReadingStopsOnItsBlockingFindingsAndNeedsYouListsIt(tester);
+      await iChooseReworkOnItsNeedsyouEntry(tester);
+      await theWindowRunsTheReworkAndItEnds(tester);
       await aTaskFailsOnAKeyItsProviderRefuses(tester);
       await theFailedTasksCardStaysWithAWarningAndANeedsyouEntryToItsResult(tester);
     });
