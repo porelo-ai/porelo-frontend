@@ -24,16 +24,16 @@ import './step/the_window_posts_the_end_of_the_builder_task.dart';
 import './step/each_issue_is_in_reading_for_a_reader.dart';
 import './step/the_window_starts_the_offered_reader_task_and_it_ends.dart';
 import './step/the_idea_a_task_brought_back_is_an_issue_in_idea.dart';
-import './step/the_findings_file_lies_where_the_projects_setting_says.dart';
+import './step/the_planner_shows_the_readings_blocking_findings_and_needs_you_lists_the_issue.dart';
+import './step/i_choose_rework_for_the_stopped_reading.dart';
 import './step/the_window_starts_the_offered_rework_task_and_it_ends.dart';
-import './step/the_findings_are_worked_off_and_the_file_is_deleted.dart';
-import './step/a_fresh_clone_shows_the_findings_commit_and_its_deletion.dart';
+import './step/the_planner_shows_the_findings_worked_off.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('''A task's results land where the next step and others find them''', () {
-    testWidgets('''a reading's findings are kept, worked off by a rework, and an idea becomes an issue''', (
+    testWidgets('''a reading's findings stop it, are worked off by a rework, and an idea becomes an issue''', (
       tester,
     ) async {
       await theInterfaceIsRunning(tester);
@@ -55,10 +55,10 @@ void main() {
       await eachIssueIsInReadingForAReader(tester);
       await theWindowStartsTheOfferedReaderTaskAndItEnds(tester);
       await theIdeaATaskBroughtBackIsAnIssueInIdea(tester);
-      await theFindingsFileLiesWhereTheProjectsSettingSays(tester);
+      await thePlannerShowsTheReadingsBlockingFindingsAndNeedsYouListsTheIssue(tester);
+      await iChooseReworkForTheStoppedReading(tester);
       await theWindowStartsTheOfferedReworkTaskAndItEnds(tester);
-      await theFindingsAreWorkedOffAndTheFileIsDeleted(tester);
-      await aFreshCloneShowsTheFindingsCommitAndItsDeletion(tester);
+      await thePlannerShowsTheFindingsWorkedOff(tester);
     });
   });
 }

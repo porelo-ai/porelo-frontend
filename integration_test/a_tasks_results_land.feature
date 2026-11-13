@@ -2,10 +2,10 @@
 # saying what this file tests. Run by tool/play_story.sh through tool/walk_idea.sh against a local VM, never in the Build.
 Feature: A task's results land where the next step and others find them
 
-    # The idea walk up to its reading, with a seed whose work the reader is bound to find fault with and whose
-    # instructions ask a task to bring back one idea of its own. What a step reads after the reading, it reads in fresh
-    # clones of the forge's repositories, made apart from everything the window and its tasks use and removed again.
-    Scenario: a reading's findings are kept, worked off by a rework, and an idea becomes an issue
+    # The idea walk up to its reading, with a seed whose tests hold a fault the reader is bound to find and whose builder
+    # is asked to bring back one idea of its own. A reader's findings are the Findings block its answer ends with: the
+    # planner judges them and keeps them in its own work record, where the window shows them; nothing goes into Git.
+    Scenario: a reading's findings stop it, are worked off by a rework, and an idea becomes an issue
         Given the interface is running
         When I open the planning of the walk project
         Then the planner from the path answers for the project
@@ -25,7 +25,7 @@ Feature: A task's results land where the next step and others find them
         Then each issue is in Reading for a reader
         When the window starts the offered reader task and it ends
         Then the idea a task brought back is an issue in Idea
-        And the findings file lies where the project's setting says
-        When the window starts the offered rework task and it ends
-        Then the findings are worked off and the file is deleted
-        And a fresh clone shows the findings commit and its deletion
+        And the planner shows the reading's blocking findings and Needs you lists the issue
+        When I choose Rework for the stopped reading
+        And the window starts the offered rework task and it ends
+        Then the planner shows the findings worked off

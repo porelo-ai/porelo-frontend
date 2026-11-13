@@ -103,8 +103,8 @@ the_planner_moves_work_on)
     machine=linux needs='' handed=walk leans_on='idea-walk'
     ;;
 a_tasks_results_land)
-    # The idea walk up to its reading, on a seed the reader finds fault with; then the findings, the rework and the idea
-    # brought back, read in fresh clones of the forge.
+    # The idea walk up to its reading, on a seed the reader finds fault with; then the findings the planner shows, the
+    # rework chosen for them and the reading that finds them worked off, and the idea a task brought back.
     machine=linux needs='' handed=walk leans_on='idea-walk'
     ;;
 *)
