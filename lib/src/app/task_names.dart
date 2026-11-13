@@ -12,7 +12,7 @@ library;
 import 'container_names.dart';
 
 /// The longest a task's container name may be, prefix included.
-const int longestContainerName = 65;
+const int longestContainerName = 64;
 
 final RegExp _taskName = RegExp(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?$');
 final RegExp _onlyDigits = RegExp(r'^[0-9]+$');

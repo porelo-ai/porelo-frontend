@@ -82,6 +82,10 @@ Found from porelo's B246 (2026-11-13), which lands with Core's next round.
   in project `checkout` passed before, so it was seen red by measuring with `>=` and put back). porelod's own length
   check still measures `porelo-<project>-<task>` against 64, so in project `porelo` a name of 51 to 58 characters now
   passes here and is refused by Start, which stays the authority.
+- `longestContainerName` is 64, not 65: Core answered (18:55Z, core-stack-next 3edc9f71f) that a container name has at
+  most 64 characters (`ContainerName.MAX_LENGTH`), so the ssh-agent socket path fits. Test:
+  `test/app/task_names_test.dart` (red: at 65 a 58-character name in project `porelo`, whose `porelo_<name>` is 65
+  long, was taken).
 - The stand-in takes a task from either prefix it gives a new task, else from the one it gave before, with its own rule
   rather than the window's helper, so a fault in one is not mirrored by the other. Its Start keeps a name given in a
   shape it gives the project's containers, new or from before, and lists any other, also a task's own name that begins

@@ -115,7 +115,7 @@ Feature: Starting work with an agent, a mode and a credential
         When I start work in this project
         And I call it {'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}
         And I choose the agent {'An Agent'}
-        Then the name is refused saying {'at most 65 fit'}
+        Then the name is refused saying {'at most 64 fit'}
         And starting is not offered yet
 
     # The machine's rule is the authority, and its sentence carries a name that would do.

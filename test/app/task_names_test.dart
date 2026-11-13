@@ -19,4 +19,12 @@ void main() {
       expect(taskNameProblem(named(fits + 1), project: 'checkout'), isNotNull);
     });
   });
+
+  // Harm: a name whose container is 65 characters long sent to porelod, whose container names end at 64 so the
+  // ssh-agent socket path fits, refused only after the start was made.
+  test('a container name of 64 characters is taken and one of 65 refused', () {
+    expect(taskNameProblem('a' * (64 - 'porelo_'.length), project: 'porelo'), isNull);
+    expect(taskNameProblem('a' * (65 - 'porelo_'.length), project: 'porelo'), isNotNull);
+    expect(taskNameProblem('a' * (65 - 'porelo-checkout_'.length), project: 'checkout'), isNotNull);
+  });
 }

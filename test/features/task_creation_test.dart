@@ -266,7 +266,7 @@ void main() {
       await iStartWorkInThisProject(tester);
       await iCallIt(tester, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
       await iChooseTheAgent(tester, 'An Agent');
-      await theNameIsRefusedSaying(tester, 'at most 65 fit');
+      await theNameIsRefusedSaying(tester, 'at most 64 fit');
       await startingIsNotOfferedYet(tester);
     });
     testWidgets('''a name the machine refuses is refused in its words''', (tester) async {
