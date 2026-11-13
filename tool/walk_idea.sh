@@ -269,6 +269,20 @@ token=$("$WALK_FORGE_TOKEN") || {
 # The answers of the forge's API, never the token; gone with the clean-up.
 work=$(mktemp -d)
 
+# A story's own seed in this checkout, tool/walk-seeds/<test>, written over the seed given: what its test needs of the
+# repositories beyond the shared seed, such as a fault its reader is bound to find. The given folder is never changed.
+if [ "$mode" = run ] && [ -d "$here/tool/walk-seeds/$test" ]; then
+    mkdir "$work/seed"
+    cp -R "$seed/." "$work/seed/"
+    cp -R "$here/tool/walk-seeds/$test/." "$work/seed/"
+    seed=$work/seed
+    for each in "$seed"/*/; do
+        each=$(basename "$each")
+        case " ${seeded[*]} " in *" $each "*) ;; *) seeded+=("$each") ;; esac
+    done
+    echo "walk: the seed of $test from tool/walk-seeds is written over the one given"
+fi
+
 # One call of GitHub's API: the token reaches curl on its standard input as a config line. Prints the status; the
 # answer's body is in $work/answer.
 # shellcheck disable=SC2329 # run by cleanup, on the EXIT trap
