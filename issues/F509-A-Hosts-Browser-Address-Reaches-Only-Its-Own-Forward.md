@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F509",
   "title": "A Host's Browser Address Reaches Only Its Own Forward",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 21,
@@ -50,3 +50,29 @@ as built today.
 
 - Whether Element and the browsers the window opens resolve `*.localhost` themselves (RFC 6761) or through the system,
   and in which order.
+
+## Decided
+
+2026-11-13: the forwards hold both loopback families rather than the addresses being pinned to `127.0.0.1`, so the
+host's name stays in the browser. The "to be checked" point, which loopback a browser or Element tries first for
+`*.localhost`, no longer decides anything: both are the card's own, and where there is no IPv6 loopback the address
+names `127.0.0.1` itself.
+
+## How it was built
+
+- `packages/porelo_host/lib/src/host_card_ssh.dart`: `hasIpv6Loopback` reads `/proc/net/if_inet6` once at start
+  (elsewhere there is always one); each forward is an `-L` on `127.0.0.1` and, with an IPv6 loopback, on `[::1]`; the
+  ports are held on both families before the tunnel starts, so one held by another program on either refuses the card
+  and names it; `forgeUrl` and `matrixUrl` give `http://<host>.localhost:<port>/` only while both are held, else
+  `http://127.0.0.1:<port>/`.
+- `lib/src/app/tunnel.dart`: the card's master runs with `ExitOnForwardFailure=yes`, and a forward ssh raised again on
+  one loopback only is cancelled, not left half up.
+- `lib/src/app/commands.dart`, `conversation.dart`, `ui/messages_view.dart`, `ui/shell.dart`: the forge, a pull
+  request on it and Element are opened only through a forward that is up; while the host's connection is not, Element
+  says to connect first and nothing is opened.
+- Tests: `packages/porelo_host/test/host_card_ssh_test.dart` (a fixed port held on `::1` by another program refuses
+  the card before its tunnel; the browser addresses name only what the forwards hold, with and without an IPv6
+  loopback; `::1` found only where Linux lists it); `test/app/host_card_tunnel_test.dart` (the forwards on both
+  families, and 127.0.0.1 alone without an IPv6 loopback); `test/app/host_pull_requests_test.dart`,
+  `test/app/organization_connections_test.dart`, `test/ui/room_join_through_element_test.dart` (nothing opened while
+  the forward is not up).
