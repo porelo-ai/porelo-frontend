@@ -846,6 +846,7 @@ class PoreloBackend implements FleetBackend {
   }) => _startRunning(
     project: project,
     repository: repository,
+    callerKey: callerKey,
     () => _opened().start(
       project: project,
       repository: repository,
@@ -871,6 +872,7 @@ class PoreloBackend implements FleetBackend {
     String? callerKey,
   }) => _startRunning(
     project: project,
+    callerKey: callerKey,
     () => _opened().start(
       project: project,
       callerKey: callerKey,
@@ -887,12 +889,13 @@ class PoreloBackend implements FleetBackend {
 
   /// Follows a start whose prompt the agent runs on, answering once Start says its agent runs (the step `AGENT` in
   /// state `STARTED`) with the container the step names, or else the one the machine newly lists for [project] (and
-  /// [repository] where one is named): Start's final reply comes only when the agent's run ends. The run goes on when
+  /// [repository] where one is named, and [callerKey] where the start gave one): Start's final reply comes only when the agent's run ends. The run goes on when
   /// this stops reading it. A start that ends or is refused before its agent runs answers as [_startAnswered] does.
   Future<StartProgress> _startRunning(
     Stream<StartProgress> Function() start, {
     required String project,
     String? repository,
+    String? callerKey,
   }) async {
     // What stood before, so a task the start made is told from it; where the list cannot be read, only a step that
     // names its container answers early.
@@ -914,9 +917,13 @@ class PoreloBackend implements FleetBackend {
             if (task.project == project &&
                 (repository == null || task.repository == repository) &&
                 !stood.contains((task.name, task.run)))
-              task.name,
+              task,
         ];
-        return made.length == 1 ? made.single : null;
+        // Another start of the same project may list its task first: the key tells the two apart, where the machine
+        // lists keys at all; one that lists none pairs the only new task, as before.
+        final keyed = callerKey != null && made.any((task) => task.callerKey.isNotEmpty);
+        final ours = keyed ? made.where((task) => task.callerKey == callerKey).toList() : made;
+        return ours.length == 1 ? ours.single.name : null;
       },
     );
   }

@@ -21,13 +21,14 @@ void main() {
 
   tearDown(() => daemon.stop());
 
-  Future<StartProgress> startOrdered(PoreloBackend backend) => backend.startOrdered(
+  Future<StartProgress> startOrdered(PoreloBackend backend, {String? callerKey}) => backend.startOrdered(
     project: 'demo',
     repository: 'porelo',
     agent: 'claude',
     model: 'opus',
     mode: Mode.agent,
     prompt: '  Work on ST1.\n',
+    callerKey: callerKey,
   );
 
   // Harm: a planned task starts with an argument the order did not give, or without one it gave.
@@ -175,6 +176,83 @@ void main() {
       await backend.open();
 
       final answer = await startOrdered(backend).timeout(const Duration(seconds: 5));
+
+      expect((answer.container, answer.exitCode), ('porelo-demo_porelo-2', 0));
+    });
+
+    // Harm: two starts of one project at once, and each offer's report goes to the other's task.
+    test('of two starts of one project at once, each takes the task its key names', () async {
+      daemon.description = declares;
+      var listings = 0;
+      daemon.method('List', (_) {
+        listings++;
+        return <String, dynamic>{
+          'tasks': [
+            {'name': 'porelo-demo_porelo', 'task': 'porelo', 'project': 'demo', 'repository': 'porelo', 'run': 'r1'},
+            if (listings > 1) ...[
+              {
+                'name': 'porelo-demo_porelo-2',
+                'task': 'porelo-2',
+                'project': 'demo',
+                'repository': 'porelo',
+                'run': 'r2',
+                'callerKey': 'offer-of-the-other-start',
+              },
+              {
+                'name': 'porelo-demo_porelo-3',
+                'task': 'porelo-3',
+                'project': 'demo',
+                'repository': 'porelo',
+                'run': 'r3',
+                'callerKey': 'offer-of-this-start',
+              },
+            ],
+          ],
+        };
+      });
+      daemon.stream(
+        'Start',
+        (_) => runsOn({'step': 'AGENT', 'state': 'STARTED', 'text': 'pi runs'}),
+        isFinal: _finalReply,
+      );
+      final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+      await backend.open();
+
+      final answer = await startOrdered(backend, callerKey: 'offer-of-this-start').timeout(const Duration(seconds: 5));
+
+      expect((answer.container, answer.exitCode), ('porelo-demo_porelo-3', 0));
+    });
+
+    // Harm: a machine that lists no key leaves the start waiting for the agent's whole run, so the story's next task
+    // waits on it.
+    test('with the one newly listed task where the machine lists no keys, though the start gave one', () async {
+      daemon.description = declares;
+      var listings = 0;
+      daemon.method('List', (_) {
+        listings++;
+        return <String, dynamic>{
+          'tasks': [
+            {'name': 'porelo-demo_porelo', 'task': 'porelo', 'project': 'demo', 'repository': 'porelo', 'run': 'r1'},
+            if (listings > 1)
+              {
+                'name': 'porelo-demo_porelo-2',
+                'task': 'porelo-2',
+                'project': 'demo',
+                'repository': 'porelo',
+                'run': 'r2',
+              },
+          ],
+        };
+      });
+      daemon.stream(
+        'Start',
+        (_) => runsOn({'step': 'AGENT', 'state': 'STARTED', 'text': 'pi runs'}),
+        isFinal: _finalReply,
+      );
+      final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+      await backend.open();
+
+      final answer = await startOrdered(backend, callerKey: 'offer-of-this-start').timeout(const Duration(seconds: 5));
 
       expect((answer.container, answer.exitCode), ('porelo-demo_porelo-2', 0));
     });

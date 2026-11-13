@@ -426,7 +426,10 @@ class WindowTaskReports {
   Future<void> _keepFoundAgain() async {
     for (final pending in settings.pendingStarts) {
       if (starts.isStarting(pending.offer)) continue;
-      final task = tasksOn(pending.machine)?.where((each) => each.callerKey == pending.offer).firstOrNull;
+      // The key alone could be another project's: a task is the offer's only in the offer's own project.
+      final task = tasksOn(pending.machine)
+          ?.where((each) => each.callerKey == pending.offer && each.project == pending.project)
+          .firstOrNull;
       if (task == null) continue;
       if (pending.discussion) {
         await settings.rememberDiscussion(
@@ -436,7 +439,11 @@ class WindowTaskReports {
           provider: pending.provider,
           project: pending.project,
         );
-      } else if (task.task.isNotEmpty) {
+      } else if (task.task.isEmpty) {
+        // Kept neither as a discussion nor as a story's task, it would wait in the settings for ever.
+        windowLog.warn('Planning: the task ${task.name} on ${pending.machine} names no task; its start is let go.');
+        await settings.forgetPendingStart(pending.offer);
+      } else {
         await settings.rememberPlanningOffer(
           machine: pending.machine,
           container: task.name,

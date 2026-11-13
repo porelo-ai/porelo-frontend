@@ -57,6 +57,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A task the window finds again by its start's key, after the window ended before Start answered, is taken only when it is of the offer's project; one whose row names no task lets its start go instead of keeping it for ever; and two starts of one project at once are each paired with their own task by their key.
 - The page of the project *Default* lists every repository the machine holds in it under *Repositories*, opened under *My projects* or from its machine alike; it showed none, or only from the machine. A row an older Porelo answered named *default* is still left out.
 - A task the window started for a planner's offer is reported to the planner under that offer, its start and its ends, also when the window ended right after the machine started it and before it kept the offer: each start gives the machine the offer as the task's own key, and after a restart the window finds the task by it. A machine whose Start takes no such key starts the task as before.
 - A task started for a planner's offer is told to the planner as started once its agent runs, no longer when the agent's run ends, so the next offer of the story starts at once instead of waiting on a builder that works for half an hour.

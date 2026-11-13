@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F510",
   "title": "Small Points Of The Walk 27 Reading",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 23,
@@ -43,3 +43,21 @@ A reading of the window's reports built for walk 27 found, none of them grave:
 ## Acceptance
 
 - The three tests above, each seen red first.
+
+## Decided
+
+- The start's key decides the pairing only where a newly listed task of the project carries a key at all; a machine
+  that lists no keys keeps the earlier rule, the only newly listed task, so its start still answers once the agent
+  runs.
+
+## How it was built
+
+- `_keepFoundAgain` takes a task found by its key only when it is of the offer's project; a found task whose row names
+  no task forgets its pending start and says so once in the window's log.
+- `_startRunning` takes the start's key: where Start's step names no container, of the tasks newly listed for the
+  project and repository it pairs the one whose key is the start's.
+- Red seen first in `test/ui/window_task_reports_test.dart` (a task of another project with the offer's key was kept
+  as the offer's; a row with no task left its pending start in the settings) and in `test/app/start_ordered_test.dart`
+  (two starts of one project at once gave no answer until the agent's run ended). The reading found that a machine
+  listing no keys would then never pair early: its test went red too before the pairing fell back to the earlier rule.
+- `start_ordered`, `window_task_reports`, `window_task_starts` and `fleet_model` tests ran green, 93 tests.

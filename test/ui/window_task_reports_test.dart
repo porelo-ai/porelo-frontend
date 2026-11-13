@@ -381,6 +381,61 @@ void main() {
     ]);
   });
 
+  // Harm: a task of another project whose key equals an offer of this window is reported as that offer's task.
+  test('a task found again by its key is taken only when it is of the offer\'s project', () async {
+    final (starts, _) = window();
+    final order = (await plannedOrders()).first;
+    machine.hangAfterStart = true;
+    unawaited(starts(planner, 'demo', 'ST291', order));
+    await pumpEventQueue();
+    machine.listed
+      ..clear()
+      ..add(
+        Task.from({
+          'name': 'porelo-shop-porelo',
+          'task': 'porelo',
+          'project': 'shop',
+          'running': true,
+          'callerKey': order.offer,
+        }),
+      );
+
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+
+    expect((await loaded()).plannedOffers, isEmpty);
+    expect(planner.calls, isEmpty);
+  });
+
+  // Harm: a start whose task names no task is kept waiting for ever, in every later window's settings.
+  test('a start found again whose task names no task is let go', () async {
+    final (starts, _) = window();
+    final order = (await plannedOrders()).first;
+    machine.hangAfterStart = true;
+    unawaited(starts(planner, 'demo', 'ST291', order));
+    await pumpEventQueue();
+    machine.listed
+      ..clear()
+      ..add(
+        Task.from({
+          'name': 'porelo-demo-porelo',
+          'task': '',
+          'project': 'demo',
+          'running': true,
+          'callerKey': order.offer,
+        }),
+      );
+    expect((await loaded()).pendingStarts, isNotEmpty);
+
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+
+    expect((await loaded()).pendingStarts, isEmpty);
+    expect((await loaded()).plannedOffers, isEmpty);
+  });
+
   // Harm: a task some other caller started is reported under an offer of this window.
   test('a listed task whose key names no offer this window handed is not reported', () async {
     final (_, reports) = window();
