@@ -1785,7 +1785,11 @@ Future<SocketProbe> probeSocket(
       task.cancel();
     } else {
       // A connection that starts after the probe gave up is cancelled once it does, never left pending.
-      pending?.then((late) => late.cancel(), onError: (Object _) {}).ignore();
+      // Its socket fails once it is cancelled, and nothing else waits for it.
+      pending?.then((late) {
+        late.socket.ignore();
+        late.cancel();
+      }, onError: (Object _) {}).ignore();
     }
     return SocketProbe.unknown;
   } on SocketException catch (failure) {

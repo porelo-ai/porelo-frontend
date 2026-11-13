@@ -323,7 +323,7 @@ class ForwardRecords {
       try {
         renamed = _writeNew(folder, temporary, body) && _rename(folder, temporary, _nameOf(pid));
       } finally {
-        if (!renamed) _unlink(folder, temporary);
+        if (!renamed) _removeTemporary(folder, temporary);
       }
     });
   }
@@ -543,6 +543,16 @@ class ForwardRecords {
 
   static bool _rename(int folder, String from, String to) =>
       _native((libc, arena) => libc.renameat(folder, arena.string(from), folder, arena.string(to)) == 0);
+
+  // A temporary left is never read, as only a name ending in `.forward` is: its removal failing must not hide what
+  // failed before it.
+  static void _removeTemporary(int folder, String name) {
+    try {
+      _unlink(folder, name);
+    } on FileSystemException {
+      // Left in place.
+    }
+  }
 
   static void _unlink(int folder, String name) =>
       _native((libc, arena) => libc.unlinkat(folder, arena.string(name), 0));

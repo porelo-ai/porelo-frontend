@@ -72,13 +72,17 @@ A reading of [F219](README.md#f219)'s final changes found, beside the grave poin
 - `LinuxProcessTable.isGone` (`lib/src/app/forward_records.dart`) asks `statx` for `/proc/<pid>` and takes only
   ENOENT or ESRCH, where `/proc/self` can be read, as a process gone; any other failure keeps the record.
 - `probeSocket` (`lib/src/app/tunnel.dart`) keeps the pending connection and cancels it once it arrives after the
-  probe gave up.
+  probe gave up, its socket's failure on that cancel handled.
 - The directory chain closes its descriptor whatever the step's allocation does, and a record's temporary file is
-  removed on any failure before its rename.
-- `Tunnels.dropEverything` stops every tunnel at once, so each gets its SIGTERM and its SIGKILL within the bound.
-- Tests in `test/app/tunnel_test.dart`, each seen red: a record kept on EACCES and removed once the process is gone;
-  only ENOENT or ESRCH say gone; a late connection cancelled; every allocation of a record's write made to fail in turn
-  with no descriptor and no temporary file kept; three tunnels that ignore SIGTERM all killed within five seconds; a
-  bare `OSError` from a probe; records in a directory another account owns; a recorded pid whose arguments cannot be
-  read.
-
+  removed on any failure before its rename; a removal that fails there is left, never thrown over what failed first,
+  as a temporary is never read.
+- `Tunnels.dropEverything` stops every tunnel at once, a `Future.wait` of each tunnel's drop rather than one after
+  another, so each gets its SIGTERM and, two seconds later, its SIGKILL inside the five seconds `letGoTogether` gives
+  the window's end, which bounds the caller and not the drop itself.
+- Tests in `test/app/tunnel_test.dart`. Each guard's test was seen red with its fix taken out: a record kept on EACCES
+  and removed once the process is gone; only ENOENT or ESRCH say gone; a late connection cancelled, its socket
+  failing as the SDK's does; every allocation of a record's write made to fail in turn with no descriptor and no
+  temporary file kept; a temporary that cannot be removed throwing nothing; three tunnels that ignore SIGTERM all
+  killed within five seconds. The gap tests hold code this issue did not change, so they pass before it as after; each
+  was seen red with the code it holds broken on purpose: a bare `OSError` from a probe; records in a directory another
+  account owns; a recorded pid whose arguments cannot be read.

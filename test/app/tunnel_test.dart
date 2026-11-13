@@ -1209,7 +1209,8 @@ void main() {
     });
   });
 
-  // Harm: a connection that started after its probe gave up was left pending, one more for every probe.
+  // Harm: a connection that started after its probe gave up was left pending, one more for every probe, or its
+  // cancelled socket failed with nothing listening, an error the window never handled.
   test('a connection that starts after its probe gave up is cancelled once it does', () async {
     var cancelled = 0;
     final late = Completer<ConnectionTask<Socket>>();
@@ -1219,7 +1220,14 @@ void main() {
       (_) => late.future,
       within: const Duration(milliseconds: 50),
     );
-    late.complete(ConnectionTask.fromSocket(Completer<Socket>().future, () => cancelled++));
+    // As the SDK's task does: cancelling it fails its socket.
+    final socket = Completer<Socket>();
+    late.complete(
+      ConnectionTask.fromSocket(socket.future, () {
+        cancelled++;
+        socket.completeError(const SocketException('Connection attempt cancelled'));
+      }),
+    );
     await pumpEventQueue();
 
     expect(found, SocketProbe.unknown);
@@ -1787,6 +1795,34 @@ void _leftBehind() {
       writing.forget(pid);
     }
     expect(failed, greaterThan(5), reason: 'the allocations of the chain and the write were each made to fail');
+  });
+
+  // Harm: a temporary record that could not be removed threw out of the record, over what failed before it, and the
+  // forward was raised without its caller knowing it was.
+  test('a temporary record that cannot be removed leaves the record as it is, without a throw', () {
+    final records = '${where.path}/stuck';
+    final writing = ForwardRecords(records)..record(pid, const <String>['ssh', '-N', 'first']);
+    // A folder where the record goes, so the rename fails and the temporary is removed.
+    File('$records/$pid.forward').deleteSync();
+    Directory('$records/$pid.forward').createSync();
+    var allocations = 0;
+    allocationFails = () {
+      allocations++;
+      return false;
+    };
+    try {
+      writing.record(pid, const <String>['ssh', '-N', 'second']);
+    } finally {
+      allocationFails = null;
+    }
+    var count = 0;
+    allocationFails = () => ++count == allocations;
+    try {
+      expect(() => writing.record(pid, const <String>['ssh', '-N', 'third']), returnsNormally);
+    } finally {
+      allocationFails = null;
+    }
+    expect(Directory('$records/$pid.forward').existsSync(), isTrue, reason: 'nothing else was touched');
   });
 
   // Harm: tunnels whose ssh ignores the end stopped one after another, so the last of three still ran past the
