@@ -29,4 +29,6 @@ Future<void> readingIsSetAndItsReaderRunsWithNoDialogShown(
     }
   }
   noteStep('   the readers run in ${Walk.readers.join(', ')}');
+  // Still held once the reading began: nothing took the landed work away.
+  await theForgeHoldsTheLandedCommits();
 });

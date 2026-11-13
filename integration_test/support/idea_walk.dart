@@ -202,7 +202,7 @@ Future<bool> probeHolds(List<String> check) async => (await _probe(check)).exitC
 
 Future<ProcessResult> _probe(List<String> check) async {
   // The window's planner writes its address under the window's runtime directory; porelo answers under the account's.
-  return Process.run(
+  final ran = await Process.run(
     Walk.probe,
     check,
     environment: {
@@ -212,6 +212,107 @@ Future<ProcessResult> _probe(List<String> check) async {
       'XDG_RUNTIME_DIR': await theAccountsRuntime(),
     },
   );
+  _logProbe(check, ran);
+  return ran;
+}
+
+/// Writes one call of the probe into the run's probe log, `PORELO_WALK_PROBE_LOG`: when, what was asked, its exit code
+/// and all it printed, held or not. A token it might print is never written: the planner's, read from its address
+/// file, and a forge's from the environment are blanked.
+void _logProbe(List<String> check, ProcessResult ran) {
+  final into = Platform.environment['PORELO_WALK_PROBE_LOG'] ?? '';
+  if (into.isEmpty) return;
+  String said(Object? output) {
+    var text = '$output'.trimRight();
+    for (final token in _tokens()) {
+      text = text.replaceAll(token, '<token>');
+    }
+    return text.isEmpty ? '' : text.replaceAll(RegExp('^', multiLine: true), '    ');
+  }
+
+  final stdout = said(ran.stdout);
+  final stderr = said(ran.stderr);
+  File(into).writeAsStringSync(
+    '${DateTime.now().toUtc().toIso8601String()} planner-probe.sh ${check.join(' ')}: exit ${ran.exitCode}\n'
+    '${stdout.isEmpty ? '' : '  stdout:\n$stdout\n'}'
+    '${stderr.isEmpty ? '' : '  stderr:\n$stderr\n'}',
+    mode: FileMode.append,
+    flush: true,
+  );
+}
+
+/// The tokens the probe's output could carry: the planner's bearer token and a forge token of the environment.
+List<String> _tokens() {
+  final tokens = <String>[
+    for (final name in ['PLANNER_TOKEN', 'PORELO_FORGE_TOKEN'])
+      if ((Platform.environment[name] ?? '').length >= 8) Platform.environment[name]!,
+  ];
+  try {
+    final address = jsonDecode(File(plannerAddressFile()).readAsStringSync());
+    if (address case {'token': final String token} when token.length >= 8) tokens.add(token);
+  } on Object {
+    // No address file yet, or none readable: no planner token to blank.
+  }
+  return tokens;
+}
+
+/// The commit the builder in [container] landed its work as: from porelo's row of the task, where it names one, else
+/// from porelo's event log on this machine, the last accepted push that arrived at the task's gate. Null where neither
+/// names one.
+Future<String?> theLandedCommitOf(String container) async {
+  final row = (await theProjectsTasks()).where((each) => theContainerOf(each) == container).firstOrNull;
+  final landed = row?['landed'];
+  if (landed is List) {
+    for (final entry in landed.reversed) {
+      if (entry case {'commit': final String commit} when _fullCommit.hasMatch(commit)) return commit;
+    }
+  }
+  final state = Platform.environment['XDG_STATE_HOME'] ?? '${Platform.environment['HOME']}/.local/state';
+  final events = File('$state/porelo/events.jsonl');
+  if (!events.existsSync()) return null;
+  String? commit;
+  for (final line in events.readAsLinesSync()) {
+    final Object? event;
+    try {
+      event = jsonDecode(line);
+    } on FormatException {
+      continue;
+    }
+    if (event case {'kind': 'arrived', 'task': final String task, 'detail': final String detail}
+        when task == container) {
+      final arrived = RegExp(r'^[0-9a-f]+\.\.([0-9a-f]{40,64}) arrived .*: accepted$').firstMatch(detail);
+      if (arrived != null) commit = arrived.group(1);
+    }
+  }
+  return commit;
+}
+
+final _fullCommit = RegExp(r'^[0-9a-f]{40,64}$');
+
+/// Asks the probe whether the forge holds the commit each builder landed, in the builder's repository, and notes what
+/// it printed; fails where no landed commit is named or the forge lacks it. A probe without that check is noted, not
+/// failed.
+Future<void> theForgeHoldsTheLandedCommits() async {
+  for (final builder in Walk.builders) {
+    final repository = '${(await theTask(builder))['repository'] ?? ''}';
+    if (repository.isEmpty) fail('asked porelo for the repository $builder works in; it names none');
+    final commit = await theLandedCommitOf(builder);
+    if (commit == null) fail("asked porelo's row and event log for the commit $builder landed; neither names one");
+    final check = ['forge-commit', Walk.urlOf(repository), commit];
+    final ran = await _probe(check);
+    final said = '${ran.stderr}${ran.stdout}';
+    switch (ran.exitCode) {
+      case 0:
+        noteStep('   $repository holds $commit:');
+        noteStep(said.trimRight().replaceAll(RegExp('^', multiLine: true), '   '));
+      case 2 when said.contains('unknown check') || said.contains('unknown command'):
+        noteStep('   $repository: forge-commit is not in this probe; $commit not asked of the forge');
+      case 1:
+        fail('the forge of $repository does not hold the landed commit $commit: $said');
+      default:
+        fail('the probe could not run ${check.join(' ')} (exit ${ran.exitCode}): $said');
+    }
+  }
 }
 
 /// Runs [script] in the account's login shell, as porelo is reached from a terminal on the machine.

@@ -15,4 +15,6 @@ Future<void> theForgeHoldsTheWorkOfTheBuilderAgent(WidgetTester tester) =>
               .replaceAll(RegExp('^', multiLine: true), '   '),
         );
       }
+      // The very commit each builder landed, as porelo records it, held by the forge.
+      await theForgeHoldsTheLandedCommits();
     });

@@ -11,4 +11,6 @@ Future<void> eachIssueIsInReadingForAReader(WidgetTester tester) =>
         await theIssueStandsIn(issue.id, issue.repository, read ? 'Review' : 'Reading');
         if (read) noteStep('   ${issue.id} was read already and stands in Review');
       }
+      // Still held once the reading began: nothing took the landed work away.
+      await theForgeHoldsTheLandedCommits();
     });
