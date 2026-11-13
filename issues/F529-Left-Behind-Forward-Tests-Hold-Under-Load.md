@@ -29,7 +29,15 @@ each time another test of that group:
 - "an answering socket with no record of ours is still left alone" (in a full suite run);
 - "an endpoint still answered after the end is refused after a bounded wait, and nothing is killed".
 
-Idle, the group passes every time; on CI it has not failed for this reason so far.
+Idle, the group passes every time.
+
+Seen since (2026-11-13):
+
+- On CI, "an endpoint still answered after the end is refused after a bounded wait": the wait's last probe had only
+  what was left of the deadline and ran out of it. Fixed in the product: an answer seen during the wait now stands.
+- At load average 30-44, in a full suite run: "a recorded pid that now runs another command line is not ended" said
+  "something that is no leftover…" instead of "already serving", and in `test/app/host_card_tunnel_windows_test.dart`
+  "a port the system let go takes the card down…" failed one expectation. Both pass alone.
 
 ## Plan
 
