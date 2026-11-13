@@ -19,13 +19,13 @@ Future<void> theProjectAndItsTaskAreRemovedAgain(WidgetTester tester, String nam
   final left = await onTheTestMachine('''
 PATH="\$HOME/.local/bin:\$PATH"
 set -e
-porelo task stop ${containerOf(name, 'write')} >/dev/null
-porelo task remove --force ${containerOf(name, 'write')} >/dev/null
-porelo project remove $name >/dev/null
+${stoppingAndRemoving(containersOf(name, 'write'))}porelo project remove $name >/dev/null
 ${removingTheProjectFiles(name)}
 porelo task list
 porelo project list
 ''');
-  expect(left, isNot(contains('porelo-${name}_')));
+  for (final container in containersOf(name, 'write')) {
+    expect(left, isNot(contains(container)));
+  }
   expect(left, isNot(contains(RegExp('\\b${RegExp.escape(name)}\\b'))), reason: '$name is still listed');
 }

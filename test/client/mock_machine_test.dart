@@ -354,6 +354,53 @@ void main() {
     expect(run.running, isFalse);
   });
 
+  // Harm: a stand-in answering a task porelod would not, so the window's tests over it pass on a fixture no real machine
+  // produces.
+  test('a container named in either shape lists the task porelod names, and its branches after it', () async {
+    await machineIn('work');
+    machine.addTask('porelo-checkout_fix-rounding', 'checkout');
+    machine.addTask('porelo_lint', 'porelo');
+    final client = await connect();
+
+    final listed = {for (final task in await client.tasks()) task.name: task};
+    for (final (container, task) in const [
+      ('porelo-checkout_fix-rounding', 'fix-rounding'),
+      ('porelo_lint', 'lint'),
+      // Made before, and keeping its name.
+      ('porelo-checkout-shell', 'shell'),
+    ]) {
+      expect(listed[container]?.task, task, reason: container);
+      expect(listed[container]?.branch, 'refs/porelo/incoming/$task', reason: container);
+      expect(listed[container]?.forgeBranch, 'porelo/$task', reason: container);
+    }
+  });
+
+  // Harm: the same, for a task the window starts itself.
+  test('a task started by its own name lists its container in the shape porelod gives a new one', () async {
+    await machineIn('work');
+    final client = await connect();
+
+    await client
+        .start(task: 'fix-rounding', project: 'checkout', agent: 'an-agent', mode: Mode.unattended, prompt: 'Fix it')
+        .drain<void>();
+
+    final run = (await client.tasks()).where((task) => task.task == 'fix-rounding').map((task) => task.name);
+    expect(run, <String>['porelo-checkout_fix-rounding']);
+  });
+
+  // Harm: the same, for a task whose own name begins as a container's of another shape does.
+  test('a task started by an own name that begins porelo- is not taken for a container', () async {
+    await machineIn('work');
+    final client = await connect();
+
+    await client
+        .start(task: 'porelo-fix', project: 'checkout', agent: 'an-agent', mode: Mode.unattended, prompt: 'Fix it')
+        .drain<void>();
+
+    final run = (await client.tasks()).where((task) => task.task == 'porelo-fix').map((task) => task.name);
+    expect(run, <String>['porelo-checkout_porelo-fix']);
+  });
+
   test('a run killed by its own time limit comes back 124, with its log kept', () async {
     await machineIn('out-of-time');
     final client = await connect();

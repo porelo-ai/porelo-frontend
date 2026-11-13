@@ -2226,7 +2226,12 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
       yield <String, dynamic>{'line': line};
     }
 
-    final container = parameters['task'] as String? ?? 'porelo-checkout-run';
+    final project = (parameters['project'] as String? ?? '').contains('billing') ? 'billing' : 'checkout';
+    // A name given to Start in a shape porelod gives this project's containers, new or from before, is that container's,
+    // as porelod takes it; any other is a task's own name, even one that begins `porelo-`, and gets the container name
+    // porelod gives a new task.
+    final given = parameters['task'] as String? ?? 'run';
+    final container = _taskIn(given, project) != given ? given : _newPrefix(project) + given;
     if (situation == 'out-of-time') {
       // Killed by its own limit. The log is kept, which is why the lines above still stand.
       yield <String, dynamic>{'container': container, 'exitCode': 124};
@@ -2239,7 +2244,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
       ...tasks,
       _task(
         container,
-        (parameters['project'] as String? ?? '').contains('billing') ? 'billing' : 'checkout',
+        project,
         running: false,
         helpers: 0,
         activity: 'DEAD',
@@ -2352,8 +2357,8 @@ deleted file mode 100644
     int waiting = 0,
   }) => <String, dynamic>{
     'name': name,
-    // The stand-in's own naming rule; a client never derives this.
-    'task': name.replaceFirst('porelo-$project-', ''),
+    // porelod's naming rule, played here; a client never derives this.
+    'task': _taskIn(name, project),
     'label': '',
     'project': project,
     'securityClass': securityClass,
@@ -2363,14 +2368,26 @@ deleted file mode 100644
     'agent': agent,
     'mode': mode,
     'prompt': prompt ?? (mode == 'UNATTENDED' ? 'Fix the rounding in Money.pennies and add a test for it' : ''),
-    // The ref carries the *task* name, which is the container name without the project
-    // prefix — not the container name itself, which has the run in it.
-    'branch': 'refs/porelo/incoming/${name.replaceFirst('porelo-$project-', '')}',
-    'forgeBranch': 'porelo/${name.replaceFirst('porelo-$project-', '')}',
+    // The ref carries the *task* name, not the container's.
+    'branch': 'refs/porelo/incoming/${_taskIn(name, project)}',
+    'forgeBranch': 'porelo/${_taskIn(name, project)}',
     'since': DateTime.now().toUtc().subtract(Duration(minutes: minutesAgo)).toIso8601String(),
     'activity': running ? activity : 'DEAD',
     'waitingFor': waitingFor,
     'clearance': clearance,
     'waiting': waiting,
   };
+
+  /// The prefix porelod gives a new task's container in [project]: `porelo_` in project `porelo`, `porelo-<project>_` in
+  /// any other.
+  static String _newPrefix(String project) => project == 'porelo' ? 'porelo_' : 'porelo-${project}_';
+
+  /// The task in [name], a container of [project], as porelod reads it: what follows the prefix it gives a new task,
+  /// else the one it gave before, `porelo-` in project `porelo` and `porelo-<project>-` in any other.
+  static String _taskIn(String name, String project) {
+    for (final prefix in <String>[_newPrefix(project), project == 'porelo' ? 'porelo-' : 'porelo-$project-']) {
+      if (name.startsWith(prefix) && name.length > prefix.length) return name.substring(prefix.length);
+    }
+    return name;
+  }
 }

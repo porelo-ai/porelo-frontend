@@ -17,16 +17,14 @@ Future<void> theTestMachineHasAProjectWithAConversation(WidgetTester tester, Str
     return;
   }
   removeAfterwards(
-    remove: removingTheWork(containerOf(name, 'write'), name),
+    remove: '${stoppingAndRemoving(containersOf(name, 'write'))}${removingTheWork(containerOf(name, 'write'), name)}',
     leftOver: listingTheWork,
-    names: <String>[containerOf(name, 'write')],
+    names: containersOf(name, 'write'),
   );
   await onTheTestMachine('''
 set -eu
 PATH="\$HOME/.local/bin:\$PATH"
-porelo task stop ${containerOf(name, 'write')} >/dev/null 2>&1 || true
-porelo task remove ${containerOf(name, 'write')} >/dev/null 2>&1 || true
-porelo project remove $name >/dev/null 2>&1 || true
+${stoppingAndRemoving(containersOf(name, 'write'), force: false)}porelo project remove $name >/dev/null 2>&1 || true
 ${removingTheProjectFiles(name)}
 repo="\$HOME/$name"; git init -q --bare -b main "\$repo-backend.git"
 ${writingTheProjectFile(name, '''

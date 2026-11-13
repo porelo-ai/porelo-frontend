@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/container_names.dart';
 
 import '../support/e2e.dart';
 import '../support/rehearsal.dart';
@@ -8,8 +9,11 @@ import '../support/remote.dart';
 /// Usage: I forward it to the task's own branch on the host's forge
 Future<void> iForwardItToTheTasksOwnBranchOnTheHostsForge(WidgetTester tester) => pictured(tester, () async {
   // The task's builds are the runs of its own forge branch, as the host names it; a forward elsewhere is the person's
-  // push and builds nothing of the task's.
-  final short = Rehearsal.waitingTask!.replaceFirst(RegExp('^porelo-${RegExp.escape(Rehearsal.project)}[-_]'), '');
+  // push and builds nothing of the task's. The task is the one the host lists, else the container's name without its
+  // prefix in either shape.
+  final listed = (await theProjectsTasksOnTheHost()).where((t) => t['name'] == Rehearsal.waitingTask).firstOrNull;
+  final own = listed?['task'] as String? ?? '';
+  final short = own.isNotEmpty ? own : withoutContainerPrefix(Rehearsal.waitingTask!);
   final named = await onTheTestMachine(
     'porelo task status "$short" 2>&1 | awk \'\$1 == "forge" { print \$2 }\' || true',
   );

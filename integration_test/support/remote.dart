@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/container_names.dart';
 
 import 'e2e.dart';
 
@@ -92,12 +93,27 @@ void removeAfterwards({required String remove, required String leftOver, require
       if (still.isNotEmpty) throw StateError('left on the test machine: ${still.join(', ')}');
     });
 
+/// The container Porelo makes for a new task [task] of [project]: `porelo_<task>` in project `porelo`, otherwise
+/// `porelo-<project>_<task>`. The test projects set no short spelling.
+String containerOf(String project, String task) => newContainerName(project, task);
+
+/// The names the container of task [task] of [project] may have: the one Porelo gives a new task, and the one a task
+/// made by an older Porelo keeps, `porelo-<task>` in project `porelo` and `porelo-<project>-<task>` otherwise.
+List<String> containersOf(String project, String task) => <String>[
+  containerOf(project, task),
+  project == 'porelo' ? 'porelo-$task' : 'porelo-$project-$task',
+];
+
+/// What stops and removes a task under every name in [containers], tolerating each name no task has; whoever needs
+/// them gone checks the list afterwards.
+String stoppingAndRemoving(List<String> containers, {bool force = true}) => <String>[
+  for (final container in containers)
+    'porelo task stop "$container" >/dev/null 2>&1 || true\n'
+        'porelo task remove${force ? ' --force' : ''} "$container" >/dev/null 2>&1 || true\n',
+].join();
+
 /// What removes a task and its project, whichever is still there: tolerant, since the scenario's own
 /// step may have removed them already.
-/// The container Porelo makes for task [task] of [project]: `porelo-<task>` in project `porelo`, otherwise
-/// `porelo-<project>_<task>`. The test projects set no short spelling.
-String containerOf(String project, String task) => project == 'porelo' ? 'porelo-$task' : 'porelo-${project}_$task';
-
 String removingTheWork(String task, String project) =>
     '''
 porelo task stop "$task" >/dev/null 2>&1 || true

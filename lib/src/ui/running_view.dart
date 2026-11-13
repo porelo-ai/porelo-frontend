@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/attention.dart';
+import '../app/container_names.dart';
 import '../app/fleet_model.dart';
 import '../app/logs.dart';
 import '../app/machines.dart';
@@ -590,10 +591,9 @@ class _Tab extends StatelessWidget {
   final VoidCallback onTap;
 
   /// What a person calls it, short: its caption, else what the machine says a client shows, else, from a machine
-  /// that does not say, the container's name without what every piece of work's name starts with.
-  static String shortName(Task task) => task.label.isNotEmpty || (task.display?.isNotEmpty ?? false)
-      ? task.shown
-      : (task.name.startsWith('porelo-') ? task.name.substring('porelo-'.length) : task.name);
+  /// that does not say, the container's name without the prefix porelod gave it, in either shape.
+  static String shortName(Task task) =>
+      task.label.isNotEmpty || (task.display?.isNotEmpty ?? false) ? task.shown : withoutContainerPrefix(task.name);
 
   @override
   Widget build(BuildContext context) {

@@ -1,12 +1,15 @@
 /// Porelo's rule for a task name, shared by every start that names one.
 ///
 /// Accepted after `Foo Bar` was sent, the image built, and only `podman create` refused it.
-/// Lowercase letters, digits and inner hyphens: podman names the container `porelo-<project>-<task>`,
-/// git names the ref after the task, and a case-insensitive filesystem makes `Foo` and `foo` one ref.
+/// Lowercase letters, digits and inner hyphens: the task's name ends its container's, `porelo_<task>` in project
+/// `porelo` and `porelo-<project>_<task>` in any other; git names the ref after the task, and a case-insensitive
+/// filesystem makes `Foo` and `foo` one ref.
 /// Not only digits, which a login container's name is. And the container name at most
 /// [longestContainerName] characters, because the task's longest socket path must fit. Start stays
 /// the authority; this only stops a name it will refuse from being sent.
 library;
+
+import 'container_names.dart';
 
 /// The longest a task's container name may be, prefix included.
 const int longestContainerName = 65;
@@ -32,7 +35,7 @@ String? taskNameProblem(String name, {String? project, Set<String> taken = const
         'another, or open that work from its tile.';
   }
   if (project != null) {
-    final container = 'porelo-$project-$name';
+    final container = newContainerName(project, name);
     if (container.length > longestContainerName) {
       return 'That name is too long for this project: "$container" is ${container.length} '
           'characters, and at most $longestContainerName fit.';
