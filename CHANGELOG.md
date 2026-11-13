@@ -52,6 +52,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- While a machine reconnects, or a host's card is replaced, the window no longer shows an error in place of its pages: that machine shows as not answering yet until it is watched again, and a reconnect whose connection could not be taken down leaves the machine connected as it was.
 - On Windows the planning board finds porelo-planner's address file where the planner itself writes it.
 - The idea of a discussion the person left is handed to the planner even when the machine first listed its task as stopped with no result file, before it started: a missing result is looked at again for a minute before the window says the discussion wrote no idea. What the window says of an idea also goes to its log.
 - A window whose saved machines list a host card before another machine no longer throws `Null check operator used on a null value` while it opens them, and neither does one where another machine speaks while a machine reconnects: *Needs you*, notifications and the planning read a machine that is listed and not opened yet as one that does not answer, and a stop, the removal of a handed-in discussion or the read of a task's result on it is refused in words; while the selected machine reconnects, where the person was stays saved as it was.

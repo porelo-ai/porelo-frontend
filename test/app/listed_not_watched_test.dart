@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh;
 import 'package:porelo_frontend/src/app/attention.dart';
+import 'package:porelo_frontend/src/app/fleet_model.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/notifications.dart';
 import 'package:porelo_frontend/src/app/planner.dart';
@@ -28,10 +29,32 @@ class _Silent extends FakeBackend {
 class _SlowDrop extends FakeTunnels {
   final Completer<void> let = Completer<void>();
 
+  /// What taking a forward down throws, as an ssh that fails; null where it goes.
+  Object? dropFails;
+
+  /// What saving the host cards throws; null where they are saved.
+  Object? cardsFail;
+
   @override
   Future<void> dropAndUnpublish(Machine machine) async {
     await let.future;
+    if (dropFails case final failure?) throw failure;
     await super.dropAndUnpublish(machine);
+  }
+
+  /// Holds every forward's raising until it completes; null raises at once.
+  Completer<void>? raiseHeld;
+
+  @override
+  Future<bool> raiseFor(Machine machine) async {
+    await raiseHeld?.future;
+    return super.raiseFor(machine);
+  }
+
+  @override
+  FutureOr<void> replaceCards(Iterable<Machine> machines) {
+    if (cardsFail case final failure?) throw failure;
+    return super.replaceCards(machines);
   }
 }
 
@@ -196,6 +219,94 @@ void main() {
     final source = _Source();
     expect(planningMachineOf(machines, _PathPlanner(source), source, project: 'demo'), isNull);
     expect(WindowTaskStarts.of(machines, _PathPlanner(source)).machineFor('demo'), isNull);
+  });
+
+  // Harm: a caller holding a machine that reconnects - a button, a page's action - threw where it read the machine,
+  // rather than meeting a machine that does not answer yet.
+  test('a machine that reconnects reads as not answering, and every call on it is refused', () async {
+    final window = await _reconnecting();
+    final machines = window.machines;
+    final disconnecting = machines.disconnect(window.going);
+    addTearDown(() async {
+      if (!window.tunnels.let.isCompleted) window.tunnels.let.complete();
+      await disconnecting;
+    });
+    await pumpEventQueue();
+    final listed = machines.all.singleWhere((each) => each.name == window.going.name);
+    machines.select(listed);
+
+    expect(machines.watching(listed), isNull, reason: 'it is not watched yet');
+    expect(machines.of(listed).reachability, Reachability.unreachable, reason: 'it does not answer yet');
+    expect(machines.fleet.reachability, Reachability.unreachable, reason: 'nor as the machine being acted on');
+    expect(
+      () => machines.of(listed).backend.tasks(),
+      throwsA(isA<VarlinkDisconnected>()),
+      reason: 'a call on it is refused as one on a machine not answering',
+    );
+    await machines.of(listed).connect();
+    expect(machines.of(listed).reachability, Reachability.unreachable, reason: 'a try opens nothing behind its back');
+  });
+
+  // Harm: a reconnect whose forward did not come down left the machine listed and never watched again, so it
+  // showed as not answering for good, whatever the machine did.
+  test('a reconnect whose forward does not come down watches the machine again as it was', () async {
+    final window = await _reconnecting();
+    final machines = window.machines;
+    window.tunnels
+      ..dropFails = StateError('ssh did not answer')
+      ..let.complete();
+
+    await expectLater(machines.disconnect(window.going), throwsStateError);
+
+    final listed = machines.all.singleWhere((each) => each.name == window.going.name);
+    expect(listed.disconnected, isFalse, reason: 'it stays as it was');
+    expect(machines.watching(listed), isNotNull, reason: 'and is watched again');
+  });
+
+  // Harm: a host card that could not be replaced left the window drawing the machine as not watched, since nothing
+  // told it that the machine was watched again.
+  test('a host card that could not be replaced tells the window the machine is watched again', () async {
+    final window = await _reconnecting();
+    final machines = window.machines;
+    window.tunnels.cardsFail = StateError('the cards could not be saved');
+    final told = <bool>[];
+    void listen() => told.add(machines.watching(window.going) != null);
+    machines.addListener(listen);
+    addTearDown(() => machines.removeListener(listen));
+
+    await expectLater(
+      machines.add(const Machine(name: 'orchard', socketPath: '/tmp/orchard-2.sock', kind: 'host')),
+      throwsStateError,
+    );
+
+    expect(told, isNotEmpty, reason: 'the window is told');
+    expect(told.last, isTrue, reason: 'that the machine is watched again');
+  });
+
+  // Harm: a stored list that could not be taken in left the window drawing the machine it started with as not
+  // watched, since nothing told it that the machine was watched again.
+  test('a stored list that could not be taken in tells the window its machine is watched again', () async {
+    final settings = Settings(MemorySettingsStore());
+    await settings.load();
+    await settings.rememberMachines(const [Machine(name: 'apple', socketPath: '/tmp/apple.sock')]);
+    // Its forward held, so its connection says nothing meanwhile.
+    final raising = Completer<void>();
+    final tunnels = _SlowDrop()
+      ..cardsFail = StateError('the cards could not be saved')
+      ..raiseHeld = raising;
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: tunnels);
+    addTearDown(() {
+      raising.complete();
+      machines.dispose();
+      settings.dispose();
+    });
+    final told = <bool>[];
+    machines.addListener(() => told.add(machines.all.every((each) => machines.watching(each) != null)));
+
+    await expectLater(machines.load(), throwsStateError);
+
+    expect(told, isNotEmpty, reason: 'the window is told');
+    expect(told.last, isTrue, reason: 'that what it lists is watched again');
   });
 }
 

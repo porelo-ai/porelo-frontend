@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F530",
   "title": "Every Reader Of A Machine Waits Until It Is Watched",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 102,
@@ -48,3 +48,25 @@ The reading of the fix that made attention, notifications and the planning calle
 
 - Each page and listener above, pumped while a machine is listed and not watched, raises nothing and shows that
   machine as not answering; each seen red first.
+
+## Decided
+
+2026-11-13: the machine's stand-in, chosen over moving every reader to `watching`. Reading the code found about 250
+readers, not twenty: `shell.dart` alone reads `Machines.of` 105 times and its `_fleet` 123 times, which is L or more.
+`Machines` instead hands a stand-in while a machine is listed and not watched; moving the readers themselves to
+`watching` is an issue of its own, [F536](README.md#f536).
+
+## How it was built
+
+- `Machines.of`, and `fleet` through it, hand a machine listed and not watched yet a stand-in fleet
+  (`FleetModel.notWatchedYet`): not answering, never trying by itself, its backend refusing every call as a lost
+  connection with the words that the machine is not answering yet. `watching` stays null for it; the stand-in goes
+  once the machine is opened, forgotten, or no longer in an adopted list.
+- `PoreloBackend` refuses a call before its opening as a lost connection where its backend names why it cannot be
+  reached, as `Backend` says of every call.
+- `_mark` opens the machine again as it was when its forward does not come down, and tells the listeners; the ways back
+  in `_adopt` and `_add` tell them too.
+- `organization_connections.dart`'s `central` asks only a watched machine.
+- Tests: `test/ui/listed_not_watched_pages_test.dart` draws Work, Needs you, My machines, My projects and the Machine
+  page while a machine, and the selected one, reconnects (red: the rail and `_fleet` threw a null check);
+  `test/app/listed_not_watched_test.dart` adds the stand-in, the way back and both notifications, each seen red.

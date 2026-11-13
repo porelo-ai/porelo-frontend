@@ -3097,17 +3097,19 @@ class World {
   static EmbeddedPlanning planningOf(Machines machines) {
     final client = MockPlanningClient(
       () => [
+        // A machine listed and not watched yet, as while it reconnects, serves no planning.
         for (final machine in machines.all)
-          PlanningProvider(
-            name: machine.name,
-            connected: machines.of(machine).reachability == Reachability.connected,
-            projects: [for (final project in machines.of(machine).listedProjects) project.name],
-            source: planningOn(machines.of(machine).backend),
-          ),
+          if (machines.watching(machine) case final fleet?)
+            PlanningProvider(
+              name: machine.name,
+              connected: fleet.reachability == Reachability.connected,
+              projects: [for (final project in fleet.listedProjects) project.name],
+              source: planningOn(fleet.backend),
+            ),
       ],
       changes: machines,
       currentProvider: () => machines.current.name,
-      chosenProject: () => machines.fleet.selectedProject?.name,
+      chosenProject: () => machines.watching(machines.current)?.selectedProject?.name,
     );
     final starts = WindowTaskStarts.of(machines, client);
     final reports = WindowTaskReports.of(machines, client, starts);
@@ -3186,6 +3188,9 @@ class World {
 
   /// What the next forward does. A scenario sets it to make one fail the way `ssh` fails.
   static String? forwardsFailWith;
+
+  /// Holds every forward's taking down until it completes, as a slow ssh does; null lets them go at once.
+  static Completer<void>? dropsHeld;
 
   /// Forwards raised for a trial and not yet taken down, by machine name.
   static final Set<String> trialForwards = <String>{};
@@ -3495,6 +3500,7 @@ class World {
     forwardsAsked.clear();
     forwardsHeld.clear();
     forwardsFailWith = null;
+    dropsHeld = null;
     trialForwards.clear();
     startsAsked.clear();
     startFailsWith = null;
@@ -4364,6 +4370,7 @@ class FakeTunnels extends Tunnels {
 
   @override
   Future<void> dropFor(Machine machine) async {
+    await World.dropsHeld?.future;
     if (_mine.remove(machine.name) != null) World.forwardsHeld.remove(machine.name);
     notifyListeners();
   }

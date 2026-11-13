@@ -134,6 +134,13 @@ class FleetModel extends ChangeNotifier {
     pullRequests.addListener(_notify);
   }
 
+  /// Stands for a machine listed and not watched yet, as while it reconnects: not answering, never trying by itself,
+  /// and [backend] refuses every call.
+  static FleetModel notWatchedYet(FleetBackend backend, {String? machine}) => FleetModel(backend, machine: machine)
+    .._reachability = Reachability.unreachable
+    .._retryPaused = true
+    .._status = 'Not answering yet.';
+
   /// Which machine this is.
   final FleetBackend backend;
 

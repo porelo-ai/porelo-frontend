@@ -1349,8 +1349,10 @@ class PoreloBackend implements FleetBackend {
 
   PoreloClient _opened() {
     final client = _client;
-    if (client == null) throw StateError('open() has not answered yet');
-    return client;
+    // As its backend says: where it cannot be reached, every call ends at once as a lost connection.
+    if (client != null) return client;
+    if (backend.notReachable case final why?) throw VarlinkDisconnected(why);
+    throw StateError('open() has not answered yet');
   }
 }
 

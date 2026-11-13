@@ -466,8 +466,10 @@ class CardHostConnections extends HostConnections {
   Future<CentralState> central(String host, String project) async {
     final machine = _machine(host);
     if (machine == null || !up(host)) return const CentralState();
+    // A machine listed and not watched yet, as while it reconnects, cannot be asked.
+    final fleet = machines.watching(machine);
+    if (fleet == null) return const CentralState();
     try {
-      final fleet = machines.of(machine);
       // The connection can be up before the daemon's connection over it has opened.
       await fleet.untilAsked();
       if (fleet.reachability != Reachability.connected) return const CentralState();
