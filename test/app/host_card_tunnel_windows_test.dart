@@ -112,7 +112,9 @@ void main() {
 
   setUp(() async {
     before = desk;
-    folder = Directory.systemTemp.createTempSync('w-');
+    // Windows' temporary folder may be named by its short form (C:\Users\RUNNER~1\...), which an SSH path refuses for
+    // its ~: there the test's folder lies in the checkout's own tool folder, named in full.
+    folder = (Platform.isWindows ? Directory('.dart_tool') : Directory.systemTemp).absolute.createTempSync('w-');
     // An APPDATA Windows' path rules and this test's file system both take: the stand-in writer keeps the files.
     environment = {'SystemRoot': r'C:\Windows', 'APPDATA': folder.path};
     desk = Desk.of('windows', environment);

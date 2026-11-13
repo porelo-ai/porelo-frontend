@@ -1518,6 +1518,30 @@ void _leftBehind() {
     expect(File('$records/${left.pid}.forward').existsSync(), isTrue, reason: 'it is still running, so still recorded');
   });
 
+  // Harm: an endpoint that answered all along called one nobody could tell, because the wait's last probe had only the
+  // few milliseconds left of the deadline and a loaded machine answered it late.
+  test(
+    'an endpoint that answered during the wait is said to be served though the last probe ran out of time',
+    () async {
+      final socket = '${where.path}/answered.sock';
+      final left = await leftBy(ForwardRecords(records), socket, stubborn: true);
+      var probes = 0;
+      final tunnel = Tunnel(
+        machineAt(socket),
+        records: ForwardRecords(records),
+        start: (_) async => (await serving(socket)).process,
+        connect: (path) async =>
+            ++probes == 1 ? connectToSocket(path) : ConnectionTask.fromSocket(Completer<Socket>().future, () {}),
+      );
+      addTearDown(tunnel.drop);
+
+      await tunnel.raise();
+
+      expect(probes, greaterThan(1), reason: 'the leftover was waited for');
+      await leftAlone(tunnel, left);
+    },
+  );
+
   // Harm: a machine refused because the start did not wait for a leftover that takes a moment to end.
   test('a leftover that takes a moment to end is waited for, and the machine raised', () async {
     final socket = '${where.path}/slow.sock';

@@ -291,13 +291,17 @@ class Tunnel {
         (_records?.endLeftovers((line) => forwardsSocket(line, machine.socketPath)) ?? false)) {
       // A monotonic deadline, each probe capped by what is left of it: a probe that hangs cannot stretch the wait.
       final waited = Stopwatch()..start();
+      // The last probe may have only milliseconds left: one that ran out of them does not unsay an answer seen.
+      var answered = found == SocketProbe.answers;
       while (found != SocketProbe.nobody && waited.elapsed < leftoverEnds) {
         found = await probeSocket(machine.socketPath, _connect, within: _leftOf(waited, const Duration(seconds: 1)));
+        if (found == SocketProbe.answers) answered = true;
         if (found != SocketProbe.nobody) {
           await Future<void>.delayed(_leftOf(waited, const Duration(milliseconds: 100)));
         }
       }
       if (generation != _generation) return;
+      if (found == SocketProbe.unknown && answered) found = SocketProbe.answers;
     }
     if (found != SocketProbe.nobody) {
       state = TunnelState.down;

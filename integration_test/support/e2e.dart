@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/main.dart' as app;
 import 'package:porelo_frontend/src/app/porelo_app.dart';
@@ -223,23 +224,30 @@ Future<void> openTheConnectionWizard(WidgetTester tester) async {
 /// even once the read is done, and a tap on it runs nothing.
 Future<void> tapInTheConnectionsMenu(WidgetTester tester, String id) async {
   final menu = find.byKey(const Key('connections-menu'));
-  await pumpUntil(
-    tester,
-    () =>
-        menu.evaluate().isNotEmpty &&
-        tester.widget<CommandMenu>(menu).commands.any((each) => each.id == id && each.available),
-    what: 'the entry $id of the connections runnable, the machine having answered',
-  );
-  await tester.tap(menu);
   final entry = find.byKey(ValueKey<String>(id));
-  await pumpUntil(tester, () => entry.evaluate().isNotEmpty, what: 'the entry $id in the menu of the connections');
-  // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
-  await pumpFor(tester);
-  expect(
-    tester.widget<PopupMenuItem<String>>(entry.last).enabled,
-    isTrue,
-    reason: 'the entry $id was greyed out when the menu opened, so a tap would run nothing',
-  );
+  // A read again between the check and the opening greys the entry in the menu just opened: closed and opened again.
+  for (var attempt = 1; ; attempt++) {
+    await pumpUntil(
+      tester,
+      () =>
+          menu.evaluate().isNotEmpty &&
+          tester.widget<CommandMenu>(menu).commands.any((each) => each.id == id && each.available),
+      what: 'the entry $id of the connections runnable, the machine having answered',
+    );
+    await tester.tap(menu);
+    await pumpUntil(tester, () => entry.evaluate().isNotEmpty, what: 'the entry $id in the menu of the connections');
+    // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
+    await pumpFor(tester);
+    final enabled = tester.widget<PopupMenuItem<String>>(entry.last).enabled;
+    if (enabled) break;
+    expect(
+      attempt,
+      lessThan(5),
+      reason: 'the entry $id was greyed out each time the menu opened, so a tap would run nothing',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await pumpUntil(tester, () => entry.evaluate().isEmpty, what: 'the menu of the connections closed');
+  }
   await tester.tap(entry.last);
 }
 
