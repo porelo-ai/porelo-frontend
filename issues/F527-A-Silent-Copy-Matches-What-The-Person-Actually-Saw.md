@@ -5,17 +5,20 @@
   "$schema": "issue-1.json",
   "id": "F527",
   "title": "A Silent Copy Matches What The Person Actually Saw",
-  "state": "Backlog",
-  "size": "M",
+  "state": "Analyzed",
+  "size": "S",
   "priority": "High",
   "rank": 99,
   "blockedBy": [],
-  "covers": "A task's silent clipboard write matches the text the person saw and dragged, not text the task hid in its buffer or repainted under the gesture; or no task write is silent."
+  "covers": "A task's silent clipboard write matches the text the person saw and dragged, not text the task hid in its buffer or repainted under the gesture; or no task write is silent.",
+  "openQuestions": 1
 }
 ```
 
-**Why this size.** M: the gesture, the screen read and the gate in one module and their tests, plus a decision on what
-"seen" means; no contract another repository reads.
+**Why this size.** S: dropping the silent path takes code out of the session and its terminal widget and the tests
+over it, adds one test, and words the decision again; no contract another repository reads. Keeping the path and
+making it match what was drawn is M: a read of the cells as drawn against the theme, a per-frame record of the lines on
+screen, a settle time, and their tests.
 
 **What must be true.** A task's clipboard write (OSC 52) goes through without a word only when its text is what the
 person saw and meant to copy with their drag, not merely what the task's own buffer held under the drag; whatever the
@@ -35,47 +38,77 @@ task did to the screen during or right after the gesture to make a different tex
 - The dragged text keeps a gap the cursor skipped as the space it shows; only plain spaces at a line's end are
   dropped, so any control in the write that the screen did not show holds it.
 
-## What is not settled
+## What the code shows
 
-The task writes the buffer, so the text the gate compares with is the task's text. Three ways remain to make a write
-match without the person having seen that text:
-
-- **Invisible text.** The task draws characters in the background colour, at zero intensity, concealed (SGR 8), as
-  blink-off, or under other text the renderer draws on top; the person drags across what looks like blank space or a
-  harmless word and the buffer holds `rm -rf ~` there. The read counts cell code points, not what was drawn.
-- **A repaint between the frame the person saw and the release.** The task rewrites the lines under the pointer and
-  the press-time snapshot of the lines is taken after the repaint (it is taken when the press is handled, not from
-  the last frame drawn), or the task rewrites lines the gesture ends on outside the window the snapshot covers; the
-  release then reads text that was on screen for less than a frame, or never.
-- **A write staged ahead.** The task sends a matching write right after a repaint it timed to the person's habit
-  (a prompt that always shows the same command for a drag), so the copy is "what was dragged" by construction.
+- **Who the silent path serves.** It applies only while the task does not hear the mouse
+  (`Session.dragged`, `_SessionTerminalState._pressed` in `lib/src/ui/session_terminal.dart`). Then the drag is
+  this window's own selection, which no program in the task is told of; so no program sends a write that answers it.
+  A matching write is a coincidence or a guess. Porelo's tmux, with the mouse on, gets the drag itself and its
+  copy-mode write is asked about already. On Windows the pseudoconsole keeps the mouse mode at none, but tmux then
+  gets no drag either.
+- **Hidden glyphs, as the renderer draws them** (`packages/xterm/lib/src/ui/painter.dart`, `paintCellForeground` and
+  `paintCellBackground`). Concealed (SGR 8) sets a flag the painter never reads: such text is drawn plainly. Blink is
+  drawn steadily. Faint is drawn at half opacity. Inverse swaps foreground and background. What does hide a glyph:
+  a foreground equal or close to the background it is drawn on (the theme's, a palette colour or any RGB, also after
+  inverse and with faint), which takes a contrast threshold, not equality; a code point of width zero or one drawn
+  blank (U+200B, U+3164, U+2800 and the like), which still takes a cell; and a glyph wider than its cell partly
+  covering its neighbour. The cell after a wide character is neither drawn nor read (`copiedText` in
+  `lib/src/ui/terminal_copy.dart` skips it as the painter does).
+- **Counting cells as drawn.** `copiedText` reads code points only. A read as drawn would take each cell's
+  `CellData` (`BufferLine.getCellData`) and the view's `TerminalTheme` and palette, which only the widget holds, and
+  read a cell as a space when its glyph shows nothing: contrast under a threshold, a blank code point, or concealed
+  (kept blank too, in case a later renderer honours it). The widget would then hand the session the texts as drawn.
+- **What was last drawn.** Nothing in the terminal says when a line changed: `Terminal` notifies on every write and a
+  `BufferLine` has no version. The widget can know the last frame: a post-frame callback (`SchedulerBinding`, with the
+  frame's timestamp) runs right after the paint, before any further write, so the buffer then is what was drawn. A
+  record kept per frame of the lines on screen (identity, code points, colours, flags) and the time each last
+  changed lets the release require that the lines under the gesture are the ones drawn and have stood unchanged for a
+  settle time. That reads every cell on screen each frame the terminal draws, about ten thousand on a large window.
+  Drags over a line inside that time (a spinner, streaming output, a status line) go to the bar. The release is not
+  delayed.
+- **The press-time snapshot.** It is taken when the press is handled, so a write that arrived after the last frame and
+  before the press is in it, a gap of under one frame that a task cannot aim at, since it does not hear the mouse.
+  Lines the gesture ends on outside the window the snapshot covers are refused already (`_Lines.unchanged`).
+- **A staged write cannot be told apart.** When the screen plainly showed a text, stably, and the person dragged
+  across it, a write of that text is the same bytes whoever sent it and why. No settle time or read as drawn closes
+  it: the clipboard is then silently replaced with text the person saw and selected but did not ask to copy, and a
+  later paste runs it.
 
 ## Plan
 
-- To be read in today's code before this goes to Analyzed: the terminal's renderer (which attributes hide a glyph:
-  concealed, zero alpha, foreground equal to background, blink), the gesture code in the session's terminal widget,
-  and the gate in the session.
-- Likely shape: the silent path compares with the text as drawn in the last frame the person could have seen before
-  the release - cells whose glyph was not visibly drawn (concealed, invisible colour, covered) count as what they
-  showed, and any line under the gesture repainted within a short settle time before the release voids the drag.
-- Alternatively, decide that a task's write is never silent and drop the silent path entirely; the bar then asks for
-  every copy. This is the smallest change and removes the whole class of mismatch; its cost is one click per copy.
-- Unit tests over a fake terminal for each attribute and each repaint timing; widget tests through the gesture.
+- **Recommended: no task write is silent.** Every OSC 52 write is held and asked about in the bar under the terminal.
+  This removes the whole class of mismatch, closes the staged write, which matching cannot, and costs no honest
+  program anything, since none can answer this window's drag. Its cost is one click on *Copy* for a write that today
+  goes through, which only a program guessing the selection gets.
+- `lib/src/app/session.dart`: `_copied` holds every write that passes its checks; `_drag`, `ownKey`, `dragged`,
+  `pressed`, `lostFocus`, `_asCopied` and `_silentAfterDrag` go, and with them the session's clock (`sessionClock`,
+  `_now`), which only the drag reads.
+- `lib/src/ui/session_terminal.dart`: `SessionTerminal` keeps drawing the terminal and the bar; the `Listener`, the
+  focus watch, the keyboard handler, `_Drag` and `_Lines` go. Its four users (`session_view.dart`,
+  `new_machine.dart` twice, `unlock_terminal.dart`) are unchanged, and every one of their terminals asks.
+- Red first, in `test/app/session_clipboard_test.dart`: a write of exactly the text just dragged across, in a
+  terminal whose task does not hear the mouse, is held; red against today's silent path. The drag tests in it and in
+  `test/ui/session_terminal_test.dart` go; the bar's tests and the held-write tests stay. In
+  `test/ui/drive_step_test.dart` the drive terminal's drag ends in the bar instead of a copy.
+- `doc/decisions.md`, *A task's program may write this computer's clipboard, never read it*: every write is asked
+  about. A changelog entry under *Changed*.
+- **If the silent path is kept** (M): the widget reads the dragged cells as drawn (above) and keeps the per-frame
+  record with a settle time of about half a second before the release; unit tests over a fake terminal for each
+  hiding attribute, contrast threshold and blank code point, and widget tests that pump frames for each repaint
+  timing. The staged write stays open and goes into the decision as an accepted risk.
 
 ## Acceptance
 
-- A drag across text drawn concealed, in the background colour or blinked off, followed by a write of that hidden
-  text, is held; seen red against today's read by code point.
-- A drag whose lines were rewritten within the settle time before the release is held; seen red against today's
-  press-time snapshot.
-- A drag across plainly drawn text that did not change still lets its exact write through once.
+- A write of exactly the text the person just dragged across is held and copied only on *Copy*; seen red against
+  today's silent path.
+- A write from tmux's copy mode, the person's own copy keys and the paste keys behave as today.
 
 ## Open questions
 
-- Keep a silent path at all, given that a drag while the task hears the mouse (tmux with its mouse on) already never
-  gets one, or ask about every copy a task makes?
+- Keep a silent path at all, made to match what was drawn with a settle time and the staged write accepted as a risk,
+  or ask about every copy a task makes, as recommended?
 
 ## To be checked
 
-- Which hidden-glyph attributes the terminal's renderer honours, and whether a frame timestamp is available to the
-  widget for "last drawn" comparisons.
+- Measure in a task on Linux and on Windows that a drag with Porelo's tmux never takes the silent path today, so that
+  dropping it changes nothing an honest program does.
