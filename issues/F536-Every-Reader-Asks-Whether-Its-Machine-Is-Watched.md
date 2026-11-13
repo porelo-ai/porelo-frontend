@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F536",
   "title": "Every Reader Asks Whether Its Machine Is Watched",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "L",
   "priority": "Medium",
   "rank": 107,
@@ -33,7 +33,7 @@ line said about a task) is lost when the machine is watched again.
 
 ## Found
 
-The readers through `Machines.of`, `Machines.fleet` or `Attention.fleetOf` (line numbers of 2026-11-13):
+The readers through `Machines.of`, `Machines.fleet` or `Attention.fleetOf`, as found before the work began:
 
 - `lib/src/ui/shell.dart`: 105 reads of `machines.of(...)` in about 70 methods - builds and menus (the rail at 5287,
   `_machineMenu` 1093, `_projectMenu` 1272, `_machinesFacts` 4639, `_workArea` 5443, `_projectPage` 6168), the
@@ -51,9 +51,20 @@ The readers through `Machines.of`, `Machines.fleet` or `Attention.fleetOf` (line
 
 ## Plan
 
-Split into issues of M or smaller:
-- `shell.dart`: `_fleet` and the builds first, then its actions.
-- The pages: Needs you, My machines, My projects, the machine's details, Work and the running view.
-- The app callers: the planning, where the person was, and the planner's chosen project.
+Built in one issue, as commits that each pass on their own; the type checker finds the readers, so none is missed.
 
-Each with a widget test of the window that pumps frames while a machine is listed and not watched yet.
+1. `shell.dart`'s `_fleet` becomes the fleet of the selected machine while it is watched, else null. Each build and
+   menu draws null as not answering; each action on null changes nothing and says, in a notice, that the machine is
+   not answering yet and what was not done. Red: an action on the selected machine while it reconnects (choosing a
+   project, saying a line) is lost without a word.
+2. `shell.dart`'s reads of `machines.of(...)` ask `watching` the same way, the machine's details and an unattended
+   run follow the fleet that watches the machine (`Machines.follow`) instead of keeping the one handed once.
+3. `attention_view.dart`'s `fleetOf`, and the pages: My machines, My projects, the machine's details, Work, the
+   running view and the host dialog.
+4. The app callers: the planning embedding and reports, where the person was, and the planner's chosen project.
+5. The stand-in goes: `of` is for a caller holding a machine it opened, and throws for a machine not watched. Red: the
+   window-level tests that draw every page and act while a machine reconnects
+   (`test/ui/listed_not_watched_pages_test.dart`, `test/app/listed_not_watched_test.dart`) throw on any reader
+   left; they pass once none is.
+
+Each step adds to the widget tests of the window in which a machine is listed and not watched yet.
