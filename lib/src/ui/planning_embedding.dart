@@ -71,7 +71,7 @@ class WindowTaskStarts {
       _watchedCurrent(machines),
       (machine) => machines.watching(machine)?.listedProjects.any((each) => each.name == project) ?? false,
     ),
-    backendOf: (machine) => machines.of(machine).backend,
+    backendOf: (machine) => machines.watching(machine)?.backend,
     settings: machines.settings,
     providerOf: (source) => client.providers.where((provider) => identical(provider.source, source)).firstOrNull?.name,
     machineNamed: (name) => machines.all.where((machine) => machine.name == name).firstOrNull,
@@ -81,7 +81,7 @@ class WindowTaskStarts {
   final Machine? Function(String project) machineFor;
 
   /// How that machine is asked.
-  final FleetBackend Function(Machine) backendOf;
+  final FleetBackend? Function(Machine) backendOf;
 
   /// Where an offer is kept.
   final Settings settings;
@@ -150,6 +150,10 @@ class WindowTaskStarts {
       throw PlanningRefusal('NoMachine', {'detail': words}, words);
     }
     final backend = backendOf(machine);
+    if (backend == null) {
+      final words = '${machine.name} is not answering yet: it is being opened. Start the task once it answers.';
+      throw PlanningRefusal('NotWatchedYet', {'detail': words}, words);
+    }
     final discussion = task.role == 'DISCUSSION';
     final Future<StartProgress> Function() start;
     switch ((discussion, task.repository, task.result)) {
@@ -507,7 +511,9 @@ class MachinePlanningAgents implements PlanningAgents {
       });
     }
     try {
-      final listed = await machines.of(machine).backend.agentsOn();
+      final backend = machines.watching(machine)?.backend;
+      if (backend == null) throw StateError('${machine.name} is not answering yet: it is being opened.');
+      final listed = await backend.agentsOn();
       return PlanningAgentList([
         for (final agent in listed.agents) PlanningAgent(agent.name, choice: StartAgentChoice(agent: agent)),
       ], listed.failures);

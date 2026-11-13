@@ -186,7 +186,7 @@ class WindowTaskReports {
       null => null,
     },
     repositoryOf: (name, task) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
-      final machine? => machines.of(machine).projectOf(task)?.repositoryOf(task),
+      final machine? => machines.watching(machine)?.projectOf(task)?.repositoryOf(task),
       null => null,
     },
   );

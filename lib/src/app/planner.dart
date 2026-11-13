@@ -183,7 +183,7 @@ class LocalPlanner extends ChangeNotifier
     poreloExecutable: _poreloOnce(),
     projects: () => plannedProjects(machines),
     repositories: (project) => plannerProjectOf(machines, project),
-    chosenProject: () => machines.fleet.selectedProject?.name,
+    chosenProject: () => machines.watching(machines.current)?.selectedProject?.name,
     changes: machines,
     runtimeDirectory: runtimeDirectory,
     candidates: candidates,

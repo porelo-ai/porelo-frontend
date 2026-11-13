@@ -54,17 +54,34 @@ class WhereYouWere {
     final destination = _shell.place.machine;
     if (destination != null) _machines.select(destination);
 
-    final fleet = _machines.fleet;
     final project = place['project'];
-    if (project != null) fleet.selectProject(project);
     final task = place['task'];
-    if (task != null) fleet.selectTask(task);
+    // A machine not watched yet, as while it is opened, takes the selection once it is: the fleet watching it then.
+    final current = _machines.current;
+    _stopWaiting();
+    var done = false;
+    _waiting = _machines.follow(current, (fleet) {
+      if (done || fleet == null) return;
+      done = true;
+      // Called from within the first call too, where what stops it is not kept yet.
+      scheduleMicrotask(_stopWaiting);
+      if (project != null) fleet.selectProject(project);
+      if (task != null) fleet.selectTask(task);
+    });
     _restored = true;
     _remember();
   }
 
+  void Function()? _waiting;
+
+  void _stopWaiting() {
+    _waiting?.call();
+    _waiting = null;
+  }
+
   /// Stops remembering.
   void dispose() {
+    _stopWaiting();
     _machines.removeListener(_remember);
     _shell.removeListener(_remember);
   }

@@ -35,9 +35,13 @@ class _SlowDrop extends FakeTunnels {
   /// What saving the host cards throws; null where they are saved.
   Object? cardsFail;
 
+  /// Holds a later forward's coming down, once [let] let the first one go; null lets it go at once.
+  Completer<void>? dropHeld;
+
   @override
   Future<void> dropAndUnpublish(Machine machine) async {
     await let.future;
+    await dropHeld?.future;
     if (dropFails case final failure?) throw failure;
     await super.dropAndUnpublish(machine);
   }
@@ -251,6 +255,35 @@ void main() {
     final source = _Source();
     expect(planningMachineOf(machines, _PathPlanner(source), source, project: 'demo'), isNull);
     expect(WindowTaskStarts.of(machines, _PathPlanner(source)).machineFor('demo'), isNull);
+  });
+
+  // Harm: a window started while the machine the person was on reconnected put the saved project on the stand-in,
+  // which then went, so the person came back to no project chosen.
+  test('the place saved on a machine that reconnects is taken up once it is watched', () async {
+    final window = await _reconnecting();
+    final machines = window.machines;
+    await machines.settings.rememberWhereYouWere(<String, String>{'machine': window.going.name, 'project': 'billing'});
+    window.tunnels.let.complete();
+    await machines.disconnect(window.going);
+    final held = window.tunnels.dropHeld = Completer<void>();
+    final reconnecting = machines.reconnect(machines.all.singleWhere((each) => each.name == window.going.name));
+    await pumpEventQueue();
+    final shell = ShellModel();
+    final whereYouWere = WhereYouWere(machines.settings, machines, shell);
+    addTearDown(() {
+      whereYouWere.dispose();
+      shell.dispose();
+    });
+
+    await whereYouWere.restore();
+    held.complete();
+    await reconnecting;
+    final watched = machines.watching(machines.current);
+    await watched?.untilAsked();
+    await pumpEventQueue();
+
+    expect(machines.current.name, window.going.name, reason: 'the machine the person was on');
+    expect(watched?.selectedProject?.name, 'billing', reason: 'and the project chosen on it');
   });
 
   // Harm: a caller holding a machine that reconnects - a button, a page's action - threw where it read the machine,
