@@ -479,6 +479,15 @@ Future<List<String>> theMovesOffered(WidgetTester tester, String issue) async {
   ];
   await tester.tapAt(Offset.zero);
   await pumpFor(tester);
+  // A closing menu still holds its picks for a while; the next move must not find them there.
+  await pumpUntil(
+    tester,
+    () => find
+        .byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith(prefix))
+        .evaluate()
+        .isEmpty,
+    what: 'the menu of $issue to close',
+  );
   return offered;
 }
 
@@ -495,7 +504,12 @@ Future<void> moveAndSave(WidgetTester tester, String issue, String state) async 
   final missedWarns = WidgetController.hitTestWarningShouldBeFatal;
   WidgetController.hitTestWarningShouldBeFatal = true;
   try {
-    while (to.evaluate().isEmpty && DateTime.now().isBefore(by)) {
+    // A pick of a menu still closing is found but takes no tap: it is waited out, and the menu opened anew.
+    while (to.hitTestable().evaluate().isEmpty && DateTime.now().isBefore(by)) {
+      if (to.evaluate().isNotEmpty) {
+        await pumpFor(tester);
+        continue;
+      }
       await pumpUntil(tester, () => move.evaluate().isNotEmpty, what: 'the move menu of $issue');
       await tester.ensureVisible(move.first);
       await pumpFor(tester);
@@ -504,7 +518,13 @@ Future<void> moveAndSave(WidgetTester tester, String issue, String state) async 
       if (to.evaluate().isEmpty) await pumpFor(tester, const Duration(seconds: 5));
     }
     await pumpUntil(tester, () => to.evaluate().isNotEmpty, what: 'the move of $issue to $state');
-    await tester.tap(to.last);
+    // A menu still scrolling to its item, or still fading in, takes no tap: the pick waits until it would land.
+    await pumpUntil(
+      tester,
+      () => to.hitTestable().evaluate().isNotEmpty,
+      what: 'the move of $issue to $state to take a tap',
+    );
+    await tester.tap(to.hitTestable().last);
     await pumpFor(tester);
   } finally {
     WidgetController.hitTestWarningShouldBeFatal = missedWarns;
