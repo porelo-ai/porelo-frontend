@@ -59,6 +59,20 @@ The contracts it builds against:
   reached, or a project no watched machine names the repository of yet, is said once and tried at the next sweep, as
   today's reports are.
 - The discussions' hand-in (`handIdea`, `_handIdea`) stays as it is: it hands a story from a discussion's result file.
+- What the plan's reading asked, and the answers: a voided offer forgets the offer alone, the idea marks only go with
+  the task's removal; an id past `idea-100` is out of bounds. Kept as they are: the planner's call takes no key that
+  makes a second send of the same idea harmless, so a window that ends between the planner's save and its mark sends
+  that idea once more at its next start; the window runs once per account, so no second window writes the marks; a
+  watched machine is the person's own choice and the project's `limits.ideas` (0 by default) is what lets its tasks
+  propose; a planner's fault words are its own, which by its contract never repeat what was sent; a later sweep comes
+  with the next change of a machine or the planner, as today's reports do.
+- What the code's reading found, and the answers: only `IssueNotAllowed` naming the title or what must be true is
+  final, any other refusal is tried at the next start; an idea not handed in this window's life keeps the task's later
+  ideas behind it; `RevisionMoved` is read again later; a handed-in discussion stays while an idea of its own waits,
+  and the proposed ideas are handed before the discussions; a removal forgets its records before it writes; an entry
+  of `ideas` that is no object is kept empty and refused in words. Kept as they are: the planner's project is bound as
+  the board's is, by the machine shown first; past 500 tasks with ideas the oldest marks go; a planner that saved and
+  then timed out is asked again; a settings write that fails is not seen, as for every kept record.
 - A red test first in `test/ui/window_task_reports_test.dart`: a watched task whose row lists one idea is handed to
   the planner's fake once with the task's repository and name, a second sweep and a new reports instance on the same
   settings hand nothing, and a second idea on the same row is handed on its own.
