@@ -616,6 +616,7 @@ class Task {
     this.run,
     this.callerKey = '',
     this.landed,
+    this.ideas,
     this.handInLimit,
     this.files,
     this.builds,
@@ -642,6 +643,10 @@ class Task {
   /// Each branch its work was forwarded to, as Porelo gives it (`branch`, `ref`, `remote`, `commit`), to be passed on
   /// unchanged: empty while the work waits at the gate, and null from a machine that does not say.
   final List<Map<String, dynamic>>? landed;
+
+  /// The ideas it proposed for itself, oldest first, as the machine kept them. **Null is not empty**: a machine that
+  /// does not list them cannot say, which is not *it proposed none*. Their text is the task's agent's own.
+  final List<ProposedIdea>? ideas;
 
   /// The bytes one file handed to this task may have. Null from a machine without hand-in, which
   /// is no limit of zero.
@@ -717,6 +722,9 @@ class Task {
         ? List.unmodifiable(
             (map['landed'] as List).whereType<Map<String, dynamic>>().map(Map<String, dynamic>.unmodifiable),
           )
+        : null,
+    ideas: map['ideas'] is List
+        ? List.unmodifiable((map['ideas'] as List).whereType<Map<String, dynamic>>().map(ProposedIdea.from))
         : null,
     handInLimit: map['handInLimit'] is num ? (map['handInLimit'] as num).toInt() : null,
     files: map['files'] is List
@@ -1120,6 +1128,33 @@ class TaskResult {
 
   /// Its text, where `Result` answered it; null in a task's end, which names the file only.
   final String? content;
+}
+
+/// An idea a task proposed for itself while it worked: a new issue it found. **Every field is the task's agent's own
+/// text**, as the machine kept it; nothing here checks it.
+class ProposedIdea {
+  /// Constructor taking every field.
+  const ProposedIdea({required this.id, required this.title, required this.mustBeTrue, this.at = ''});
+
+  /// Reads one from a row, a field missing or of another type as empty.
+  factory ProposedIdea.from(Map<String, dynamic> map) => ProposedIdea(
+    id: _string(map, 'id'),
+    title: _string(map, 'title'),
+    mustBeTrue: _string(map, 'whatMustBeTrue'),
+    at: _string(map, 'at'),
+  );
+
+  /// The task's own counter, `idea-1`, `idea-2`, ...: one task's ideas apart, never another task's.
+  final String id;
+
+  /// Its title, one line.
+  final String title;
+
+  /// What must be true, one or two sentences; it may hold line breaks.
+  final String mustBeTrue;
+
+  /// When the machine kept it, ISO-8601.
+  final String at;
 }
 
 /// How a task's agent ended, as its adapter read its last event.

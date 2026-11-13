@@ -341,6 +341,30 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     _changes.add(<String, dynamic>{'tasks': _listing});
   }
 
+  /// The task in [container] proposes an idea for itself, as its agent does over its own socket, and every open
+  /// `Watch` is told. Driven by a test alone: no situation proposes one, so a walk never hands one to a real planner.
+  void proposeIdea(String container, String title, String whatMustBeTrue) {
+    tasks = <Map<String, dynamic>>[
+      for (final task in tasks)
+        if (task['name'] == container)
+          <String, dynamic>{
+            ...task,
+            'ideas': <Map<String, dynamic>>[
+              ...(task['ideas'] as List<Map<String, dynamic>>? ?? const <Map<String, dynamic>>[]),
+              <String, dynamic>{
+                'id': 'idea-${(task['ideas'] as List<Map<String, dynamic>>? ?? const []).length + 1}',
+                'title': title,
+                'whatMustBeTrue': whatMustBeTrue,
+                'at': DateTime.now().toUtc().toIso8601String(),
+              },
+            ],
+          }
+        else
+          task,
+    ];
+    _changes.add(<String, dynamic>{'tasks': _listing});
+  }
+
   /// Stops answering.
   Future<void> close() async {
     failWaitingStart();
@@ -1793,6 +1817,8 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
         'builds': <Map<String, dynamic>>[],
         'buildReader': '',
         'buildProblem': '',
+        // A task proposes none until a test says it does.
+        'ideas': <Map<String, dynamic>>[],
         ...task,
       },
   ];

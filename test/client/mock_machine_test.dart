@@ -25,12 +25,12 @@ void main() {
   Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   Future<void> machineIn(String situation) async {
-    daemon = MockDaemon();
-    await daemon.start();
-    machine = MockMachine(daemon, situation: situation, pace: Duration.zero);
+    final started = daemon = MockDaemon();
+    await started.start();
+    final stood = machine = MockMachine(started, situation: situation, pace: Duration.zero);
     addTearDown(() async {
-      await machine.close();
-      await daemon.stop();
+      await stood.close();
+      await started.stop();
     });
   }
 
@@ -142,6 +142,37 @@ void main() {
 
     expect(seen.first, 8);
     expect(seen.last, 7);
+    await watching.cancel();
+  });
+
+  // Harm: a mock walk hands an idea nobody proposed into the person's real planner, or a proposed idea never reaches
+  // a watcher, so a hand-in that never comes looks like a quiet task.
+  test('no situation lists an idea by itself, and a proposed one reaches a watcher numbered per task', () async {
+    for (final situation in MockMachine.situations.keys) {
+      await machineIn(situation);
+      final client = await connect();
+      expect([for (final task in await client.tasks()) task.ideas], everyElement(isEmpty), reason: situation);
+    }
+    await machineIn('work');
+    final client = await connect();
+    final seen = <List<ProposedIdea>?>[];
+    final second = Completer<void>();
+    final watching = client.watchTasks().listen((tasks) {
+      seen.add(tasks.firstWhere((task) => task.name == 'porelo-checkout-shell').ideas);
+      if (seen.length == 3) second.complete();
+    });
+    while (seen.isEmpty) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    machine.proposeIdea('porelo-checkout-shell', 'Cache the mirror', 'A second build fetches nothing.');
+    machine.proposeIdea('porelo-checkout-shell', 'Name the run', 'The log names its run.');
+    await second.future;
+
+    expect(seen.last!.map((idea) => (idea.id, idea.title, idea.mustBeTrue)), [
+      ('idea-1', 'Cache the mirror', 'A second build fetches nothing.'),
+      ('idea-2', 'Name the run', 'The log names its run.'),
+    ]);
     await watching.cancel();
   });
 
