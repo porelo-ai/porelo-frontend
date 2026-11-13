@@ -10,6 +10,15 @@ Future<void> theWindowStartsTheOfferedReaderTaskAndItEnds(WidgetTester tester) =
     // The window starts the planner's follow-up order by itself, as the answer to the builder's end.
     // The builders are no readers: they were started after the tasks were noted.
     Walk.tasksBefore = {...Walk.tasksBefore, ...Walk.builders};
+    // Issues moved on to Review by hand, where their builder failed, are offered no reader.
+    var allInReview = true;
+    for (final issue in Walk.issues) {
+      if (!await probeHolds(['issue-state', issue.id, 'Review'])) allInReview = false;
+    }
+    if (Walk.readers.isEmpty && allInReview) {
+      noteStep('   no reader: every issue was moved on to Review by hand');
+      return;
+    }
     // A resume after the readers were started waits on the readers kept, not on new ones.
     if (Walk.readers.isEmpty) {
       Walk.readers = [

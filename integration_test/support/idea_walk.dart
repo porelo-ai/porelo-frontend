@@ -491,11 +491,10 @@ Future<List<String>> theMovesOffered(WidgetTester tester, String issue) async {
   return offered;
 }
 
-/// Moves [issue] to [state] on the story's page and saves it, as a person does; fails with the board's words where the
-/// planner refused it.
-Future<void> moveAndSave(WidgetTester tester, String issue, String state) async {
+/// Opens [issue]'s state menu on the story's page and picks the entry keyed [pick], [what] in the words of a failure.
+Future<void> pickFromTheMoveMenu(WidgetTester tester, String issue, Key pick, String what) async {
   final move = find.byKey(Key('planning-move $issue'));
-  final to = find.byKey(Key('planning-move-to $issue $state'));
+  final to = find.byKey(pick);
   // Right after a saved move the board is drawn again, and a tap on the next issue's menu may land on the old one:
   // the menu is opened again until it offers the move.
   final by = DateTime.now().add(const Duration(minutes: 1));
@@ -516,19 +515,26 @@ Future<void> moveAndSave(WidgetTester tester, String issue, String state) async 
       await tester.tap(move.first);
       await pumpFor(tester);
       if (to.evaluate().isEmpty) await pumpFor(tester, const Duration(seconds: 5));
+      // A menu open without the pick is closed, or the next tap lands on it instead of the button.
+      if (to.evaluate().isEmpty) {
+        await tester.tapAt(Offset.zero);
+        await pumpFor(tester);
+      }
     }
-    await pumpUntil(tester, () => to.evaluate().isNotEmpty, what: 'the move of $issue to $state');
+    await pumpUntil(tester, () => to.evaluate().isNotEmpty, what: what);
     // A menu still scrolling to its item, or still fading in, takes no tap: the pick waits until it would land.
-    await pumpUntil(
-      tester,
-      () => to.hitTestable().evaluate().isNotEmpty,
-      what: 'the move of $issue to $state to take a tap',
-    );
+    await pumpUntil(tester, () => to.hitTestable().evaluate().isNotEmpty, what: '$what to take a tap');
     await tester.tap(to.hitTestable().last);
     await pumpFor(tester);
   } finally {
     WidgetController.hitTestWarningShouldBeFatal = missedWarns;
   }
+}
+
+/// Moves [issue] to [state] on the story's page and saves it, as a person does; fails with the board's words where the
+/// planner refused it.
+Future<void> moveAndSave(WidgetTester tester, String issue, String state) async {
+  await pickFromTheMoveMenu(tester, issue, Key('planning-move-to $issue $state'), 'the move of $issue to $state');
   final save = find.byKey(const Key('planning-save-moves'));
   await pumpUntil(tester, () => save.evaluate().isNotEmpty, what: 'Save changes');
   await tester.tap(save.first);
@@ -546,6 +552,61 @@ Future<void> moveAndSave(WidgetTester tester, String issue, String state) async 
       fail('the move of $issue to $state was refused: ${tester.widget<Text>(find.byKey(problem).first).data}');
     }
   }
+}
+
+/// Fills the open start form of work toward [target] as the walk orders it: unattended, with the walk's agent and
+/// model in each repository; returns once the form offers its start.
+Future<void> fillTheWorkForm(WidgetTester tester, String target) async {
+  final unattended = find.byKey(const Key('story-work-mode UNATTENDED'));
+  final refused = find.byKey(const Key('story-work-error'));
+  // Opening the form asks the planner for its proposal.
+  await pumpUntil(
+    tester,
+    () => unattended.evaluate().isNotEmpty || refused.evaluate().isNotEmpty,
+    timeout: const Duration(minutes: 2),
+    what: 'the proposal of the work, unattended',
+  );
+  if (refused.evaluate().isNotEmpty) fail('the proposal was refused: ${tester.widget<Text>(refused).data}');
+  if (find.textContaining('→ $target').evaluate().isEmpty) {
+    await tester.tap(find.byKey(const Key('story-work-target')));
+    await pumpFor(tester);
+    await tester.tap(find.text(target).last);
+    await pumpUntil(tester, () => unattended.evaluate().isNotEmpty, what: 'the proposal to $target');
+  }
+  await tester.ensureVisible(unattended);
+  await tester.tap(unattended);
+  await pumpFor(tester);
+  const prefix = 'story-work-task ';
+  final repositories = [
+    for (final each
+        in find
+            .byWidgetPredicate(
+              (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith(prefix),
+            )
+            .evaluate())
+      (each.widget.key! as ValueKey<String>).value.substring(prefix.length),
+  ];
+  if (repositories.isEmpty) fail('the proposal names no repository to work in');
+  for (final repository in repositories) {
+    final agent = find.byKey(Key('story-work-main-agent $repository'));
+    await tester.ensureVisible(agent);
+    await tester.tap(agent);
+    await pumpFor(tester);
+    final choice = find.byKey(ValueKey<String>('start-agent-choice ${Walk.agent}'));
+    await tester.tap(choice.evaluate().isNotEmpty ? choice.last : find.text(Walk.agent).last);
+    await pumpFor(tester);
+    final model = find.byKey(Key('story-work-main-model $repository'));
+    await tester.ensureVisible(model);
+    await tester.enterText(model, Walk.model);
+    await pumpFor(tester);
+  }
+  final start = find.byKey(const Key('story-work-start'));
+  await pumpUntil(
+    tester,
+    () => tester.widget<ButtonStyleButton>(start).onPressed != null,
+    timeout: const Duration(minutes: 1),
+    what: 'the form to offer its start',
+  );
 }
 
 /// The probe's reads that an issue stands in [state] on the board and in its repository's file.
