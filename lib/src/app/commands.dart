@@ -368,7 +368,7 @@ class Command {
 /// nobody thought of, rather than as one the daemon cannot do yet.
 List<Command> workCommands({
   required Task? task,
-  required FleetModel fleet,
+  required FleetModel? fleet,
   required Machine machine,
   required void Function(Task task) askToRemove,
   required void Function(Task task) askWhichLog,
@@ -396,14 +396,14 @@ List<Command> workCommands({
       label: task?.startAction == StartAction.create ? 'Start it' : 'Start it again',
       group: 'Work',
       home: Home.tileMenu,
-      run: () => fleet.startAgain(task!),
+      run: () => fleet?.startAgain(task!),
       // The machine says beforehand what Start would do, so a refusal is never found by pressing.
       unavailable: task == null
           ? nothingSelected
           : whyNotStart(task) ??
                 (task.task.isEmpty
                     ? 'the machine does not say its name within the project'
-                    : fleet.projectNameOf(task) == null
+                    : fleet?.projectNameOf(task) == null
                     ? 'nothing here knows where its project file is'
                     : null),
     ),
@@ -423,7 +423,7 @@ List<Command> workCommands({
       label: 'Stop it, keeping its workspace',
       group: 'Work',
       home: Home.tileMenu,
-      run: () => fleet.stopWork(task!.name),
+      run: () => fleet?.stopWork(task!.name),
       unavailable: task == null
           ? nothingSelected
           : task.running
@@ -514,9 +514,9 @@ List<Command> workCommands({
           : roomOfTheWork == null
           ? 'not offered here'
           // The daemon's own list: a group made for leftover work has no room to open.
-          : fleet.listedProjects.where((each) => each.name == task.project).firstOrNull == null
+          : (fleet?.listedProjects ?? const <Project>[]).where((each) => each.name == task.project).firstOrNull == null
           ? 'its project is not listed on this machine'
-          : fleet.projectOf(task)!.messages == null
+          : fleet?.projectOf(task)?.messages == null
           ? '${task.project} has no conversation: none of its peers is reached through a transport of its own'
           : null,
     ),
@@ -616,7 +616,7 @@ List<Command> workCommands({
 }
 
 /// Unlocks the named machine using the same terminal path as a work tile.
-Command unlockWaitingMessages(Machine machine, FleetModel fleet, VoidCallback? unlock) => Command(
+Command unlockWaitingMessages(Machine machine, FleetModel? fleet, VoidCallback? unlock) => Command(
   id: 'messages.unlock/${machine.name}',
   label: 'Unlock the vault on ${machine.name}',
   group: 'Messages',
@@ -628,7 +628,7 @@ Command unlockWaitingMessages(Machine machine, FleetModel fleet, VoidCallback? u
 /// Opens the removal preview for one held project on its row's machine; [whyNoRemoval] is why it is not offered.
 Command removeWaitingProject(
   Machine machine,
-  FleetModel fleet,
+  FleetModel? fleet,
   Project project,
   VoidCallback? preview, {
   required String? whyNoRemoval,
@@ -646,28 +646,39 @@ Command removeWaitingProject(
 );
 
 /// Repeats the read that listed held messages, on that row's machine.
-Command askForHeldMessages(Machine machine, FleetModel fleet) => Command(
+Command askForHeldMessages(Machine machine, FleetModel? fleet) => Command(
   id: 'messages.ask/${machine.name}',
   label: 'Ask again',
   group: 'Messages',
   home: Home.attentionRow,
-  run: () => unawaited(fleet.mailboxes.refresh()),
+  run: () => unawaited(fleet?.mailboxes.refresh()),
   unavailable: notAnswering(fleet),
 );
 
 /// Reconnects now instead of waiting for the machine's next automatic attempt.
-Command retrySilentMachine(Machine machine, FleetModel fleet) => Command(
+Command retrySilentMachine(Machine machine, FleetModel? fleet) => Command(
   id: 'machine.retry/${machine.name}',
   label: 'Try again now',
   group: 'Machines',
   home: Home.attentionRow,
-  run: () => unawaited(fleet.connect()),
-  unavailable: fleet.reachability == Reachability.connecting ? 'the machine is still connecting' : null,
+  run: () => unawaited(fleet?.connect()),
+  unavailable: fleet == null
+      ? notWatchedYet
+      : fleet.reachability == Reachability.connecting
+      ? 'the machine is still connecting'
+      : null,
 );
 
-/// Why nothing that needs [fleet]'s machine can be done now, or null while it answers.
-String? notAnswering(FleetModel fleet) =>
-    fleet.reachability == Reachability.connected ? null : 'the machine is not answering';
+/// Why nothing can be done on a machine listed and not watched yet, as while it reconnects.
+const notWatchedYet = 'the machine is not answering yet: it is being opened';
+
+/// Why nothing that needs [fleet]'s machine can be done now, or null while it answers; [notWatchedYet] where it is
+/// listed and not watched yet.
+String? notAnswering(FleetModel? fleet) => fleet == null
+    ? notWatchedYet
+    : fleet.reachability == Reachability.connected
+    ? null
+    : 'the machine is not answering';
 
 /// Starts work in the named repository, shared by its row's button and menu item. [carriedHere] false, where the
 /// machine does not carry it, never starts: a start there is refused. [refused] is why the machine would refuse it
@@ -739,7 +750,7 @@ String? whyNotStart(Task task) {
 /// machine takes none of its repositories now, as while it waits for its token.
 List<Command> projectCommands({
   required ProjectOnScreen? project,
-  required FleetModel fleet,
+  required FleetModel? fleet,
   Settings? settings,
   HostRuns? hostRuns,
   required Notifications notifications,
@@ -887,7 +898,7 @@ List<Command> projectCommands({
       group: 'Project',
       home: Home.projectMenu,
       run: checkWorkCanStart,
-      unavailable: fleet.reachability != Reachability.connected ? 'the machine is not answering' : noFile,
+      unavailable: notAnswering(fleet) ?? noFile,
     ),
     Command(
       id: 'notifications.mute',
@@ -1127,7 +1138,7 @@ Command forgetMachineCommand({
 
 /// The machine's daemon actions and any host lifecycle actions, sharing one home.
 List<Command> machineCommands({
-  required FleetModel fleet,
+  required FleetModel? fleet,
   Machine? machine,
   HostRuns? hostRuns,
   required bool canForget,
@@ -1151,8 +1162,8 @@ List<Command> machineCommands({
   VoidCallback? unlockWithThePassphrase,
   VoidCallback? makeTheVault,
 }) {
-  final connected = fleet.reachability == Reachability.connected;
-  final notConnected = connected ? null : 'the machine is not answering';
+  final notConnected = notAnswering(fleet);
+  final connected = notConnected == null;
   return <Command>[
     ...hostActions,
     // The one thing a machine that is not answering can still be asked, and only while this
@@ -1294,14 +1305,16 @@ List<Command> machineCommands({
       group: 'Machine',
       home: Home.machineMenu,
       shortcut: const SingleActivator(LogicalKeyboardKey.f5),
-      run: fleet.refresh,
+      run: () => unawaited(fleet?.refresh()),
+      unavailable: fleet == null ? notWatchedYet : null,
     ),
     Command(
       id: 'fleet.reconnect',
       label: 'Reconnect to the backend',
       group: 'Machine',
       home: Home.machineMenu,
-      run: fleet.connect,
+      run: () => unawaited(fleet?.connect()),
+      unavailable: fleet == null ? notWatchedYet : null,
     ),
     Command(
       id: 'machine.clear',
@@ -1326,7 +1339,7 @@ List<Command> machineCommands({
 List<Command> commandsFor({
   String? selectedProjectWaits,
   List<Command> viewActions = const [],
-  required FleetModel fleet,
+  required FleetModel? fleet,
   required Machine machine,
   HostRuns? hostRuns,
   List<Command> hostActions = const [],
@@ -1398,8 +1411,8 @@ List<Command> commandsFor({
   VoidCallback? unlockWithThePassphrase,
   VoidCallback? makeTheVault,
 }) {
-  final selectedProject = fleet.selectedProject;
-  final selectedTask = fleet.selectedTask;
+  final selectedProject = fleet?.selectedProject;
+  final selectedTask = fleet?.selectedTask;
   final latest = operations.latest;
 
   return <Command>[
@@ -1490,7 +1503,7 @@ List<Command> commandsFor({
       // Shift as well as Control: nothing adjacent can be hit by mistake.
       shortcut: const SingleActivator(LogicalKeyboardKey.period, control: true, shift: true),
       run: stopEverything,
-      unavailable: fleet.reachability == Reachability.connected ? null : 'the machine is not answering',
+      unavailable: notAnswering(fleet),
     ),
     ...machineCommands(
       fleet: fleet,

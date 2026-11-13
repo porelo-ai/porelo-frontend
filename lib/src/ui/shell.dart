@@ -331,8 +331,39 @@ class Shell extends StatefulWidget {
 }
 
 class _ShellState extends State<Shell> {
-  /// What is on the machine being acted on. Switching machine changes everything drawn from it.
-  FleetModel get _fleet => widget.machines.fleet;
+  /// What is on the machine being acted on while it is watched; null while it is listed and not watched yet, as while
+  /// it reconnects, which every reader draws or answers as not answering. Switching machine changes everything drawn
+  /// from it.
+  FleetModel? get _fleet => widget.machines.watching(widget.machines.current);
+
+  /// Says, where every page shows it, that nothing was done on [machine] (the selected one where none is named), as it is
+  /// listed and not watched yet: what the person asked for is never lost without a word.
+  void _notWatchedYet([Machine? machine]) {
+    if (!mounted) return;
+    final name = (machine ?? widget.machines.current).name;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const Key('not-watched-yet'),
+          content: Text(
+            '$name is not answering yet, as it is being opened, so nothing was done. Try again once it '
+            'answers.',
+          ),
+          duration: const Duration(seconds: 10),
+          showCloseIcon: true,
+        ),
+      );
+  }
+
+  /// Says [words] in the status line of the selected machine while it is watched, else where every page shows it.
+  void _say(String words) {
+    if (_fleet case final fleet?) return fleet.say(words);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(key: const Key('said-while-not-watched'), content: Text(words), showCloseIcon: true));
+  }
 
   final _machineTools = <Machine, MachineTools>{};
 
@@ -494,12 +525,7 @@ class _ShellState extends State<Shell> {
         );
       });
     }
-    _hostRuns = HostRuns(
-      widget.machines,
-      hostAccess: widget.hostAccess,
-      onReady: _hostReady,
-      say: (words) => _fleet.say(words),
-    );
+    _hostRuns = HostRuns(widget.machines, hostAccess: widget.hostAccess, onReady: _hostReady, say: _say);
     // A read of the organization or the proven identity changes what a host admin is offered at once.
     widget.hostAccess?.addListener(_homeserversChanged);
     _attention = Attention(widget.machines, widget.settings, widget.operations)
@@ -910,15 +936,15 @@ class _ShellState extends State<Shell> {
     if (scoped &&
         widget.shell.section == Section.project &&
         widget.shell.itemProject != null &&
-        widget.shell.itemProject != _fleet.selectedProject?.name &&
-        !(widget.shell.itemProject == defaultProject && _fleet.selectedProject == null)) {
+        widget.shell.itemProject != _fleet?.selectedProject?.name &&
+        !(widget.shell.itemProject == defaultProject && _fleet?.selectedProject == null)) {
       return 'Open this project again before running its commands.';
     }
     return null;
   }
 
   List<Command> _unscopedCommands() => commandsFor(
-    selectedProjectWaits: switch (_fleet.selectedProject?.name) {
+    selectedProjectWaits: switch (_fleet?.selectedProject?.name) {
       final name? => _waitWhyNot(widget.machines.current, name),
       null => null,
     },
@@ -972,9 +998,9 @@ class _ShellState extends State<Shell> {
     openTheGate: _openTheGate,
     openEgress: _openEgress,
     removeWhatWasBuilt: _removeWhatWasBuilt,
-    whyNoRemoval: _whyNoRemoval(widget.machines.current, _fleet.selectedProject?.name ?? ''),
+    whyNoRemoval: _whyNoRemoval(widget.machines.current, _fleet?.selectedProject?.name ?? ''),
     clearTheProject: _clearTheProject,
-    startTheAgents: switch (_fleet.selectedProject?.project.name) {
+    startTheAgents: switch (_fleet?.selectedProject?.project.name) {
       final name? => () => unawaited(_startTheAgents(name)),
       null => null,
     },
@@ -1329,7 +1355,11 @@ class _ShellState extends State<Shell> {
       // machine's than the one acted on.
       command.after(() {
         if (on != null) widget.machines.select(on);
-        _fleet.selectProject(project.name);
+        if (_fleet case final fleet?) {
+          fleet.selectProject(project.name);
+        } else {
+          _notWatchedYet();
+        }
       }),
   ];
 
@@ -1373,7 +1403,7 @@ class _ShellState extends State<Shell> {
 
   /// The project [work] belongs to, as this machine lists it, without selecting it.
   ProjectOnScreen? _projectOf(Task work) =>
-      _fleet.projects.where((project) => project.name == work.project).firstOrNull;
+      _fleet?.projects.where((project) => project.name == work.project).firstOrNull;
 
   /// Goes to where a tile's work lives: its machine, its project, the work itself.
   void _select(Tile tile) {
@@ -1396,21 +1426,25 @@ class _ShellState extends State<Shell> {
 
   /// Opens what is waiting at a project's gate: [work]'s own, or the selected project's.
   Future<void> _openTheGate([Task? work]) async {
-    final project = (work == null ? _fleet.selectedProject : _projectOf(work))?.project;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final project = (work == null ? fleet.selectedProject : _projectOf(work))?.project;
     if (project == null) return;
     widget.shell.openGate();
-    await widget.gate.lookAt(_fleet.backend, project);
+    await widget.gate.lookAt(fleet.backend, project);
   }
 
   /// Clears the selected project from the machine, and the machine's keys for it at the forge.
   Future<void> _clearTheProject() async {
-    final project = _fleet.selectedProject;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final project = fleet.selectedProject;
     if (project == null) return;
     await openClearing(
       context,
-      MachineClearing(_fleet.backend, _forges, machineName: widget.machines.current.name, project: project.name),
+      MachineClearing(fleet.backend, _forges, machineName: widget.machines.current.name, project: project.name),
     );
-    unawaited(_fleet.refresh(quietly: true));
+    unawaited(fleet.refresh(quietly: true));
   }
 
   Future<void> _openHostRun(HostPreparation run) => openHostRunDialog(
@@ -1443,9 +1477,11 @@ class _ShellState extends State<Shell> {
   /// **Nothing is removed by opening this.** The preview is a call with `dryRun`, and what it
   /// lists is what somebody agrees to — the sentence above the button is not.
   Future<void> _removeWhatWasBuilt() async {
-    final project = _fleet.selectedProject;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final project = fleet.selectedProject;
     if (project == null) return;
-    await _previewProjectRemoval(_fleet, project.name);
+    await _previewProjectRemoval(fleet, project.name);
   }
 
   Future<void> _previewProjectRemoval(FleetModel fleet, String project) async {
@@ -1489,7 +1525,7 @@ class _ShellState extends State<Shell> {
   /// again once it is put away: a repository added there is what lets work start in default.
   Future<void> _showTheDefault() async {
     await _askTheDefault();
-    if (mounted) await _fleet.refresh(quietly: true);
+    if (mounted) await _fleet?.refresh(quietly: true);
   }
 
   /// Starts work in `default`: a repository named, or one worked on before, and work started on it.
@@ -1497,19 +1533,21 @@ class _ShellState extends State<Shell> {
     onStartWork: (repository, checkout) => _startWorkIn(defaultProject, repository: repository, checkout: checkout),
   );
 
-  Future<void> _askTheDefault({Future<void> Function(String repository, CheckoutHere? checkout)? onStartWork}) {
+  Future<void> _askTheDefault({Future<void> Function(String repository, CheckoutHere? checkout)? onStartWork}) async {
     // The machine that was asked: a project its first start names is that machine's, whichever is selected by then.
     final asked = widget.machines.current;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet(asked);
     return showTheDefault(
       context,
-      machine: _fleet.backend,
+      machine: fleet.backend,
       machineName: widget.machines.current.name,
       pickAtAForge: () async {
         ({ForgeRepository repository, Forge forge})? picked;
         await showRepositories(
           context,
           _forges,
-          machine: _fleet.backend,
+          machine: fleet.backend,
           machineName: widget.machines.current.name,
           usedBy: _usedBy,
           onPick: (repository, forge) => picked = (repository: repository, forge: forge),
@@ -1535,12 +1573,12 @@ class _ShellState extends State<Shell> {
   ///
   /// Only the selected project's address is read for this: every row's menu is built on every frame.
   String? _itsForgeIsMissing([ProjectOnScreen? project]) {
-    final name = (project ?? _fleet.selectedProject)?.name;
+    final name = (project ?? _fleet?.selectedProject)?.name;
     if (name == null) return null;
     if (name == defaultProject) return 'it has no repository of its own';
     final organization = _organization;
     if (organization == null) return 'its address cannot be asked for here';
-    final known = organization.addressOf(name, ask: name == _fleet.selectedProject?.name);
+    final known = organization.addressOf(name, ask: name == _fleet?.selectedProject?.name);
     return known == null ? null : _whyNoForgeFor(known);
   }
 
@@ -1558,12 +1596,14 @@ class _ShellState extends State<Shell> {
 
   /// The selected project at its forge and on this machine: changes waiting here.
   Future<void> _openItsForge() async {
-    final name = _fleet.selectedProject?.name;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final name = fleet.selectedProject?.name;
     final organization = _organization;
     if (name == null || organization == null) return;
     final known = await organization.readAddress(name);
     if (_whyNoForgeFor(known) case final why?) {
-      _fleet.say('$name: $why.');
+      fleet.say('$name: $why.');
       return;
     }
     final url = known.address!;
@@ -1572,7 +1612,7 @@ class _ShellState extends State<Shell> {
     if (entry == null || fullName == null) return;
     final reached = await _forges.reach(entry);
     if (reached == null) {
-      _fleet.say('No token is kept for ${entry.name} on this computer. Give it one in Your forges.');
+      fleet.say('No token is kept for ${entry.name} on this computer. Give it one in Your forges.');
       return;
     }
     final ForgeRepository repository;
@@ -1581,7 +1621,7 @@ class _ShellState extends State<Shell> {
       repository = await reached.forge.repository(fullName);
       login = (await reached.forge.whoAmI()).login;
     } on ForgeRefused catch (refused) {
-      _fleet.say(refused.words);
+      fleet.say(refused.words);
       return;
     }
     if (!mounted) return;
@@ -1590,7 +1630,7 @@ class _ShellState extends State<Shell> {
       MachineBinding(
         reached.forge,
         _forges.workspaceWith(repository, reached.token),
-        _fleet.backend,
+        fleet.backend,
         machineName: widget.machines.current.name,
         login: login,
       ),
@@ -1599,11 +1639,13 @@ class _ShellState extends State<Shell> {
 
   /// [of]'s conversation, or the selected project's: where it is, whether it can carry messages, and joining it.
   Future<void> _showTheMessages({ProjectOnScreen? of}) async {
-    final project = of ?? _fleet.selectedProject;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final project = of ?? fleet.selectedProject;
     if (project == null) return;
     await showProjectMessages(
       context,
-      backend: _fleet.backend,
+      backend: fleet.backend,
       machine: widget.machines.current,
       project: project.project,
       forwards: _homeservers,
@@ -1630,10 +1672,12 @@ class _ShellState extends State<Shell> {
   ///
   /// [repository] is one of the project's; without one, the project's own.
   Future<void> _showTheBackups({String? repository}) async {
-    final project = _fleet.selectedProject;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final project = fleet.selectedProject;
     if (project == null) return;
     widget.shell.openBackups();
-    await widget.backups.look(_fleet.backend, project.name, repository: repository);
+    await widget.backups.look(fleet.backend, project.name, repository: repository);
   }
 
   /// Restores the mirror from the backup being considered, and says what that did.
@@ -1648,17 +1692,19 @@ class _ShellState extends State<Shell> {
   ///
   /// [repository] is one of the project's; without one, the project's own.
   Future<void> _syncTheUpstream({String? repository}) async {
-    final project = _fleet.selectedProject;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final project = fleet.selectedProject;
     if (project == null) return;
     final said = await widget.backups.syncFor(
-      _fleet.backend,
+      fleet.backend,
       project.name,
       repository: repository,
       joinedHost: widget.machines.current.hostCard != null,
     );
     // Refreshed first: a refresh announces itself, and the answer should be said last.
-    await _fleet.refresh();
-    if (said.isNotEmpty) _fleet.say(said);
+    await fleet.refresh();
+    if (said.isNotEmpty) fleet.say(said);
   }
 
   /// Removes the backup being considered, and says what that did.
@@ -2067,7 +2113,7 @@ class _ShellState extends State<Shell> {
   /// The selected machine's vault, where a forge's token is stored.
   ForgeTokenVault get _forgeTokenVault => ForgeTokenVault(
     machine: widget.machines.current,
-    answers: _fleet.reachability == Reachability.connected,
+    answers: _fleet?.reachability == Reachability.connected,
     open: widget.sessions.openTerminal,
   );
 
@@ -2095,7 +2141,7 @@ class _ShellState extends State<Shell> {
           ),
         ],
         ListenableBuilder(
-          listenable: Listenable.merge(<Listenable>[_fleet, _vault]),
+          listenable: Listenable.merge(<Listenable>[?_fleet, _vault]),
           builder: (context, _) => ForgesPage(
             forges: _forges,
             held: _heldConnections,
@@ -2130,14 +2176,14 @@ class _ShellState extends State<Shell> {
             forges: _forges,
             usedBy: _usedBy,
             usedOn: _machinesWorkingOn,
-            inDefault: (fullName) => _fleet.projects
+            inDefault: (fullName) => (_fleet?.projects ?? const <ProjectOnScreen>[])
                 .where((each) => each.name == defaultProject)
                 .any(
                   (each) =>
                       each.project.repositoryStates.any((repository) => fullNameOf(repository.upstream) == fullName),
                 ),
-            onDefaultChanged: () => unawaited(_fleet.refresh(quietly: true)),
-            machine: _fleet.reachability == Reachability.connected ? _fleet.backend : null,
+            onDefaultChanged: () => unawaited(_fleet?.refresh(quietly: true)),
+            machine: _fleet?.reachability == Reachability.connected ? _fleet?.backend : null,
             machineName: widget.machines.current.name,
             tokenVault: _forgeTokenVault,
             onOpenProject: (entry, fullName) => unawaited(_openProjectOfRepository(entry, fullName)),
@@ -2225,7 +2271,9 @@ class _ShellState extends State<Shell> {
 
   /// Builds a project's environment without starting anything, at a depth somebody chooses.
   Future<void> _prepareTheProject() async {
-    final project = _fleet.selectedProject;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final project = fleet.selectedProject;
     if (project == null || !project.canBeActedOn) return;
     final depth = await askHowMuchToBuild(context, project: project.name);
     if (depth == null || !mounted) return;
@@ -2233,11 +2281,11 @@ class _ShellState extends State<Shell> {
     final operation = widget.operations.run(
       title: 'Build the environment for ${project.name}',
       machine: widget.machines.current.name,
-      output: _fleet.backend.buildEnvironment(project.project.name, rebuild: depth.name),
+      output: fleet.backend.buildEnvironment(project.project.name, rebuild: depth.name),
     );
     widget.shell.openOperation(operation.id);
     // A built image changes `preparedState`, which the project card draws.
-    await _fleet.refresh();
+    await fleet.refresh();
   }
 
   /// Shows what this machine can authenticate against, and where each credential belongs.
@@ -2251,21 +2299,25 @@ class _ShellState extends State<Shell> {
   ///
   /// With [repository], what that repository adds on top of what every repository gets.
   Future<void> _openEgress({String? repository}) async {
-    final project = _fleet.selectedProject?.project;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final project = fleet.selectedProject?.project;
     if (project == null) return;
     widget.shell.openEgress();
-    await widget.egress.lookAt(_fleet.backend, project, repository: repository);
+    await widget.egress.lookAt(fleet.backend, project, repository: repository);
   }
 
   /// Gives a piece of work something to read by, or takes it away. Nothing about its identity
   /// moves.
   Future<void> _nameTheWork(Task task) async {
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
     final caption = await askWhatItReadsAs(context, task: task);
     if (caption == null || !mounted) return;
-    final answer = await _fleet.backend.labelTask(task.name, label: caption);
+    final answer = await fleet.backend.labelTask(task.name, label: caption);
     if (!mounted) return;
-    _fleet.say(answer.words);
-    await _fleet.refresh();
+    fleet.say(answer.words);
+    await fleet.refresh();
   }
 
   /// Opens the emergency stop for the machine being acted on, having first asked what it would
@@ -2302,7 +2354,12 @@ class _ShellState extends State<Shell> {
 
   /// Asks the machine in the title about its store whenever it becomes the one shown or answers
   /// again, so the button beside the stop is never a guess.
-  void _keepTheVaultButtonTrue(Machine machine, FleetModel fleet) {
+  void _keepTheVaultButtonTrue(Machine machine, FleetModel? fleet) {
+    // Asked again once the machine is watched: until then it is not answering.
+    if (fleet == null) {
+      _vaultAskedFor.remove(machine);
+      return;
+    }
     if (_vaultAskedFor[machine] == fleet.reachability) return;
     _vaultAskedFor[machine] = fleet.reachability;
     if (fleet.reachability != Reachability.connected) return;
@@ -2529,38 +2586,42 @@ class _ShellState extends State<Shell> {
 
   /// Starts work from a recurring job somebody named.
   Future<void> _startFromTemplate(Template job) async {
-    final selected = _fleet.selectedProject?.project;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final selected = fleet.selectedProject?.project;
     if (selected == null) return;
     // Its machine waits for the token: it takes nothing of the project, and would refuse the start.
-    if (_waitWhyNot(widget.machines.current, selected.name) case final waits?) return _fleet.say(waits);
-    final why = await _takeIfCarried(selected.name);
+    if (_waitWhyNot(widget.machines.current, selected.name) case final waits?) return fleet.say(waits);
+    final why = await _takeIfCarried(selected.name, on: fleet);
     if (!mounted) return;
-    if (why != null) return _fleet.say(why);
-    final project = _listed(selected.name) ?? selected;
+    if (why != null) return fleet.say(why);
+    final project = _listed(selected.name, on: fleet) ?? selected;
     // Open at once and read behind it: waiting for the machine first left the press unanswered.
     widget.starting.publishedHostKeys = _publishedHostKeys;
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
-    unawaited(widget.starting.openFrom(_fleet.backend, project, job));
+    unawaited(widget.starting.openFrom(fleet.backend, project, job));
     unawaited(_offerWhatTheHostHas(project.name));
     await _offerToStart();
   }
 
   /// Starts work in the selected project.
   Future<void> _startWork({String? repository, VoidCallback? onChangeProject}) async {
-    final selected = _fleet.selectedProject?.project;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final selected = fleet.selectedProject?.project;
     if (selected == null) return;
     // In default, work starts on a repository named first: the one way, wherever it is asked for.
     if (selected.name == defaultProject) return _startInDefault();
     // Its machine waits for the token: it takes nothing of the project, and would refuse the start.
-    if (_waitWhyNot(widget.machines.current, selected.name) case final waits?) return _fleet.say(waits);
-    final why = await _takeIfCarried(selected.name);
-    if (why != null) return _fleet.say(why);
-    final project = _listed(selected.name);
+    if (_waitWhyNot(widget.machines.current, selected.name) case final waits?) return fleet.say(waits);
+    final why = await _takeIfCarried(selected.name, on: fleet);
+    if (why != null) return fleet.say(why);
+    final project = _listed(selected.name, on: fleet);
     if (project == null || !mounted) return;
     // Open at once and read behind it: waiting for the machine first left the press unanswered.
     widget.starting.publishedHostKeys = _publishedHostKeys;
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
-    unawaited(widget.starting.open(_fleet.backend, project, repository: repository));
+    unawaited(widget.starting.open(fleet.backend, project, repository: repository));
     unawaited(_offerWhatTheHostHas(project.name));
     await _offerToStart(onChangeProject: onChangeProject);
   }
@@ -2574,7 +2635,7 @@ class _ShellState extends State<Shell> {
   ];
 
   Project? _listed(String name, {FleetModel? on}) =>
-      (on ?? _fleet).projects.where((each) => each.project.name == name).firstOrNull?.project;
+      (on ?? _fleet)?.projects.where((each) => each.project.name == name).firstOrNull?.project;
 
   /// Takes [name] if this machine carries it and this person has not taken it yet, at a person's act: a list never
   /// does, as a take fetches and may ask a token. Answers why it could not be, in words, or null.
@@ -2582,7 +2643,7 @@ class _ShellState extends State<Shell> {
   /// On [on], the machine acted on unless another is named.
   Future<String?> _takeIfCarried(String name, {FleetModel? on}) async {
     final fleet = on ?? _fleet;
-    if (_listed(name, on: fleet)?.carried != true) return null;
+    if (fleet == null || _listed(name, on: fleet)?.carried != true) return null;
     final String words;
     try {
       final taken = await fleet.backend.takeProject(name);
@@ -2603,8 +2664,12 @@ class _ShellState extends State<Shell> {
 
   /// Starts work in [project] from a machine's page: taken first if need be. Answers why it cannot start, or null.
   Future<String?> _startFromTheMachinePage(String host, String project) async {
-    await _fleet.refresh(quietly: true);
-    if (_fleet.reachability != Reachability.connected) {
+    final fleet = _fleet;
+    if (fleet == null) {
+      return '$host is not answering yet, as it is being opened, so work in $project cannot start now.';
+    }
+    await fleet.refresh(quietly: true);
+    if (fleet.reachability != Reachability.connected) {
       return '$host is not answering, so work in $project cannot start from here now.';
     }
     if (_listed(project) == null) {
@@ -2632,38 +2697,43 @@ class _ShellState extends State<Shell> {
     CheckoutHere? checkout,
   }) async {
     final said = notes.join(' ');
-    if (said.isNotEmpty) _fleet.say(said);
+    final fleet = _fleet;
+    if (fleet == null) {
+      if (said.isNotEmpty) _say(said);
+      return _notWatchedYet();
+    }
+    if (said.isNotEmpty) fleet.say(said);
     String withNotes(String words) => said.isEmpty ? words : '$words $said';
-    Project? listed() => _listed(name);
+    Project? listed() => _listed(name, on: fleet);
     // Its machine waits for the token: it takes nothing of the project, and would refuse the start.
-    if (_waitWhyNot(widget.machines.current, name) case final waits?) return _fleet.say(withNotes(waits));
-    final why = await _takeIfCarried(name);
+    if (_waitWhyNot(widget.machines.current, name) case final waits?) return fleet.say(withNotes(waits));
+    final why = await _takeIfCarried(name, on: fleet);
     if (!mounted) return;
-    if (why != null) return _fleet.say(withNotes(why));
+    if (why != null) return fleet.say(withNotes(why));
     // Asked of the machine first only when it is not known yet: a round trip before the form opened
     // was a pause a person noticed.
     final known = listed();
     if (known == null || (repository != null && !known.repositories.contains(repository))) {
-      await _fleet.refresh(quietly: true);
+      await fleet.refresh(quietly: true);
     } else {
-      unawaited(_fleet.refresh(quietly: true));
+      unawaited(fleet.refresh(quietly: true));
     }
     final project = listed();
     if (!mounted) return;
     if (project == null) {
-      return _fleet.say(
+      return fleet.say(
         withNotes('${widget.machines.current.name} does not list $name, so work in it cannot start from here now.'),
       );
     }
     // The project the work starts in is the one shown in the tree: a project made from a repository
     // appeared there unselected, and the person looked for it (walk 8).
     if (name != defaultProject) {
-      _fleet.selectProject(name);
+      fleet.selectProject(name);
       widget.shell.goTo(Section.project);
     }
     widget.starting.publishedHostKeys = _publishedHostKeys;
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
-    unawaited(widget.starting.open(_fleet.backend, project, checkout: checkout));
+    unawaited(widget.starting.open(fleet.backend, project, checkout: checkout));
     if (repository != null) widget.starting.chooseRepository(repository);
     unawaited(_offerWhatTheHostHas(project.name));
     await _offerToStart();
@@ -2746,10 +2816,12 @@ class _ShellState extends State<Shell> {
 
   /// Continues a finished unattended run, with what it was asked to do last time in the box.
   Future<void> _continueTheWork([Task? work]) async {
-    final task = work ?? _fleet.selectedTask;
-    final project = (task == null ? null : _projectOf(task))?.project ?? _fleet.selectedProject?.project;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final task = work ?? fleet.selectedTask;
+    final project = (task == null ? null : _projectOf(task))?.project ?? fleet.selectedProject?.project;
     if (task == null || project == null) return;
-    unawaited(widget.starting.continueFrom(_fleet.backend, project, task));
+    unawaited(widget.starting.continueFrom(fleet.backend, project, task));
     await _offerToStart();
   }
 
@@ -3022,6 +3094,7 @@ class _ShellState extends State<Shell> {
   Future<void> _startTheAgents(String name) async {
     final machine = widget.machines.current;
     final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet(machine);
     bool stillThere() => mounted && widget.machines.all.contains(machine);
     await fleet.refresh(quietly: true);
     if (!stillThere()) return;
@@ -3256,54 +3329,66 @@ class _ShellState extends State<Shell> {
 
   /// Changes what running work does with a blocked connection. **It opens nothing.**
   Future<void> _enforceOnTheWork() async {
-    final task = _fleet.selectedTask;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final task = fleet.selectedTask;
     if (task == null) return;
     final chosen = await askHowToEnforce(context, task: task.name, now: task.clearance);
     if (chosen == null || !mounted) return;
-    final said = await _fleet.backend.setClearance(task.name, chosen.name);
+    final said = await fleet.backend.setClearance(task.name, chosen.name);
     // Refreshed first, then said: a refresh announces itself.
-    await _fleet.refresh();
-    _fleet.say(whatEnforcementDid(said, task.name));
+    await fleet.refresh();
+    fleet.say(whatEnforcementDid(said, task.name));
   }
 
   /// The room of [task]'s own project on this machine.
   void _roomOfTheWork(Task task) {
-    final project = _fleet.projects.where((each) => each.name == task.project).firstOrNull;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final project = fleet.projects.where((each) => each.name == task.project).firstOrNull;
     if (project != null) unawaited(_showTheMessages(of: project));
   }
 
   /// Shows whom the work may talk to, on its own machine, where each peer is moderated and a
   /// person can write to one.
-  void _talkForTheWork(Task task) => unawaited(
-    showPeers(
-      context,
-      backend: _fleet.backend,
-      task: task,
-      mailboxes: _fleet.mailboxes,
-      sameProject: <String>{
-        for (final each in _fleet.tasks)
-          if (each.project == task.project) each.name,
-      },
-    ),
-  );
+  void _talkForTheWork(Task task) {
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    unawaited(
+      showPeers(
+        context,
+        backend: fleet.backend,
+        task: task,
+        mailboxes: fleet.mailboxes,
+        sameProject: <String>{
+          for (final each in fleet.tasks)
+            if (each.project == task.project) each.name,
+        },
+      ),
+    );
+  }
 
   /// Hands a file chosen on this computer to running work, in parts, and says what came of it.
   Future<void> _handInTo(Task task) async {
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
     final path = await widget.pickAFile(title: 'A file to hand to ${task.shown}');
     if (path == null || !mounted) return;
-    final backend = _fleet.backend;
+    final backend = fleet.backend;
     await _handing.give(backend, task, path);
     if (!mounted) return;
-    _fleet.say(_handing.said ?? '');
+    fleet.say(_handing.said ?? '');
     unawaited(_handIns.look(backend, task.name));
   }
 
   /// Brings [task]'s repository at the gate up to its source, and says what moved and whether its
   /// agent was told.
   Future<void> _refreshFromItsSource(Task task) async {
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
     String said;
     try {
-      said = (await _fleet.backend.refreshTask(task.name)).wordsFor(task.name);
+      said = (await fleet.backend.refreshTask(task.name)).wordsFor(task.name);
     } on VarlinkException catch (refusal) {
       said = '${task.shown} was not brought up to its source: ${refusal.simpleName}.';
     } on VarlinkDisconnected catch (lost) {
@@ -3311,7 +3396,7 @@ class _ShellState extends State<Shell> {
     } on FeatureNotSupported catch (older) {
       said = '$older';
     }
-    if (mounted) _fleet.say(said);
+    if (mounted) fleet.say(said);
   }
 
   /// Certifies a task for another week, by the command line, which asks this computer's agent.
@@ -3319,6 +3404,7 @@ class _ShellState extends State<Shell> {
     final machine = widget.machines.current;
     // Its machine's, whichever is selected when the command has answered.
     final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet(machine);
     if (machine.needsATunnel && task.project.isEmpty) {
       fleet.say('${task.name} names no project, so nothing here can certify it on ${machine.name}.');
       return;
@@ -3355,6 +3441,8 @@ class _ShellState extends State<Shell> {
 
   /// Takes back a file the work was handed, chosen from what it holds.
   Future<void> _takeBackFrom(Task task) async {
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
     final files = task.files ?? const <HandedFile>[];
     final name = await showDialog<String>(
       context: context,
@@ -3371,15 +3459,17 @@ class _ShellState extends State<Shell> {
       ),
     );
     if (name == null || !mounted) return;
-    final backend = _fleet.backend;
+    final backend = fleet.backend;
     await _handing.takeBack(backend, task, name);
     if (!mounted) return;
-    _fleet.say(_handing.said ?? '');
+    fleet.say(_handing.said ?? '');
     unawaited(_handIns.look(backend, task.name));
   }
 
   /// A person's own words straight into the work's inbox, where its agent reads them.
   Future<void> _tellTheWork(Task task) async {
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
     final words = await askForWords(
       context,
       title: 'Write to the agent of ${task.shown}',
@@ -3392,45 +3482,49 @@ class _ShellState extends State<Shell> {
     );
     if (words == null || words.isEmpty || !mounted) return;
     try {
-      await _fleet.backend.tell(task.name, words);
-      _fleet.say('Written into the inbox of ${task.shown}. Its agent reads it there.');
+      await fleet.backend.tell(task.name, words);
+      fleet.say('Written into the inbox of ${task.shown}. Its agent reads it there.');
     } on VarlinkException catch (refusal) {
-      _fleet.say(
+      fleet.say(
         refusal.simpleName == 'NoSuchTask'
             ? '${task.shown} is not on this machine any more, so nothing was written.'
             : 'The machine refused to write it: ${refusal.simpleName}.',
       );
     } on VarlinkDisconnected catch (ex) {
-      _fleet.say('Lost contact before it was written: ${ex.message}');
+      fleet.say('Lost contact before it was written: ${ex.message}');
     }
   }
 
   /// Takes a name back from work that is already running, previewed every time.
   Future<void> _narrowTheWork() async {
-    final task = _fleet.selectedTask;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final task = fleet.selectedTask;
     if (task == null) return;
     widget.narrowing.open(task);
     await openNarrowing(
       context,
       narrowing: widget.narrowing,
-      onConsider: () => widget.narrowing.consider(_fleet.backend),
-      onApply: () => widget.narrowing.apply(_fleet.backend),
+      onConsider: () => widget.narrowing.consider(fleet.backend),
+      onApply: () => widget.narrowing.apply(fleet.backend),
     );
     final said = widget.narrowing.words;
-    if (said.isNotEmpty) _fleet.say(said);
+    if (said.isNotEmpty) fleet.say(said);
     widget.narrowing.close();
   }
 
   /// Lets the selected work reach something it could not reach before.
   Future<void> _widenTheWork() async {
-    final task = _fleet.selectedTask;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final task = fleet.selectedTask;
     if (task == null) return;
     widget.widening.open(task);
     await openWidening(
       context,
       widening: widget.widening,
-      onConsider: () => widget.widening.consider(_fleet.backend),
-      onApply: () => widget.widening.apply(_fleet.backend),
+      onConsider: () => widget.widening.consider(fleet.backend),
+      onApply: () => widget.widening.apply(fleet.backend),
     );
     widget.widening.close();
   }
@@ -3500,7 +3594,7 @@ class _ShellState extends State<Shell> {
     try {
       await widget.settings.rememberForwardedBranch(machine, project, push.repository, push.name, branch);
     } on Exception catch (error) {
-      _fleet.say('The branch could not be kept for the next forward: $error');
+      _say('The branch could not be kept for the next forward: $error');
     }
   }
 
@@ -3961,17 +4055,21 @@ class _ShellState extends State<Shell> {
 
   /// Asks which log, then opens it. Reading starts whether or not it stays on screen.
   Future<void> _askWhichLog(Task task) async {
-    final log = await askWhichLog(context, task: task.name, logs: _fleet.backend.logsOf(task.name));
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final log = await askWhichLog(context, task: task.name, logs: fleet.backend.logsOf(task.name));
     if (log == null) return;
-    widget.logs.open(_fleet.backend, task.name, log);
+    widget.logs.open(fleet.backend, task.name, log);
     widget.shell.openLog(task.name, log);
   }
 
   /// Asks before removing, then removes. The refusal, if there is one, arrives on its own.
   Future<void> _askToRemove(Task task) async {
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
     final agreed = await confirmRemove(context, task: task.shown, running: task.running);
     if (!agreed) return;
-    await _fleet.removeEvenIfRunning(task.name);
+    await fleet.removeEvenIfRunning(task.name);
   }
 
   /// Takes a piece of work down and starts it again from scratch. **Nothing is started after a
@@ -3980,6 +4078,7 @@ class _ShellState extends State<Shell> {
     // The machine the task is on, whichever is chosen while it is confirmed or cleared.
     final machine = widget.machines.current;
     final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet(machine);
     final agreed = await confirmRecreate(context, task: task.shown, helpers: task.helpers);
     if (!agreed || !mounted || !widget.machines.all.contains(machine)) return;
     final clear = await fleet.clearTheWayToRecreate(task.name);
@@ -4101,12 +4200,14 @@ class _ShellState extends State<Shell> {
   }
 
   void _openWork() {
-    final task = _fleet.selectedTask;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final task = fleet.selectedTask;
     if (task == null) return;
     widget.shell.openDetail();
     // Asked when the detail opens, for this one task: it runs git inside the container.
-    unawaited(widget.held.look(_fleet.backend, task.name));
-    unawaited(_handIns.look(_fleet.backend, task.name));
+    unawaited(widget.held.look(fleet.backend, task.name));
+    unawaited(_handIns.look(fleet.backend, task.name));
   }
 
   /// Reports what the project file opens, creating nothing.
@@ -4114,14 +4215,16 @@ class _ShellState extends State<Shell> {
   /// Without [repository] this is the plan every repository of the project gets; with one, that
   /// plan and what the repository adds to it.
   void _checkWorkCanStart({String? repository}) {
-    final project = _fleet.selectedProject?.project;
+    final fleet = _fleet;
+    if (fleet == null) return _notWatchedYet();
+    final project = fleet.selectedProject?.project;
     if (project == null) return;
     final operation = widget.operations.run(
       title: repository == null
           ? 'Show what ${project.name} would open'
           : 'Show what ${project.name} · $repository would open',
       machine: widget.machines.current.name,
-      output: _fleet.backend.startTask(project: project.name, dryRun: true, repository: repository),
+      output: fleet.backend.startTask(project: project.name, dryRun: true, repository: repository),
     );
     widget.shell.openOperation(operation.id);
   }
@@ -5218,7 +5321,7 @@ class _ShellState extends State<Shell> {
   /// Where you are, and what belongs to no machine: the finder, another machine, options, about.
   PreferredSizeWidget _appBar(WindowSize size, List<Command> commands) {
     final machine = widget.machines.current;
-    final project = _fleet.selectedProject;
+    final project = _fleet?.selectedProject;
     final title = switch (widget.shell.section) {
       Section.machine =>
         widget.shell.place.machineSection?.labelOn(
@@ -5513,9 +5616,11 @@ class _ShellState extends State<Shell> {
   Widget _workArea({Machine? onlyMachine}) {
     // A refusal takes the place of the page, as on the machine's: a removal the machine refused,
     // said only in the status line, looked like nothing happening (walk 9).
-    final ownFleet = onlyMachine == null ? _fleet : widget.machines.of(onlyMachine);
-    final refusal = ownFleet.refusal;
-    final opened = refusal != null ? RefusalView(refusal: refusal, fleet: ownFleet) : _opened(on: onlyMachine);
+    final ownFleet = onlyMachine == null ? _fleet : widget.machines.watching(onlyMachine);
+    final opened = switch ((ownFleet, ownFleet?.refusal)) {
+      (final fleet?, final refusal?) => RefusalView(refusal: refusal, fleet: fleet),
+      _ => _opened(on: onlyMachine),
+    };
     // Nothing tells of a refusal but the drawing of it, and what took the page's place took the session's.
     if (opened != null) WidgetsBinding.instance.addPostFrameCallback((_) => _leaveTheSessionWithItsPage());
     final page =
@@ -5540,9 +5645,10 @@ class _ShellState extends State<Shell> {
           ),
           view: _workView,
           listFocus: _openedFocus,
-          reveal: widget.shell.highlight != null && _fleet.selectedTask != null
-              ? '${widget.machines.current.name}/${_fleet.selectedTask!.name}'
-              : null,
+          reveal: switch (_fleet?.selectedTask) {
+            final task? when widget.shell.highlight != null => '${widget.machines.current.name}/${task.name}',
+            _ => null,
+          },
           machines: widget.machines,
           onlyMachine: onlyMachine,
           attention: _attention,
@@ -5780,7 +5886,7 @@ class _ShellState extends State<Shell> {
       (widget.shell.section != Section.machine || widget.machines.all.contains(widget.shell.place.machine)) &&
       (widget.shell.section == Section.machine && widget.shell.place.machine != null
               ? widget.machines.of(widget.shell.place.machine!).refusal
-              : _fleet.refusal) ==
+              : _fleet?.refusal) ==
           null;
 
   /// Leaving the tab's page leaves its session: the agent runs on, and coming back opens it again.
@@ -5811,8 +5917,10 @@ class _ShellState extends State<Shell> {
     final highlight = widget.shell.highlight;
     // A refusal takes the place of whatever was open: it is the most important thing on the
     // screen until somebody has decided about it.
-    final refusal = fleet.refusal;
-    final opened = refusal != null ? RefusalView(refusal: refusal, fleet: fleet) : _opened();
+    final opened = switch ((fleet, fleet?.refusal)) {
+      (final fleet?, final refusal?) => RefusalView(refusal: refusal, fleet: fleet),
+      _ => _opened(),
+    };
     _keepTheVaultButtonTrue(machine, fleet);
     return Column(
       children: <Widget>[
@@ -6062,10 +6170,10 @@ class _ShellState extends State<Shell> {
     try {
       await _connectHost(host);
     } on OrganizationRefused catch (refused) {
-      _fleet.say('$host is ready, but this window could not connect to it yet: ${refused.words}');
+      _say('$host is ready, but this window could not connect to it yet: ${refused.words}');
       return;
     }
-    _fleet.say('$host is ready. It waits for your token: Give it your token… on its row.');
+    _say('$host is ready. It waits for your token: Give it your token… on its row.');
   }
 
   Future<void> _connectHost(String host) async {
@@ -6508,10 +6616,10 @@ class _ShellState extends State<Shell> {
     };
   }
 
-  Widget _machineBody(Machine selected, FleetModel fleet, String? highlight) {
+  Widget _machineBody(Machine selected, FleetModel? fleet, String? highlight) {
     final machine = widget.shell.itemMachine ?? selected;
     final watched = widget.machines.all.contains(machine);
-    final projectName = widget.shell.itemProject ?? fleet.selectedProject?.name;
+    final projectName = widget.shell.itemProject ?? fleet?.selectedProject?.name;
     final project = projectsOnMachine(
       widget.machines,
       machine,
@@ -6522,7 +6630,7 @@ class _ShellState extends State<Shell> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted &&
             widget.shell.section == Section.project &&
-            (widget.shell.itemProject ?? _fleet.selectedProject?.name) == projectName) {
+            (widget.shell.itemProject ?? _fleet?.selectedProject?.name) == projectName) {
           widget.shell.goTo(Section.projects);
         }
       });
@@ -6712,10 +6820,14 @@ class _ShellState extends State<Shell> {
           if (machine == null) return 'This window does not have $host among its machines, so it cannot start there.';
           widget.machines.select(machine);
           if (project == null) {
+            final fleet = _fleet;
+            if (fleet == null) {
+              return '$host is not answering yet, as it is being opened, so no work can start there now.';
+            }
             // The organization's view may be older than what the machine lists: Default is not taken unasked.
-            await _fleet.refresh(quietly: true);
+            await fleet.refresh(quietly: true);
             if (!mounted) return null;
-            final others = _fleet.projects.where(
+            final others = fleet.projects.where(
               (each) =>
                   each.name != defaultProject &&
                   (each.canBeActedOn || each.project.carried) &&
@@ -6909,7 +7021,7 @@ class _ShellState extends State<Shell> {
     if (_planning?.at(provider, project) case final board?) {
       board.reportActionProblem(error);
     } else {
-      _fleet.say(planningFailureWords(error));
+      _say(planningFailureWords(error));
     }
   }
 

@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 
+import '../features/step/i_open_the_command_finder.dart';
+import '../features/step/the_command_is_unavailable_because.dart';
 import '../features/support/world.dart';
 
 /// A machine listed and not watched yet, as while it reconnects, is drawn by every page without an error.
@@ -67,6 +69,19 @@ void main() {
     await end();
 
     expect(thrown, isEmpty, reason: 'the selected machine not watched yet is drawn as not answering');
+  });
+
+  // Harm: an action on the selected machine while it reconnects ran on a stand-in that is then replaced, so what the
+  // person asked for was lost without a word.
+  testWidgets('the selected machine reconnecting offers no action, and says it is being opened', (tester) async {
+    final end = await reconnecting(tester, selected: true);
+
+    await iOpenTheCommandFinder(tester);
+    await theCommandIsUnavailableBecause(tester, 'Refresh from the backend', 'not answering yet: it is being opened');
+    await theCommandIsUnavailableBecause(tester, 'Reconnect to the backend', 'not answering yet: it is being opened');
+    await tester.tapAt(Offset.zero);
+    await World.settle(tester);
+    await end();
   });
 
   // Harm: a machine's page opened while the machine reconnects was never read once it was watched again, and showed

@@ -22,8 +22,9 @@ class StatusLine extends StatelessWidget {
     super.key,
   });
 
-  /// What is being talked to.
-  final FleetModel fleet;
+  /// What is being talked to; null while the machine is listed and not watched yet, as while it reconnects, which it
+  /// says as not answering yet.
+  final FleetModel? fleet;
 
   /// What this session has run.
   final Operations operations;
@@ -43,14 +44,15 @@ class StatusLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final info = fleet.info;
+    final fleet = this.fleet;
+    final info = fleet?.info;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         SizedBox(
           height: Sizes.progressBar,
-          child: fleet.busy || operations.all.any((each) => each.machine == machine && each.running)
+          child: (fleet?.busy ?? false) || operations.all.any((each) => each.machine == machine && each.running)
               ? const LinearProgressIndicator(minHeight: Sizes.progressBar)
               : null,
         ),
@@ -61,11 +63,11 @@ class StatusLine extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
           child: Row(
             children: <Widget>[
-              _Reachability(reachability: fleet.reachability),
+              _Reachability(reachability: fleet?.reachability ?? Reachability.unreachable),
               const SizedBox(width: Space.small),
               Expanded(
                 child: Text(
-                  fleet.status,
+                  fleet?.status ?? 'Not answering yet: it is being opened.',
                   key: const Key('status-line'),
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall,
@@ -92,12 +94,12 @@ class StatusLine extends StatelessWidget {
                     child: Icon(Icons.notifications_off_outlined, size: Sizes.mark, color: theme.colorScheme.error),
                   ),
                 ),
-              if (fleet.reachability == Reachability.connected && !fleet.liveUpdates)
+              if (fleet != null && fleet.reachability == Reachability.connected && !fleet.liveUpdates)
                 Padding(
                   padding: const EdgeInsets.only(left: Space.small),
                   child: Text('not live', style: theme.textTheme.bodySmall),
                 ),
-              if (info != null)
+              if (fleet != null && info != null)
                 Flexible(
                   child: Padding(
                     padding: const EdgeInsets.only(left: Space.small),
