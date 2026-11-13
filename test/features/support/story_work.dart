@@ -400,7 +400,7 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
         find.descendant(of: workKey('open-attention'), matching: find.textContaining('B540 · porelo · reading')),
         findsNothing,
       );
-      expect(World.settings.readingsPutAway.map((each) => each.issue), ['B540'], reason: 'kept past a restart');
+      expect(World.settings.readingsPutAway.map((each) => each.issue), ['B540'], reason: 'kept in the settings');
     case 'decision waits for echo':
       expect(find.text('Waiting for the board to confirm the decision.'), findsOneWidget);
       expect(tester.widget<OutlinedButton>(workKey('reading-resolve B540 ONE_MORE_ROUND')).onPressed, isNull);

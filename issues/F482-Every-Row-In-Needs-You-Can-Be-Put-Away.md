@@ -32,12 +32,13 @@ stop has none: it leaves only when the planner stops saying it.
 - A stopped reading is put away by the planner's own key for it, `PlanningAttention.putAwayOn`: machine, project,
   issue, and the reason and state the row showed, so a change of either says it again. The window keeps the set in
   Settings (`readingsPutAway`), checked field by field, and `Attention` leaves those rows out of *Needs you*.
-- The mark is dropped once the board, live, complete and every story's work read, no longer says that issue, as for
-  a story's end; a board not read yet keeps every mark.
+- A mark is dropped once its board, live, complete and every story's work read, no longer says that issue, or says it
+  with another reason or state; once its machine is neither a machine of the window nor a provider of the planning,
+  the machines read and the planning listing a provider; and once no machine lists its project, every machine having
+  answered with its whole list. A board, provider or list not read yet keeps every mark.
+- Marks put away before the settings were read are kept in them once they are.
 - `_PlanningRow` in `lib/src/ui/attention_view.dart` offers *Seen* for a stopped reading, as it does for a story's
   end; putting it away is written to the window's log, as every row put away is.
-- Red first: a model test that puts a reading away and reads it after a restart, and a feature scenario that presses
-  *Seen* on a stopped reading.
 
 ## Decided
 
@@ -45,14 +46,27 @@ stop has none: it leaves only when the planner stops saying it.
   the window is every row, so a row put away would come back at each start. The window keeps the set itself, with its
   own rule for dropping a mark, and reads the planner's key for a row.
 - The row offers the window's *Seen*, as every other row of *Needs you* does, not the planner view's *Put away*.
+- Known limit: a reading that stops again with the same reason and state while the window is closed, after its board
+  stopped saying it in between, stays put away, since the window never saw the board without it. Only a window that
+  is open sees the stop end.
 
 ## How it was built
 
 - `Settings.readingsPutAway` and `setReadingsPutAway` keep the put-away readings; `Attention.readingSeen` adds one,
-  `Attention` leaves them out of the open rows and drops a mark whose board, read whole, no longer says the issue;
-  `attention_view.dart` offers *Seen* on a stopped reading.
-- Tests: `test/app/planning_attention_test.dart` puts a reading away, reads it after a restart over the same settings
-  store and sees it come back once the issue's state changes; a second test sees the mark kept while the board is not
-  read and dropped once it is, and the next stop said. `test/features/story_work.feature` presses *Seen* on a stopped
-  reading. Each seen red: without the filter, without the stored field, without the pruning, with a board not read
-  whole taken as read, and without the button.
+  `Attention` leaves them out of the open rows and drops the marks that hide nothing any more, as the plan says, and
+  copies the ones put away before the settings were read into them; `attention_view.dart` offers *Seen* on a stopped
+  reading.
+- Tests in `test/app/planning_attention_test.dart`:
+  - a reading put away stays away after a restart over the same settings store and comes back once the issue's state
+    changes; red without the filter and without the stored field;
+  - the mark is kept while the board is not live yet and dropped once it is read whole, and the next stop is said;
+    red without the pruning, and with a board not read whole taken as read;
+  - the state moving on and back says the stop again; red with only an issue no longer said dropping its mark;
+  - the mark is kept while a story's work cannot be read; red with that board taken as read whole;
+  - marks of a machine the window does not know and of a project no machine lists are dropped once the machines are
+    read; red without each check;
+  - a reading put away before the settings were read is kept in them once they are, as a reload of the store shows;
+    red without the copy.
+- `test/features/story_work.feature` presses *Seen* on a stopped reading and finds the row gone and the mark in the
+  settings; red without the button. A partial snapshot is not tested: the planner's fake cannot serve a board without
+  its stories.

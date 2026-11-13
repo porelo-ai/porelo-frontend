@@ -6,7 +6,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart'
-    show PlanningAttention, PlanningBoard, PlanningBoards, PlanningNeedsYou, PlanningPutAway;
+    show PlanningAttention, PlanningBoard, PlanningBoards, PlanningNeedsYou, PlanningProvider, PlanningPutAway;
 
 import 'clearance.dart';
 import 'fleet_model.dart';
@@ -1018,34 +1018,75 @@ class Attention extends ChangeNotifier {
     );
   }
 
-  /// Whether a stopped reading put away names an issue its board no longer says, read whole: live, complete, and
-  /// every story's work read, so a board that cannot be read now keeps what was put away on it.
+  /// Whether a stopped reading put away no longer hides anything it was put away for:
+  /// - its board, read whole (live, complete, and every story's work read), no longer says the issue, or says it with
+  ///   another reason or state, so a stop that comes back as it was is said again;
+  /// - no machine lists its project any more, every machine having answered with its whole list;
+  /// - its machine is no machine of this window nor a provider of the planning, once the machines are read and the
+  ///   planning lists a provider.
+  /// A board, provider or list that cannot be read now keeps what was put away on it.
   bool Function(PlanningPutAway kept) _readingGone() {
     final planning = _planning;
-    final raised = <(String, String, String)>{
-      for (final entry in planning?.needsYou ?? const <PlanningNeedsYou>[])
-        if (entry.attention.issue case final issue?) (entry.machine, entry.attention.project, issue.id),
-    };
+    final shown = <(String, String, String), Set<PlanningPutAway>>{};
+    for (final entry in planning?.needsYou ?? const <PlanningNeedsYou>[]) {
+      if (entry.attention.issue case final issue?) {
+        final key = (entry.machine, entry.attention.project, issue.id);
+        (shown[key] ??= <PlanningPutAway>{}).addAll([?entry.attention.putAwayOn(entry.machine)]);
+      }
+    }
     final readWhole = <(String, String)>{
       for (final board in planning?.sources ?? const <PlanningBoard>[])
         if (board.live && board.snapshot?.complete == true && board.stories.every(board.endedCurrent))
           (planning!.machineOf(board), board.project),
     };
-    return (kept) =>
-        readWhole.contains((kept.machine, kept.project)) && !raised.contains((kept.machine, kept.project, kept.issue));
+    final providers = planning?.client.providers ?? const <PlanningProvider>[];
+    // A project is gone only once every machine answered with its whole list and none lists it.
+    final machines = _machines.all;
+    final listed =
+        machines.isNotEmpty &&
+            machines.every(
+              (machine) => _fleet(machine)?.reachability == Reachability.connected && _fleet(machine)!.listRead,
+            )
+        ? <String>{
+            for (final machine in machines)
+              for (final project in _fleet(machine)!.listedProjects) project.name,
+          }
+        : null;
+    final known = providers.isEmpty || !(_settings?.machinesRead ?? true)
+        ? null
+        : <String>{
+            for (final machine in _machines.all) machine.name,
+            for (final provider in providers) provider.name,
+            for (final board in planning?.sources ?? const <PlanningBoard>[]) planning!.machineOf(board),
+          };
+    return (kept) {
+      if (known != null && !known.contains(kept.machine)) return true;
+      if (listed != null && !listed.contains(kept.project)) return true;
+      if (!readWhole.contains((kept.machine, kept.project))) return false;
+      final now = shown[(kept.machine, kept.project, kept.issue)];
+      return now == null || !now.contains(kept);
+    };
   }
 
-  /// Forgets each stopped reading put away whose board, read whole, no longer says it, so its next stop is said.
+  /// Forgets each stopped reading put away that no longer hides anything, so its next stop is said, and keeps in the
+  /// settings, once they are read, what was put away before.
   void _forgetReadingsGone(Settings? settings) {
     final gone = _readingGone();
     _readingsSession.removeWhere(gone);
-    if (settings == null || !settings.loaded || !settings.readingsPutAway.any(gone)) return;
+    if (settings == null || !settings.loaded) return;
+    if (_readingsSession.isEmpty && !settings.readingsPutAway.any(gone)) return;
     // Not now: this runs while the frame is being drawn, and settings changing would redraw it.
     scheduleMicrotask(() {
       if (_disposed) return;
       final gone = _readingGone();
-      if (!settings.readingsPutAway.any(gone)) return;
-      unawaited(settings.setReadingsPutAway({...settings.readingsPutAway.where((each) => !gone(each))}));
+      final before = _readingsSession.toSet();
+      _readingsSession.clear();
+      final kept = <PlanningPutAway>{
+        for (final each in <PlanningPutAway>{...settings.readingsPutAway, ...before})
+          if (!gone(each)) each,
+      };
+      if (setEquals(kept, settings.readingsPutAway)) return;
+      unawaited(settings.setReadingsPutAway(kept));
     });
   }
 

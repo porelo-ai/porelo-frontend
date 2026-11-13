@@ -345,4 +345,95 @@ void main() {
     await _turn();
     expect(env.planningRows, ['reading builder/demo/item'], reason: 'its next stop is said');
   });
+
+  /// Puts away the one stopped reading [env] shows.
+  Future<void> putAway(_Environment env) async {
+    env.attention.readingSeen(env.attention.openRows.firstWhere((row) => row.kind == AttentionKind.planning));
+    await _turn();
+  }
+
+  // Harm: a stop put away hid the same issue's later stop, after its state had moved on and come back while the issue
+  // stayed raised.
+  test('a stopped reading put away is said again once its state moves on and comes back', () async {
+    final planning = _Planning(_snapshot('initial', stopped: true));
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    await putAway(env);
+    expect(env.planningRows, isEmpty);
+
+    planning.push('demo', _snapshot('moved', stopped: true, state: 'Review'));
+    await _turn();
+    expect(env.planningRows, ['reading builder/demo/item'], reason: 'its state moved on');
+    planning.push('demo', _snapshot('back', stopped: true));
+    await _turn();
+    expect(env.planningRows, ['reading builder/demo/item'], reason: 'its state came back: a stop to be said again');
+  });
+
+  // Harm: a board whose stories' work could not be read taken as one that no longer says the issue, so what was put
+  // away came back at the next read.
+  test("a stopped reading put away stays put away while its board's work cannot be read", () async {
+    final planning = _Planning(_snapshot('initial', stopped: true, working: true));
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    await putAway(env);
+
+    planning.workError = mockRefusal('org.fuin.porelo.Tasks1.Refused', {'detail': 'Work cannot be read.'});
+    planning.push('demo', _snapshot('unread work', working: true));
+    await _turn();
+    expect(env.settings.readingsPutAway, hasLength(1), reason: "a story whose work cannot be read says nothing");
+
+    planning.workError = null;
+    planning.push('demo', _snapshot('stopped again', stopped: true, working: true));
+    await _turn();
+    expect(env.planningRows, isEmpty, reason: 'the same stop stays put away');
+  });
+
+  // Harm: marks of machines and projects the window no longer has kept in the settings for good.
+  test('a stopped reading put away is forgotten once its machine or its project is gone', () async {
+    final planning = _Planning(_snapshot('initial', stopped: true));
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    await putAway(env);
+    final mine = env.settings.readingsPutAway.single;
+    PlanningPutAway on(String machine, String project) =>
+        PlanningPutAway(machine: machine, project: project, issue: 'item', reason: mine.reason, state: mine.state);
+    await env.settings.setReadingsPutAway({mine, on('elsewhere', 'demo'), on('builder', 'retired')});
+    await _turn();
+    expect(env.settings.readingsPutAway, contains(on('elsewhere', 'demo')), reason: 'the machines are not read yet');
+
+    await env.settings.machines();
+    await env.settings.setReadingsPutAway({...env.settings.readingsPutAway});
+    await _turn();
+
+    expect(env.settings.readingsPutAway, {mine});
+  });
+
+  // Harm: a stopped reading put away before the settings were read came back at the next start.
+  test('a stopped reading put away before the settings were read is kept in them once they are', () async {
+    final planning = _Planning(_snapshot('initial', stopped: true));
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    final unread = Settings(env.store);
+    final early = Attention(env.machines, unread)..planning = env.boards;
+    addTearDown(() {
+      early.dispose();
+      unread.dispose();
+    });
+    await _turn();
+    early.readingSeen(early.openRows.firstWhere((row) => row.kind == AttentionKind.planning));
+    await _turn();
+    expect(env.rowsOf(early), isEmpty);
+
+    await unread.load();
+    await _turn();
+
+    final reloaded = Settings(env.store);
+    addTearDown(reloaded.dispose);
+    await reloaded.load();
+    expect(reloaded.readingsPutAway.map((each) => each.issue), ['item'], reason: 'kept past a restart');
+  });
 }
