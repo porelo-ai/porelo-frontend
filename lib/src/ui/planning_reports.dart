@@ -377,6 +377,8 @@ class WindowTaskReports {
         await _quietly(told, () => _deliver(told, PlanningTaskEvent.landed, landed: landed));
       }
     }
+    // Before the discussions: a discussion handed in is removed, and the ideas it proposed with it.
+    await _handProposed();
     for (final kept in settings.keptDiscussions) {
       final task = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
       if (task == null) continue;
@@ -391,7 +393,6 @@ class WindowTaskReports {
         await _handIdea(kept, named, end);
       }
     }
-    await _handProposed();
   }
 
   /// Keeps each task Start made for an offer this window handed but never kept, found by the offer given as its key:
@@ -440,11 +441,7 @@ class WindowTaskReports {
 
   /// Hands [ideas] of [task] on [machine]; false once no planner is reached, so nothing more is tried in this sweep.
   Future<bool> _handProposedOf(String machine, Task task, List<ProposedIdea> ideas) async {
-    // Kept as a digest, whatever the machine wrote into it.
-    final run = crypto.sha256
-        .convert(utf8.encode(task.run != null && task.run!.isNotEmpty ? task.run! : task.name))
-        .toString()
-        .substring(0, 32);
+    final run = _runKey(task);
     if ([machine, task.name].any((name) => name.trim().isEmpty || name.contains(RegExp(r'[\x00-\x1f]')))) {
       if (_tooManySaid.add((machine, run))) {
         _sayProposed(
@@ -467,7 +464,9 @@ class WindowTaskReports {
     for (final (index, idea) in ideas.take(mostIdeasOfATask).indexed) {
       final digest = proposedIdeaDigest(idea);
       final key = (machine, run, idea.id);
-      if (settings.ideaHanded(machine, task.name, run, digest) || _proposedNotHanded.contains(key)) continue;
+      if (settings.ideaHanded(machine, task.name, run, digest)) continue;
+      // Not tried again before the next start of the window, and the task's later ideas stay behind it.
+      if (_proposedNotHanded.contains(key)) return true;
       if (proposedIdeaProblem(idea) case final problem?) {
         await settings.markIdeaHanded(machine, task.name, run, digest);
         _sayProposed(
@@ -518,13 +517,20 @@ class WindowTaskReports {
         );
       } on PlanningRefusal catch (refusal) {
         if (_transient(refusal) ||
-            const {'StaleRevision', 'Busy', 'Http503', 'Http504', 'Unreachable'}.contains(refusal.name)) {
+            const {
+              'StaleRevision',
+              'RevisionMoved',
+              'Busy',
+              'Http503',
+              'Http504',
+              'Unreachable',
+            }.contains(refusal.name)) {
           _proposedUnreached(provider, task.project, '$named waits: ${planningFailureWords(refusal)}');
-          return refusal.name == 'NoRepository' || refusal.name == 'StaleRevision';
+          return const {'NoRepository', 'StaleRevision', 'RevisionMoved'}.contains(refusal.name);
         }
-        // Only a refusal of the idea itself is final; one of the planner's own, such as a store it could not write, is
-        // tried again at the next start of the window.
-        if (!const {'IssueNotAllowed', 'InvalidName'}.contains(refusal.name)) {
+        // Only a refusal of the idea's own words is final; one of the planner's own, such as a store it could not
+        // write, is tried again at the next start of the window.
+        if (refusal.name != 'IssueNotAllowed' || !const {'title', 'mustBeTrue'}.contains(refusal.parameters['field'])) {
           _proposedNotHanded.add(key);
           _sayProposed(provider, task.project, '$named is not handed in: ${planningFailureWords(refusal)}');
           return true;
@@ -547,6 +553,23 @@ class WindowTaskReports {
     }
     return true;
   }
+
+  /// Whether the task in [container] on [machine] lists an idea the window has neither handed nor marked.
+  bool _ideasWaiting(String machine, String container) {
+    final task = tasksOn(machine)?.where((each) => each.name == container).firstOrNull;
+    final ideas = task?.ideas;
+    if (task == null || ideas == null) return false;
+    final run = _runKey(task);
+    return ideas
+        .take(mostIdeasOfATask)
+        .any((idea) => !settings.ideaHanded(machine, task.name, run, proposedIdeaDigest(idea)));
+  }
+
+  // Kept as a digest, whatever the machine wrote into it.
+  static String _runKey(Task task) => crypto.sha256
+      .convert(utf8.encode(task.run != null && task.run!.isNotEmpty ? task.run! : task.name))
+      .toString()
+      .substring(0, 32);
 
   void _proposedUnreached(String? provider, String project, String words) {
     if (_proposedUnreachedSaid) return;
@@ -617,7 +640,13 @@ class WindowTaskReports {
       windowLog.info('Planning: the idea of the discussion ${kept.container} was saved as $story in ${kept.project}.');
     }
     // Its idea is the planner's now, so the ended discussion goes, as a person would remove it; one whose idea was not
-    // saved stays with its result file.
+    // saved stays with its result file, and one with ideas of its own not yet handed stays with them.
+    if (_ideasWaiting(kept.machine, kept.container)) {
+      return _sayIdea(
+        kept,
+        'The discussion ${kept.container} was handed in as $story; it stays until the ideas it proposed are handed in.',
+      );
+    }
     try {
       await removeOn(kept.machine, kept.container);
     } on Object catch (error) {

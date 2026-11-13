@@ -702,6 +702,31 @@ void main() {
       expect((await loaded()).keptDiscussions, isEmpty);
     });
 
+    // Harm: a discussion is removed with ideas it proposed that were never handed in, and they are lost with it.
+    test('stays while an idea it proposed waits to be handed in', () async {
+      final (reports, _, saved) = await discussed();
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      machine.end('porelo-demo-discussion', endAt('2026-11-12T01:00:00Z', result: ideaFile));
+      final index = machine.listed.indexWhere((task) => task.name == 'porelo-demo-discussion');
+      final row = machine.listed[index];
+      machine.listed[index] = Task.from({
+        'name': row.name,
+        'task': row.task,
+        'project': 'demo',
+        'running': false,
+        'run': row.run!,
+        'agentEnded': endAt('2026-11-12T01:00:00Z', result: ideaFile),
+        'ideas': [
+          {'id': 'idea-1', 'title': 'A side idea', 'whatMustBeTrue': 'It waits for its repository.', 'at': 'T'},
+        ],
+      });
+
+      await sweeps(reports);
+
+      expect(saved, ['demo ST900']);
+      expect(removed, isEmpty);
+    });
+
     // Harm: an ended discussion stays on the machine after its idea was saved, or one whose idea was not saved goes,
     // and the person's agreed idea with it.
     test('removes the ended discussion once the planner saved its idea, and keeps one it did not', () async {
@@ -869,10 +894,10 @@ void main() {
       lists('porelo-demo-pi', [idea(1)]);
       final reports = await swept();
 
-      lists('porelo-demo-pi', [idea(1, title: 'Another idea')], run: 'run-2');
+      lists('porelo-demo-pi', [idea(1)], run: 'run-2');
       await swept(reports);
 
-      expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Another idea']);
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 1']);
     });
 
     // Harm: the task an idea came from is not handed with it, so nobody knows whom to ask.
@@ -928,7 +953,9 @@ void main() {
     // Harm: an idea the planner refused for its fields is sent again on every change of a machine, or its refusal is
     // never said.
     test('the planner refuses is said once with its words and not sent again, also across a restart', () async {
-      planner.issueAnswers.add(const PlanningRefusal('IssueNotAllowed', {'detail': 'title: Too long.'}, 'Refused.'));
+      planner.issueAnswers.add(
+        const PlanningRefusal('IssueNotAllowed', {'field': 'title', 'reason': 'title: Too long.'}, 'title: Too long.'),
+      );
       lists('porelo-demo-pi', [idea(1), idea(2)]);
       final reports = said(window().$2);
 
@@ -942,18 +969,27 @@ void main() {
     });
 
     // Harm: an idea is lost because the planner could not save it once for a reason of its own, not of the idea.
-    test('the planner could not save is said once and tried again at the next start of the window', () async {
-      planner.issueAnswers.add(const PlanningRefusal('CredentialRefused', {}, 'The forge refused the token.'));
-      lists('porelo-demo-pi', [idea(1)]);
-      final reports = said(window().$2);
+    test('the planner could not save is said once and tried again, first, at the next start of the window', () async {
+      for (final refusal in const [
+        PlanningRefusal('CredentialRefused', {}, 'The forge refused the token.'),
+        PlanningRefusal('IssueNotAllowed', {'field': '', 'reason': 'The repository\'s issues give no prefix.'}),
+      ]) {
+        planner.issues.clear();
+        problems.clear();
+        planner.issueAnswers.add(refusal);
+        final container = 'porelo-demo-${refusal.name}';
+        lists(container, [idea(1), idea(2)]);
+        final reports = said(window().$2);
 
-      await swept(reports);
-      await swept(reports);
-      expect(planner.issues.map((issue) => issue.$3), ['Idea 1']);
-      expect(problems, hasLength(1));
+        await swept(reports);
+        await swept(reports);
+        expect(planner.issues.map((issue) => issue.$3), ['Idea 1'], reason: refusal.name);
+        expect(problems, hasLength(1), reason: refusal.name);
 
-      await swept(window(kept: await loaded()).$2);
-      expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 1']);
+        await swept(window(kept: await loaded()).$2);
+        expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 1', 'Idea 2'], reason: refusal.name);
+        machine.listed.removeWhere((task) => task.name == container);
+      }
     });
 
     // Harm: a task's agent puts words the planner never checks, or lines of its own, into the window's problems, or

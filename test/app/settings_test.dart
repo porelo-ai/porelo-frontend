@@ -29,6 +29,21 @@ void main() {
     expect(again.lastForwardedBranch('machine', 'project', 'repository', 'absent'), isNull);
   });
 
+  // Harm: removing a task forgets the offer a later task under the same container name was given meanwhile, so that
+  // task is never reported to the planner.
+  test('a removal forgets only what was kept before it, not an offer kept while it is written', () async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    await settings.markIdeaHanded('laptop', 'porelo-demo-pi', 'run-1', 'a' * 32);
+
+    final removal = settings.forgetRemovedTask('laptop', 'porelo-demo-pi');
+    await settings.rememberPlanningOffer(machine: 'laptop', container: 'porelo-demo-pi', offer: 'a later offer');
+    await removal;
+
+    expect(settings.planningOffer('laptop', 'porelo-demo-pi'), 'a later offer');
+    expect(settings.ideaHanded('laptop', 'porelo-demo-pi', 'run-1', 'a' * 32), isFalse);
+  });
+
   // Harm: malformed settings supply a branch or identity that was never confirmed.
   test('every field of a stored forward is checked before it is used', () async {
     const good = {'machine': 'machine', 'project': 'project', 'repository': '', 'task': 'task', 'branch': 'fix-2'};

@@ -724,7 +724,11 @@ class Task {
           )
         : null,
     ideas: map['ideas'] is List
-        ? List.unmodifiable((map['ideas'] as List).whereType<Map<String, dynamic>>().map(ProposedIdea.from))
+        ? List.unmodifiable([
+            // An entry that is no object stays, empty, for the window to refuse in words rather than lose unseen.
+            for (final entry in map['ideas'] as List)
+              ProposedIdea.from(entry is Map<String, dynamic> ? entry : const <String, dynamic>{}),
+          ])
         : null,
     handInLimit: map['handInLimit'] is num ? (map['handInLimit'] as num).toInt() : null,
     files: map['files'] is List

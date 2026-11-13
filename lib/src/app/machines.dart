@@ -941,7 +941,6 @@ class Machines extends ChangeNotifier {
       _reach(machine),
       machine: machine.name,
       retryAfter: _retryAfter,
-      // A removed task's planning offer, and the marks of the ideas it proposed, go with it.
       onRemoved: (task) => unawaited(_settings.forgetRemovedTask(machine.name, task)),
       mayPrepareOnItsOwn: () {
         final relay = _relaysBySsh(machine);

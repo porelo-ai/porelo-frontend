@@ -20,13 +20,14 @@ void main() {
     expect(task.ideas!.map((idea) => (idea.id, idea.title, idea.mustBeTrue, idea.at)), [
       ('idea-1', 'Cache the mirror', 'A second build\nfetches nothing.', 'T1'),
       ('idea-2', 'Name the run', 'The log names its run.', 'T2'),
+      ('', '', '', ''),
     ]);
     expect(taskWith({'ideas': <Object>[]}).ideas, isEmpty);
     expect(taskWith({}).ideas, isNull);
     expect(taskWith({'ideas': 'idea-1'}).ideas, isNull);
   });
 
-  // Harm: an entry missing a field is dropped without a word, so its idea is lost unseen.
+  // Harm: an entry missing a field, or no entry at all, is dropped without a word, so its idea is lost unseen.
   test('an entry missing a field is kept with that field empty, for the window to refuse in words', () {
     final idea = taskWith({
       'ideas': [
