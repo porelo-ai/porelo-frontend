@@ -10,8 +10,11 @@ import '../support/planner_process.dart';
 void main() {
   late Directory folder;
 
-  setUp(() => folder = Directory.systemTemp.createTempSync('planner-windows-'));
-  tearDown(() => folder.deleteSync(recursive: true));
+  setUp(() {
+    folder = Directory.systemTemp.createTempSync('planner-windows-');
+    // Registered first, so it runs after each test's own tear-downs, the planner's dispose among them.
+    addTearDown(() => _deleteOnceFree(folder));
+  });
 
   // Harm: on Windows the window starts the planner by itself, which the person did not ask for, or it offers no way
   // to start it, so planning stays out of reach until the next sign-in.
@@ -131,4 +134,17 @@ void main() {
     expect(planner.notReached, isNull);
     expect(opened, 1, reason: 'the address file is found again at every look, unchanged');
   });
+}
+
+/// Deletes [folder] once nothing holds it: on Windows a file still open, as the planner's last read of its address may
+/// be just after its dispose, cannot be deleted, and such a read ends within moments.
+Future<void> _deleteOnceFree(Directory folder) async {
+  for (var attempt = 1; ; attempt++) {
+    try {
+      return folder.deleteSync(recursive: true);
+    } on PathAccessException {
+      if (attempt == 50) rethrow;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
 }
