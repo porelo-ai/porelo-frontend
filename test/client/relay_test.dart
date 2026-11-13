@@ -358,76 +358,80 @@ void main() {
       await until(() => seen.isNotEmpty, 'the watch to answer');
     });
 
-    test('with a small cap of all, a watch, a flood of calls and of carried connections stay within it', () async {
-      final budget = CarrierBudget(inAll: 5, daemonCalls: 2, startsPerSecond: 1000);
-      var carried = 0;
-      var most = 0;
-      void count(int by) {
-        carried += by;
-        if (carried + live > most) most = carried + live;
-      }
+    test(
+      'with a small cap of all, a flood of calls and of carried connections stays within it beside a watch',
+      () async {
+        final budget = CarrierBudget(inAll: 5, daemonCalls: 2, startsPerSecond: 1000);
+        var carried = 0;
+        var most = 0;
+        void count(int by) {
+          carried += by;
+          // The watch's relay is outside the cap of all; everything else counts.
+          if (carried + live - 1 > most) most = carried + live - 1;
+        }
 
-      final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-      final port = probe.port;
-      await probe.close();
-      final carrier = LoopbackCarrier(
-        {port: CarriedRole.forgeWeb},
-        budget: budget,
-        carry: (role) async {
-          // A service that never answers holds its place until its connection ends.
-          final process = await Process.start('python3', <String>['-c', 'import sys\nsys.stdin.buffer.read()']);
-          count(1);
-          unawaited(process.exitCode.then((_) => count(-1)));
-          return process;
-        },
-      );
-      addTearDown(carrier.release);
-      await carrier.hold();
-      carrier.carrying = true;
-      final gate = Completer<void>();
-      mock.method('Stop', (parameters) async {
-        await gate.future;
-        return <String, dynamic>{'outcome': 'STOPPED'};
-      });
-      final events = StreamController<Map<String, dynamic>>();
-      addTearDown(events.close);
-      mock.pushes('Watch', (_) => events.stream);
-      final backend = Machines.backendOn(
-        machine,
-        windows: true,
-        environment: const <String, String>{},
-        budget: budget,
-        startRelay: (executable, arguments) async {
-          final process = await relay(executable, arguments);
-          count(0);
-          return process;
-        },
-      );
-      final client = await PoreloClient.connect(backend);
-      final seen = <List<Task>>[];
-      final watching = client.watchTasks().listen(seen.add);
-      addTearDown(watching.cancel);
-      await until(() => live == 1 && mock.openConnections == 1, 'the watch alone to hold a relay');
+        final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+        final port = probe.port;
+        await probe.close();
+        final carrier = LoopbackCarrier(
+          {port: CarriedRole.forgeWeb},
+          budget: budget,
+          carry: (role) async {
+            // A service that never answers holds its place until its connection ends.
+            final process = await Process.start('python3', <String>['-c', 'import sys\nsys.stdin.buffer.read()']);
+            count(1);
+            unawaited(process.exitCode.then((_) => count(-1)));
+            return process;
+          },
+        );
+        addTearDown(carrier.release);
+        await carrier.hold();
+        carrier.carrying = true;
+        final gate = Completer<void>();
+        mock.method('Stop', (parameters) async {
+          await gate.future;
+          return <String, dynamic>{'outcome': 'STOPPED'};
+        });
+        final events = StreamController<Map<String, dynamic>>();
+        addTearDown(events.close);
+        mock.pushes('Watch', (_) => events.stream);
+        final backend = Machines.backendOn(
+          machine,
+          windows: true,
+          environment: const <String, String>{},
+          budget: budget,
+          startRelay: (executable, arguments) async {
+            final process = await relay(executable, arguments);
+            count(0);
+            return process;
+          },
+        );
+        final client = await PoreloClient.connect(backend);
+        final seen = <List<Task>>[];
+        final watching = client.watchTasks().listen(seen.add);
+        addTearDown(watching.cancel);
+        await until(() => live == 1 && mock.openConnections == 1, 'the watch alone to hold a relay');
 
-      final clients = [for (var i = 0; i < 8; i++) await Socket.connect(InternetAddress.loopbackIPv4, port)];
-      for (final each in clients) {
-        addTearDown(each.destroy);
-      }
-      await until(() => carrier.connections == 4 && carried == 4, 'the carried connections to fill the cap of all');
-      final stops = [for (var i = 0; i < 3; i++) client.stop('t$i')];
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-      expect(carried + live, 5, reason: 'the watch and four carried connections hold the cap of all, the calls wait');
+        final clients = [for (var i = 0; i < 8; i++) await Socket.connect(InternetAddress.loopbackIPv4, port)];
+        for (final each in clients) {
+          addTearDown(each.destroy);
+        }
+        await until(() => carrier.connections == 5 && carried == 5, 'the carried connections to fill the cap of all');
+        final stops = [for (var i = 0; i < 3; i++) client.stop('t$i')];
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        expect(live, 1, reason: 'five carried connections hold the cap of all beside the watch, and the calls wait');
 
-      for (final each in clients) {
-        each.destroy();
-      }
-      gate.complete();
-      final answered = await Future.wait(stops).timeout(const Duration(seconds: 20));
-      expect([for (final each in answered) each.outcome.name], everyElement('STOPPED'), reason: 'every call answers');
-      events.add(<String, dynamic>{'tasks': <Object?>[]});
-      await until(() => seen.isNotEmpty, 'the watch to answer');
-      expect(most, lessThanOrEqualTo(5), reason: 'no ssh child of the window ever ran past the cap of all');
-    });
+        for (final each in clients) {
+          each.destroy();
+        }
+        gate.complete();
+        final answered = await Future.wait(stops).timeout(const Duration(seconds: 20));
+        expect([for (final each in answered) each.outcome.name], everyElement('STOPPED'), reason: 'every call answers');
+        events.add(<String, dynamic>{'tasks': <Object?>[]});
+        await until(() => seen.isNotEmpty, 'the watch to answer');
+        expect(most, lessThanOrEqualTo(5), reason: 'no ssh child but the watch ever ran past the cap of all');
+      },
+    );
 
     Backend windowsBackend(CarrierBudget budget) => Machines.backendOn(
       machine,

@@ -75,14 +75,14 @@ void main() {
     expect(asked.got, hasLength(1), reason: 'the last place is a call’s, ahead of the waiting streams');
   });
 
-  test('the cap of all counts the daemon beside the carried connections', () async {
+  test('the cap of all counts the daemon calls beside the carried connections', () async {
     final budget = CarrierBudget(inAll: 3);
     final relays = budget.daemonOf('box');
-    final watches = [ask(relays, const RelayUse.watch('Watch')), ask(relays, const RelayUse.watch('Prompts'))];
+    final first = [ask(relays, call), ask(relays, stream)];
     await settle();
-    expect([for (final each in watches) each.got.length], [1, 1]);
+    expect([for (final each in first) each.got.length], [1, 1]);
     expect(budget.take(), isTrue, reason: 'one place of the three is left for a carried connection');
-    expect(budget.take(), isFalse, reason: 'the watches and the connection hold every place');
+    expect(budget.take(), isFalse, reason: 'the call, the stream and the connection hold every place');
     final asked = ask(relays, call);
     await settle();
     expect(asked.got, isEmpty, reason: 'a call waits while every place of all is held');
@@ -92,24 +92,46 @@ void main() {
     expect(budget.take(), isFalse, reason: 'and not to a new connection');
   });
 
-  test('watches and streams of every card never hold the last place of all', () async {
+  test('every card’s watches and follows come up at once, past the cap of all, and take none of its places', () async {
+    final budget = CarrierBudget(inAll: 4);
+    final cards = [for (var i = 0; i < 5; i++) budget.daemonOf('card$i')];
+    final held = [
+      for (final card in cards) ...[
+        for (final method in PoreloClient.watches) ask(card, RelayUse.watch(method)),
+        ask(card, const RelayUse.follow()),
+        ask(card, const RelayUse.follow()),
+      ],
+    ];
+    await settle();
+    expect(
+      [for (final each in held) each.got.length],
+      everyElement(1),
+      reason: 'five cards hold 30 watches and follows, and none of them waits',
+    );
+    final calls = [for (final card in cards) ask(card, call)];
+    await settle();
+    expect(
+      [for (final each in calls) each.got.length],
+      [1, 1, 1, 1, 0],
+      reason: 'calls still wait for the cap of all, which the watches left whole',
+    );
+    expect(budget.take(), isFalse, reason: 'the four calls hold every place of all');
+  });
+
+  test('streams that end never hold the last place of all', () async {
     final budget = CarrierBudget(inAll: 3);
     final a = budget.daemonOf('a');
     final b = budget.daemonOf('b');
-    final watches = [
-      ask(a, const RelayUse.watch('Watch')),
-      ask(a, const RelayUse.watch('Prompts')),
-      ask(b, const RelayUse.watch('Watch')),
-    ];
+    final streams = [ask(a, stream), ask(b, stream), ask(b, stream)];
     await settle();
-    expect([for (final each in watches) each.got.length], [1, 1, 0], reason: 'the last place is kept for a call');
-    final asked = ask(b, call);
+    expect([for (final each in streams) each.got.length], [1, 1, 0], reason: 'the last place is kept for a call');
+    final asked = ask(a, call);
     await settle();
-    expect(asked.got, hasLength(1), reason: 'a call of another card passes while a watch waits');
+    expect(asked.got, hasLength(1), reason: 'a call passes while a stream waits');
     asked.got.single!.leave();
-    watches.first.got.single!.leave();
+    streams.first.got.single!.leave();
     await settle();
-    expect(watches.last.got, hasLength(1), reason: 'the waiting watch is admitted once a watch gave its place back');
+    expect(streams.last.got, hasLength(1), reason: 'the waiting stream is admitted once a stream gave its place back');
   });
 
   test('a wait abandoned is never admitted and keeps no place', () async {

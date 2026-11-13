@@ -51,8 +51,10 @@ class CarrierRefused implements Exception {
 /// connection carried, so they are bounded.
 ///
 /// A card's daemon is reached over ssh children of the window too, in places of its own ([daemonOf]): one for each
-/// watch and [daemonCalls] for everything else, which wait for a place in turn instead of being refused. The cap of all
-/// counts them beside the carried connections.
+/// watch and each thing it follows, and [daemonCalls] for everything else, which wait for a place in turn instead of
+/// being refused. The cap of all counts only what comes in bursts - the daemon's calls and streams that end beside the
+/// carried connections and the readiness probe; the watches and follows are as many as the person set up and opened,
+/// and a card never waits for them.
 class CarrierBudget {
   /// Constructor taking the bounds, and the clock a test stands in for.
   CarrierBudget({
@@ -99,7 +101,7 @@ class CarrierBudget {
 
   int _held = 0;
 
-  /// How many places of all the daemons' watches and streams hold: never the last one, which is kept for a call.
+  /// How many places of all the daemons' streams that end hold: never the last one, which is kept for a call.
   int _daemonLong = 0;
 
   /// The daemon relays that hold a place of their card and wait for one of all, in the order they asked.
@@ -140,7 +142,8 @@ class CarrierBudget {
 /// project the window follows, and a pool of [CarrierBudget.daemonCalls] for every other connection, whose streams
 /// never take its last place.
 ///
-/// Each relay first waits for a place of its card, then for one of all; both are waited for in turn and never refused.
+/// A watch or a follow is admitted at once, outside the cap of all. Any other relay first waits for a place of its card,
+/// then for one of all; both are waited for in turn and never refused.
 class DaemonRelays implements RelayAdmission {
   DaemonRelays._(this.budget);
 
@@ -166,16 +169,21 @@ class DaemonRelays implements RelayAdmission {
     for (final ask in [..._asks]) {
       final watch = ask.use.watch;
       if (ask.use.follows) {
-        // It holds a place of all alone: one for each thing the window follows.
+        // One place for each thing the window follows, outside the cap of all.
+        _asks.remove(ask);
+        ask.admitted();
+        continue;
       } else if (watch != null) {
         if (_watches.contains(watch)) continue;
         _watches.add(watch);
-      } else {
-        if (_calls >= budget.daemonCalls) continue;
-        if (ask.use.long && _streams >= budget.daemonCalls - 1) continue;
-        _calls++;
-        if (ask.use.long) _streams++;
+        _asks.remove(ask);
+        ask.admitted();
+        continue;
       }
+      if (_calls >= budget.daemonCalls) continue;
+      if (ask.use.long && _streams >= budget.daemonCalls - 1) continue;
+      _calls++;
+      if (ask.use.long) _streams++;
       _asks.remove(ask);
       budget._waiting.add(ask);
     }
@@ -214,6 +222,9 @@ class _Ask implements RelayPlace {
   final answer = Completer<RelayPlace?>();
   bool _holding = false;
 
+  /// Whether it holds a place under the cap of all: a call or a stream that ends, never a watch or a follow.
+  bool get _inAll => use.watch == null && !use.follows;
+
   void admitted() {
     _holding = true;
     answer.complete(this);
@@ -224,8 +235,10 @@ class _Ask implements RelayPlace {
     if (!_holding) return;
     _holding = false;
     final budget = relays.budget;
-    budget._held--;
-    if (use.long) budget._daemonLong--;
+    if (_inAll) {
+      budget._held--;
+      if (use.long) budget._daemonLong--;
+    }
     relays._giveBackCardPlace(this);
     relays._admitWaiting();
     budget._admitWaiting();

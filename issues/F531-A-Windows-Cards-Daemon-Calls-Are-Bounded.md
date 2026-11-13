@@ -24,7 +24,8 @@ graded GRAVE there. Not settled in that build: it needs a design decision.
 for its daemon as well as for its forge and homeserver, stay within caps the person can name, as the carrier's own
 connections already do (16 per card, 48 in all, 8 starts a second per card); its daemon has one place for each of
 its four watches, one for each log and project's pull requests it follows, and 4 for every other call, of which a
-stream that ends holds at most 3, all counted under the cap of all.
+stream that ends holds at most 3; the calls and streams that end count under the cap of all, the watches and follows
+do not.
 
 ## How it stands
 
@@ -59,10 +60,17 @@ Option 1, two pools (2026-11-13): option 2 needs a new contract of Porelo's or a
 option 3 leaves the reading's grave finding open. A burst of daemon calls past the call pool waits for a place
 instead of starting more ssh.
 
+The cap of all counts only what comes in bursts: the daemon's calls and streams that end, the carried connections
+and the readiness probe. The four watches of each card and the places of what it follows (a log, a project's pull
+requests) stay outside it: they are bounded by what the person set up and opened, not by anything a program drives,
+and counting them would leave a card past the twelfth waiting for its watches for good.
+
 ## Acceptance
 
-- On Windows, a test with `inAll` small holds its daemon's watches and a flood of calls and of carried connections
-  within the stated caps, and every view still answers.
+- On Windows, a test with `inAll` small holds a flood of calls and of carried connections within the stated caps
+  beside its daemon's watch, and every view still answers.
+- With more cards than the cap of all has room for four watches each, every card's watches and follows start at once
+  and none waits; calls and streams that end still wait for the cap of all.
 - A burst of daemon calls larger than the call pool waits for places and is answered in turn: none is refused and
   no ssh past the caps is started; a watch keeps its own place throughout.
 - On Linux nothing changes: the daemon goes through the card's master as now.
