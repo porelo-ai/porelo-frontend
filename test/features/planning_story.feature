@@ -336,57 +336,37 @@ Feature: Open stories and issues from planning
 
     # Harm: a row move changes sibling issues or appears saved before the daemon confirms it.
     Scenario: An issue moved alone and saved
+        Given the planning move reply is held
         When I open planning story {'ST291'}
         And I move planning issue {'B541'} to {'Review'}
         Then the planning issue {'B541'} still reports {'Implementing'}
-        And the planning issue {'B541'} has pending state {'Review'}
+        And the planning issue {'B541'} is being saved in {'Review'}
         And the planning issue {'B540'} still reports {'Implementing'}
-        And there are {1} pending planning moves
-        Given the planning move reply is held
-        When I save the planning moves
-        Then planning changes are being saved
-        And the planning issue {'B541'} still reports {'Implementing'}
         When the planning move reply arrives
         Then the planning issue {'B541'} reports {'Review'}
         And the planning issue {'B540'} reports {'Implementing'}
         And planning issue changes are saved
 
-    # Harm: undo writes a draft or leaves an unexpected issue destination queued.
-    Scenario: Pending issue moves can be undone
+    # Harm: a stale revision writes over newer work or leaves the issue unmovable on the board read again.
+    Scenario: A stale revision moves nothing and the issue moves on the board read again
         When I open planning story {'ST291'}
-        And I move planning issue {'B541'} to {'Review'}
-        And I undo the planning moves
-        Then the planning issue {'B541'} reports {'Implementing'}
-        And no planning moves are pending
-
-    # Harm: a stale revision writes over newer work or silently loses applicable drafts.
-    Scenario: A stale revision rereads and retains applicable issue moves
-        When I open planning story {'ST291'}
-        And I move planning issue {'B540'} to {'Review'}
-        And I move planning issue {'B541'} to {'Review'}
         And the planning move revision becomes stale
-        And I save the planning moves
-        Then planning details contain {'Planning changed. Review the pending moves and save again.'}
+        And I move planning issue {'B541'} to {'Review'}
+        Then planning details contain {'Planning changed while B541 was moved; nothing was moved. Move it again.'}
         And the planning issue {'B540'} reports {'Review'}
         And the planning issue {'B541'} reports {'Implementing'}
-        And the planning issue {'B541'} has pending state {'Review'}
-        And there are {1} pending planning moves
-        When I save the planning moves
+        When I move planning issue {'B541'} to {'Review'}
         Then the planning issue {'B541'} reports {'Review'}
         And planning issue changes are saved
 
-    # Harm: a refused batch changes another issue or hides the refusal on one of its rows.
-    Scenario Outline: Daemon refusals stay on every pending issue of the refused batch
+    # Harm: a refused move changes another issue or hides the daemon refusal.
+    Scenario Outline: A daemon refusal of an issue move keeps its words
         Given the planning move is refused with {'<error>'}
         When I open planning story {'ST291'}
-        And I move planning issue {'B540'} to {'Review'}
         And I move planning issue {'B541'} to {'Review'}
-        And I save the planning moves
-        Then the planning move for {'B541'} says {'<words>'}
-        And the planning move for {'B540'} says {'<words>'}
+        Then planning details contain {'<words>'}
         And the planning issue {'B540'} reports {'Implementing'}
         And the planning issue {'B541'} reports {'Implementing'}
-        And there are {2} pending planning moves
         Examples:
             | error              | words                    |
             | MoveNotAllowed     | Policy refused this move |

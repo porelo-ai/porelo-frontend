@@ -427,14 +427,11 @@ Future<void> movePlanningIssue(WidgetTester tester, String id, String to) async 
   await tapPlanning(tester, planningElement('move-to $id $to'));
 }
 
-/// Reads one issue's reported state from its row's state control, without the pending or reason lines.
+/// Reads one issue's reported state from its row's state control, without the saving or reason lines.
 String planningIssueReportedState(WidgetTester tester, String id) {
   final control = find.descendant(of: planningElement('detail'), matching: planningElement('move $id'));
   return planningText(tester, control).trim();
 }
-
-/// Saves through the actual enabled button.
-Future<void> savePlanningMoves(WidgetTester tester) => tapPlanning(tester, planningElement('save-moves'));
 
 /// A scenario can hold the daemon acknowledgement without editing any state optimistically.
 void holdPlanningMove() => World.planning.moveHeld = Completer<void>();
@@ -453,7 +450,7 @@ void stalePlanningMoves() {
   World.planning.boards['checkout']!['revision'] = 'external-change';
 }
 
-/// Produces the exact refusal contract for the named pending move.
+/// Produces the exact refusal contract for the move of B541.
 void refusePlanningMove(String name) {
   World.planning.moveFailure = mockRefusal(
     'org.fuin.porelo.Tasks1.$name',

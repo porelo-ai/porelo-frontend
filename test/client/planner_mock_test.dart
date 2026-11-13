@@ -128,7 +128,12 @@ void main() {
     final read = await source.stories('demo');
 
     await expectLater(
-      source.saveMoves('demo', const [PlanningStoryMove('ST293', 'Accepted')], 'not-${read.revision}'),
+      source.saveMoves(
+        'demo',
+        const [PlanningStoryMove('ST293', 'Accepted')],
+        'not-${read.revision}',
+        digest: _noPreview,
+      ),
       throwsA(
         isA<PlanningRefusal>()
             .having((refusal) => refusal.name, 'name', 'StaleRevision')
@@ -145,10 +150,12 @@ void main() {
 
     // The planner takes each item once in a batch; the board never sends one twice, so the call is made here.
     await expectLater(
-      source.saveMoves('demo', const [
-        PlanningStoryMove('ST293', 'Accepted'),
-        PlanningStoryMove('ST293', 'Idea'),
-      ], read.revision),
+      source.saveMoves(
+        'demo',
+        const [PlanningStoryMove('ST293', 'Accepted'), PlanningStoryMove('ST293', 'Idea')],
+        read.revision,
+        digest: _noPreview,
+      ),
       throwsA(
         isA<PlanningRefusal>()
             .having((refusal) => refusal.name, 'name', 'MoveNotAllowed')
@@ -169,7 +176,7 @@ void main() {
     final read = await source.stories('demo');
 
     await expectLater(
-      source.saveMoves('demo', const [PlanningStoryMove('ST9999', 'Accepted')], read.revision),
+      source.saveMoves('demo', const [PlanningStoryMove('ST9999', 'Accepted')], read.revision, digest: _noPreview),
       throwsA(
         isA<PlanningRefusal>()
             .having((refusal) => refusal.name, 'name', 'NoSuchStory')
@@ -192,3 +199,7 @@ void main() {
     );
   }, skip: skip);
 }
+
+/// A digest of the right form that no preview answered, for a save the planner refuses before it compares one: a
+/// stale revision, a batch naming an item twice, or a story it does not hold.
+final _noPreview = '0' * 64;

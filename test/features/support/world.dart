@@ -55,9 +55,9 @@ import 'package:porelo_frontend/src/app/porelo_app.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart' show EmbeddedPlanning, WindowTaskStarts;
 import 'package:porelo_frontend/src/ui/planning_reports.dart';
 
-import 'planning.dart' show planningFixture;
+import 'planning.dart' show WindowPlanningSource, planningFixture;
 
-import 'package:porelo_planning/planning_fake.dart' show MockPlanningClient, MockPlanningSource, mockStartTask;
+import 'package:porelo_planning/planning_fake.dart' show MockPlanningClient, mockStartTask;
 import 'package:porelo_planning/porelo_planning.dart' show PlanningProvider, PlanningSource, PlanningTaskStarted;
 
 /// A backend that answers whatever a scenario needs it to.
@@ -3069,13 +3069,14 @@ class World {
   /// The backend under test.
   static late FakeBackend backend;
 
-  static final _planningSources = Expando<MockPlanningSource>();
+  static final _planningSources = Expando<WindowPlanningSource>();
   static final _planningBackends = Expando<FleetBackend>();
 
   /// The planning [backend]'s machine serves, kept as long as that backend is.
-  static MockPlanningSource planningOn(FleetBackend backend) {
+  static WindowPlanningSource planningOn(FleetBackend backend) {
     if (_planningSources[backend] case final source?) return source;
-    final source = MockPlanningSource(backend.label)..onStarted = backend is FakeBackend ? backend.tookStoryWork : null;
+    final source = WindowPlanningSource(backend.label)
+      ..onStarted = backend is FakeBackend ? backend.tookStoryWork : null;
     // The project's board as a planner gives it, with the agents its Reworking rule may run (planning.dart).
     source.boards['checkout'] = planningFixture();
     _planningBackends[source] = backend;
@@ -3086,7 +3087,7 @@ class World {
   static FleetBackend backendOfPlanning(PlanningSource source) => _planningBackends[source]!;
 
   /// The planning the backend under test serves.
-  static MockPlanningSource get planning => planningOn(backend);
+  static WindowPlanningSource get planning => planningOn(backend);
 
   /// Every watched machine as a provider of the planning it serves, named as the machine.
   ///

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/shell_rail.dart';
 import 'package:porelo_frontend/src/ui/work_page.dart';
+import 'package:porelo_planning/planning_fake.dart' show mockRefusal;
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
@@ -30,12 +33,17 @@ Future<WorkView> _pendingPlanning(WidgetTester tester) async {
     ],
     'revision': 'initial',
   };
+  // A move is saved at once; one the planner answers late is the move still out that leaving asks about.
+  World.planning.moveFailure = mockRefusal('TimedOut', const {});
   await World.startApp(tester);
   final work = tester.widget<WorkPage>(find.byType(WorkPage)).view;
   World.shell.goTo(Section.planning);
   await World.settle(tester);
-  tester.widget<PlanningScreen>(find.byType(PlanningScreen)).boards.selected!.move('StoryOne', 'Review');
+  final board = tester.widget<PlanningScreen>(find.byType(PlanningScreen)).boards.selected!;
+  unawaited(board.move('StoryOne', 'Review'));
   await World.settle(tester);
+  expect(board.pending, isNotEmpty, reason: 'the move the planner has not answered is still awaited');
+  expect(board.saving, isFalse, reason: 'only a move no longer saved may be left');
   return work;
 }
 

@@ -63,21 +63,15 @@ import './step/the_machine_reports_an_empty_planning_finding_file.dart';
 import './step/the_planning_issue_row_says.dart';
 import './step/the_planning_issue_row_does_not_say.dart';
 import './step/the_planning_story_reports_mode.dart';
+import './step/the_planning_move_reply_is_held.dart';
 import './step/i_move_planning_issue_to.dart';
 import './step/the_planning_issue_still_reports.dart';
-import './step/the_planning_issue_has_pending_state.dart';
-import './step/there_are_pending_planning_moves.dart';
-import './step/the_planning_move_reply_is_held.dart';
-import './step/i_save_the_planning_moves.dart';
-import './step/planning_changes_are_being_saved.dart';
+import './step/the_planning_issue_is_being_saved_in.dart';
 import './step/the_planning_move_reply_arrives.dart';
 import './step/the_planning_issue_reports.dart';
 import './step/planning_issue_changes_are_saved.dart';
-import './step/i_undo_the_planning_moves.dart';
-import './step/no_planning_moves_are_pending.dart';
 import './step/the_planning_move_revision_becomes_stale.dart';
 import './step/the_planning_move_is_refused_with.dart';
-import './step/the_planning_move_for_says.dart';
 
 void main() {
   group('''Open stories and issues from planning''', () {
@@ -436,91 +430,63 @@ void main() {
     });
     testWidgets('''An issue moved alone and saved''', (tester) async {
       await bddSetUp(tester);
+      await thePlanningMoveReplyIsHeld(tester);
       await iOpenPlanningStory(tester, 'ST291');
       await iMovePlanningIssueTo(tester, 'B541', 'Review');
       await thePlanningIssueStillReports(tester, 'B541', 'Implementing');
-      await thePlanningIssueHasPendingState(tester, 'B541', 'Review');
+      await thePlanningIssueIsBeingSavedIn(tester, 'B541', 'Review');
       await thePlanningIssueStillReports(tester, 'B540', 'Implementing');
-      await thereArePendingPlanningMoves(tester, 1);
-      await thePlanningMoveReplyIsHeld(tester);
-      await iSaveThePlanningMoves(tester);
-      await planningChangesAreBeingSaved(tester);
-      await thePlanningIssueStillReports(tester, 'B541', 'Implementing');
       await thePlanningMoveReplyArrives(tester);
       await thePlanningIssueReports(tester, 'B541', 'Review');
       await thePlanningIssueReports(tester, 'B540', 'Implementing');
       await planningIssueChangesAreSaved(tester);
     });
-    testWidgets('''Pending issue moves can be undone''', (tester) async {
+    testWidgets('''A stale revision moves nothing and the issue moves on the board read again''', (tester) async {
       await bddSetUp(tester);
       await iOpenPlanningStory(tester, 'ST291');
-      await iMovePlanningIssueTo(tester, 'B541', 'Review');
-      await iUndoThePlanningMoves(tester);
-      await thePlanningIssueReports(tester, 'B541', 'Implementing');
-      await noPlanningMovesArePending(tester);
-    });
-    testWidgets('''A stale revision rereads and retains applicable issue moves''', (tester) async {
-      await bddSetUp(tester);
-      await iOpenPlanningStory(tester, 'ST291');
-      await iMovePlanningIssueTo(tester, 'B540', 'Review');
-      await iMovePlanningIssueTo(tester, 'B541', 'Review');
       await thePlanningMoveRevisionBecomesStale(tester);
-      await iSaveThePlanningMoves(tester);
-      await planningDetailsContain(tester, 'Planning changed. Review the pending moves and save again.');
+      await iMovePlanningIssueTo(tester, 'B541', 'Review');
+      await planningDetailsContain(tester, 'Planning changed while B541 was moved; nothing was moved. Move it again.');
       await thePlanningIssueReports(tester, 'B540', 'Review');
       await thePlanningIssueReports(tester, 'B541', 'Implementing');
-      await thePlanningIssueHasPendingState(tester, 'B541', 'Review');
-      await thereArePendingPlanningMoves(tester, 1);
-      await iSaveThePlanningMoves(tester);
+      await iMovePlanningIssueTo(tester, 'B541', 'Review');
       await thePlanningIssueReports(tester, 'B541', 'Review');
       await planningIssueChangesAreSaved(tester);
     });
     testWidgets(
-      '''Outline: Daemon refusals stay on every pending issue of the refused batch (MoveNotAllowed, Policy refused this move)''',
+      '''Outline: A daemon refusal of an issue move keeps its words (MoveNotAllowed, Policy refused this move)''',
       (tester) async {
         await bddSetUp(tester);
         await thePlanningMoveIsRefusedWith(tester, 'MoveNotAllowed');
         await iOpenPlanningStory(tester, 'ST291');
-        await iMovePlanningIssueTo(tester, 'B540', 'Review');
         await iMovePlanningIssueTo(tester, 'B541', 'Review');
-        await iSaveThePlanningMoves(tester);
-        await thePlanningMoveForSays(tester, 'B541', 'Policy refused this move');
-        await thePlanningMoveForSays(tester, 'B540', 'Policy refused this move');
+        await planningDetailsContain(tester, 'Policy refused this move');
         await thePlanningIssueReports(tester, 'B540', 'Implementing');
         await thePlanningIssueReports(tester, 'B541', 'Implementing');
-        await thereArePendingPlanningMoves(tester, 2);
       },
     );
     testWidgets(
-      '''Outline: Daemon refusals stay on every pending issue of the refused batch (StateNotAllowed, Policy refused this move)''',
+      '''Outline: A daemon refusal of an issue move keeps its words (StateNotAllowed, Policy refused this move)''',
       (tester) async {
         await bddSetUp(tester);
         await thePlanningMoveIsRefusedWith(tester, 'StateNotAllowed');
         await iOpenPlanningStory(tester, 'ST291');
-        await iMovePlanningIssueTo(tester, 'B540', 'Review');
         await iMovePlanningIssueTo(tester, 'B541', 'Review');
-        await iSaveThePlanningMoves(tester);
-        await thePlanningMoveForSays(tester, 'B541', 'Policy refused this move');
-        await thePlanningMoveForSays(tester, 'B540', 'Policy refused this move');
+        await planningDetailsContain(tester, 'Policy refused this move');
         await thePlanningIssueReports(tester, 'B540', 'Implementing');
         await thePlanningIssueReports(tester, 'B541', 'Implementing');
-        await thereArePendingPlanningMoves(tester, 2);
       },
     );
     testWidgets(
-      '''Outline: Daemon refusals stay on every pending issue of the refused batch (EnteredOnlyByWork, entered only by work)''',
+      '''Outline: A daemon refusal of an issue move keeps its words (EnteredOnlyByWork, entered only by work)''',
       (tester) async {
         await bddSetUp(tester);
         await thePlanningMoveIsRefusedWith(tester, 'EnteredOnlyByWork');
         await iOpenPlanningStory(tester, 'ST291');
-        await iMovePlanningIssueTo(tester, 'B540', 'Review');
         await iMovePlanningIssueTo(tester, 'B541', 'Review');
-        await iSaveThePlanningMoves(tester);
-        await thePlanningMoveForSays(tester, 'B541', 'entered only by work');
-        await thePlanningMoveForSays(tester, 'B540', 'entered only by work');
+        await planningDetailsContain(tester, 'entered only by work');
         await thePlanningIssueReports(tester, 'B540', 'Implementing');
         await thePlanningIssueReports(tester, 'B541', 'Implementing');
-        await thereArePendingPlanningMoves(tester, 2);
       },
     );
   });
