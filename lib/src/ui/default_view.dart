@@ -44,6 +44,40 @@ Future<void> showTheDefault(
   ),
 );
 
+/// Takes [name] out of `default` on [machine], called [machineName], and says what that came to, in the words the
+/// Default dialog and default's page both say.
+///
+/// It goes through `leaveDefault`, so it is refused while a task of `default` works on the repository; the tasks
+/// named are said. Its mirror, and anything waiting in it, stay; each deploy key the machine forgot is said by its
+/// title, to be removed at its forge. A refusal is said, never thrown; losing the machine is thrown, as any call.
+Future<({bool refused, String words})> takeOutOfDefault(FleetBackend machine, String machineName, String name) async {
+  try {
+    final done = await machine.leaveDefault(name);
+    return (
+      refused: false,
+      words: <String>[
+        done.removed
+            ? '$name is out of default. Its mirror, and anything waiting in it, stay on $machineName.'
+            : '$name was not in default any more.',
+        for (final key in done.keys) key.title,
+      ].join(' '),
+    );
+  } on VarlinkException catch (refusal) {
+    return (
+      // Gone already is no refusal: what was asked for is so.
+      refused: refusal.simpleName != 'NoSuchDefaultRepository',
+      words: switch (refusal.simpleName) {
+        'DefaultRepositoryInUse' =>
+          'Tasks of default still work on $name: '
+              '${(refusal.parameters['tasks'] as List<dynamic>? ?? const []).join(', ')}. It stays in default until '
+              'they are removed.',
+        'NoSuchDefaultRepository' => '$name was not in default any more.',
+        _ => '$machineName refused it: ${refusal.parameters['message'] ?? refusal.simpleName}.',
+      },
+    );
+  }
+}
+
 /// `default`: what a machine works on in the Default project, with Porelo's own settings, fixed.
 class DefaultDialog extends StatefulWidget {
   /// Constructor taking the machine and what it is called.
@@ -272,11 +306,13 @@ class _DefaultDialogState extends State<DefaultDialog> {
   }
 
   Future<void> _remove(DefaultRepository repository) => _asking(() async {
-    final done = await widget.machine.removeFromDefault(repository.name);
-    _said = done.removed
-        ? '${repository.name} is out of default. Its mirror, and anything waiting in it, stay on ${widget.machineName}.'
-        : '${repository.name} was not in default any more.';
-    if (done.keys.isNotEmpty) _said = <String>[_said!, for (final key in done.keys) key.title].join(' ');
+    final done = await takeOutOfDefault(widget.machine, widget.machineName, repository.name);
+    if (done.refused) {
+      _said = null;
+      _problem = done.words;
+    } else {
+      _said = done.words;
+    }
     final found = await widget.machine.defaultRepositories();
     if (mounted) setState(() => _repositories = found);
   });

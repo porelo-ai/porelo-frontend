@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F541",
   "title": "Each Repository Of Default Says Where It Is And Can Be Taken Out",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "Medium",
   "rank": 109,
@@ -42,10 +42,19 @@ command in each row's menu with its answer and refusals, and tests for both kind
 ## Decided
 
 - A removal from `default` is refused while a task of `default` works on the repository, as `LeaveDefault` does,
-  not as the command line's `RemoveFromDefault` (the operator, 2026-11-13). The page and the dialog both take a
+  not as the command line's `RemoveFromDefault`. The page and the dialog both take a
   repository out through `leaveDefault` (`lib/src/client/porelo_client.dart` 1465, which asks `RemoveFromDefault`
   only of a Porelo without `LeaveDefault`), and say `DefaultRepositoryInUse` with the tasks it names, as the claimed
   rows do (`lib/src/ui/claimed_default_rows.dart` 100-106).
+- The removal is said in the status line, after the page has read the machine again, as a sync from the row is said.
+  The command is offered without a question first, as the dialog's button is: the mirror stays, so nothing is lost.
+- One removal at a time per machine, as the dialog's `_busy` holds it: while one runs, *Take it out of default* is
+  unavailable on every row, and a second call is ignored, so its "not in default any more" never replaces the first
+  one's words and keys.
+- A read of what `default` holds that fails is said in the status line; the rows then say their upstream alone, and it
+  is read again when the page is opened again or a repository is taken out.
+- A gone repository (`NoSuchDefaultRepository`) is said as such and is no refusal; any other refusal is said with the
+  machine's words.
 
 ## Plan
 
@@ -69,3 +78,23 @@ command in each row's menu with its answer and refusals, and tests for both kind
 - The scenarios fail on `main` with [F540](README.md#f540) built and pass after; the dialog's scenarios still pass.
 - The page and the dialog word a removal alike.
 - `test/features` and `test/ui` pass whole.
+
+## How it was built
+
+- `lib/src/ui/default_view.dart`: `takeOutOfDefault` takes a repository out through `leaveDefault` and words what that
+  came to, a refusal included; the dialog's `_remove` and the page call it.
+- `lib/src/ui/machine_tree.dart`: `ProjectHeader` takes `inDefault`, `onTakeOut` and `takeOutUnavailable`; a row of
+  `default` adds `comesFromAndGoes`, or `Repository.upstream` while not read, to its line, and its menu carries
+  *Take it out of default* (`take-out-<name>`).
+- `lib/src/ui/shell.dart`: the page of `default` reads `defaultRepositories()` once per place it is opened at, and
+  again after a removal, then refreshes the machine and says the answer.
+- Tests: six scenarios in `test/features/work_without_a_project.feature` (the rows' upstreams, a removal from the
+  row with its forgotten key, a second take-out while the first runs, a failed read of what `default` holds, a
+  refusal from the row, a refusal in the dialog); the test backend's `leaveDefault`
+  refuses as Porelo does while a task of `default` works on the repository; the steps that put a repository into
+  `default` from a checkout or a remote read the machine's projects again.
+- Red: on [F540](README.md#f540)'s head all four scenarios failed: the rows drew no upstream, the row's menu had no
+  *Take it out of default*, and the dialog took the repository out from under the task.
+- Red of the guard and of the failed read: with the guard taken out, the scenario of a second take-out failed, as the
+  machine was asked twice; with the failure's words taken out, the scenario of a failed read failed on the missing
+  words.

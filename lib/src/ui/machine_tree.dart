@@ -321,8 +321,21 @@ class ProjectHeader extends StatelessWidget {
     this.bringToCentral,
     this.centralSaid,
     this.storeCentralToken,
+    this.inDefault,
+    this.onTakeOut,
+    this.takeOutUnavailable,
     super.key,
   });
+
+  /// What `default` holds, as the machine answered it, for where each repository of it comes from and goes; null
+  /// on any other project's page and while it is not read.
+  final List<DefaultRepository>? inDefault;
+
+  /// Takes a repository out of `default`, from its row's menu; null on any other project's page.
+  final void Function(String repository)? onTakeOut;
+
+  /// Why no repository can be taken out of `default` now, or null.
+  final String? takeOutUnavailable;
 
   /// *Bring it to central…*, shown as a button of its own while it can run; null where it is not offered here.
   final Command? bringToCentral;
@@ -396,6 +409,13 @@ class ProjectHeader extends StatelessWidget {
     // project lacks is not missing there, and saying so sent a new person looking for it.
     final isDefault = project.name == defaultProject;
     final listed = workRepositoriesOf(project.name, p.repositoryStates);
+    // Where each repository of default comes from and goes, as the machine said what default holds; its upstream alone
+    // until that is read.
+    final whereFrom = <String, String>{
+      for (final each in listed)
+        if (each.upstream.isNotEmpty) each.name: each.upstream,
+      for (final each in inDefault ?? const <DefaultRepository>[]) each.name: each.comesFromAndGoes,
+    };
     final workRepositories = <Repository>[
       ...listed,
       for (final name in onTheMachine?.keys ?? const <String>[])
@@ -537,6 +557,9 @@ class ProjectHeader extends StatelessWidget {
                 onBackups: project.canBeActedOn ? onBackups : null,
                 onOpens: project.canBeActedOn ? onOpens : null,
                 onReach: project.canBeActedOn ? onReach : null,
+                whereFrom: isDefault ? whereFrom : const {},
+                onTakeOut: isDefault ? onTakeOut : null,
+                takeOutUnavailable: takeOutUnavailable,
               ),
         ],
       ],
@@ -572,6 +595,9 @@ class _Repositories extends StatelessWidget {
     this.onBackups,
     this.onOpens,
     this.onReach,
+    this.whereFrom = const {},
+    this.onTakeOut,
+    this.takeOutUnavailable,
     super.key,
   });
 
@@ -586,6 +612,9 @@ class _Repositories extends StatelessWidget {
   final void Function(String repository)? onBackups;
   final void Function(String repository)? onOpens;
   final void Function(String repository)? onReach;
+  final Map<String, String> whereFrom;
+  final void Function(String repository)? onTakeOut;
+  final String? takeOutUnavailable;
 
   @override
   Widget build(BuildContext context) => FilteredListSection(
@@ -607,6 +636,9 @@ class _Repositories extends StatelessWidget {
             onBackups: onBackups,
             onOpens: onOpens,
             onReach: onReach,
+            whereFrom: whereFrom[repository.name],
+            onTakeOut: onTakeOut,
+            takeOutUnavailable: takeOutUnavailable,
           ),
         ),
     ],
@@ -627,6 +659,9 @@ class _RepositoryLine extends StatelessWidget {
     this.onBackups,
     this.onOpens,
     this.onReach,
+    this.whereFrom,
+    this.onTakeOut,
+    this.takeOutUnavailable,
   });
 
   final Repository repository;
@@ -638,6 +673,15 @@ class _RepositoryLine extends StatelessWidget {
   final void Function(String repository)? onBackups;
   final void Function(String repository)? onOpens;
   final void Function(String repository)? onReach;
+
+  /// Where it comes from and goes, said on a repository of `default`; null on another project's.
+  final String? whereFrom;
+
+  /// Takes it out of `default`; null on another project's page.
+  final void Function(String repository)? onTakeOut;
+
+  /// Why it cannot be taken out now, or null.
+  final String? takeOutUnavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -652,6 +696,7 @@ class _RepositoryLine extends StatelessWidget {
       refused: onTheMachine?.startRefused,
     );
     final state = <String>[
+      ?whereFrom,
       ?onTheMachine?.words,
       if (repository.pending > 0) '${repository.pending} waiting at the gate',
       if (repository.behindReason.isNotEmpty) repository.behindWords,
@@ -701,6 +746,15 @@ class _RepositoryLine extends StatelessWidget {
             run: () => onReach?.call(name),
             unavailable: onReach == null ? 'This repository is not on this machine.' : null,
           ),
+          if (onTakeOut case final takeOut?)
+            Command(
+              id: 'take-out-$name',
+              label: 'Take it out of default',
+              group: 'Repositories',
+              home: Home.repositoryRow,
+              run: () => takeOut(name),
+              unavailable: takeOutUnavailable,
+            ),
           if (repository.limits case final limits?)
             Command(
               id: 'limits-$name',

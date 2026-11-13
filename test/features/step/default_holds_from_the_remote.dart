@@ -9,4 +9,7 @@ Future<void> defaultHoldsFromTheRemote(WidgetTester tester, String name, String 
     ...World.backend.inDefault,
     DefaultRepository(name: name, upstream: remote, checkout: '', claimedBy: '', source: 'REMOTE', remote: remote),
   ];
+  // Read again, as a machine answers what default holds in its list of projects too.
+  await World.machines.fleet.refresh(quietly: true);
+  await World.settle(tester);
 }

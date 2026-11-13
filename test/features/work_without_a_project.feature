@@ -93,6 +93,68 @@ Feature: Work on a repository without writing a project first
         When I select the project {'default'}
         Then the project lists no repositories
 
+    # Harm: a repository of default says nothing of where it is, so a person cannot tell where its work goes.
+    Scenario: each repository on default's page says where it is
+        Given default holds {'utils4j'} from the checkout {'/work/utils4j'} whose remote is {'git@example.org:acme/utils4j.git'}
+        And default holds {'foo-2'} from the remote {'git@example.org:acme/foo-2.git'}
+        When I select the project {'default'}
+        Then the repository {'utils4j'} says {'From the checkout /work/utils4j'}
+        And the repository {'foo-2'} says {'From git@example.org:acme/foo-2.git, and back there'}
+
+    # Harm: a repository taken out of default from its row stays, or the deploy key the machine forgot goes unsaid.
+    Scenario: a repository is taken out of default from its row on default's page
+        Given default holds {'utils4j'} from the checkout {'/work/utils4j'} whose remote is {'git@example.org:acme/utils4j.git'}
+        And default holds {'foo-2'} from the remote {'git@example.org:acme/foo-2.git'}
+        And the machine keeps the deploy key {'porelo vm default/foo-2'} for {'foo-2'} in default
+        When I select the project {'default'}
+        And I take {'foo-2'} out of default from its row
+        Then default no longer holds {'foo-2'}
+        And the project's repositories are {'utils4j'}
+        And it says {'foo-2 is out of default. Its mirror, and anything waiting in it, stay'}
+        And it says {'porelo vm default/foo-2'}
+
+    # Harm: a repository a task of default works on is taken out from under the task.
+    Scenario: a repository a task of default works on stays in default when taken out from its row
+        Given default holds {'foo-2'} from the remote {'git@example.org:acme/foo-2.git'}
+        And the task {'porelo-default-fix'} of default works on {'foo-2'}
+        When I select the project {'default'}
+        And I take {'foo-2'} out of default from its row
+        Then default still holds {'foo-2'}
+        And it says {'Tasks of default still work on foo-2: porelo-default-fix'}
+        And the project's repositories are {'foo-2'}
+
+    # Harm: a second take-out while the first runs is asked too, and its "not in default any more" replaces the first
+    # one's words and the deploy key to remove.
+    Scenario: a repository of default is taken out once, however often its row is asked while it runs
+        Given default holds {'foo-2'} from the remote {'git@example.org:acme/foo-2.git'}
+        And the machine keeps the deploy key {'porelo vm default/foo-2'} for {'foo-2'} in default
+        When I select the project {'default'}
+        And the machine holds back its answer to taking a repository out of default
+        And I take {'foo-2'} out of default from its row
+        And I take {'foo-2'} out of default from its row
+        And the machine answers the taking out
+        Then the machine was asked to take {'foo-2'} out of default once
+        And it says {'porelo vm default/foo-2'}
+        And it does not say {'was not in default any more'}
+
+    # Harm: a failed read of what default holds is swallowed, and its rows say less with no word why.
+    Scenario: default's page says when the machine did not say what default holds
+        Given default holds {'foo-2'} from the remote {'git@example.org:acme/foo-2.git'}
+        And the machine cannot say what default holds
+        When I select the project {'default'}
+        Then it says {'did not say what default holds'}
+        And the repository {'foo-2'} says {'git@example.org:acme/foo-2.git'}
+
+    # Harm: the dialog takes a repository out from under a task of default that the page would refuse.
+    Scenario: the Default dialog refuses a repository a task of default works on, as the page does
+        Given default holds {'foo-2'} from the remote {'git@example.org:acme/foo-2.git'}
+        And the task {'porelo-default-fix'} of default works on {'foo-2'}
+        When I select the project {'default'}
+        And I choose the command {'Repositories of the Default project'}
+        And I take {'foo-2'} out of default
+        Then default still holds {'foo-2'}
+        And it says {'Tasks of default still work on foo-2: porelo-default-fix'}
+
     # A project that names the repository takes it over for new tasks.
     Scenario: a repository a project names too is offered to be taken out of default
         Given default holds {'api'} at {'https://github.com/acme/api.git'}, named by {'payments'} too

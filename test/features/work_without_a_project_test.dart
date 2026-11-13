@@ -38,8 +38,20 @@ import './step/the_start_tile_says.dart';
 import './step/the_projects_repositories_are.dart';
 import './step/i_open_from_the_projects_of_this_machine.dart';
 import './step/the_project_lists_no_repositories.dart';
-import './step/default_holds_at_named_by_too.dart';
+import './step/default_holds_from_the_checkout_whose_remote_is.dart';
+import './step/default_holds_from_the_remote.dart';
+import './step/the_repository_says.dart';
+import './step/the_machine_keeps_the_deploy_key_for_in_default.dart';
+import './step/i_take_out_of_default_from_its_row.dart';
 import './step/default_no_longer_holds.dart';
+import './step/the_task_of_default_works_on.dart';
+import './step/default_still_holds.dart';
+import './step/the_machine_holds_back_its_answer_to_taking_a_repository_out_of_default.dart';
+import './step/the_machine_answers_the_taking_out.dart';
+import './step/the_machine_was_asked_to_take_out_of_default_once.dart';
+import './step/it_does_not_say.dart';
+import './step/the_machine_cannot_say_what_default_holds.dart';
+import './step/default_holds_at_named_by_too.dart';
 import './step/i_review_what_is_waiting_at_the_gate.dart';
 import './step/i_open_the_waiting_push.dart';
 import './step/i_start_forwarding_it_to_its_origin.dart';
@@ -56,7 +68,6 @@ import './step/no_first_task_was_agreed_to_on_any_machine.dart';
 import './step/nothing_was_started.dart';
 import './step/the_machine_is_slow_to_answer.dart';
 import './step/it_shows_that_it_is_reading.dart';
-import './step/it_does_not_say.dart';
 import './step/the_machine_has_answered.dart';
 import './step/it_no_longer_shows_that_it_is_reading.dart';
 
@@ -160,6 +171,83 @@ void main() {
       await defaultHoldsAtAlready(tester, 'default', 'git@example.org:acme/default.git');
       await iSelectTheProject(tester, 'default');
       await theProjectListsNoRepositories(tester);
+    });
+    testWidgets('''each repository on default's page says where it is''', (tester) async {
+      await bddSetUp(tester);
+      await defaultHoldsFromTheCheckoutWhoseRemoteIs(
+        tester,
+        'utils4j',
+        '/work/utils4j',
+        'git@example.org:acme/utils4j.git',
+      );
+      await defaultHoldsFromTheRemote(tester, 'foo-2', 'git@example.org:acme/foo-2.git');
+      await iSelectTheProject(tester, 'default');
+      await theRepositorySays(tester, 'utils4j', 'From the checkout /work/utils4j');
+      await theRepositorySays(tester, 'foo-2', 'From git@example.org:acme/foo-2.git, and back there');
+    });
+    testWidgets('''a repository is taken out of default from its row on default's page''', (tester) async {
+      await bddSetUp(tester);
+      await defaultHoldsFromTheCheckoutWhoseRemoteIs(
+        tester,
+        'utils4j',
+        '/work/utils4j',
+        'git@example.org:acme/utils4j.git',
+      );
+      await defaultHoldsFromTheRemote(tester, 'foo-2', 'git@example.org:acme/foo-2.git');
+      await theMachineKeepsTheDeployKeyForInDefault(tester, 'porelo vm default/foo-2', 'foo-2');
+      await iSelectTheProject(tester, 'default');
+      await iTakeOutOfDefaultFromItsRow(tester, 'foo-2');
+      await defaultNoLongerHolds(tester, 'foo-2');
+      await theProjectsRepositoriesAre(tester, 'utils4j');
+      await itSays(tester, 'foo-2 is out of default. Its mirror, and anything waiting in it, stay');
+      await itSays(tester, 'porelo vm default/foo-2');
+    });
+    testWidgets('''a repository a task of default works on stays in default when taken out from its row''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await defaultHoldsFromTheRemote(tester, 'foo-2', 'git@example.org:acme/foo-2.git');
+      await theTaskOfDefaultWorksOn(tester, 'porelo-default-fix', 'foo-2');
+      await iSelectTheProject(tester, 'default');
+      await iTakeOutOfDefaultFromItsRow(tester, 'foo-2');
+      await defaultStillHolds(tester, 'foo-2');
+      await itSays(tester, 'Tasks of default still work on foo-2: porelo-default-fix');
+      await theProjectsRepositoriesAre(tester, 'foo-2');
+    });
+    testWidgets('''a repository of default is taken out once, however often its row is asked while it runs''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await defaultHoldsFromTheRemote(tester, 'foo-2', 'git@example.org:acme/foo-2.git');
+      await theMachineKeepsTheDeployKeyForInDefault(tester, 'porelo vm default/foo-2', 'foo-2');
+      await iSelectTheProject(tester, 'default');
+      await theMachineHoldsBackItsAnswerToTakingARepositoryOutOfDefault(tester);
+      await iTakeOutOfDefaultFromItsRow(tester, 'foo-2');
+      await iTakeOutOfDefaultFromItsRow(tester, 'foo-2');
+      await theMachineAnswersTheTakingOut(tester);
+      await theMachineWasAskedToTakeOutOfDefaultOnce(tester, 'foo-2');
+      await itSays(tester, 'porelo vm default/foo-2');
+      await itDoesNotSay(tester, 'was not in default any more');
+    });
+    testWidgets('''default's page says when the machine did not say what default holds''', (tester) async {
+      await bddSetUp(tester);
+      await defaultHoldsFromTheRemote(tester, 'foo-2', 'git@example.org:acme/foo-2.git');
+      await theMachineCannotSayWhatDefaultHolds(tester);
+      await iSelectTheProject(tester, 'default');
+      await itSays(tester, 'did not say what default holds');
+      await theRepositorySays(tester, 'foo-2', 'git@example.org:acme/foo-2.git');
+    });
+    testWidgets('''the Default dialog refuses a repository a task of default works on, as the page does''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await defaultHoldsFromTheRemote(tester, 'foo-2', 'git@example.org:acme/foo-2.git');
+      await theTaskOfDefaultWorksOn(tester, 'porelo-default-fix', 'foo-2');
+      await iSelectTheProject(tester, 'default');
+      await iChooseTheCommand(tester, 'Repositories of the Default project');
+      await iTakeOutOfDefault(tester, 'foo-2');
+      await defaultStillHolds(tester, 'foo-2');
+      await itSays(tester, 'Tasks of default still work on foo-2: porelo-default-fix');
     });
     testWidgets('''a repository a project names too is offered to be taken out of default''', (tester) async {
       await bddSetUp(tester);

@@ -2133,12 +2133,22 @@ class FakeBackend implements FleetBackend {
   /// The repositories worked on in the Default project, as `DefaultRepositories` answers them.
   List<DefaultRepository> inDefault = <DefaultRepository>[];
 
+  /// What reading `default` throws, where set; every other read answers.
+  Exception? defaultReadFails;
+
+  /// Each repository `LeaveDefault` was asked for, in turn.
+  final List<String> leftDefault = <String>[];
+
+  /// Holds `LeaveDefault`'s answer back until completed, where set.
+  Completer<void>? leaveHeld;
+
   /// Every address the interface asked to put into default, in order.
   final List<String> addedToDefault = <String>[];
 
   @override
   Future<List<DefaultRepository>> defaultRepositories() async {
     await _answering();
+    if (defaultReadFails case final fault?) throw fault;
     return List<DefaultRepository>.of(inDefault);
   }
 
@@ -2158,8 +2168,24 @@ class FakeBackend implements FleetBackend {
     return added;
   }
 
+  /// Refused while a task of default works on [name], as Porelo's LeaveDefault refuses it; taken out as
+  /// [removeFromDefault] takes it out otherwise.
   @override
-  Future<({bool removed, List<MachineDeployKey> keys})> leaveDefault(String name) => removeFromDefault(name);
+  Future<({bool removed, List<MachineDeployKey> keys})> leaveDefault(String name) async {
+    leftDefault.add(name);
+    if (leaveHeld case final held?) await held.future;
+    final holding = <String>[
+      for (final task in tasksNow)
+        if (task.project == defaultProject && task.repository == name) task.name,
+    ];
+    if (holding.isNotEmpty) {
+      throw VarlinkException('org.fuin.porelo.Tasks1.DefaultRepositoryInUse', <String, dynamic>{
+        'name': name,
+        'tasks': holding,
+      });
+    }
+    return removeFromDefault(name);
+  }
 
   @override
   Future<({bool removed, List<MachineDeployKey> keys})> removeFromDefault(String name) async {

@@ -5825,6 +5825,64 @@ class _ShellState extends State<Shell> {
   /// machine, and goes back there.
   ShellPlace? _projectFrom;
 
+  /// What `default` holds on each machine, by its name, as read for the page of `default` open at [_inDefaultAt]; an
+  /// entry with no list is being read.
+  final _inDefault = <String, List<DefaultRepository>?>{};
+
+  /// The place the page of `default` was open at when [_inDefault] was read: opened again, it is read again.
+  ShellPlace? _inDefaultAt;
+
+  /// The machines, by name, a repository is being taken out of `default` on: one at a time, as the dialog does.
+  final _takingOutOfDefault = <String>{};
+
+  /// What `default` holds on [machine], read once its page is drawn at this place, and again after each removal.
+  List<DefaultRepository>? _inDefaultOn(Machine machine) {
+    if (!identical(_inDefaultAt, widget.shell.place)) {
+      _inDefaultAt = widget.shell.place;
+      _inDefault.clear();
+    }
+    if (!_inDefault.containsKey(machine.name)) {
+      _inDefault[machine.name] = null;
+      unawaited(_readDefault(machine));
+    }
+    return _inDefault[machine.name];
+  }
+
+  Future<void> _readDefault(Machine machine) async {
+    final at = _inDefaultAt;
+    try {
+      final found = await widget.machines.of(machine).backend.defaultRepositories();
+      if (mounted && identical(at, _inDefaultAt)) setState(() => _inDefault[machine.name] = found);
+    } on Object catch (error) {
+      // Each row says its upstream alone, as the machine's list of projects gives it; read again when the page is
+      // opened again or a repository is taken out.
+      if (mounted && identical(at, _inDefaultAt)) {
+        widget.machines.of(machine).say('${machine.name} did not say what default holds: $error');
+      }
+    }
+  }
+
+  /// Takes [repository] out of `default` on [machine] from its row, says what that came to, and reads again.
+  Future<void> _takeOutOfDefault(Machine machine, String repository) async {
+    // A second one while the first runs would answer "not in default any more" over the first one's words.
+    if (!_takingOutOfDefault.add(machine.name)) return;
+    setState(() {});
+    final fleet = widget.machines.of(machine);
+    String said;
+    try {
+      said = (await takeOutOfDefault(fleet.backend, machine.name, repository)).words;
+    } on Exception catch (error) {
+      said = '$repository could not be taken out of default on ${machine.name}: $error';
+    } finally {
+      _takingOutOfDefault.remove(machine.name);
+      if (mounted) setState(() {});
+    }
+    await _readDefault(machine);
+    // Refreshed first: a refresh announces itself, and the answer should be said last.
+    await fleet.refresh();
+    fleet.say(said);
+  }
+
   /// The place the project's page was opened at from [_projectFrom]: any other way to the page, as the finder's, makes a
   /// new place and forgets the machine.
   ShellPlace? _projectOpenedAt;
@@ -6316,6 +6374,15 @@ class _ShellState extends State<Shell> {
         bringToCentral: commands.where((each) => each.id == 'project.bringToCentral').firstOrNull,
         centralSaid: _centralReleases.said(machine.name, project.name),
         storeCentralToken: commands.where((each) => each.id == 'project.storeCentralToken').firstOrNull,
+        inDefault: project.name == defaultProject && watched ? _inDefaultOn(machine) : null,
+        onTakeOut: project.name == defaultProject && watched
+            ? (repository) => unawaited(_takeOutOfDefault(machine, repository))
+            : null,
+        takeOutUnavailable: !watched
+            ? 'This machine is not connected.'
+            : _takingOutOfDefault.contains(machine.name)
+            ? 'A repository is being taken out of default now.'
+            : notAnswering(widget.machines.of(machine)),
         startUnavailable: !watched
             ? 'This machine is not connected.'
             : waitWhyNot ?? StartWork.whyNot(project.project) ?? notAnswering(widget.machines.of(machine)),

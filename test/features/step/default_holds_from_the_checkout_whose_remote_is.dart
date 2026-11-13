@@ -21,4 +21,7 @@ Future<void> defaultHoldsFromTheCheckoutWhoseRemoteIs(
       remote: remote,
     ),
   ];
+  // Read again, as a machine answers what default holds in its list of projects too.
+  await World.machines.fleet.refresh(quietly: true);
+  await World.settle(tester);
 }
