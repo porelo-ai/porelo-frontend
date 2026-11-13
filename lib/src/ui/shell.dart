@@ -643,7 +643,11 @@ class _ShellState extends State<Shell> {
 
   Future<void> _readMachineSection(Machine machine, MachineSection section) async {
     if (!mounted || !widget.machines.all.contains(machine)) return;
-    final fleet = widget.machines.of(machine);
+    final fleet = widget.machines.watching(machine);
+    if (fleet == null) {
+      _readOnceWatched(machine, section);
+      return;
+    }
     final tools = _toolsFor(machine);
     await fleet.untilAsked();
     if (!_stillWatching(machine, tools) || fleet.reachability != Reachability.connected) return;
@@ -3698,25 +3702,46 @@ class _ShellState extends State<Shell> {
     await _checkOnceItAnswers(machine);
   }
 
-  /// Checks [machine] the first time it is the one shown and answers, once.
+  /// Waits for a section asked of [machine] while it is listed and not watched yet, and reads it once the machine is
+  /// watched, if the person is still there; another such wait takes its place.
+  void _readOnceWatched(Machine machine, MachineSection section) {
+    final place = widget.shell.place.key;
+    _stopReadingOnceWatched();
+    late final VoidCallback again;
+    again = () {
+      final listed = widget.machines.all.where((each) => each.name == machine.name).firstOrNull;
+      if (!mounted || listed == null || widget.shell.place.key != place) return _stopReadingOnceWatched();
+      if (widget.machines.watching(listed) == null) return;
+      _stopReadingOnceWatched();
+      unawaited(_readMachineSection(listed, section));
+    };
+    _readingOnceWatched = again;
+    widget.machines.addListener(again);
+  }
+
+  VoidCallback? _readingOnceWatched;
+
+  void _stopReadingOnceWatched() {
+    if (_readingOnceWatched case final again?) widget.machines.removeListener(again);
+    _readingOnceWatched = null;
+  }
+
+  /// Checks [machine] the first time it is the one shown and answers, once: of the fleet watching it then, which a
+  /// reconnect replaces.
   void _checkWhenShown(Machine machine) {
-    final fleet = widget.machines.of(machine);
     var done = false;
-    late final VoidCallback look;
-    look = () {
+    late final VoidCallback stop;
+    stop = widget.machines.follow(machine, (fleet) {
       if (done || !mounted) return;
-      if (widget.machines.current != machine || fleet.reachability != Reachability.connected) return;
+      if (widget.machines.current != machine || fleet?.reachability != Reachability.connected) return;
       done = true;
-      widget.machines.removeListener(look);
-      fleet.removeListener(look);
+      // Called from within the first call too, where [stop] is not set yet.
+      scheduleMicrotask(() => stop());
       // After the frame that shows the machine: going there closes what was open for the one before.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && widget.machines.current == machine) unawaited(_checkFirstTime(machine));
       });
-    };
-    widget.machines.addListener(look);
-    fleet.addListener(look);
-    look();
+    });
   }
 
   /// Asks [machine] what it can run, and takes the page only where it has something to say: a person
@@ -3734,22 +3759,18 @@ class _ShellState extends State<Shell> {
 
   /// Checks [machine] once it answers, if it is still the one shown. Waits half a minute at most.
   Future<void> _checkOnceItAnswers(Machine machine) async {
-    final fleet = widget.machines.of(machine);
     // The start is an operation that connects again when it is done; the check waits for that,
-    // and is not run against a daemon that did not come.
+    // and is not run against a daemon that did not come. Of the fleet watching it then, which a reconnect replaces.
     final answering = Completer<void>();
-    void check() {
-      if (fleet.reachability == Reachability.connected && !answering.isCompleted) answering.complete();
-    }
-
-    fleet.addListener(check);
-    check();
+    final stop = widget.machines.follow(machine, (fleet) {
+      if (fleet?.reachability == Reachability.connected && !answering.isCompleted) answering.complete();
+    });
     try {
       await answering.future.timeout(const Duration(seconds: 30));
     } on TimeoutException {
       return;
     } finally {
-      fleet.removeListener(check);
+      stop();
     }
     if (mounted && widget.machines.all.contains(machine)) await _checkTheMachine(on: machine);
   }
@@ -6810,6 +6831,7 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    _stopReadingOnceWatched();
     if (widget.planning?.reports case final reports?) {
       reports.onProblem = null;
       reports.onFollowUps = null;

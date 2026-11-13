@@ -68,4 +68,29 @@ void main() {
 
     expect(thrown, isEmpty, reason: 'the selected machine not watched yet is drawn as not answering');
   });
+
+  // Harm: a machine's page opened while the machine reconnects was never read once it was watched again, and showed
+  // nothing of the machine until the person left and came back.
+  testWidgets('a machine page opened while it reconnects is read once the machine is watched', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    await World.machines.add(elsewhere);
+    await World.settle(tester);
+    await World.machines.disconnect(elsewhere);
+    await World.settle(tester);
+    final disconnected = World.machines.all.singleWhere((each) => each.name == elsewhere.name);
+    final held = World.dropsHeld = Completer<void>();
+    final reconnecting = World.machines.reconnect(disconnected);
+    await tester.pump();
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: disconnected, machineSection: MachineSection.health));
+    await tester.pump();
+    await tester.pump();
+    final before = World.elsewhere.healthAsked;
+
+    held.complete();
+    await reconnecting;
+    await World.settle(tester);
+
+    expect(World.elsewhere.healthAsked, greaterThan(before), reason: 'the page asks the machine once it is watched');
+  });
 }

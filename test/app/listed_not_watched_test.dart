@@ -268,7 +268,12 @@ void main() {
   test('a host card that could not be replaced tells the window the machine is watched again', () async {
     final window = await _reconnecting();
     final machines = window.machines;
-    window.tunnels.cardsFail = StateError('the cards could not be saved');
+    // Its forward held, so the connection of the machine watched again says nothing meanwhile.
+    final raising = Completer<void>();
+    addTearDown(raising.complete);
+    window.tunnels
+      ..cardsFail = StateError('the cards could not be saved')
+      ..raiseHeld = raising;
     final told = <bool>[];
     void listen() => told.add(machines.watching(window.going) != null);
     machines.addListener(listen);
@@ -281,6 +286,47 @@ void main() {
 
     expect(told, isNotEmpty, reason: 'the window is told');
     expect(told.last, isTrue, reason: 'that the machine is watched again');
+  });
+
+  // Harm: what waits for a machine to answer, as the check after a start, kept the fleet a reconnect replaced and
+  // never saw the machine answer again.
+  test('what follows a machine is handed the fleet that watches it after a reconnect', () async {
+    final window = await _reconnecting();
+    final machines = window.machines;
+    final seen = <FleetModel?>[];
+    final stop = machines.follow(window.going, seen.add);
+    addTearDown(stop);
+    window.tunnels.let.complete();
+    await machines.disconnect(window.going);
+    final disconnected = machines.all.singleWhere((each) => each.name == window.going.name);
+
+    await machines.reconnect(disconnected);
+    await machines.watching(disconnected)!.untilAsked();
+    await pumpEventQueue();
+
+    expect(seen, contains(isNull), reason: 'while it is not watched it is handed no fleet');
+    expect(seen.last, same(machines.watching(window.going)), reason: 'then the fleet watching it now');
+    expect(seen.last?.reachability, Reachability.connected, reason: 'which answers');
+  });
+
+  // Harm: the stand-in of a machine not watched yet stayed what the window read once the machine was watched, or
+  // stayed behind undisposed with what listened to it.
+  test('once the machine is watched its own fleet is read, and the stand-in is gone', () async {
+    final window = await _reconnecting();
+    final machines = window.machines;
+    final disconnecting = machines.disconnect(window.going);
+    await pumpEventQueue();
+    final listed = machines.all.singleWhere((each) => each.name == window.going.name);
+    final standIn = machines.of(listed);
+    expect(machines.watching(listed), isNull, reason: 'not watched yet');
+
+    window.tunnels.let.complete();
+    await disconnecting;
+
+    final watched = machines.all.singleWhere((each) => each.name == window.going.name);
+    expect(machines.of(watched), same(machines.watching(watched)), reason: 'its own fleet once it is watched');
+    expect(machines.of(watched), isNot(same(standIn)), reason: 'not the stand-in');
+    expect(() => standIn.addListener(() {}), throwsFlutterError, reason: 'the stand-in was disposed');
   });
 
   // Harm: a stored list that could not be taken in left the window drawing the machine it started with as not

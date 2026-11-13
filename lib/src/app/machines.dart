@@ -673,6 +673,23 @@ class Machines extends ChangeNotifier {
   /// listed before the first is opened, and a card's opening speaks before the machines after it are opened.
   FleetModel? watching(Machine machine) => _watching[machine.name];
 
+  /// Hands [look] the fleet watching [machine] now - null while it is listed and not watched yet - at once and on every
+  /// change of the machines, a change of any fleet among them, until the returned stop is called. A reconnect hands it
+  /// the fleet that watches the machine afterwards, never the one it replaced.
+  VoidCallback follow(Machine machine, void Function(FleetModel? fleet) look) {
+    var stopped = false;
+    void changed() {
+      if (!stopped) look(watching(machine));
+    }
+
+    addListener(changed);
+    changed();
+    return () {
+      stopped = true;
+      removeListener(changed);
+    };
+  }
+
   bool _automaticRetriesPaused = false;
 
   /// Cancels reconnect timers without disposing the machine models.

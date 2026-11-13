@@ -67,6 +67,11 @@ readers, not twenty: `shell.dart` alone reads `Machines.of` 105 times and its `_
 - `_mark` opens the machine again as it was when its forward does not come down, and tells the listeners; the ways back
   in `_adopt` and `_add` tell them too.
 - `organization_connections.dart`'s `central` asks only a watched machine.
+- What waits on a machine past a reconnect follows the fleet watching it now (`Machines.follow`): the check once a
+  started daemon answers, and the first check once a new machine is shown. A machine's page opened while it is not
+  watched yet is read once it is.
 - Tests: `test/ui/listed_not_watched_pages_test.dart` draws Work, Needs you, My machines, My projects and the Machine
   page while a machine, and the selected one, reconnects (red: the rail and `_fleet` threw a null check);
-  `test/app/listed_not_watched_test.dart` adds the stand-in, the way back and both notifications, each seen red.
+  `test/app/listed_not_watched_test.dart` adds the stand-in, the way back, both notifications, `follow` after a
+  reconnect and the stand-in's disposal, and the page test a machine page read once the machine is watched, each seen
+  red.
