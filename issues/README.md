@@ -143,7 +143,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f492"></a>[F492](F492-A-Real-Idea-Walks-To-Finished-Through-The-Window.md) | L | - | On a local VM, an Idea made in the real window against a real porelo and planner goes through every state to its story Finished, one real low-cost task included, each step read from its effect. |
 | <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | - | Forwarding to a chosen branch measured against GitHub. |
 | <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | - | A task's terminal in the interface behaves as in a plain terminal. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | XL | - | Connect and Prepare from a Windows desktop: loopback ports the window holds itself, each connection carried over its own ssh, the daemon through the relay, no master. |
@@ -161,6 +160,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f474"></a>[F474](F474-The-Windows-Tests-Have-Room-On-A-Slow-Runner.md) | XS | - | The Windows job's Test step is given 40 minutes, so a slow runner does not end a sound build. |
 | <a id="f477"></a>[F477](F477-An-Unreached-Organization-Says-When-And-Why.md) | S | - | A stale organization answer is checked again before it is shown, and one that stays stale says when it was checked last and why, in Porelo's cause and git's own words, instead of only that its repositories could not be read. |
 | <a id="f478"></a>[F478](F478-A-Retry-Finds-The-Planner-On-Its-New-Port.md) | S | - | The window keeps reading the planner's address file and follows the planner to a new address, starting it again where it is gone, so planning reaches a planner that came back on another port without a restart of the window. |
+| <a id="f492"></a>[F492](F492-A-Real-Idea-Walks-To-Finished-Through-The-Window.md) | L | - | On a local VM, an Idea made in the real window against a real porelo and planner goes through every state to its story Finished, one real low-cost task included, each step read from its effect. |
 | <a id="f493"></a>[F493](F493-A-Place-Chosen-While-The-Window-Starts-Stands.md) | XS | - | A place the person chooses while the window still reads its machines stands; the place saved from before does not replace it when the read ends. |
 | <a id="f494"></a>[F494](F494-About-Names-The-Planners-Version.md) | S | - | The window's About names the version of the planner the window runs beside porelo's, so a person can tell which planner build answers the planning. |
 | <a id="f482"></a>[F482](F482-Every-Row-In-Needs-You-Can-Be-Put-Away.md) | S | - | Every row in Needs you, a planner's reading stop among them, carries Seen; a row put away stays away past a restart of the window until its cause comes again, and is kept in the window's log. |

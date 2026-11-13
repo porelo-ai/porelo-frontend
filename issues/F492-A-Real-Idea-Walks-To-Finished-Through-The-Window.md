@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F492",
   "title": "A Real Idea Walks To Finished Through The Window",
-  "state": "Implementing",
+  "state": "Review",
   "size": "L",
   "priority": "High",
   "rank": 1,
@@ -55,7 +55,18 @@ judged by its observed effect - the board, the files, the forge - never by what 
   effect read, and the test organization afterwards holds nothing the run made.
 - A step whose effect does not appear stops the run there and names what it asked and what it got.
 
-## To be checked
+## How it was built
 
-- Whether a test repository's own workflow refuses the restoring commit, which deletes the run's statistics files.
-- Every tool the walk needs on the VM, checked there before the first run.
+- `tool/walk_idea.sh` drives the run on the VM and `integration_test/walking_an_idea_test.dart` walks its steps. A
+  run writes one line per step to its report with the effect read, and a picture of the window for each step that
+  failed.
+- The last run went green on every step with the planner's and its probe's builds: the window made the Idea, handed
+  it in, moved each issue to Backlog, ordered the work, started the builder and the reader, and set the story Finished.
+  The forge held the builder's commit at its task branch at the two steps that read it.
+- The clean-up restored each repository the run wrote to with one new commit per repository, removed the task branches
+  and the run's vault, and left nothing in the test organization. No test repository's workflow refused the restoring
+  commit.
+- Every tool the walk needs on the VM is checked by the driver before its first step.
+- A machine without a homeserver of its own takes the walk with `--mail drop`, now the default: the run's project then
+  goes without mail.
+
