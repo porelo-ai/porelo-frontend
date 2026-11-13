@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/ending_signals.dart';
 import 'package:porelo_frontend/src/app/forward_records.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/own_sockets.dart';
@@ -1208,6 +1209,33 @@ void main() {
     });
   });
 
+  // Harm: a connection that started after its probe gave up was left pending, one more for every probe.
+  test('a connection that starts after its probe gave up is cancelled once it does', () async {
+    var cancelled = 0;
+    final late = Completer<ConnectionTask<Socket>>();
+
+    final found = await probeSocket(
+      '${where.path}/late.sock',
+      (_) => late.future,
+      within: const Duration(milliseconds: 50),
+    );
+    late.complete(ConnectionTask.fromSocket(Completer<Socket>().future, () => cancelled++));
+    await pumpEventQueue();
+
+    expect(found, SocketProbe.unknown);
+    expect(cancelled, 1);
+  });
+
+  // Harm: a socket removed as nobody's on an error that proves nothing, or kept for good on one that proves it.
+  test('a bare OSError from a probe says nobody only where it proves nothing listens', () async {
+    Future<SocketProbe> failing(int errno) =>
+        probeSocket('${where.path}/bare.sock', (_) async => throw OSError('failed', errno));
+    expect(await failing(111), SocketProbe.nobody, reason: 'ECONNREFUSED');
+    expect(await failing(2), SocketProbe.nobody, reason: 'ENOENT');
+    expect(await failing(24), SocketProbe.unknown, reason: 'EMFILE proves nothing about the endpoint');
+    expect(await failing(13), SocketProbe.unknown, reason: 'EACCES proves nothing about the endpoint');
+  });
+
   group('a forward a run that ended without asking left behind', _leftBehind);
 }
 
@@ -1657,6 +1685,147 @@ void _leftBehind() {
 
     expect(Directory(records).listSync().where((each) => each.path.endsWith('.forward')), isEmpty);
   });
+
+  // Harm: records read from, or written to, a directory another account owns, though its mode is 0700.
+  test('records in a directory another account owns are ignored', () async {
+    final socket = '${where.path}/owned.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+    PathFacts? foreign(String path, int? descriptor) => switch (pathFactsOf(path, descriptor)) {
+      final facts? when path == records => PathFacts(
+        owner: facts.owner + 1,
+        permissions: facts.permissions,
+        type: facts.type,
+      ),
+      final facts => facts,
+    };
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records, facts: foreign)), left);
+  });
+
+  // Harm: a process whose arguments cannot be read taken for the recorded forward and ended, or its record dropped.
+  test('a recorded pid whose arguments cannot be read is not ended, and its record stays', () async {
+    final socket = '${where.path}/no-arguments.sock';
+    final left = await leftBy(ForwardRecords(records), socket);
+
+    await leftAlone(await raisedAgain(socket, ForwardRecords(records, table: _Told(noArguments: true))), left);
+    ForwardRecords(records, table: _Told(noArguments: true)).removeStale();
+    expect(File('$records/${left.pid}.forward').existsSync(), isTrue);
+  });
+
+  // Harm: a live forward's record dropped because a lookup of its process failed, and the forward never found again.
+  test('a record stays where the lookup of its process fails, and goes once its process is gone', () async {
+    final ended = await Process.start('true', const <String>[]);
+    await ended.exitCode;
+    // The process is gone, so its record is written as a run that recorded it while it ran would have left it.
+    final record = File('$records/${ended.pid}.forward');
+    Directory(records).createSync();
+    Process.runSync('chmod', <String>['700', records]);
+    record.writeAsStringSync(
+      jsonEncode(<String, Object>{
+        'pid': ended.pid,
+        'boot': const LinuxProcessTable().bootId!,
+        'start': '1',
+        'command': <String>['true'],
+      }),
+    );
+    Process.runSync('chmod', <String>['600', record.path]);
+    int denied(String path) => path == '/proc/self' ? 0 : 13;
+
+    ForwardRecords(records, table: LinuxProcessTable(statOf: denied)).removeStale();
+    expect(record.existsSync(), isTrue, reason: 'EACCES proves nothing about the process');
+
+    ForwardRecords(records).removeStale();
+    expect(record.existsSync(), isFalse, reason: 'the process is gone');
+  });
+
+  // Harm: a failed lookup, or a computer with no process table to read, taken as a process that ended.
+  test('only ENOENT or ESRCH says a process is gone, and only where the table can be read', () {
+    LinuxProcessTable answering(int self, int other) =>
+        LinuxProcessTable(statOf: (path) => path == '/proc/self' ? self : other);
+    expect(answering(0, 2).isGone(1), isTrue);
+    expect(answering(0, 3).isGone(1), isTrue);
+    expect(answering(0, 13).isGone(1), isFalse);
+    expect(answering(0, 12).isGone(1), isFalse);
+    expect(answering(2, 2).isGone(1), isFalse, reason: 'no /proc to read');
+    expect(const LinuxProcessTable().isGone(pid), isFalse, reason: 'this very process');
+  });
+
+  /// The descriptors this process holds now on the test's directories; others come and go with the test's own I/O.
+  List<String> descriptors() => <String>[
+    for (final each in Directory('/proc/self/fd').listSync(followLinks: false))
+      if (each is Link)
+        if (_targetOf(each) case final target? when target.startsWith(where.path)) target,
+  ];
+
+  // Harm: a directory descriptor, or a temporary record, left behind by every record written while memory ran out.
+  test('no descriptor and no temporary record is kept when an allocation fails', () {
+    final deep = '${where.path}/a/b/records';
+    Directory('${where.path}/a/b').createSync(recursive: true);
+    Process.runSync('chmod', <String>['700', '${where.path}/a/b']);
+    final writing = ForwardRecords(deep);
+    var failed = 0;
+    for (var failing = 1; failing < 60; failing++) {
+      var count = 0;
+      final before = descriptors();
+      allocationFails = () => ++count == failing;
+      try {
+        writing.record(pid, <String>['ssh', '-N', '$failing']);
+      } on FileSystemException {
+        failed++;
+      } finally {
+        allocationFails = null;
+      }
+      expect(descriptors(), unorderedEquals(before), reason: 'allocation $failing failed and a descriptor was kept');
+      final dir = Directory(deep);
+      if (dir.existsSync()) {
+        expect(
+          dir.listSync().map((each) => each.path.split('/').last).where((name) => name.startsWith('.')),
+          isEmpty,
+          reason: 'allocation $failing failed and a temporary record was kept',
+        );
+      }
+      writing.forget(pid);
+    }
+    expect(failed, greaterThan(5), reason: 'the allocations of the chain and the write were each made to fail');
+  });
+
+  // Harm: tunnels whose ssh ignores the end stopped one after another, so the last of three still ran past the
+  // window's five seconds and was never killed.
+  test('every tunnel is killed within the bound however many ignore the end', () async {
+    final tunnels = Tunnels(
+      start: (command) async {
+        final socket = command[command.indexOf('-L') + 1].split(':').first;
+        return (await serving(socket, stubborn: true)).process;
+      },
+    );
+    addTearDown(tunnels.dispose);
+    final mine = <Process>[];
+    for (final name in ['one', 'two', 'three']) {
+      final machine = Machine(
+        name: name,
+        socketPath: '${where.path}/$name.sock',
+        host: 'user@build',
+        remoteSocket: '/run/user/1001/porelo/porelod.sock',
+      );
+      expect(await tunnels.raiseFor(machine), isTrue);
+      mine.add(started.last);
+    }
+
+    await letGoTogether(<Future<void> Function()>[tunnels.dropEverything]);
+
+    for (final process in mine) {
+      expect(ended.contains(process), isTrue, reason: 'each was killed within the five seconds');
+    }
+  });
+}
+
+/// Where [link] points, or null where it went meanwhile, as a descriptor of the test's own I/O may.
+String? _targetOf(Link link) {
+  try {
+    return link.targetSync();
+  } on FileSystemException {
+    return null;
+  }
 }
 
 /// The real process table, except for what a test tells it to say instead.
@@ -1669,7 +1838,11 @@ class _Told implements ProcessTable {
     this.reusedOnPin = false,
     this.unreadable = false,
     this.noBoot = false,
+    this.noArguments = false,
   }) : _boot = bootId;
+
+  /// Its arguments cannot be read, though it runs and its start time can be.
+  final bool noArguments;
 
   /// Its start time and arguments cannot be read, though it runs.
   final bool unreadable;
@@ -1705,7 +1878,7 @@ class _Told implements ProcessTable {
       unreadable ? null : startTime ?? (reusedOnPin && pinned > 0 ? '1' : _real.startTimeOf(pid));
 
   @override
-  List<String>? argumentsOf(int pid) => unreadable ? null : _real.argumentsOf(pid);
+  List<String>? argumentsOf(int pid) => unreadable || noArguments ? null : _real.argumentsOf(pid);
 
   @override
   PinnedProcess? pin(int pid) {

@@ -1565,9 +1565,8 @@ class Tunnels extends ChangeNotifier {
     await _serial.run<void>(_serial.keys, () async {
       await interrupting;
       await settling;
-      for (final machine in _mine.keys.toList()) {
-        await attempt(() => _finishDrop(machine));
-      }
+      // Together, so each gets its end and its SIGKILL within the window's bound however many ignore the end.
+      await Future.wait([for (final machine in _mine.keys.toList()) attempt(() => _finishDrop(machine))]);
       _cards.clear();
       _cardOwners.clear();
       _trials.clear();
@@ -1773,14 +1772,21 @@ Future<SocketProbe> probeSocket(
   Duration within = const Duration(seconds: 1),
 }) async {
   ConnectionTask<Socket>? task;
+  Future<ConnectionTask<Socket>>? pending;
   try {
     final waited = Stopwatch()..start();
-    task = await connect(path).timeout(within);
+    pending = connect(path);
+    task = await pending.timeout(within);
     final left = within - waited.elapsed;
     (await task.socket.timeout(left > Duration.zero ? left : Duration.zero)).destroy();
     return SocketProbe.answers;
   } on TimeoutException {
-    task?.cancel();
+    if (task != null) {
+      task.cancel();
+    } else {
+      // A connection that starts after the probe gave up is cancelled once it does, never left pending.
+      pending?.then((late) => late.cancel(), onError: (Object _) {}).ignore();
+    }
     return SocketProbe.unknown;
   } on SocketException catch (failure) {
     return _nobodyThere(failure.osError?.errorCode) ? SocketProbe.nobody : SocketProbe.unknown;

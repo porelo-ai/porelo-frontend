@@ -93,10 +93,13 @@ class _NoProcessTable implements ProcessTable {
 class LinuxProcessTable implements ProcessTable {
   /// Constructor; [throughSyscall] takes the kernel's pidfd calls by their numbers even where the C library has them,
   /// as one older than glibc 2.36 must.
-  const LinuxProcessTable({@visibleForTesting this.throughSyscall = false});
+  const LinuxProcessTable({@visibleForTesting this.throughSyscall = false, @visibleForTesting this.statOf});
 
   /// Whether the pidfd calls go through `syscall` rather than the C library's own functions.
   final bool throughSyscall;
+
+  /// For a test: what a `stat` of a path answers, 0 or its errno; the kernel's own where null.
+  final int Function(String path)? statOf;
 
   @override
   int? get myUid => _uidIn('/proc/self/status');
@@ -152,10 +155,23 @@ class LinuxProcessTable implements ProcessTable {
     }
   }
 
+  // Only ENOENT or ESRCH says the pid is not in a table that can be read; any other failure of the lookup proves
+  // nothing, so the record stays.
   @override
-  bool isGone(int pid) =>
-      FileSystemEntity.typeSync('/proc/self', followLinks: false) != FileSystemEntityType.notFound &&
-      FileSystemEntity.typeSync('/proc/$pid', followLinks: false) == FileSystemEntityType.notFound;
+  bool isGone(int pid) {
+    final stat = statOf ?? _statErrno;
+    if (stat('/proc/self') != 0) return false;
+    final failure = stat('/proc/$pid');
+    return failure == _enoent || failure == _esrch;
+  }
+
+  static const _enoent = 2;
+  static const _esrch = 3;
+
+  static int _statErrno(String path) => _native((libc, arena) {
+    final buffer = arena.allocate(256);
+    return libc.statx(-100, arena.string(path), 0x100, 0, buffer) == 0 ? 0 : _errno();
+  });
 
   @override
   PinnedProcess? pin(int pid) {
@@ -303,7 +319,12 @@ class ForwardRecords {
     );
     _inDirectory(create: true, (folder, _) {
       final temporary = '.$pid.${DateTime.now().microsecondsSinceEpoch}';
-      if (!_writeNew(folder, temporary, body) || !_rename(folder, temporary, _nameOf(pid))) _unlink(folder, temporary);
+      var renamed = false;
+      try {
+        renamed = _writeNew(folder, temporary, body) && _rename(folder, temporary, _nameOf(pid));
+      } finally {
+        if (!renamed) _unlink(folder, temporary);
+      }
     });
   }
 
@@ -433,10 +454,15 @@ class ForwardRecords {
         libc.close(at);
         return null;
       }
-      final next = _native(
-        (libc, arena) => libc.openat(at, arena.string(part), _oPath | flags.directory | flags.noFollow | _oCloexec, 0),
-      );
-      libc.close(at);
+      final int next;
+      try {
+        next = _native(
+          (libc, arena) =>
+              libc.openat(at, arena.string(part), _oPath | flags.directory | flags.noFollow | _oCloexec, 0),
+        );
+      } finally {
+        libc.close(at);
+      }
       if (next < 0) return null;
       at = next;
     }
@@ -597,6 +623,11 @@ PathFacts? pathFactsOf(String path, int? descriptor) => _native((libc, arena) {
   return PathFacts(owner: data.getUint32(20, Endian.host), permissions: mode & 0x1ff, type: type);
 });
 
+/// For a test: asked before each allocation of a native call here, which fails where it answers true, as one whose
+/// `malloc` answered null.
+@visibleForTesting
+bool Function()? allocationFails;
+
 T _native<T>(T Function(_Libc libc, _Arena arena) work) {
   final libc = _Libc.instance;
   final arena = _Arena(libc);
@@ -614,6 +645,7 @@ class _Arena {
   final List<Pointer<Void>> _held = <Pointer<Void>>[];
 
   Pointer<Void> allocate(int bytes) {
+    if (allocationFails?.call() ?? false) throw const FileSystemException('Out of memory');
     final pointer = _libc.malloc(bytes);
     if (pointer.address == 0) throw const FileSystemException('Out of memory');
     _held.add(pointer);

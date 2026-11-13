@@ -5,9 +5,9 @@
   "$schema": "issue-1.json",
   "id": "F514",
   "title": "Small Points Of The Leftover Forwards Reading",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 87,
   "blockedBy": [],
   "covers": "The small points a reading by another model found in the window's ending of leftover forwards: a lookup error taken for an ended process, a late connect left running, a directory descriptor kept on a failed allocation, tunnels stopped one after another, and the test gaps it named."
@@ -53,3 +53,32 @@ A reading of [F219](README.md#f219)'s final changes found, beside the grave poin
 ## Estimate
 
 `F514 size=S est=15 basis=median S 15 (11 records)`
+
+## Decided
+
+- Not guarded, each for its reason:
+  - Replacement sockets, and what follows the probe at a card master's orphan clean-up, belong to the socket removal
+    that [F513](README.md#f513) rebuilds: there a probe that fails only ends the bounded wait, and what is removed
+    after it is decided by that removal, whose tests take them.
+  - A probe error at the start is held already: a probe that fails for a reason of its own never removes the
+    endpoint (`test/app/tunnel_test.dart`).
+  - The shell's call to `letGoTogether` is one line in a widget of the whole window. `letGoTogether` is held, and a
+    test of the window's close would hold the window's wiring rather than a harm.
+  - The error swallowing in `letGoTogether` changes nothing anyone sees: `Future.wait` waits for every clean-up
+    whether one throws or not, and the result is ignored either way. A test cannot tell it from its absence.
+
+## How it was built
+
+- `LinuxProcessTable.isGone` (`lib/src/app/forward_records.dart`) asks `statx` for `/proc/<pid>` and takes only
+  ENOENT or ESRCH, where `/proc/self` can be read, as a process gone; any other failure keeps the record.
+- `probeSocket` (`lib/src/app/tunnel.dart`) keeps the pending connection and cancels it once it arrives after the
+  probe gave up.
+- The directory chain closes its descriptor whatever the step's allocation does, and a record's temporary file is
+  removed on any failure before its rename.
+- `Tunnels.dropEverything` stops every tunnel at once, so each gets its SIGTERM and its SIGKILL within the bound.
+- Tests in `test/app/tunnel_test.dart`, each seen red: a record kept on EACCES and removed once the process is gone;
+  only ENOENT or ESRCH say gone; a late connection cancelled; every allocation of a record's write made to fail in turn
+  with no descriptor and no temporary file kept; three tunnels that ignore SIGTERM all killed within five seconds; a
+  bare `OSError` from a probe; records in a directory another account owns; a recorded pid whose arguments cannot be
+  read.
+
