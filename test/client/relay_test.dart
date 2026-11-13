@@ -429,25 +429,94 @@ void main() {
       expect(most, lessThanOrEqualTo(5), reason: 'no ssh child of the window ever ran past the cap of all');
     });
 
-    test('a stream left while it waits for a place starts no relay', () async {
-      mock.pushes('Tail', (_) => StreamController<Map<String, dynamic>>().stream);
-      final backend = Machines.backendOn(
-        machine,
-        windows: true,
-        environment: const <String, String>{},
-        budget: CarrierBudget(daemonCalls: 2),
-        startRelay: relay,
-      );
-      final client = await PoreloClient.connect(backend);
+    Backend windowsBackend(CarrierBudget budget) => Machines.backendOn(
+      machine,
+      windows: true,
+      environment: const <String, String>{},
+      budget: budget,
+      startRelay: relay,
+    );
+
+    /// Has [method] stream without end, noting each call as it reaches the daemon.
+    void endless(String method, List<String> arrived) => mock.pushes(method, (parameters) {
+      arrived.add(method);
+      return StreamController<Map<String, dynamic>>().stream;
+    });
+
+    test('every watch the window holds runs beside a full pool of calls', () async {
+      final gate = Completer<void>();
+      final arrived = <String>[];
+      mock.method('Stop', (parameters) async {
+        arrived.add('Stop');
+        await gate.future;
+        return <String, dynamic>{'outcome': 'STOPPED'};
+      });
+      for (final method in ['Watch', 'Prompts', 'Talk', 'Authorizations']) {
+        endless(method, arrived);
+      }
+      final client = await PoreloClient.connect(windowsBackend(CarrierBudget(daemonCalls: 2)));
+      final stops = [for (var i = 0; i < 3; i++) client.stop('t$i')];
+      await until(() => arrived.where((each) => each == 'Stop').length == 2, 'the pool to fill with calls');
+      final watching = [
+        client.watchTasks().listen((_) {}),
+        client.prompts().listen((_) {}),
+        client.talk().listen((_) {}),
+        client.authorizations().listen((_) {}),
+      ];
+      for (final each in watching) {
+        addTearDown(each.cancel);
+      }
+      await until(() => arrived.length == 6, 'every watch to reach the daemon');
+      expect(arrived.toSet(), {'Stop', 'Watch', 'Prompts', 'Talk', 'Authorizations'});
+      gate.complete();
+      await Future.wait(stops).timeout(const Duration(seconds: 20));
+    });
+
+    test('pull request watches and log tails without end leave the pool to calls and streams that end', () async {
+      final arrived = <String>[];
+      endless('WatchPullRequests', arrived);
+      endless('Tail', arrived);
+      mock.method('AgentSignInWait', (parameters) async {
+        arrived.add('AgentSignInWait');
+        return <String, dynamic>{'signedIn': true};
+      });
+      mock.method('List', (parameters) => <String, dynamic>{'tasks': <Object?>[]});
+      final client = await PoreloClient.connect(windowsBackend(CarrierBudget(daemonCalls: 2)));
+      final following = [
+        for (var i = 0; i < 3; i++) client.watchPullRequests('p$i').listen((_) {}),
+        client.tailLog('t', 'task.log').listen((_) {}),
+      ];
+      for (final each in following) {
+        addTearDown(each.cancel);
+      }
+      await until(() => arrived.length == 4, 'every pull request watch and the tail to reach the daemon');
+      final waited = await client.agentSignInWait('claude').first.timeout(const Duration(seconds: 10));
+      expect(waited, isNotNull, reason: 'a stream that ends still passes beside them');
+      expect((await client.tasks().timeout(const Duration(seconds: 10))), isEmpty, reason: 'and so does a call');
+    });
+
+    test('a stream left at once starts no relay', () async {
+      endless('Tail', <String>[]);
+      final client = await PoreloClient.connect(windowsBackend(CarrierBudget(daemonCalls: 2)));
       await until(() => live == 0, 'the connect relay to exit');
-      final first = client.tailLog('t', 'task.log').listen((_) {});
-      await until(() => started == 2, 'the first tail to start its relay');
-      final second = client.tailLog('t', 'task.log').listen((_) {});
+      await client.tailLog('t', 'task.log').listen((_) {}).cancel();
+      await client.agentSignInWait('claude').listen((_) {}).cancel();
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(started, 1, reason: 'only the connect started a relay');
+    });
+
+    test('a stream left while it waits for a place starts no relay', () async {
+      mock.pushes('Prepare', (_) => StreamController<Map<String, dynamic>>().stream);
+      final client = await PoreloClient.connect(windowsBackend(CarrierBudget(daemonCalls: 2)));
+      await until(() => live == 0, 'the connect relay to exit');
+      final first = client.prepare('p').listen((_) {});
+      await until(() => started == 2, 'the first stream to start its relay');
+      final second = client.prepare('p').listen((_) {});
       await Future<void>.delayed(const Duration(milliseconds: 300));
       expect(started, 2, reason: 'a stream may not take the place kept for calls');
       await second.cancel();
       await first.cancel();
-      await until(() => live == 0, 'the first tail to exit');
+      await until(() => live == 0, 'the first stream to exit');
       await Future<void>.delayed(const Duration(milliseconds: 300));
       expect(started, 2, reason: 'the stream that was left never starts a relay');
     });

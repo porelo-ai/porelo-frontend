@@ -70,10 +70,11 @@ people, as on Linux: through the host's card, with the same `-F` file and the sa
   and reaps a child that starts after its connection was cancelled. Past a cap a connection is closed at once. The
   defaults: 16 per card, 48 in all, 8 starts a second per card, 256 KiB buffered each way, 30 s to the first byte. The
   daemon's ssh relays have places of their own: one for each of its four watches (Watch, Prompts, Talk,
-  Authorizations), held while it runs, and 4 per card for every other call, of which a stream holds at most 3; a call
-  past them waits for a place in turn and is never refused. The cap of all counts the daemon's relays and readiness
-  probes beside the carried connections, a relay waits there in turn too, and the daemon's watches and streams never
-  hold its last place, which is kept for a call; a place is free only once its child has exited.
+  Authorizations), held while it runs, one for each log and each project's pull requests it follows, and 4 per card
+  for every other call, of which a stream that ends holds at most 3; a call past them waits for a place in turn and
+  is never refused. The cap of all counts the daemon's relays and readiness probes beside the carried connections, a
+  relay waits there in turn too, and the daemon's watches and streams never hold its last place, which is kept for a
+  call; a place is free only once its child has exited.
 - **The relay command is a contract**, agreed with Core: `porelo service connect <forge-web|forge-git|homeserver>`
   takes exactly one argument, the role, mapped on the host to its fixed socket (`/run/porelo-forge/web.sock`,
   `/run/porelo-forge/git.sock`, `/run/porelo-matrix/client.sock`), connects to it as the person and puts only the

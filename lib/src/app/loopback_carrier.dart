@@ -136,8 +136,9 @@ class CarrierBudget {
   DaemonRelays daemonOf(String card) => _daemons[card] ??= DaemonRelays._(this);
 }
 
-/// The places of one card's daemon relays: one for each watch, held for as long as it runs, and a pool of
-/// [CarrierBudget.daemonCalls] for every other connection, whose streams never take its last place.
+/// The places of one card's daemon relays: one for each watch, held for as long as it runs, one for each log or
+/// project the window follows, and a pool of [CarrierBudget.daemonCalls] for every other connection, whose streams
+/// never take its last place.
 ///
 /// Each relay first waits for a place of its card, then for one of all; both are waited for in turn and never refused.
 class DaemonRelays implements RelayAdmission {
@@ -164,7 +165,9 @@ class DaemonRelays implements RelayAdmission {
   void _admitWaiting() {
     for (final ask in [..._asks]) {
       final watch = ask.use.watch;
-      if (watch != null) {
+      if (ask.use.follows) {
+        // It holds a place of all alone: one for each thing the window follows.
+      } else if (watch != null) {
         if (_watches.contains(watch)) continue;
         _watches.add(watch);
       } else {
@@ -181,6 +184,7 @@ class DaemonRelays implements RelayAdmission {
 
   void _giveBackCardPlace(_Ask ask) {
     final watch = ask.use.watch;
+    if (ask.use.follows) return;
     if (watch != null) {
       _watches.remove(watch);
     } else {

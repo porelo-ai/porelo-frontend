@@ -19,16 +19,23 @@ class RelayDisconnected extends VarlinkDisconnected {
 /// What a connection through a relay is for, which decides the place it waits for.
 class RelayUse {
   /// A single call, answered within its deadline.
-  const RelayUse.call() : watch = null, long = false;
+  const RelayUse.call() : watch = null, long = false, follows = false;
 
   /// A stream, or a call that may wait long: it has no deadline to free its place by.
-  const RelayUse.stream() : watch = null, long = true;
+  const RelayUse.stream() : watch = null, long = true, follows = false;
 
   /// The watch [method], which holds a place of its own for as long as it runs.
-  const RelayUse.watch(String method) : watch = method, long = true;
+  const RelayUse.watch(String method) : watch = method, long = true, follows = false;
+
+  /// A stream without end that follows one thing among many, such as a log or a project's pull requests: it holds a
+  /// place of its own while it runs, so a call never waits behind it.
+  const RelayUse.follow() : watch = null, long = true, follows = true;
 
   /// The watch's method, or null for any other connection.
   final String? watch;
+
+  /// Whether it follows one thing among many, without end.
+  final bool follows;
 
   /// Whether it may hold its place without end.
   final bool long;
@@ -106,8 +113,15 @@ class Backend {
     if (notNow != null) throw VarlinkDisconnected(notNow);
     final RelayPlace? place;
     if (admission case final admission?) {
+      var gone = false;
+      unawaited(abandoned?.then<void>((_) => gone = true, onError: (Object _) => gone = true));
       place = await admission.enter(use, abandoned: abandoned);
       if (place == null) throw VarlinkDisconnected('The connection to $label was no longer wanted.');
+      // Left before its place came: nothing is started for it.
+      if (gone) {
+        place.leave();
+        throw VarlinkDisconnected('The connection to $label was no longer wanted.');
+      }
     } else {
       place = null;
     }
@@ -1612,9 +1626,16 @@ class PoreloClient {
   /// The watches the window holds while it watches a machine, each on a connection of its own for as long as it runs.
   static const watches = {'Watch', 'Prompts', 'Talk', 'Authorizations'};
 
+  /// The streams without end that follow one thing among many, as many as the window follows.
+  static const follows = {'WatchPullRequests', 'Tail'};
+
   /// A stream on a connection of its own; canceled while it still waits for a place, it starts nothing.
   Stream<Map<String, dynamic>> _callMore(String method, [Map<String, dynamic> parameters = const {}]) {
-    final use = watches.contains(method) ? RelayUse.watch(method) : const RelayUse.stream();
+    final use = watches.contains(method)
+        ? RelayUse.watch(method)
+        : follows.contains(method)
+        ? const RelayUse.follow()
+        : const RelayUse.stream();
     final left = Completer<void>();
     final replies = StreamController<Map<String, dynamic>>();
     VarlinkConnection? connection;
