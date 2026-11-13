@@ -75,3 +75,10 @@ or per-check completeness; `lib/src/client/models.dart` has no `ReviewSummary` m
 ## To be checked
 
 - The method and field names the review summary gets in `Tasks1`, and the profile's words for completeness.
+
+## Why it is not built yet
+
+- The daemon answers no review summary: `Tasks1` has no method or field for a waiting push's open findings and
+  threads or a check's completeness. The *Checks* block also stands under the header that
+  [F78](README.md#f78) brings, which waits on the source level and risk class the daemon does not report yet. The gap
+  is on `doc/Contract-Gaps.md`; the issue waits for the summary.

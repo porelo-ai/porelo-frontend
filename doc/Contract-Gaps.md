@@ -43,6 +43,10 @@ gap here is a backend method that has to be added, not a workaround waiting to b
   risk class (`C0`-`C3`) and each file's class; the daemon derives neither yet, so the review keeps git's diff and
   the machine's rank of each file.
 
+- **A waiting push's review summary** (no method or field yet). Whether a push is ready to let through depends on how
+  many findings and review threads are open and how complete each check is; the daemon answers neither the counts nor
+  a check's completeness per waiting push, so the push's page cannot say whether its checks finished.
+
 - **A pushed commit's whole message** (a `message` on `PendingPush` and `ReviewCommit`, agreed for `Tasks1`, not
   served yet). The window reads it already: until it is served the trailer check cannot be made, since a
   `Co-Authored-By` outside git's trailer block is in no trailer line; the review shows no message body.
