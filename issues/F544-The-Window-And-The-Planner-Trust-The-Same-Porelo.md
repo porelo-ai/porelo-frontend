@@ -5,12 +5,12 @@
   "$schema": "issue-1.json",
   "id": "F544",
   "title": "The Window And The Planner Trust The Same Porelo",
-  "state": "Backlog",
+  "state": "Review",
   "size": "XS",
   "priority": "Medium",
   "rank": 111,
   "blockedBy": [],
-  "covers": "The window hands the planner it starts only a Porelo executable the planner also accepts, so a person whose the account's own program folder is group-writable by their own group is never left with a planner that reads no repository."
+  "covers": "The window hands the planner it starts only a Porelo executable the planner also accepts: neither may be written by others, or by a group other than the person's own private group, so a umask 002 setup keeps its lent login and a shared group never reaches it."
 }
 ```
 
@@ -26,21 +26,36 @@ Found on the test machine, where the account's own program folder is `drwxrwxr-x
   empty.
 
 **What must be true.**
-- A Porelo executable the window passes as `PORELO_EXECUTABLE` is one the planner accepts. The two checks name the same
-  rule for a folder that only the person's own group may write.
-- Where the window refuses the account's own install, it goes on to `/usr/bin/porelo`, as it does for a missing file.
-- A refusal is said in the window with the folder's name, as today.
+- A Porelo executable the window passes as `PORELO_EXECUTABLE` is one the planner accepts: the file and every folder up
+  to `/` are owned by root or the person, others may not write them, and a group may write them only where it is the
+  person's own private group.
+- The person's own private group is the one gid the window runs as, the person's primary group, which no other account
+  has as its primary group and which lists no other member.
+- A refused first place is not passed over for the next; the refusal is said, as before.
 
-**To be decided.** Either the window takes the planner's stricter rule, so that any group-writable folder without
-the sticky bit is refused, or the planner takes the window's rule, allowing the person's own primary group.
+## Decided
+
+- The planner takes the window's rule, and both tighten it to the person's own private group alone. The window's own-group
+  allowance exists so that a umask 002 setup, whose folders its private group may write, keeps the lent login.
 
 ## Plan
 
-- Once the rule is decided:
-  - If the window takes the planner's rule, drop the own-group allowance in `_whyNot`.
-  - If the planner takes the window's rule, nothing changes here; a test pins the shared rule.
-- `findPoreloExecutable` goes on to the next place after a refused one, instead of returning the refusal.
-- Red first in `test/app/porelo_executable_test.dart`: a 0775 folder with the person's own group, under the decided
-  rule, and the fall-through to `/usr/bin/porelo`.
+- `lib/src/app/porelo_executable.dart`: `privateGroupOf(gid, uid)` reads `/etc/passwd` and `/etc/group` and gives the
+  gid only where it is private; `findPoreloExecutable` takes that as the group it allows.
+- Red first in `test/app/porelo_executable_test.dart`: a group another account has as its primary one, a group that
+  lists another member, a group no file names, and no single gid, each refused; the person's private group taken.
+
+## How it was built
+
+- `privateGroupOf` gives the window's gid only where the person's account names it as primary, no other account does,
+  and `/etc/group` lists no member but the person. A group-writable folder of any other group is refused, with the
+  words "a group other than your own private one".
+- Red: with the two checks for other accounts and other members taken out, the new case failed (`Expected: null`).
+- Every `/etc/group` line that names the gid counts, as the system's own lookup takes them all, and a file that cannot
+  be read or decoded names no private group. Red: with only the first line read, a second line of the gid naming
+  another member was taken for private.
+- Accounts and members known only through NSS (LDAP, NIS) are not seen; the person's own account missing from
+  `/etc/passwd` names no private group.
+- `test/app/porelo_executable_test.dart` passes, 7 cases.
 
 `F544 size=XS est=10 basis=median XS 10 (8 records)`

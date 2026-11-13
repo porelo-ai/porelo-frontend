@@ -17,14 +17,14 @@ List<String> poreloPlaces(Map<String, String> environment) => <String>[
 typedef PoreloFound = ({String? path, String? refused});
 
 /// Finds Porelo at the first of [places] where anything is, follows its links, and gives its path only where neither
-/// the file nor any folder up to `/` can be written by anybody but its owner, root and the person's own primary group
-/// ([myGroup]), and each is owned by root or by [me]. Off Linux ([onLinux]) the window has no Porelo of its own to
+/// the file nor any folder up to `/` can be written by anybody but its owner, root and the person's own private group
+/// ([myGroup], see [privateGroupOf]), and each is owned by root or by [me]. Off Linux ([onLinux]) the window has no Porelo of its own to
 /// vouch for, so none is given and nothing is refused.
 PoreloFound findPoreloExecutable({List<String>? places, bool? onLinux, ReadPathFacts? facts, int? me, int? myGroup}) {
   if (!(onLinux ?? Platform.isLinux)) return (path: null, refused: null);
   final read = facts ?? pathFactsOf;
   final uid = me ?? const LinuxProcessTable().myUid;
-  final gid = myGroup ?? _myGid();
+  final gid = myGroup ?? privateGroupOf(_myGid(), uid);
   for (final place in places ?? poreloPlaces(Platform.environment)) {
     if (FileSystemEntity.typeSync(place, followLinks: false) == FileSystemEntityType.notFound) continue;
     // The first place where anything is decides: a refused one is never passed over for the next.
@@ -69,9 +69,39 @@ String? _whyNot(String path, PathFacts facts, int me, int? myGroup) {
   if (facts.owner != 0 && facts.owner != me) return '$path is owned by another account';
   if (facts.permissions & 0x2 != 0) return '$path can be written by others than its owner';
   if (facts.permissions & 0x10 != 0 && (myGroup == null || facts.group != myGroup)) {
-    return '$path can be written by a group other than your own';
+    return '$path can be written by a group other than your own private one';
   }
   return null;
+}
+
+/// [gid] where it is the person's own private group: the primary group of the account [me] alone, which no other
+/// account has as its primary group in [passwd] and which [groups] lists with no member but the person; else null.
+/// The planner keeps the same rule for the Porelo it is given.
+int? privateGroupOf(int? gid, int? me, {String? passwd, String? groups}) {
+  if (gid == null || me == null) return null;
+  List<List<String>> rows(String? given, String path) {
+    try {
+      return (given ?? File(path).readAsStringSync())
+          .split('\n')
+          .where((line) => line.isNotEmpty && !line.startsWith('#'))
+          .map((line) => line.split(':'))
+          .toList();
+    } on FileSystemException {
+      return const [];
+    } on FormatException {
+      return const [];
+    }
+  }
+
+  final accounts = rows(passwd, '/etc/passwd').where((row) => row.length >= 4);
+  final mine = accounts.where((row) => int.tryParse(row[2]) == me).firstOrNull;
+  if (mine == null || int.tryParse(mine[3]) != gid) return null;
+  if (accounts.any((row) => int.tryParse(row[2]) != me && int.tryParse(row[3]) == gid)) return null;
+  // Every line naming the gid counts, as the system's own lookup takes them all.
+  final lines = rows(groups, '/etc/group').where((row) => row.length >= 4 && int.tryParse(row[2]) == gid).toList();
+  if (lines.isEmpty) return null;
+  final members = lines.expand((line) => line[3].split(',')).map((each) => each.trim()).where((e) => e.isNotEmpty);
+  return members.every((each) => each == mine[0]) ? gid : null;
 }
 
 /// The one gid this window runs as (real, effective, saved and file-system alike), or null where it cannot say.

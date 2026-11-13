@@ -110,6 +110,64 @@ void main() {
     expect(other.refused, contains('a group other than your own'));
   });
 
+  // Harm: a Porelo in a folder a shared group may write lent the person's tokens, because that group is their primary
+  // one; or the person's own private group refused, so a umask 002 setup lends no login at all. The planner keeps the
+  // same rule, so a path the window gives is one the planner takes.
+  test("a group counts as the person's own only where it is their primary group and has no other member", () {
+    const passwd =
+        'root:x:0:0::/root:/bin/sh\n'
+        'frontend:x:1006:1006::/home/frontend:/bin/bash\n'
+        'other:x:1007:1006::/home/other:/bin/bash\n'
+        'alone:x:1008:1008::/home/alone:/bin/bash\n'
+        'joined:x:1009:1009::/home/joined:/bin/bash\n';
+    const groups =
+        'root:x:0:\n'
+        'frontend:x:1006:\n'
+        'alone:x:1008:alone\n'
+        'joined:x:1009:joined,guest\n';
+
+    expect(
+      privateGroupOf(1008, 1008, passwd: passwd, groups: groups),
+      1008,
+      reason: 'its only member is the person',
+    );
+    expect(
+      privateGroupOf(1006, 1006, passwd: passwd, groups: groups),
+      isNull,
+      reason: 'another account has it first',
+    );
+    expect(
+      privateGroupOf(1009, 1009, passwd: passwd, groups: groups),
+      isNull,
+      reason: 'another account is listed',
+    );
+    expect(
+      privateGroupOf(1010, 1010, passwd: passwd, groups: groups),
+      isNull,
+      reason: 'a group no file names',
+    );
+    expect(
+      privateGroupOf(null, 1008, passwd: passwd, groups: groups),
+      isNull,
+      reason: 'no single gid to vouch for',
+    );
+    expect(
+      privateGroupOf(1008, 1008, passwd: passwd, groups: '${groups}staff:x:1008:guest\n'),
+      isNull,
+      reason: 'a second line of the gid names another member',
+    );
+    expect(
+      privateGroupOf(1009, 1008, passwd: passwd, groups: groups),
+      isNull,
+      reason: 'not the primary group',
+    );
+    expect(
+      privateGroupOf(1008, 1008, passwd: passwd, groups: 'root:x:0:\n'),
+      isNull,
+      reason: 'no line names the gid',
+    );
+  });
+
   // Harm: a Porelo path the window inherited, which anybody who started it could choose, handed on to the planner.
   test('the planner never inherits a Porelo path, and is given only the one found', () {
     final inherited = <String, String>{'PATH': '/usr/bin', 'PORELO_EXECUTABLE': '/tmp/evil', 'porelo_executable': 'x'};
