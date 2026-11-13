@@ -146,6 +146,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f525"></a>[F525](F525-Small-Points-Of-The-Browser-Address-Reading.md) | S | - | The small points a reading by another model found in the host's browser addresses on both loopbacks: guards no test shows, and Windows taking an IPv6 loopback for granted. |
 | <a id="f526"></a>[F526](F526-The-Planner-Is-Given-Porelos-Own-Path.md) | S | - | The window resolves Porelo's executable once, absolute with its links followed, and gives that path to the planner it starts, refusing one that it or anyone else could swap. |
 | <a id="f529"></a>[F529](F529-Left-Behind-Forward-Tests-Hold-Under-Load.md) | S | - | The tests of forwards a killed run left behind pass on a loaded machine as on an idle one: they wait for what they observe, not for fixed short times. |
+| <a id="f530"></a>[F530](F530-Every-Reader-Of-A-Machine-Waits-Until-It-Is-Watched.md) | M | - | No page, listener or caller of the window reads the fleet of a machine that is listed and not watched yet: during a reconnect or a host's replacement every one of them draws that machine as not answering, without an error. |
 | <a id="f505"></a>[F505](F505-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The repository's daily shared-rules run checks its issues' heads with `issues check issues` from the released porelo-release, as the build tools' own shared rules do. |
 
 ## Implementing
