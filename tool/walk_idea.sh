@@ -46,15 +46,16 @@
 # porelod of --porelo in ~/.local/bin (the ones there kept beside as *.walk-kept), Flutter, and the pub cache of this
 # checkout's pubspec.lock; with --identity DIR (the test person's card and key.pub, as porelo keeps them in
 # ~/.config/porelo/identity) and --organization FILE (the organization.yml porelo follows), those two put where the VM's
-# porelo reads them, never over another card. It names no repository, places no project and declares nothing. The package state is one
-# short id hashed from the porelo of --porelo (its COMMIT) or else the VM's own (`porelo --version`), the planner's
-# SHA256SUMS, the Flutter version and pubspec.lock; it is written to ~/.walk-prepared/STATE on the VM and named in
-# the snapshot prepare asks for, walk-prepared-<id>: whoever keeps the VM's snapshots takes it, the VM shut down.
-# `run --snapshot NAME` starts a scenario from that snapshot: the program of --revert-hook (or WALK_REVERT_HOOK) is
-# called with NAME alone and takes the VM back to it, the run then waits for the VM, and starts only where the VM's
-# STATE is this run's package state; nothing is installed again, porelo is not swapped. Everything that names the
-# story's repositories (the project placed, the vault, the declaration, the planner's state) is made by the run after
-# the revert. A `resume` never reverts: it goes on with the kept VM as it is.
+# porelo reads them, never over another card. It names no repository, places no project and declares nothing. The
+# package state is one short id hashed from the porelo of --porelo (its COMMIT and SHA256SUMS) or else the VM's own (`porelo
+# --version`), the planner's SHA256SUMS, the Flutter version and pubspec.lock; it is written to ~/.walk-prepared/STATE
+# on the VM and named in the snapshot prepare asks for, walk-prepared-<id>: whoever keeps the VM's snapshots takes it,
+# the VM shut down. `run --snapshot NAME` starts a scenario from that snapshot: the program of --revert-hook (or
+# WALK_REVERT_HOOK) is called with NAME alone and takes the VM back to it, the run then waits for the VM, and starts
+# only where the VM's STATE is this run's package state, so it is given the --porelo and --planner its prepare had;
+# nothing is installed again, porelo is not swapped. Everything that names the story's repositories (the project placed,
+# the vault, the declaration, the planner's state) is made by the run after the revert. A `resume` never reverts: it
+# goes on with the kept VM as it is.
 #
 # --mail drop, the default, applies the porelo project without its mail section; keep applies it as it is, which only a
 # VM whose porelo applies a project's mail section takes: until the VM's porelo does, a walk goes without mail.
@@ -135,6 +136,8 @@ fi
 if [ -n "$snapshot" ]; then
     [ "$mode" = run ] || usage
     shaped --snapshot "$snapshot" '[A-Za-z0-9][A-Za-z0-9._-]{0,63}'
+    [[ $snapshot != *$'\n'* ]] || usage
+    case "$revert_hook" in '' | */*) ;; *) revert_hook=$(command -v -- "$revert_hook" || true) ;; esac
     [ -n "$revert_hook" ] && [ -x "$revert_hook" ] && [ -f "$revert_hook" ] || {
         echo "walk: --snapshot needs --revert-hook or WALK_REVERT_HOOK naming a program that takes the VM back to it" >&2
         exit 64
@@ -326,20 +329,20 @@ print(r[0][\"archive\"], r[0][\"sha256\"]) if r else None')
 
 # The package state a prepared VM is of: one short id of the porelo given (its COMMIT) or else the VM's own, the
 # planner's SHA256SUMS, the Flutter version and the pubspec.lock of this checkout's HEAD.
+# A run from a snapshot is given the same --porelo and --planner as the prepare that made it, or its id differs.
 state_id() {
-    local porelo_part id
+    local porelo_part planner_part lock
     if [ -n "$porelo_dir" ]; then
-        porelo_part="commit $(cat "$porelo_dir/COMMIT")"
+        porelo_part=$(cat "$porelo_dir/COMMIT" "$porelo_dir/SHA256SUMS") || return 1
     else
-        porelo_part="installed $(on_vm "porelo --version" </dev/null)" || return 1
+        porelo_part=$(on_vm "porelo --version" </dev/null) || return 1
+        porelo_part="installed $porelo_part"
     fi
-    id=$({
-        printf '%s\n' "$porelo_part"
-        if [ -n "$planner" ]; then cat "$planner/SHA256SUMS"; else echo 'no planner'; fi
-        printf 'flutter %s\n' "$flutter_version"
-        git -C "$here" show HEAD:pubspec.lock
-    } | sha256sum | cut -c1-12)
-    printf '%s\n' "$id"
+    planner_part='no planner'
+    [ -z "$planner" ] || planner_part=$(cat "$planner/SHA256SUMS") || return 1
+    lock=$(git -C "$here" show HEAD:pubspec.lock) || return 1
+    [ -n "$porelo_part" ] && [ -n "$planner_part" ] && [ -n "$lock" ] || return 1
+    printf '%s\n' "$porelo_part" "$planner_part" "flutter $flutter_version" "$lock" | sha256sum | cut -c1-12
 }
 
 # What every run of this package state needs on the VM, set up once for a snapshot to keep.
@@ -350,11 +353,13 @@ prepare_vm() {
         echo "walk: the package state of $vm could not be told" >&2
         return 1
     }
+    # A prepare that stops half way leaves no state a snapshot could be taken for.
+    on_vm "rm -f ~/.walk-prepared/STATE; mkdir -p ~/.walk-prepared" </dev/null
     if [ -n "$porelo_dir" ]; then
         tar -C "$porelo_dir" -c porelo porelod SHA256SUMS | on_vm "rm -rf ~/.walk-prepared/porelo && mkdir -p ~/.walk-prepared/porelo && tar -x -C ~/.walk-prepared/porelo"
         on_vm "set -e; cd ~/.walk-prepared/porelo; sha256sum --strict --quiet -c SHA256SUMS; chmod 755 porelo porelod
         mkdir -p ~/.local/bin; cd ~/.local/bin
-        for f in porelo porelod; do [ -f \$f.walk-kept ] || [ ! -f \$f ] || mv \$f \$f.walk-kept; cp ~/.walk-prepared/porelo/\$f \$f; done
+        for f in porelo porelod; do [ -f \$f.walk-kept ] || [ ! -f \$f ] || mv \$f \$f.walk-kept; cp ~/.walk-prepared/porelo/\$f \$f.walk-new; mv -f \$f.walk-new \$f; done
         systemctl --user restart porelod
         for _ in \$(seq 50); do [ -S /run/user/\$(id -u)/porelo/porelod.sock ] && break; sleep 0.2; done
         systemctl --user is-active --quiet porelod" </dev/null || {
@@ -380,7 +385,7 @@ prepare_vm() {
     fi
     fetch_flutter
     # The pub cache of this checkout's packages, so a run's build fetches none of them.
-    git -C "$here" archive --format=tar HEAD pubspec.yaml pubspec.lock |
+    git -C "$here" archive --format=tar HEAD pubspec.yaml pubspec.lock packages |
         on_vm "set -e; rm -rf ~/.walk-prepared/pub; mkdir -p ~/.walk-prepared/pub; tar -x -C ~/.walk-prepared/pub
         cd ~/.walk-prepared/pub; PATH=\$HOME/$flutter_dir/bin:\$PATH flutter --suppress-analytics pub get >/dev/null
         PATH=\$HOME/$flutter_dir/bin:\$PATH flutter --suppress-analytics precache --linux >/dev/null" || {
@@ -439,18 +444,36 @@ fi
 if [ -n "$snapshot" ]; then
     # The scenario starts from the prepared VM: taken back by whoever keeps its snapshots, then waited for.
     echo "walk: $vm is taken back to its snapshot $snapshot"
+    # A mark the snapshot cannot hold: gone only once the VM is truly taken back, not just answering as it was.
+    on_vm "mkdir -p ~/.walk-prepared && date +%s%N >~/.walk-revert-mark" </dev/null || {
+        echo "walk: $vm cannot be marked before its revert" >&2
+        exit 1
+    }
     "$revert_hook" "$snapshot" </dev/null || {
         echo "walk: $revert_hook could not take $vm back to $snapshot" >&2
         exit 1
     }
-    for _ in $(seq 60); do on_vm true </dev/null >/dev/null 2>&1 && break; sleep 5; done
+    reverted=''
+    ssh_options+=(-o ConnectTimeout=10 -o ServerAliveInterval=10)
+    for _ in $(seq 60); do
+        if on_vm "test ! -e ~/.walk-revert-mark" </dev/null >/dev/null 2>&1; then
+            reverted=yes
+            break
+        fi
+        sleep 5
+    done
+    [ -n "$reverted" ] || {
+        echo "walk: $vm is not back at $snapshot within about ten minutes" >&2
+        exit 1
+    }
 fi
 check
 if [ -n "$snapshot" ]; then
     prepared=$(on_vm "cat ~/.walk-prepared/STATE 2>/dev/null" </dev/null || true)
     wanted=$(state_id) || wanted=''
+    [[ $wanted =~ ^[0-9a-f]{12}$ ]] || wanted=''
     [ -n "$wanted" ] && [ "$prepared" = "$wanted" ] || {
-        echo "walk: $vm at $snapshot is prepared for the package state '${prepared}', this run's is '${wanted}': prepare it anew" >&2
+        echo "walk: $vm at $snapshot is prepared for the package state '${prepared}', this run's is '${wanted}': give the run its prepare's --porelo and --planner, or prepare anew" >&2
         exit 1
     }
 fi
