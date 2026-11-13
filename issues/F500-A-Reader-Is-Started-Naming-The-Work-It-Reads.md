@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F500",
   "title": "A Reader Is Started Naming The Work It Reads",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "Highest",
   "rank": 1,
@@ -47,3 +47,29 @@ Found in [F492](README.md#f492)'s run 26, step 9: the reader was ordered to read
 - The planner is told the branch a task's work landed on, exactly as porelo names it.
 - A build whose work waited at the gate at its end has its landing reported to the planner once.
 - The walk's step 9 reaches its readings without hand repair.
+
+## Decided
+
+- Work that waited at the gate when its task ended is told to the planner as a second event, `landed`, carrying where
+  it landed, as the planner's contract takes it; the end is not held back. An end that already names where the work
+  landed counts as that report, so the work is never told twice.
+
+## How it was built
+
+- `startOrdered` (`lib/src/app/fleet_backend.dart`) takes `reads` and gives it to Start, which `PoreloClient.start`
+  sends only where Start declares it and refuses with `FeatureNotSupported` elsewhere; `WindowTaskStarts`
+  (`planning_embedding.dart`) passes the order's `reads`, for the first order and for each follow-up alike.
+- `Task` (`models.dart`) reads the row's `landed` entries unchanged, `[]` while the work waits, null from a Porelo
+  without the field. `plannedLandings` (`planning_reports.dart`) passes them field by field to `plannedTaskEnded`,
+  which hands them on in the end record.
+- The report sweep tells a finished task's `landed` event once its row names where its work landed after the end was
+  told, and keeps that it did with the offer, so a restarted window tells it no second time.
+- Tests: `test/app/start_ordered_test.dart` sees Start given the reader's tasks and key through the real backend;
+  `test/client/start_key_test.dart` sends `reads` only where Start declares it and reads `landed` from a row;
+  `test/ui/window_task_reports_test.dart` starts a planner's reader naming `foo-1`, reports an end with the landing
+  its row names, and reports work that landed after its end once as `landed`, also across a restart. Red: with the
+  order's `reads` not passed, or the backend giving Start none, the reader was started naming nothing; with the row's
+  `landed` not read or not passed, the end named no landing; without the landed event, or without keeping that it
+  was told, the planner heard nothing, or heard it twice.
+- What only a real host can show, `git ls-remote origin` in the reader listing the build's branch and the walk's
+  reader reaching its readings, is shown by the operator's walk.

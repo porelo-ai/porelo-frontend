@@ -59,6 +59,32 @@ void main() {
     },
   );
 
+  // Harm: a reader starts seeing none of the work it is to read, and searches for it until its time runs out.
+  test('Start gets the tasks a reader reads and its key, as the order gives them', () async {
+    daemon.description = 'method Start(task: ?string, callerKey: ?string, reads: ?[]string) -> (exitCode: ?int)';
+    final asked = <Map<String, dynamic>>[];
+    daemon.stream('Start', (parameters) async* {
+      asked.add(parameters);
+      yield <String, dynamic>{'container': 'porelo-demo-porelo-2', 'exitCode': 0, 'action': 'CREATE'};
+    });
+    final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+    await backend.open();
+
+    await backend.startOrdered(
+      project: 'demo',
+      repository: 'porelo',
+      agent: 'claude',
+      model: 'opus',
+      mode: Mode.agent,
+      prompt: 'Read foo-1.',
+      callerKey: 'offer-2',
+      reads: ['foo-1'],
+    );
+
+    expect(asked.single['reads'], ['foo-1']);
+    expect(asked.single['callerKey'], 'offer-2');
+  });
+
   // Harm: a refused start reads as a start, or loses the words the machine gave for it.
   test('a refusal comes back with what the machine printed before it', () async {
     daemon.stream('Start', (_) async* {

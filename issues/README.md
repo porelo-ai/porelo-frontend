@@ -113,7 +113,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f500"></a>[F500](F500-A-Reader-Is-Started-Naming-The-Work-It-Reads.md) | M | - | A reader the planner offers is started naming the tasks whose work it reads, and each task's end is reported to the planner with the branch its work landed on, so the reader is handed that work and its order names it. |
 | <a id="f503"></a>[F503](F503-A-Tasks-Proposed-Idea-Becomes-An-Issue-In-Idea.md) | S | - | Each idea a task on a watched machine proposes is handed once to the planner as a new issue in Idea of the task's repository, naming the task it came from, also across restarts of the window; a refusal is said once, a planner not reached is tried again. |
 | <a id="f512"></a>[F512](F512-The-Window-Unlocks-A-Hosts-Vault-From-Windows-Itself.md) | M | - | On Windows the window opens a host's vault itself, over the card's own ssh config: the pin, the agent's key, the share from its signature, and Porelo's vault commands on the host. |
 | <a id="f515"></a>[F515](F515-A-Terminal-And-Live-List-Played-Through-On-The-VM.md) | M | - | Story ST47, a terminal and live list used together, played once on the test VM in the window as a person would, for ST347's gathered story run: a task's terminal used as an ordinary terminal, task list --watch open beside it, Ctrl-C giving the terminal back. |
@@ -155,6 +154,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f500"></a>[F500](F500-A-Reader-Is-Started-Naming-The-Work-It-Reads.md) | M | - | A reader the planner offers is started naming the tasks whose work it reads, and each task's end is reported to the planner with the branch its work landed on, so the reader is handed that work and its order names it. |
 | <a id="f501"></a>[F501](F501-A-Started-Offer-Is-Found-Again-By-Its-Key.md) | S | - | The window gives each task it starts for a planner's offer the offer as the start's own key, and finds the offer of every listed task by that key after a restart, so a window that dies between Start and keeping the pair loses no offer. |
 | <a id="f504"></a>[F504](F504-A-Started-Task-Is-Told-Once-Its-Agent-Runs.md) | S | - | A task the window starts for a planner's offer is told to the planner as started once Start says its agent runs, not when Start's final reply comes at the end of the agent's run, so the next offer of the story starts at once. |
 | <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
