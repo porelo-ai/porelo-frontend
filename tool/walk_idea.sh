@@ -673,6 +673,9 @@ fi
 # planner's own state of the project as it stood before the run, the run's tasks, the story's repositories the run
 # made, the forge's token and its declaration, porelod's agent put back, the run's copy.
 porelo_commit='' swapped='' pointed='' agent_before='' holder='' central_match='' vault='' declared='' taken='' planned=''
+# Whether the planner's project is the story's porelo project the run made: its planner state and cache are then the
+# story's alone, taken away before the planner starts and on every ending, never kept or put back.
+own_planner=''
 # The tasks of the porelo project porelod listed before the run began: never the run's. Only once that list was taken
 # (before_known) is any task porelod lists counted as the run's.
 before_tasks='' before_known=''
@@ -712,6 +715,7 @@ cleanup() {
                 gone=yes; for p in /proc/[0-9]*; do [ \"\$(readlink \$p/exe 2>/dev/null)\" != \$HOME/$run/bin/porelo-planner ] || gone=''; done
                 [ -z \"\$gone\" ] || break; sleep 0.2; done
             [ -n \"\$gone\" ]
+            [ -z '$own_planner' ] || exit 0
             mkdir -p ~/.local/state/porelo-planner; cd ~/.local/state/porelo-planner; rm -rf -- '$project'
             if [ -f ~/$run.planner-state.tar ]; then tar -xf ~/$run.planner-state.tar; fi
             rm -f ~/$run.planner-state.tar" </dev/null ||
@@ -765,6 +769,13 @@ cleanup() {
         204 | 404) ;; *) left+=("the repository $org/$each (gh repo delete $org/$each --yes)") ;;
         esac
     done
+    # The planner's state and cache of the story's project, once its repositories are gone: a later run of the story
+    # makes them anew under the same names, and would read this run's as its own.
+    if [ -n "$own_planner" ]; then
+        on_vm "rm -rf -- ~/.local/state/porelo-planner/'$project' ~/.cache/porelo-planner/'$project'" </dev/null ||
+            left+=("the planner's state and cache of $project on $vm" \
+                "(~/.local/state/porelo-planner/$project, ~/.cache/porelo-planner/$project)")
+    fi
     if [ -n "$declared" ]; then
         as_the_person_on_vm "porelo credentials forget '$central_match'" </dev/null >/dev/null 2>&1 ||
             left+=("the declaration of $central_match on $vm (porelo credentials forget there)")
@@ -1206,9 +1217,17 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
         fi
     fi
 
-    # The planner's state of the project as before the run, put back on every ending; none stands for a project new to
-    # the planner. Kept beside the run's copy, which goes first.
-    if [ -n "$planner" ]; then
+    # The planner's state and cache of the story's own project are taken away first: what an earlier run of the story
+    # left there names repositories made anew since. Of any other project, its state as before the run is put back on
+    # every ending; none stands for a project new to the planner. Kept beside the run's copy, which goes first.
+    if [ -n "$planner" ] && [ "$project" = "$porelo_project" ]; then
+        own_planner=yes
+        planned=yes
+        on_vm "rm -rf -- ~/.local/state/porelo-planner/'$project' ~/.cache/porelo-planner/'$project'" </dev/null || {
+            echo "walk: the planner's state and cache of $project on $vm could not be taken away" >&2
+            exit 1
+        }
+    elif [ -n "$planner" ]; then
         on_vm "set -e; rm -f ~/$run.planner-state.tar; d=~/.local/state/porelo-planner
             if [ -d \$d/'$project' ]; then tar -C \$d -cf ~/$run.planner-state.tar -- '$project'; fi" </dev/null || {
             echo "walk: the planner's state of $project on $vm could not be kept" >&2
@@ -1239,7 +1258,7 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
 
     # What a resume or a clean takes the run up with.
     declare -p created org_added person before_tasks before_known test vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
-        declared pointed agent_before swapped porelo_commit taken planned branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
+        declared pointed agent_before swapped porelo_commit taken planned own_planner branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
 fi
 
 echo "walk: the window walks $project from step $from, at most $budget minutes"
