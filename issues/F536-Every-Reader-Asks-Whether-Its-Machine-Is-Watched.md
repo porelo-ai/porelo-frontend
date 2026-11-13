@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F536",
   "title": "Every Reader Asks Whether Its Machine Is Watched",
-  "state": "Implementing",
+  "state": "Review",
   "size": "L",
   "priority": "Medium",
   "rank": 107,
@@ -68,3 +68,32 @@ Built in one issue, as commits that each pass on their own; the type checker fin
    left; they pass once none is.
 
 Each step adds to the widget tests of the window in which a machine is listed and not watched yet.
+
+## How it was built
+
+- `lib/src/app/commands.dart`, `lib/src/ui/status_line.dart`: the commands of the selected machine and its status
+  line take a fleet that may be null; for null every command is unavailable because the machine is `not answering
+  yet: it is being opened`, and the line says so.
+- `lib/src/ui/shell.dart`: `_fleet` and every read of a machine ask `watching`. An action on a machine not watched
+  changes nothing and says, in a notice (`not-watched-yet`), that it is not answering yet and nothing was done; a line
+  said for it while it is not watched is shown as a notice too. A machine's section opened while it is not watched
+  draws a page saying it is being opened (`not-watched-yet-page`).
+- `lib/src/app/unattended_run.dart`: a run takes the machines and follows the fleet that watches its machine
+  (`Machines.follow`), reading the run and its last line again from a fleet that replaced the first.
+- `lib/src/app/attention.dart`, `lib/src/ui/attention_view.dart`: `fleetOf` may be null; a row's actions are then
+  unavailable with the same reason, and a held message's or grant's row says the machine is being opened. My
+  machines, My projects, the machine's details, Work, the running view and the host dialog read `watching`.
+- `lib/src/app/where_you_were.dart`: the saved project and task are set on the machine's fleet once it is watched.
+  The planning starts and reports, the agents offered and the planner's chosen project read `watching`; a planned
+  start on a machine not watched is refused in words.
+- `lib/src/app/machines.dart`, `lib/src/app/fleet_model.dart`: the stand-in is gone; `of` and `fleet` throw for a
+  machine not watched.
+- Tests, each red first: the selected machine reconnecting offers no refresh or reconnect and says why
+  (`test/ui/listed_not_watched_pages_test.dart`); a run follows its machine through a reconnect
+  (`test/ui/unattended_run_test.dart`); the place saved on a machine that reconnects is taken up once it is watched
+  (`test/app/listed_not_watched_test.dart`). With the stand-in gone and the readers as they were before, the pages
+  test throws in all three cases; the two app tests of the stand-in now check that `of` throws for a machine not
+  watched. The pages and listeners moved in the third step change nothing a test can see while the stand-in stood;
+  the last step's red covers them.
+- Each step ran the tests built on what it changed (498, 601, 519, 365 and 409); the module suites ran on the build
+  box at the end.

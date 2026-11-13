@@ -641,33 +641,15 @@ class Machines extends ChangeNotifier {
   /// What is being acted on. There is always one.
   Machine get current => _machines.firstWhere((machine) => machine.name == _selected, orElse: () => _machines.first);
 
-  /// The fleet of the machine being acted on.
+  /// The fleet of the machine being acted on, for a caller that opened it; see [of].
   FleetModel get fleet => of(current);
 
   /// The fleet of one machine, whether or not it is the one being acted on: for a caller holding a machine it opened.
   ///
   /// A machine listed and not watched yet - while the stored list is adopted, a host's card is replaced or a machine
-  /// reconnects - is a stand-in that does not answer yet and refuses every call, so nothing that reads it throws.
+  /// reconnects - has no fleet, and this throws: whoever reads the machines asks [watching], which says so.
   FleetModel of(Machine machine) =>
-      _watching[machine.name] ??
-      (_machines.any((each) => each.name == machine.name) ? _notWatchedYet(machine) : _watching[machine.name]!);
-
-  /// The stand-ins of machines listed and not watched yet, by machine name; each goes once its machine is opened.
-  final Map<String, FleetModel> _standIns = <String, FleetModel>{};
-
-  FleetModel _notWatchedYet(Machine machine) => _standIns.putIfAbsent(
-    machine.name,
-    () => FleetModel.notWatchedYet(
-      PoreloBackend(
-        Backend(
-          socketPath: machine.socketPath,
-          label: machine.name,
-          notReachable: '${machine.name} is not answering yet.',
-        ),
-      ),
-      machine: machine.name,
-    ),
-  );
+      _watching[machine.name] ?? (throw StateError('${machine.name} is not watched: ask whether it is first'));
 
   /// The fleet of [machine] while it is watched, else null. **For whoever walks [all]**: every stored machine is
   /// listed before the first is opened, and a card's opening speaks before the machines after it are opened.
@@ -817,7 +799,6 @@ class Machines extends ChangeNotifier {
     for (final standIn in standIns) {
       _machines.remove(standIn);
       _watching.remove(standIn.name)?.dispose();
-      _standIns.remove(standIn.name)?.dispose();
       if (_selected == standIn.name && _machines.isNotEmpty) _selected = _machines.first.name;
     }
   }
@@ -849,11 +830,6 @@ class Machines extends ChangeNotifier {
     for (final machine in _machines) {
       _open(machine);
     }
-    // What stood in for a machine the stored list no longer has.
-    for (final standIn in _standIns.values) {
-      standIn.dispose();
-    }
-    _standIns.clear();
   }
 
   /// Adds a machine or replaces a same-name host. The selection stays where it is.
@@ -949,7 +925,6 @@ class Machines extends ChangeNotifier {
     }
     _machines.remove(machine);
     _watching.remove(machine.name)?.dispose();
-    _standIns.remove(machine.name)?.dispose();
     unawaited(tunnels.dropFor(machine));
     if (_selected == machine.name) _selected = _machines.first.name;
     await _remember();
@@ -1056,7 +1031,6 @@ class Machines extends ChangeNotifier {
       }
     });
     _watching[machine.name] = fleet;
-    _standIns.remove(machine.name)?.dispose();
     if (_automaticRetriesPaused) fleet.pauseAutomaticRetry();
     unawaited(_openAndConnect(machine, fleet));
   }
@@ -1157,11 +1131,10 @@ class Machines extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    for (final fleet in [..._watching.values, ..._standIns.values]) {
+    for (final fleet in _watching.values) {
       fleet.dispose();
     }
     _watching.clear();
-    _standIns.clear();
     super.dispose();
   }
 }

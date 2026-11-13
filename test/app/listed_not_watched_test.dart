@@ -286,9 +286,9 @@ void main() {
     expect(watched?.selectedProject?.name, 'billing', reason: 'and the project chosen on it');
   });
 
-  // Harm: a caller holding a machine that reconnects - a button, a page's action - threw where it read the machine,
-  // rather than meeting a machine that does not answer yet.
-  test('a machine that reconnects reads as not answering, and every call on it is refused', () async {
+  // Harm: a reader of a machine that reconnects was handed a stand-in, and what it asked of it was lost once the
+  // machine was watched again, without a word: every reader asks whether the machine is watched.
+  test('a machine that reconnects is not watched, and reading it as though it were throws', () async {
     final window = await _reconnecting();
     final machines = window.machines;
     final disconnecting = machines.disconnect(window.going);
@@ -301,15 +301,8 @@ void main() {
     machines.select(listed);
 
     expect(machines.watching(listed), isNull, reason: 'it is not watched yet');
-    expect(machines.of(listed).reachability, Reachability.unreachable, reason: 'it does not answer yet');
-    expect(machines.fleet.reachability, Reachability.unreachable, reason: 'nor as the machine being acted on');
-    expect(
-      () => machines.of(listed).backend.tasks(),
-      throwsA(isA<VarlinkDisconnected>()),
-      reason: 'a call on it is refused as one on a machine not answering',
-    );
-    await machines.of(listed).connect();
-    expect(machines.of(listed).reachability, Reachability.unreachable, reason: 'a try opens nothing behind its back');
+    expect(() => machines.of(listed), throwsStateError, reason: 'no fleet stands in for it');
+    expect(() => machines.fleet, throwsStateError, reason: 'nor for the machine being acted on');
   });
 
   // Harm: a reconnect whose forward did not come down left the machine listed and never watched again, so it
@@ -374,24 +367,21 @@ void main() {
     expect(seen.last?.reachability, Reachability.connected, reason: 'which answers');
   });
 
-  // Harm: the stand-in of a machine not watched yet stayed what the window read once the machine was watched, or
-  // stayed behind undisposed with what listened to it.
-  test('once the machine is watched its own fleet is read, and the stand-in is gone', () async {
+  // Harm: a machine watched again stayed unreadable, as though it were still being opened.
+  test('once the machine is watched again its own fleet is read', () async {
     final window = await _reconnecting();
     final machines = window.machines;
     final disconnecting = machines.disconnect(window.going);
     await pumpEventQueue();
     final listed = machines.all.singleWhere((each) => each.name == window.going.name);
-    final standIn = machines.of(listed);
     expect(machines.watching(listed), isNull, reason: 'not watched yet');
 
     window.tunnels.let.complete();
     await disconnecting;
 
     final watched = machines.all.singleWhere((each) => each.name == window.going.name);
+    expect(machines.watching(watched), isNotNull, reason: 'watched again');
     expect(machines.of(watched), same(machines.watching(watched)), reason: 'its own fleet once it is watched');
-    expect(machines.of(watched), isNot(same(standIn)), reason: 'not the stand-in');
-    expect(() => standIn.addListener(() {}), throwsFlutterError, reason: 'the stand-in was disposed');
   });
 
   // Harm: a stored list that could not be taken in left the window drawing the machine it started with as not
