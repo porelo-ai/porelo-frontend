@@ -89,3 +89,6 @@ The contracts it builds against:
 
 - The pinned screen package's `createIssue` (and porelo-planner's main) takes no task name; once the planner's package
   carries it, the window's hand-over passes it on, and the acceptance's "naming the task" holds.
+- Decided (2026-11-13): ideas are handed in now without the task's name, not held back. The acceptance's "naming the
+  task" is not met by this build; it closes with the move of the window's pin to a screen package whose `createIssue`
+  takes the task, and this issue is done only then.
