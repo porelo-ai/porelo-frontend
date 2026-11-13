@@ -74,6 +74,11 @@ the rework, and a failed task keeps its card with a warning and a Needs-you entr
   second in Reworking and its rework started by the window; `Then the failed task's card stays, with a warning and a
   Needs-you entry to its result`. The helpers to read the findings and to choose Rework are shared with the results story.
 - The walk's own ending removes tasks and puts repositories back at T0.
+- The rework step judges the second issue only once its rework is bound to its offer: the window reports a start a
+  while after porelo lists the task, and the planner sets Reworking only on that report, so one read right after the
+  task appeared found the issue still in Reading. Since the issue stood in Reading before and a quick rework moves it
+  on again, the step proves the move itself: the forge of the issue's repository holds a move to Reworking since the
+  run's seed, and the board shows the issue in Reworking, Reading or Review.
 
 ## Expected failures
 
