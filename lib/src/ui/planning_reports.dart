@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../app/machines.dart';
+import '../app/fleet_backend.dart' show PoreloBackend;
 import '../app/outcome_words.dart' show removeWords;
 import '../app/planner.dart' show plannerProjectOf;
 import '../app/planner_ideas.dart';
@@ -138,6 +139,7 @@ class WindowTaskReports {
     required this.tasksOn,
     required this.stopOn,
     this.removeOn = _noRemoval,
+    this.takeIdeaOn = _noTaking,
     this.resultOf = _noResult,
     this.hand = handIdea,
     this.runtimeDirectory,
@@ -171,6 +173,13 @@ class WindowTaskReports {
       null => Future.error(StateError('${machine.name} is not answering yet, so $container was not stopped.')),
     },
     removeOn: (name, container) => removeHandedDiscussion(machines, name, container),
+    takeIdeaOn: (name, container, id) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
+      final machine? => switch (machines.watching(machine)?.backend) {
+        final PoreloBackend backend => backend.takeIdea(container, id),
+        _ => Future.error(StateError('$name is not answering yet.')),
+      },
+      null => Future.error(StateError('$name is not watched.')),
+    },
     resultOf: (name, container) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
       final machine? => switch (machines.watching(machine)) {
         final fleet? => fleet.backend.taskResult(container),
@@ -208,6 +217,10 @@ class WindowTaskReports {
 
   /// Removes the ended task in a container on the machine by that name; a refusal is the machine's to say.
   final Future<void> Function(String machine, String container) removeOn;
+
+  /// Takes the idea of the given id from the task in the given container on the given machine, once it was handed on
+  /// or marked not to be: Porelo forgets it, and lists the ideas it held back behind it. Answers whether it was there.
+  final Future<bool> Function(String machine, String container, String id) takeIdeaOn;
 
   /// The result file the task in a container handed back on the machine by that name, with its content.
   final Future<TaskResult> Function(String machine, String container) resultOf;
@@ -497,11 +510,16 @@ class WindowTaskReports {
     for (final (index, idea) in ideas.take(mostIdeasOfATask).indexed) {
       final digest = proposedIdeaDigest(idea);
       final key = (machine, run, idea.id);
-      if (settings.ideaHanded(machine, task.name, run, digest)) continue;
+      // Handed before, maybe by an earlier window or while the machine could not take it: taken now.
+      if (settings.ideaHanded(machine, task.name, run, digest)) {
+        await _take(machine, task, idea);
+        continue;
+      }
       // Not tried again before the next start of the window, and the task's later ideas stay behind it.
       if (_proposedNotHanded.contains(key)) return true;
       if (proposedIdeaProblem(idea) case final problem?) {
         await settings.markIdeaHanded(machine, task.name, run, digest);
+        await _take(machine, task, idea);
         _sayProposed(
           null,
           task.project,
@@ -512,6 +530,7 @@ class WindowTaskReports {
       final named = 'The idea ${idea.id} of the task ${task.name} on $machine';
       if (task.project.isEmpty || task.project == defaultProject) {
         await settings.markIdeaHanded(machine, task.name, run, digest);
+        await _take(machine, task, idea);
         _sayProposed(
           null,
           task.project,
@@ -569,6 +588,7 @@ class WindowTaskReports {
           return true;
         }
         await settings.markIdeaHanded(machine, task.name, run, digest);
+        await _take(machine, task, idea);
         _sayProposed(
           provider,
           task.project,
@@ -582,10 +602,28 @@ class WindowTaskReports {
       }
       _proposedUnreachedSaid = false;
       await settings.markIdeaHanded(machine, task.name, run, digest);
+      await _take(machine, task, idea);
       windowLog.info('Planning: ${idea.id} of the task ${task.name} on $machine was saved as $id in ${task.project}.');
     }
     return true;
   }
+
+  /// Takes [idea] from [task] on [machine], once it is handed or marked not to be: Porelo forgets it and lists the
+  /// ideas it held back behind it. Asked once in this window's life, so one the machine could not take is asked again
+  /// at the next start of the window, never at every sweep.
+  Future<void> _take(String machine, Task task, ProposedIdea idea) async {
+    if (!_takeAsked.add((machine, _runKey(task), idea.id))) return;
+    try {
+      await takeIdeaOn(machine, task.name, idea.id);
+    } on Object catch (error) {
+      windowLog.info(
+        'Planning: ${idea.id} of the task ${task.name} on $machine was not taken from it: ${planningFailureWords(error)}',
+      );
+    }
+  }
+
+  /// The ideas asked to be taken from their tasks in this window's life, by machine, task's run and id.
+  final _takeAsked = <(String, String, String)>{};
 
   /// Whether the task in [container] on [machine] lists an idea the window has neither handed nor marked.
   bool _ideasWaiting(String machine, String container) {
@@ -858,6 +896,8 @@ class WindowTaskReports {
       Future.error(StateError('$machine answers no result files here.'));
 
   static Future<void> _noRemoval(String machine, String container) async {}
+
+  static Future<bool> _noTaking(String machine, String container, String id) async => false;
 
   static String _endKey(PlanningTaskEnded ended) =>
       plannedEndKey(AgentEnded(at: ended.at, finished: ended.finished, unpushed: ended.unpushed));

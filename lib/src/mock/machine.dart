@@ -157,6 +157,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
           .map((change) => change.$2);
     });
     daemon.method('Remove', _remove);
+    daemon.method('TakeIdea', _takeIdea);
     daemon.method('Panic', _panic);
     daemon.method('RemoveProject', _deleteProject);
     daemon.method('RefreshTask', _refreshTask);
@@ -344,6 +345,8 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
   /// The task in [container] proposes an idea for itself, as its agent does over its own socket, and every open
   /// `Watch` is told. Driven by a test alone: no situation proposes one, so a walk never hands one to a real planner.
   void proposeIdea(String container, String title, String whatMustBeTrue) {
+    // Counted per task, taken ones too: a taken idea's id is not given again.
+    final number = _proposed[container] = (_proposed[container] ?? 0) + 1;
     tasks = <Map<String, dynamic>>[
       for (final task in tasks)
         if (task['name'] == container)
@@ -352,7 +355,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
             'ideas': <Map<String, dynamic>>[
               ...(task['ideas'] as List<Map<String, dynamic>>? ?? const <Map<String, dynamic>>[]),
               <String, dynamic>{
-                'id': 'idea-${(task['ideas'] as List<Map<String, dynamic>>? ?? const []).length + 1}',
+                'id': 'idea-$number',
                 'title': title,
                 'whatMustBeTrue': whatMustBeTrue,
                 'at': DateTime.now().toUtc().toIso8601String(),
@@ -363,6 +366,31 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
           task,
     ];
     _changes.add(<String, dynamic>{'tasks': _listing});
+  }
+
+  /// How many ideas each task proposed, by its name.
+  final _proposed = <String, int>{};
+
+  /// Takes one of a task's ideas: it leaves the row, as Porelo forgets it once the window handed it on.
+  Map<String, dynamic> _takeIdea(Map<String, dynamic> parameters) {
+    final name = parameters['task'];
+    final id = parameters['id'];
+    if (name is! String || !tasks.any((task) => task['name'] == name)) {
+      throw const MockRefusal('org.varlink.service.InvalidParameter', <String, dynamic>{'parameter': 'task'});
+    }
+    final task = tasks.firstWhere((task) => task['name'] == name);
+    final ideas = task['ideas'] as List<Map<String, dynamic>>? ?? const <Map<String, dynamic>>[];
+    final kept = <Map<String, dynamic>>[
+      for (final idea in ideas)
+        if (idea['id'] != id) idea,
+    ];
+    final taken = kept.length != ideas.length;
+    tasks = <Map<String, dynamic>>[
+      for (final each in tasks)
+        if (identical(each, task)) <String, dynamic>{...task, 'ideas': kept} else each,
+    ];
+    if (taken) _changes.add(<String, dynamic>{'tasks': _listing});
+    return <String, dynamic>{'taken': taken};
   }
 
   /// Stops answering.

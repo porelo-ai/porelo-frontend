@@ -87,6 +87,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Once a task's idea is in the planner, or will not be sent there, the window takes it from the task, so Porelo lists the ideas it held back behind it; one handed in before is taken at the next start of the window.
 - Each repository on the page of the project *Default* says where it comes from and goes, the checkout's path or the remote's address, and its menu offers *Take it out of default*: it leaves *Default*, its mirror and anything waiting in it stay, and each deploy key the machine forgot is said. It is refused, naming the tasks, while a task of *Default* works on it.
 - A reader porelo-planner offers after a build is started naming the tasks whose work it reads, so Porelo hands it their landed branches, read only. Each task's end tells the planner where its work landed, as Porelo names it, and work that still waited at the gate when its task ended is told once it has landed, once, also across a restart of the window.
 - Every row in *Needs you* can be put away: a planner's stopped reading carries *Seen* too, and stays away past a restart of the window until its reason or the issue's state changes, or its board, read whole, no longer says it and says it again. Putting it away is written to the window's log.

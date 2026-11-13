@@ -934,6 +934,9 @@ class PoreloBackend implements FleetBackend {
   @override
   Future<TaskResult> taskResult(String task) => _opened().result(task);
 
+  /// Takes the idea [id] of [task] once the window handed it on; false where the task holds no such idea.
+  Future<bool> takeIdea(String task, String id) => _opened().takeIdea(task, id);
+
   /// Follows a start to its final reply, certifying what it asks, and answers that reply with what it printed.
   ///
   /// [agentRuns], where given, is asked for the container once Start says the agent runs, with the one the step names;

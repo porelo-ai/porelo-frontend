@@ -756,6 +756,12 @@ class PoreloClient {
   Future<Removed> remove(String task, {bool? rescue, bool? force}) async =>
       Removed.from(await _call('Remove', {'task': task, 'rescue': ?rescue, 'force': ?force}));
 
+  /// Takes the idea [id] of [task], once the window handed it on: Porelo forgets it, so the task's row lists it no more
+  /// and the ideas it held back behind it come. False where the task holds no such idea: taken before, never proposed,
+  /// or the task removed.
+  Future<bool> takeIdea(String task, String id) async =>
+      (await _call('TakeIdea', {'task': task, 'id': id}))['taken'] == true;
+
   /// Every project on the machine.
   ///
   /// Nothing refreshes this: `WatchProjects` is not used yet, so it is asked again after anything

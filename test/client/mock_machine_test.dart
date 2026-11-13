@@ -176,6 +176,21 @@ void main() {
     await watching.cancel();
   });
 
+  // Harm: an idea the window handed on stays on the task's row, so the ideas held back behind it never come.
+  test('a taken idea leaves the row for good, and its id is not given again', () async {
+    await machineIn('work');
+    final client = await connect();
+    machine.proposeIdea('porelo-checkout-shell', 'Cache the mirror', 'A second build fetches nothing.');
+    machine.proposeIdea('porelo-checkout-shell', 'Name the run', 'The log names its run.');
+
+    expect(await client.takeIdea('porelo-checkout-shell', 'idea-1'), isTrue);
+    expect(await client.takeIdea('porelo-checkout-shell', 'idea-1'), isFalse, reason: 'taken before');
+    machine.proposeIdea('porelo-checkout-shell', 'Keep the cache', 'A third build fetches nothing.');
+
+    final ideas = (await client.tasks()).firstWhere((task) => task.name == 'porelo-checkout-shell').ideas;
+    expect(ideas!.map((idea) => idea.id), ['idea-2', 'idea-3']);
+  });
+
   test('a log is followed, and a name it does not have is refused', () async {
     await machineIn('work');
     final client = await connect();

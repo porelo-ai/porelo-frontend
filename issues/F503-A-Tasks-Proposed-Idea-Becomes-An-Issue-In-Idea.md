@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F503",
   "title": "A Task's Proposed Idea Becomes An Issue In Idea",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 19,
@@ -91,3 +91,28 @@ The contracts it builds against:
   moved to a screen package whose `createIssue` takes the task. The pin has moved: each issue now names its task, the
   name the planner takes (`[A-Za-z0-9][A-Za-z0-9_.-]{0,127}`, matched whole); a name outside it goes without, so its
   idea is not held back at every start.
+
+## Decided
+
+- Taking a handed idea from its task (`Tasks1.TakeIdea`) is part of this issue, not a follow-up: Porelo lists a task's
+  ideas within 1 MiB per reply and holds the rest back until the earlier ones are taken, so without it an idea held
+  back never becomes an issue, against the acceptance. The window takes an idea once it is saved, refused for its own
+  words, or marked not to be sent (out of Porelo's bounds, or of no planned project); one that waits is not taken.
+- The call is written against Porelo's varlink interface, `TakeIdea(task, id) -> (taken: bool)`, which is not on
+  Porelo's main branch yet. Against an older daemon the call fails, the idea stays on the row, and the window logs it.
+
+## How it was built
+
+- `lib/src/client/models.dart` reads `ideas` and `ideasHeldBack` from a task's row; `lib/src/app/settings.dart` keeps
+  a mark of each idea handed by machine, task's run, id and digest; `WindowTaskReports` (`planning_reports.dart`)
+  hands each unmarked idea of every watched task to the planner as a new issue in Idea, naming its task, as the plan
+  says.
+- `PoreloClient.takeIdea` calls `Tasks1.TakeIdea`, and `PoreloBackend.takeIdea` reaches it on a watched machine. Once an
+  idea is marked, the reports take it from its task through `takeIdeaOn`, once per idea in the window's life; an idea
+  marked before, by an earlier window or while its machine could not take it, is taken at the next start.
+- The mock machine answers `TakeIdea`: the idea leaves the row and Watch is told, and ids count every idea proposed, so
+  a taken id is not given again.
+- Tests: `test/ui/window_task_reports_test.dart` (an idea saved or refused for its words is taken and one waiting is
+  not; one handed before but still listed is taken at the next start) and `test/client/mock_machine_test.dart` (a
+  taken idea leaves the row for good and its id is not given again), each seen red first.
+- The VM proof is the tasks-results walk's idea step, once Porelo's packages with `TakeIdea` are on the VM.

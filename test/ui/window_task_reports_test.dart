@@ -31,6 +31,8 @@ void main() {
   late List<(String, String, List<(PlanningTaskOrder, PlanningTaskStarted)>)> shown;
   late List<(String, String, Map<String, Object?>)> handed;
   late List<(String, String)> removed;
+  late List<(String, String, String)> taken;
+  late Object? takeFails;
   late List<Object> handAnswers;
   late Map<String, TaskResult> results;
 
@@ -62,6 +64,11 @@ void main() {
       tasksOn: (name) => name == on.name ? machine.listed : null,
       stopOn: (machine, container) async => stopped.add((machine, container)),
       removeOn: (machine, container) async => removed.add((machine, container)),
+      takeIdeaOn: (machine, container, id) async {
+        if (takeFails case final error?) throw error;
+        taken.add((machine, container, id));
+        return true;
+      },
       resultOf: (name, container) async =>
           name == on.name ? results[container] ?? fail('no result for $container') : fail('$name is not watched'),
       hand: (project, offer, idea, {runtimeDirectory, projects}) async {
@@ -89,6 +96,8 @@ void main() {
     shown = [];
     handed = [];
     removed = [];
+    taken = [];
+    takeFails = null;
     handAnswers = [];
     results = {};
   });
@@ -1139,6 +1148,46 @@ void main() {
       await swept(reports);
       expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 1', 'Idea 2']);
       expect(problems, hasLength(1));
+    });
+
+    // Harm: an idea handed on stays on its task's row, so Porelo never lists the ideas it held back behind it.
+    test('is taken from its task once saved or refused for its words, and not while it waits', () async {
+      planner.issueAnswers.addAll([
+        'IS-1',
+        const PlanningRefusal('IssueNotAllowed', {'field': 'title', 'reason': 'title: Too long.'}, 'title: Too long.'),
+      ]);
+      lists('porelo-demo-pi', [idea(1), idea(2), idea(3)]);
+      var reached = false;
+      final reports = window(reached: () => reached).$2;
+
+      await swept(reports);
+      expect(taken, isEmpty, reason: 'no planner was reached');
+
+      reached = true;
+      await swept(reports);
+      await swept(reports);
+
+      expect(taken, [
+        ('laptop', 'porelo-demo-pi', 'idea-1'),
+        ('laptop', 'porelo-demo-pi', 'idea-2'),
+        ('laptop', 'porelo-demo-pi', 'idea-3'),
+      ]);
+    });
+
+    // Harm: an idea handed in while its machine could not take it, or before the window took ideas, stays on the row
+    // for good and holds back every later idea of its task.
+    test('handed in before, but still listed, is taken at the next start of the window', () async {
+      lists('porelo-demo-pi', [idea(1)]);
+      takeFails = StateError('the machine is not answering yet');
+      await swept();
+      expect(planner.issues, hasLength(1));
+      expect(taken, isEmpty);
+
+      takeFails = null;
+      await swept(window(kept: await loaded()).$2);
+
+      expect(planner.issues, hasLength(1), reason: 'handed once');
+      expect(taken, [('laptop', 'porelo-demo-pi', 'idea-1')]);
     });
 
     // Harm: an idea the planner refused for its fields is sent again on every change of a machine, or its refusal is
