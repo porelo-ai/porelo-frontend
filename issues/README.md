@@ -148,6 +148,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f530"></a>[F530](F530-Every-Reader-Of-A-Machine-Waits-Until-It-Is-Watched.md) | M | - | No page, listener or caller of the window reads the fleet of a machine that is listed and not watched yet: during a reconnect or a host's replacement every one of them draws that machine as not answering, without an error. |
 | <a id="f505"></a>[F505](F505-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The repository's daily shared-rules run checks its issues' heads with `issues check issues` from the released porelo-release, as the build tools' own shared rules do. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
+| <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
 ## Implementing
 
