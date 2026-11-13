@@ -40,6 +40,9 @@ import './step/the_machine_reports_a_stopped_reading.dart';
 import './step/the_planning_reading_of_needs_attention.dart';
 import './step/i_press_the_planning_reading_of.dart';
 import './step/the_section_shown_is.dart';
+import './step/the_machine_reports_a_stopped_run_of.dart';
+import './step/i_go_to_what_needs_a_person.dart';
+import './step/the_needs_you_row_of_offers_to_start_again.dart';
 
 void main() {
   group('''The stories of a project on a planning board''', () {
@@ -147,6 +150,12 @@ void main() {
       await thePlanningReadingOfNeedsAttention(tester, 'ST291');
       await iPressThePlanningReadingOf(tester, 'ST291');
       await theSectionShownIs(tester, 'Needs you');
+    });
+    testWidgets('''A stopped story's row in Needs you offers to start again''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineReportsAStoppedRunOf(tester, 'ST291');
+      await iGoToWhatNeedsAPerson(tester);
+      await theNeedsYouRowOfOffersToStartAgain(tester, 'B540');
     });
   });
 }

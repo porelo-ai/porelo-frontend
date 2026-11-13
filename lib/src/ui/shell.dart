@@ -559,8 +559,21 @@ class _ShellState extends State<Shell> {
 
   /// The boards of the planning the window was given, absent where nothing serves planning: then the planning place
   /// says so, and nothing else in the window asks after planning.
+  ///
+  /// Each board holds how a start reaches the window, so a row in Needs you can start its work again before the
+  /// planning screen was ever shown.
   late final _planning = switch (widget.planning) {
-    final planning? => PlanningBoards(planning.client),
+    final planning? => PlanningBoards(planning.client, startTask: planning.startTask, agents: _planningAgents!),
+    null => null,
+  };
+
+  /// The agents a start of planning work may choose, the same for the boards and the planning screen.
+  late final _planningAgents = switch (widget.planning) {
+    final planning? => MachinePlanningAgents(
+      widget.machines,
+      planning.client,
+      project: () => widget.shell.place.project,
+    ),
     null => null,
   };
   late final _planningHost = ShellPlanningHost(widget.shell, needsYou: () => widget.shell.goTo(Section.attention));
@@ -4307,7 +4320,7 @@ class _ShellState extends State<Shell> {
             onStarted: _storyWorkStarted,
             onStop: _storyWorkStopped,
           ),
-          agents: MachinePlanningAgents(widget.machines, planning.client, project: () => widget.shell.place.project),
+          agents: _planningAgents!,
         ),
       },
     ),

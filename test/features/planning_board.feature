@@ -103,3 +103,9 @@ Feature: The stories of a project on a planning board
         Then the planning reading of {'ST291'} needs attention
         When I press the planning reading of {'ST291'}
         Then the section shown is {'Needs you'}
+
+    # Harm: a stopped story's row in Needs you cannot start its work again until the planning board was opened once.
+    Scenario: A stopped story's row in Needs you offers to start again
+        When the machine reports a stopped run of {'ST291'}
+        And I go to what needs a person
+        Then the Needs you row of {'B540'} offers to start again
