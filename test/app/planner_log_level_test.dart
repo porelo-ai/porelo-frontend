@@ -13,35 +13,35 @@ import 'package:porelo_frontend/src/app/planner_log_level.dart';
 import 'package:porelo_frontend/src/app/window_log.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
-/// A stand-in planner on the loopback address: its log level, as the planner's `/log/level` keeps it.
+import '../support/signed_planner.dart';
+
+/// The token the stand-in planner writes into its address file.
+const _token = 'token-of-the-test';
+
+/// A stand-in planner on the loopback address that proves and checks the token as the planner does: its log level, as
+/// the planner's `/log/level` keeps it.
 class _Planner {
   _Planner._(this.server) {
-    server.listen((request) async {
-      final body = await utf8.decodeStream(request);
-      final response = request.response;
-      if (request.uri.path == '/log/level') {
-        calls.add((request.method, request.headers.value(HttpHeaders.authorizationHeader), body));
-        if (answer case (final status, final text)) {
-          response.statusCode = status;
-          response.write(text);
-        } else {
-          if (request.method == 'PUT') level = (jsonDecode(body) as Map<String, dynamic>)['level'] as String;
-          response.headers.contentType = ContentType.json;
-          response.write(jsonEncode({'level': keeps ?? level}));
-        }
-      } else {
-        response.statusCode = HttpStatus.noContent;
-      }
-      await response.close();
-    });
+    server.listen(
+      (request) => signing.serve(request, (method, path, body) async {
+        if (path != '/log/level') return (HttpStatus.noContent, '');
+        calls.add((method, body));
+        if (answer case final answered?) return answered;
+        if (method == 'PUT') level = (jsonDecode(body) as Map<String, dynamic>)['level'] as String;
+        return (HttpStatus.ok, jsonEncode({'level': keeps ?? level}));
+      }),
+    );
   }
 
   static Future<_Planner> start() async => _Planner._(await HttpServer.bind(InternetAddress.loopbackIPv4, 0));
 
   final HttpServer server;
 
-  /// Each call of `/log/level`: its method, its Authorization header and its body.
-  final calls = <(String, String?, String)>[];
+  /// How it proves the token and checks each request's signature.
+  final signing = SignedPlanner(_token);
+
+  /// Each call of `/log/level` it took, signed: its method and its body.
+  final calls = <(String, String)>[];
 
   /// The level in force.
   String level = 'INFO';
@@ -57,7 +57,7 @@ class _Planner {
     final directory = await Directory('$runtime/porelo-planner').create(recursive: true);
     await Process.run('chmod', ['700', directory.path]);
     final written = File('${directory.path}/planner.json.new');
-    await written.writeAsString(jsonEncode({'port': server.port, 'token': 'token-of-the-test'}));
+    await written.writeAsString(jsonEncode({'port': server.port, 'token': _token}));
     await Process.run('chmod', ['600', written.path]);
     await written.rename('${directory.path}/planner.json');
   }
@@ -66,26 +66,60 @@ class _Planner {
 void main() {
   late Directory runtime;
   late _Planner planner;
+  late Directory logs;
+  late WindowLog before;
 
   setUp(() async {
     runtime = await Directory.systemTemp.createTemp('planner-level-');
     await Process.run('chmod', ['700', runtime.path]);
     planner = await _Planner.start();
     await planner.announce(runtime.path);
+    logs = await Directory.systemTemp.createTemp('planner-level-logs-');
+    before = windowLog;
+    windowLog = WindowLog(logs.path, level: ValueNotifier(LogLevel.debug), keepPrivate: (_) async {});
   });
 
   tearDown(() async {
+    windowLog = before;
     await planner.server.close(force: true);
     await runtime.delete(recursive: true);
+    await logs.delete(recursive: true);
   });
 
   group('the planner is told a level', () {
-    // Harm: the planner's log stays at its own level whatever the person chose, or the token goes elsewhere.
-    test('as PUT /log/level with the token, and the level in force comes back', () async {
+    // Harm: the planner's log stays at its own level whatever the person chose, as a planner that takes only signed
+    // calls refuses a bearer token, or the token travels in a header.
+    test('as a signed PUT /log/level, never with the token, and the level in force comes back', () async {
       final answered = await tellPlannerLevel(LogLevel.debug, runtimeDirectory: runtime.path);
 
       expect(answered, LogLevel.debug);
-      expect(planner.calls.single, ('PUT', 'Bearer token-of-the-test', jsonEncode({'level': 'DEBUG'})));
+      expect(planner.signing.requests, [('PUT', '/log/level', null)], reason: 'no Authorization header');
+      expect(planner.calls.single, ('PUT', jsonEncode({'level': 'DEBUG'})), reason: 'its signature held');
+    });
+
+    // Harm: a listener of another account on the planner's port is told the level and its answer is shown as the
+    // planner's, or it is not said why the planner's log did not follow.
+    test('a listener that does not prove the token is not told the level, and the window\'s log names it', () async {
+      planner.signing.stranger = true;
+
+      await expectLater(
+        tellPlannerLevel(LogLevel.warn, runtimeDirectory: runtime.path),
+        throwsA(isA<PlannerLevelRefused>()),
+      );
+
+      expect(planner.signing.proofs, 1, reason: 'it was asked to prove the token');
+      expect(planner.signing.requests, isEmpty, reason: 'nothing but the proof reached it');
+      final port = planner.server.port;
+      final file = File('${logs.path}/${WindowLog.fileName}');
+      expect(
+        file.existsSync() ? file.readAsStringSync() : '',
+        allOf(
+          contains('proofFailed'),
+          contains('port $port'),
+          contains(PlannerNotProven(PlannerProofFailure.proofFailed, port).logLine),
+          isNot(contains(_token)),
+        ),
+      );
     });
 
     // Harm: a planner older than the level's setting reads as a failure nobody can explain.
@@ -143,7 +177,7 @@ void main() {
     test('a planner found is told the chosen level, and a change is told at once', () async {
       await local.reach();
       await answered();
-      expect(planner.calls.map((call) => call.$3), [
+      expect(planner.calls.map((call) => call.$2), [
         jsonEncode({'level': 'WARN'}),
       ]);
       expect(local.plannerLevel, LogLevel.warn);
@@ -151,7 +185,7 @@ void main() {
       planner.calls.clear();
       level.value = LogLevel.debug;
       await answered();
-      expect(planner.calls.map((call) => call.$3), [
+      expect(planner.calls.map((call) => call.$2), [
         jsonEncode({'level': 'DEBUG'}),
       ]);
       expect(local.plannerLevel, LogLevel.debug);

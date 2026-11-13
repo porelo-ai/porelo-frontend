@@ -16,37 +16,41 @@ import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
 import '../support/planner_process.dart';
+import '../support/signed_planner.dart';
 
-/// A stand-in planner on the loopback address that records every call and answers an empty board.
+/// A stand-in planner on the loopback address that proves and checks the token its address file names, as the planner
+/// does, records every call it took and answers an empty board.
 class _Planner {
   _Planner._(this.server) {
-    server.listen((request) async {
-      final body = await utf8.decodeStream(request);
-      calls.add((request.method, request.uri.path, request.headers.value(HttpHeaders.authorizationHeader), body));
-      final response = request.response;
-      if (request.method == 'PUT') {
-        response.statusCode = HttpStatus.noContent;
-      } else {
-        response.headers.contentType = ContentType.json;
-        response.write(
+    server.listen(
+      (request) => signing.serve(request, (method, path, body) async {
+        calls.add((method, path, body));
+        if (method == 'PUT') return (HttpStatus.noContent, '');
+        return (
+          HttpStatus.ok,
           jsonEncode(
-            request.uri.pathSegments.last == 'workflow'
+            path.endsWith('/workflow')
                 ? {'revision': 'r1', 'states': <Object>[], 'phases': <Object>[]}
                 : {'revision': 'r1', 'stories': <Object>[]},
           ),
         );
-      }
-      await response.close();
-    });
+      }),
+    );
   }
 
   static Future<_Planner> start() async => _Planner._(await HttpServer.bind(InternetAddress.loopbackIPv4, 0));
 
   final HttpServer server;
-  final calls = <(String, String, String?, String)>[];
+
+  /// How it proves the token and checks each request's signature.
+  final signing = SignedPlanner('token-of-the-test');
+
+  /// Each call it took, signed under its token: its method, its path and its body.
+  final calls = <(String, String, String)>[];
 
   /// Writes the address file as the planner does: owner-only, in an owner-only directory, in one step.
   Future<void> announce(String runtime, {String token = 'token-of-the-test', int mode = 384, Object? log}) async {
+    signing.token = token;
     final directory = await Directory('$runtime/porelo-planner').create(recursive: true);
     await Process.run('chmod', ['700', directory.path]);
     // Written beside it and renamed over, so a window looking meanwhile never sees it before its mode is set.
@@ -128,12 +132,8 @@ void main() {
     expect(provider.connected, isTrue);
     expect(provider.projects, ['demo']);
     await provider.source.stories('demo');
-    expect(running.calls.first, (
-      'PUT',
-      '/projects/demo',
-      'Bearer token-of-the-test',
-      jsonEncode({'repository': 'https://example.org/demo.git'}),
-    ));
+    expect(running.calls.first, ('PUT', '/projects/demo', jsonEncode({'repository': 'https://example.org/demo.git'})));
+    expect(running.signing.requests.map((call) => call.$3), everyElement(isNull), reason: 'the token is never sent');
     expect(running.calls.skip(1).map((call) => (call.$1, call.$2)), [
       ('GET', '/projects/demo/workflow'),
       ('GET', '/projects/demo/stories'),
@@ -557,7 +557,7 @@ void main() {
     await local.providers.single.source.stories('demo');
 
     expect(local.notReached, isNull);
-    expect(second.calls.map((call) => call.$3), everyElement('Bearer token-after-the-restart'));
+    expect(second.calls, hasLength(second.signing.requests.length), reason: 'each signed under the new token');
     expect(second.calls.map((call) => call.$2), contains('/projects/demo/stories'));
   });
 
@@ -599,7 +599,8 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
     expect(starts, 1, reason: 'the planner started answers, so no second one is started');
-    expect(second.calls.map((call) => call.$3), everyElement('Bearer token-of-the-new-one'));
+    expect(second.calls, isNotEmpty, reason: 'the planner started was read');
+    expect(second.calls, hasLength(second.signing.requests.length), reason: 'each signed under its token');
   });
 }
 

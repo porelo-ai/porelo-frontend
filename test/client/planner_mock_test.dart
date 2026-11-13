@@ -3,7 +3,6 @@
 @Tags(<String>['linux'])
 library;
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -23,17 +22,9 @@ void main() {
   var repository = 'https://example.org/demo.git';
 
   Future<void> reset() async {
-    final address = jsonDecode(File('${runtime.path}/porelo-planner/planner.json').readAsStringSync()) as Map;
-    final client = HttpClient();
-    try {
-      final request = await client.post('127.0.0.1', address['port'] as int, '/mock/reset');
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${address['token']}');
-      final response = await request.close();
-      await response.drain<void>();
-      expect(response.statusCode, HttpStatus.noContent, reason: 'the mock resets its board between cases');
-    } finally {
-      client.close(force: true);
-    }
+    // Signed as every call to the planner is: it refuses a bearer token.
+    final answer = await callPlanner('POST', const ['mock', 'reset'], runtimeDirectory: runtime.path);
+    expect(answer.status, HttpStatus.noContent, reason: 'the mock resets its board between cases');
   }
 
   setUpAll(() async {

@@ -1,9 +1,8 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:porelo_planning/porelo_planning.dart' show PlannerAddress;
+import 'package:porelo_planning/porelo_planning.dart' show PlannerNotProven, PlanningRefusal;
 
+import 'planner_call.dart';
 import 'window_log.dart';
 
 /// Tells the planner of this account to log at [level] from now on, and answers the level its log is at then.
@@ -24,33 +23,30 @@ class PlannerLevelRefused implements Exception {
 /// The planner's `PUT /log/level`, at the address its `planner.json` under [runtimeDirectory] names: the body
 /// `{"level": ...}`, one of ERROR, WARN, INFO and DEBUG, answered with the level in force.
 ///
-/// Only to the loopback address the address file names, with its token, never through a proxy; an answer is waited
-/// for [within].
+/// Through [callOwnPlanner]: signed under the address file's token, only to a listener that proved it, never through a
+/// proxy; an answer is waited for [within].
 Future<LogLevel> tellPlannerLevel(
   LogLevel level, {
   String? runtimeDirectory,
   Duration within = const Duration(seconds: 10),
 }) async {
-  final address = await PlannerAddress.read(runtimeDirectory: runtimeDirectory);
-  final client = HttpClient()
-    ..connectionTimeout = within
-    ..autoUncompress = false
-    ..findProxy = ((_) => 'DIRECT');
   try {
-    final request = await client.putUrl(address.base.replace(path: '/log/level')).timeout(within);
-    request.headers
-      ..set(HttpHeaders.authorizationHeader, 'Bearer ${address.token}')
-      ..contentType = ContentType.json;
-    request.write(jsonEncode({'level': level.word}));
-    final response = await request.close().timeout(within);
-    final body = await utf8.decodeStream(response.take(64 * 1024)).timeout(within);
-    return plannerLevelAnswered(response.statusCode, body);
-  } on TimeoutException {
-    throw PlannerLevelRefused('the planner did not answer within ${within.inSeconds} s');
-  } on SocketException catch (error) {
-    throw PlannerLevelRefused('the planner could not be reached: ${error.message}');
-  } finally {
-    client.close(force: true);
+    final answer = await callOwnPlanner(
+      'PUT',
+      const ['log', 'level'],
+      json: {'level': level.word},
+      runtimeDirectory: runtimeDirectory,
+      within: within,
+      maxBody: 64 * 1024,
+    );
+    return plannerLevelAnswered(answer.status, utf8.decode(answer.body, allowMalformed: true));
+  } on PlannerNotProven catch (notProven) {
+    throw PlannerLevelRefused(notProven.description);
+  } on PlanningRefusal catch (refusal) {
+    throw switch (refusal.name) {
+      'TimedOut' => PlannerLevelRefused('the planner did not answer within ${within.inSeconds} s'),
+      _ => PlannerLevelRefused('$refusal'),
+    };
   }
 }
 

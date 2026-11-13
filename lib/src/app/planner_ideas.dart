@@ -1,8 +1,9 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:porelo_planning/porelo_planning.dart' show PlannerAddress, PlannerProject, PlannerProjects;
+import 'package:porelo_planning/porelo_planning.dart'
+    show PlannerNotProven, PlannerProject, PlannerProjects, PlanningRefusal;
+
+import 'planner_call.dart';
 
 /// Hands the [idea] a discussion of [offer] wrote in [project] to the planner of this account, and answers the id of
 /// the story it was saved as.
@@ -41,8 +42,9 @@ const mostIdeaBytes = 65536;
 /// A planner that was not given [project] since it started (`NoSuchProject`) is given it, with the repository
 /// [projects] names, as `PUT /projects/{project}`, and is asked once more, as the board's reads do.
 ///
-/// Only to the loopback address the address file names, with its token, never through a proxy; an answer is waited
-/// for [within].
+/// Each request goes through [callOwnPlanner]: signed under the address file's token, only to a listener that proved
+/// it, never through a proxy; an answer is waited for [within]. A listener that does not prove the token gets no idea,
+/// and is not tried again by itself.
 Future<String> handIdea(
   String project,
   String offer,
@@ -51,29 +53,20 @@ Future<String> handIdea(
   PlannerProjects? projects,
   Duration within = const Duration(seconds: 30),
 }) async {
-  final body = utf8.encode(jsonEncode({'offer': offer, 'idea': idea}));
-  if (body.length > mostIdeaBytes) {
+  final body = {'offer': offer, 'idea': idea};
+  if (utf8.encode(jsonEncode(body)).length > mostIdeaBytes) {
     throw const IdeaNotSaved('the idea is larger than the planner takes (64 KiB)');
   }
-  final PlannerAddress address;
-  try {
-    address = await PlannerAddress.read(runtimeDirectory: runtimeDirectory);
-  } on Object {
-    throw const IdeaNotSaved('no planner is running for this account', transient: true);
-  }
-  final client = HttpClient()
-    ..connectionTimeout = within
-    ..autoUncompress = false
-    ..findProxy = ((_) => 'DIRECT');
-  Future<(int, String)> send(String method, List<String> path, List<int> body) async {
-    final request = await client.openUrl(method, address.base.replace(pathSegments: path)).timeout(within);
-    request.headers
-      ..set(HttpHeaders.authorizationHeader, 'Bearer ${address.token}')
-      ..contentType = ContentType.json
-      ..contentLength = body.length;
-    request.add(body);
-    final response = await request.close().timeout(within);
-    return (response.statusCode, await utf8.decodeStream(response.take(256 * 1024)).timeout(within));
+  Future<(int, String)> send(String method, List<String> path, Map<String, Object?> json) async {
+    final answer = await callOwnPlanner(
+      method,
+      path,
+      json: json,
+      runtimeDirectory: runtimeDirectory,
+      within: within,
+      maxBody: 256 * 1024,
+    );
+    return (answer.status, utf8.decode(answer.body, allowMalformed: true));
   }
 
   try {
@@ -86,20 +79,20 @@ Future<String> handIdea(
       } on Object {
         throw IdeaNotSaved('no watched machine names the repository of $project yet', transient: true);
       }
-      final told = await send('PUT', [
-        'projects',
-        project,
-      ], utf8.encode(jsonEncode({'repository': given.repository, 'branch': ?given.branch})));
+      final told = await send('PUT', ['projects', project], {'repository': given.repository, 'branch': ?given.branch});
       if (told.$1 < 200 || told.$1 > 299) return ideaAnswered(told.$1, told.$2);
       (status, answer) = await send('POST', ideas, body);
     }
     return ideaAnswered(status, answer);
-  } on TimeoutException {
-    throw IdeaNotSaved('the planner did not answer within ${within.inSeconds} s', transient: true);
-  } on SocketException catch (error) {
-    throw IdeaNotSaved('the planner could not be reached: ${error.message}', transient: true);
-  } finally {
-    client.close(force: true);
+  } on PlannerNotProven catch (notProven) {
+    throw IdeaNotSaved(notProven.description);
+  } on PlanningRefusal catch (refusal) {
+    throw switch (refusal.name) {
+      'NoAddress' || 'BadAddress' => const IdeaNotSaved('no planner is running for this account', transient: true),
+      'TimedOut' => IdeaNotSaved('the planner did not answer within ${within.inSeconds} s', transient: true),
+      'PlannerUnreachable' => IdeaNotSaved('$refusal', transient: true),
+      _ => IdeaNotSaved('$refusal'),
+    };
   }
 }
 
