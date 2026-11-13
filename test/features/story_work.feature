@@ -69,6 +69,13 @@ Feature: Start and decide story work from the planning board
         When I resolve the story reading with {'REVIEW_ANYWAY'}
         Then story work proves {'reading removed from open attention'}
 
+    # Harm: a stopped reading the person has read cannot be put away, so read rows fill Needs you.
+    Scenario: A stopped reading can be put away
+        Given story work is prepared with {'stopped reading'}
+        When I choose story work {'needs you'}
+        And I choose story work {'put the reading away'}
+        Then story work proves {'reading put away'}
+
     # Harm: an extra reading round is lost or repeated before the board confirms it.
     Scenario: One more round waits for the board echo
         Given story work is prepared with {'stopped reading without echo'}

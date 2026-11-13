@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F482",
   "title": "Every Row In Needs You Can Be Put Away",
-  "state": "Idea",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 4,
@@ -29,11 +29,30 @@ stop has none: it leaves only when the planner stops saying it.
 
 ## Plan
 
-- A reading stop is marked as put away by its issue and the reading round it stopped at, kept in Settings like a story
-  end's mark, so a later stop of the same issue is said again.
-- The mark is dropped once the board, read whole, no longer says that stop, as for a story's end.
-- A row put away is written to the window's log ([F483](README.md#f483)).
+- A stopped reading is put away by the planner's own key for it, `PlanningAttention.putAwayOn`: machine, project,
+  issue, and the reason and state the row showed, so a change of either says it again. The window keeps the set in
+  Settings (`readingsPutAway`), checked field by field, and `Attention` leaves those rows out of *Needs you*.
+- The mark is dropped once the board, live, complete and every story's work read, no longer says that issue, as for
+  a story's end; a board not read yet keeps every mark.
+- `_PlanningRow` in `lib/src/ui/attention_view.dart` offers *Seen* for a stopped reading, as it does for a story's
+  end; putting it away is written to the window's log, as every row put away is.
+- Red first: a model test that puts a reading away and reads it after a restart, and a feature scenario that presses
+  *Seen* on a stopped reading.
 
-## To be checked
+## Decided
 
-- Which key names one reading stop: Planner says whether the board carries a round or an instant for it.
+- The planner's `PlanningBoards.putAway` is not used: its set forgets every row no board says, which at the start of
+  the window is every row, so a row put away would come back at each start. The window keeps the set itself, with its
+  own rule for dropping a mark, and reads the planner's key for a row.
+- The row offers the window's *Seen*, as every other row of *Needs you* does, not the planner view's *Put away*.
+
+## How it was built
+
+- `Settings.readingsPutAway` and `setReadingsPutAway` keep the put-away readings; `Attention.readingSeen` adds one,
+  `Attention` leaves them out of the open rows and drops a mark whose board, read whole, no longer says the issue;
+  `attention_view.dart` offers *Seen* on a stopped reading.
+- Tests: `test/app/planning_attention_test.dart` puts a reading away, reads it after a restart over the same settings
+  store and sees it come back once the issue's state changes; a second test sees the mark kept while the board is not
+  read and dropped once it is, and the next stop said. `test/features/story_work.feature` presses *Seen* on a stopped
+  reading. Each seen red: without the filter, without the stored field, without the pruning, with a board not read
+  whole taken as read, and without the button.

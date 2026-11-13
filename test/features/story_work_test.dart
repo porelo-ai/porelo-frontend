@@ -89,6 +89,13 @@ void main() {
       await iResolveTheStoryReadingWith(tester, 'REVIEW_ANYWAY');
       await storyWorkProves(tester, 'reading removed from open attention');
     });
+    testWidgets('''A stopped reading can be put away''', (tester) async {
+      await bddSetUp(tester);
+      await storyWorkIsPreparedWith(tester, 'stopped reading');
+      await iChooseStoryWork(tester, 'needs you');
+      await iChooseStoryWork(tester, 'put the reading away');
+      await storyWorkProves(tester, 'reading put away');
+    });
     testWidgets('''One more round waits for the board echo''', (tester) async {
       await bddSetUp(tester);
       await storyWorkIsPreparedWith(tester, 'stopped reading without echo');

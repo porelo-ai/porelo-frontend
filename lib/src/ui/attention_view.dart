@@ -249,8 +249,14 @@ extension on _AttentionViewState {
       return _PlanningRow(
         key: ValueKey('attention-row ${row.id}'),
         view: StoryWorkAttentionView(row: planning, machine: row.machine, resolved: resolved),
-        // A story's ended work only informs: it can be seen. A stopped reading asks a decision and cannot.
-        onSeen: resolved || planning.ended == null ? null : () => widget.attention.storyEndSeen(row),
+        // A story's ended work is seen until it ends again; a stopped reading until its reason or state changes.
+        onSeen: resolved
+            ? null
+            : planning.ended != null
+            ? () => widget.attention.storyEndSeen(row)
+            : planning.issue != null
+            ? () => widget.attention.readingSeen(row)
+            : null,
         seenKey: ValueKey<String>('story-seen ${row.id}'),
       );
     }

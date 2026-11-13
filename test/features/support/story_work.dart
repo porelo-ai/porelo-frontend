@@ -230,6 +230,17 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
       await expandListRows(tester);
     case 'needs you':
       await workTap(tester, 'rail attention');
+    case 'put the reading away':
+      final seen = find.byWidgetPredicate(
+        (widget) => switch (widget.key) {
+          ValueKey<String>(:final value) => value.startsWith('story-seen reading '),
+          _ => false,
+        },
+      );
+      expect(seen, findsOneWidget);
+      await tester.ensureVisible(seen);
+      await tester.tap(seen);
+      await World.settle(tester);
     case 'send rework text':
       await workText(tester, 'reading-rework-comment', 'Keep credentials inside the task.');
       await workTap(tester, 'reading-rework-send');
@@ -384,6 +395,12 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
         find.descendant(of: workKey('open-attention'), matching: workKey('reading-resolve B540 REVIEW_ANYWAY')),
         findsNothing,
       );
+    case 'reading put away':
+      expect(
+        find.descendant(of: workKey('open-attention'), matching: find.textContaining('B540 · porelo · reading')),
+        findsNothing,
+      );
+      expect(World.settings.readingsPutAway.map((each) => each.issue), ['B540'], reason: 'kept past a restart');
     case 'decision waits for echo':
       expect(find.text('Waiting for the board to confirm the decision.'), findsOneWidget);
       expect(tester.widget<OutlinedButton>(workKey('reading-resolve B540 ONE_MORE_ROUND')).onPressed, isNull);

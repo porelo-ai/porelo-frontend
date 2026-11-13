@@ -11,7 +11,12 @@ import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/support/world.dart';
 
-Map<String, dynamic> _snapshot(String revision, {bool stopped = false, bool working = false}) => {
+Map<String, dynamic> _snapshot(
+  String revision, {
+  bool stopped = false,
+  bool working = false,
+  String state = 'Building',
+}) => {
   'states': [
     {'name': 'Building', 'kind': 'WORKING'},
     {'name': 'Backlog', 'kind': 'WAITING'},
@@ -23,7 +28,7 @@ Map<String, dynamic> _snapshot(String revision, {bool stopped = false, bool work
       'id': 'story',
       'state': working ? 'Building' : 'Backlog',
       'issues': [
-        {'id': 'item', 'repository': 'repo', 'readingStopped': stopped, 'rounds': 3},
+        {'id': 'item', 'repository': 'repo', 'state': state, 'readingStopped': stopped, 'rounds': 3},
       ],
     },
   ],
@@ -92,7 +97,8 @@ class _Backend extends FakeBackend {
 }
 
 class _Environment {
-  final settings = Settings(MemorySettingsStore());
+  final store = MemorySettingsStore();
+  late final settings = Settings(store);
   final local = FakeBackend([])..theProjectsItHas = [];
   late _Backend active;
   late Machines machines;
@@ -285,5 +291,58 @@ void main() {
     planning.push('demo', {...planning.boards['demo']!, 'revision': 'read again'});
     await _turn();
     expect(env.planningRows, isEmpty, reason: 'both were seen');
+  });
+
+  // Harm: a planner's stopped reading could not be put away, so rows a person had read filled Needs you; or one put
+  // away came back at every start of the window.
+  test('a stopped reading put away stays away past a restart until its state changes', () async {
+    final planning = _Planning(_snapshot('initial', stopped: true));
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    expect(env.planningRows, ['reading builder/demo/item']);
+
+    env.attention.readingSeen(env.attention.openRows.firstWhere((row) => row.kind == AttentionKind.planning));
+    await _turn();
+    expect(env.planningRows, isEmpty, reason: 'put away');
+
+    final reloaded = Settings(env.store);
+    await reloaded.load();
+    final again = Attention(env.machines, reloaded)..planning = env.boards;
+    addTearDown(() {
+      again.dispose();
+      reloaded.dispose();
+    });
+    await _turn();
+    expect(env.rowsOf(again), isEmpty, reason: 'put away stays put away past a restart');
+
+    planning.push('demo', _snapshot('moved', stopped: true, state: 'Review'));
+    await _turn();
+    expect(env.planningRows, ['reading builder/demo/item'], reason: "the issue's state changed");
+    expect(env.rowsOf(again), ['reading builder/demo/item'], reason: 'in the restarted window too');
+  });
+
+  // Harm: a stopped reading put away hid the issue's next stop with the same reason and state, after its board had
+  // stopped saying it; or a board that could not be read forgot what was put away.
+  test('a stopped reading put away is said again once its board stops saying it and says it again', () async {
+    final planning = _Planning(_snapshot('initial', stopped: true));
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    env.attention.readingSeen(env.attention.openRows.firstWhere((row) => row.kind == AttentionKind.planning));
+    await _turn();
+    expect(env.settings.readingsPutAway, hasLength(1), reason: 'kept in the settings');
+
+    final held = _HeldWatch(_snapshot('replaced'));
+    await env.replace(_Backend(held));
+    expect(env.boards.sources.single.live, isFalse);
+    expect(env.settings.readingsPutAway, hasLength(1), reason: 'a board not read yet forgets nothing');
+    held.waiting.add(PlanningSnapshot.from(_snapshot('resumed')));
+    await _turn();
+    expect(env.settings.readingsPutAway, isEmpty, reason: 'the board, read whole, no longer says it');
+
+    held.waiting.add(PlanningSnapshot.from(_snapshot('stopped again', stopped: true)));
+    await _turn();
+    expect(env.planningRows, ['reading builder/demo/item'], reason: 'its next stop is said');
   });
 }

@@ -6,7 +6,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart'
-    show PlanningAttention, PlanningBoard, PlanningBoards, PlanningNeedsYou;
+    show PlanningAttention, PlanningBoard, PlanningBoards, PlanningNeedsYou, PlanningPutAway;
 
 import 'clearance.dart';
 import 'fleet_model.dart';
@@ -291,7 +291,7 @@ class Attention extends ChangeNotifier {
 
   Iterable<AttentionRow> _rows() sync* {
     for (final entry in _planning?.needsYou ?? const <PlanningNeedsYou>[]) {
-      if (_storyEndSeen(entry.id, entry.attention)) continue;
+      if (_storyEndSeen(entry.id, entry.attention) || _readingPutAway(entry.machine, entry.attention)) continue;
       yield AttentionRow(AttentionKind.planning, entry.id, entry.machine, entry.attention);
     }
     // Said here, where it stays while the records are set aside, never on a status line the next connection overwrites.
@@ -481,7 +481,9 @@ class Attention extends ChangeNotifier {
       (row) => row.kind == AttentionKind.planning && !present.contains(row.id),
     )) {
       final value = old.value as PlanningAttention;
-      if (machineNamed(old.machine) == null || _storyEndSeen(old.id, value)) continue;
+      if (machineNamed(old.machine) == null || _storyEndSeen(old.id, value) || _readingPutAway(old.machine, value)) {
+        continue;
+      }
       final source = _planning?.sources
           .where((board) => _planning!.machineOf(board) == old.machine && board.project == value.project)
           .firstOrNull;
@@ -987,6 +989,71 @@ class Attention extends ChangeNotifier {
     return (mark) => !mark.startsWith(_storyEnded) && !listed.contains(mark) && saidItsList.any(mark.startsWith);
   }
 
+  /// Whether the stopped reading [attention] on [machine] was put away with the reason and state it says now.
+  bool _readingPutAway(String machine, PlanningAttention attention) =>
+      attention.ended == null && _readingsPutAway.contains(attention.putAwayOn(machine));
+
+  /// Takes a stopped reading off what needs a person: somebody has seen it. It is said again once its reason or the
+  /// issue's state changes, or once its board, read whole, no longer says it and says it again later.
+  void readingSeen(AttentionRow row) {
+    if (row.kind != AttentionKind.planning) return;
+    final attention = row.value as PlanningAttention;
+    if (attention.ended != null) return;
+    final kept = attention.putAwayOn(row.machine);
+    if (kept == null) return;
+    _putAway(row.id);
+    final settings = _settings;
+    if (settings == null || !_marksRead) {
+      _readingsSession.add(kept);
+      _changed();
+      return;
+    }
+    final gone = _readingGone();
+    unawaited(
+      settings.setReadingsPutAway(<PlanningPutAway>{
+        for (final each in settings.readingsPutAway)
+          if (!gone(each)) each,
+        kept,
+      }),
+    );
+  }
+
+  /// Whether a stopped reading put away names an issue its board no longer says, read whole: live, complete, and
+  /// every story's work read, so a board that cannot be read now keeps what was put away on it.
+  bool Function(PlanningPutAway kept) _readingGone() {
+    final planning = _planning;
+    final raised = <(String, String, String)>{
+      for (final entry in planning?.needsYou ?? const <PlanningNeedsYou>[])
+        if (entry.attention.issue case final issue?) (entry.machine, entry.attention.project, issue.id),
+    };
+    final readWhole = <(String, String)>{
+      for (final board in planning?.sources ?? const <PlanningBoard>[])
+        if (board.live && board.snapshot?.complete == true && board.stories.every(board.endedCurrent))
+          (planning!.machineOf(board), board.project),
+    };
+    return (kept) =>
+        readWhole.contains((kept.machine, kept.project)) && !raised.contains((kept.machine, kept.project, kept.issue));
+  }
+
+  /// Forgets each stopped reading put away whose board, read whole, no longer says it, so its next stop is said.
+  void _forgetReadingsGone(Settings? settings) {
+    final gone = _readingGone();
+    _readingsSession.removeWhere(gone);
+    if (settings == null || !settings.loaded || !settings.readingsPutAway.any(gone)) return;
+    // Not now: this runs while the frame is being drawn, and settings changing would redraw it.
+    scheduleMicrotask(() {
+      if (_disposed) return;
+      final gone = _readingGone();
+      if (!settings.readingsPutAway.any(gone)) return;
+      unawaited(settings.setReadingsPutAway({...settings.readingsPutAway.where((each) => !gone(each))}));
+    });
+  }
+
+  /// Stopped readings put away where no settings keep them, or before they were read.
+  final Set<PlanningPutAway> _readingsSession = <PlanningPutAway>{};
+
+  Set<PlanningPutAway> get _readingsPutAway => <PlanningPutAway>{...?_settings?.readingsPutAway, ..._readingsSession};
+
   /// How the id of a story's ended work begins.
   static const _storyEnded = 'story ended ';
 
@@ -1049,6 +1116,7 @@ class Attention extends ChangeNotifier {
       final storyEndGone = _storyEndGone();
       _endedSession.removeWhere((mark) => taskEndGone(mark) || storyEndGone(mark));
     }
+    if (_readingsSession.isNotEmpty || (settings?.readingsPutAway.isNotEmpty ?? false)) _forgetReadingsGone(settings);
     if (settings != null && settings.loaded && settings.seenSilent.any(gone)) {
       // Not now: this runs while the frame is being drawn, and settings changing would redraw it. Pruned from the
       // marks as they are then, so one set meanwhile is kept.

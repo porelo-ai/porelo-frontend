@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart'
     show HostCardSsh, HostFilesRefused, SecretsFile, PreparedHost, HostPlan, HostPreparationSettings, checkHostName;
+import 'package:porelo_planning/porelo_planning.dart' show PlanningPutAway;
 
 import 'desk.dart';
 import 'host_protocol.dart';
@@ -861,6 +862,10 @@ class Settings extends ChangeNotifier {
     }
     final putAway = stored['endedPutAway'];
     if (putAway is List) _endedPutAway = putAway.whereType<String>().toList();
+    final readings = stored['readingsPutAway'];
+    if (readings is List) {
+      _readingsPutAway = readings.whereType<Map<String, dynamic>>().map(_readingPutAway).nonNulls.toSet();
+    }
     final ranOut = stored['ranOut'];
     if (ranOut is List) {
       _ranOut = ranOut.whereType<Map<String, dynamic>>().map(RanOutQuestion.fromStored).nonNulls.toList();
@@ -1586,6 +1591,27 @@ class Settings extends ChangeNotifier {
   Set<String> get endedPutAway => Set<String>.unmodifiable(_endedPutAway);
   List<String> _endedPutAway = const <String>[];
 
+  /// The stopped readings of a planner somebody put away in *Needs you*, each by its machine, project, issue and the
+  /// reason and state it was put away with, so it comes back once either changes.
+  Set<PlanningPutAway> get readingsPutAway => Set<PlanningPutAway>.unmodifiable(_readingsPutAway);
+  Set<PlanningPutAway> _readingsPutAway = const <PlanningPutAway>{};
+
+  /// Keeps which stopped readings somebody has put away.
+  Future<void> setReadingsPutAway(Set<PlanningPutAway> readings) async {
+    _readingsPutAway = Set<PlanningPutAway>.of(readings);
+    notifyListeners();
+    await _write();
+  }
+
+  static PlanningPutAway? _readingPutAway(Map<String, dynamic> stored) {
+    final (machine, project, issue) = (stored['machine'], stored['project'], stored['issue']);
+    final (reason, state) = (stored['reason'], stored['state']);
+    if (machine is! String || project is! String || issue is! String || reason is! String || state is! String) {
+      return null;
+    }
+    return PlanningPutAway(machine: machine, project: project, issue: issue, reason: reason, state: state);
+  }
+
   /// Questions that ran out with nobody answering, the seen ones kept so a machine saying one again does not
   /// bring it back.
   List<RanOutQuestion> get ranOut => List<RanOutQuestion>.unmodifiable(_ranOut);
@@ -1766,6 +1792,16 @@ class Settings extends ChangeNotifier {
     ],
     'seenSilent': _seenSilent,
     'endedPutAway': _endedPutAway,
+    'readingsPutAway': <Map<String, String>>[
+      for (final each in _readingsPutAway)
+        <String, String>{
+          'machine': each.machine,
+          'project': each.project,
+          'issue': each.issue,
+          'reason': each.reason,
+          'state': each.state,
+        },
+    ],
     'explanationsSeen': _explanationsSeen,
     'ranOut': [for (final each in _ranOut) each.stored],
     'place': _place,
