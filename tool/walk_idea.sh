@@ -895,8 +895,8 @@ sys.stdout.write(re.sub(r"(?m)^mail:\n(?:[ \t].*\n?|\n)*", "", text))' "$work/ap
 # before a `Restore the tree before the walk` one is such a walk's, and its parent the template as it was before it.
 # shellcheck disable=SC2016 # expanded on the VM, not here
 before_a_walk() {
-    printf '%s' "b=\$(git -C $1 log --first-parent --format='%H %s' | awk '/ Restore the tree before the walk / {exit} / Seed the walk / {print \$1; exit}')
-            if [ -n \"\$b\" ]; then git -C $1 checkout -q --detach \"\$b^\"
+    printf '%s' "b=\$(git -C $1 log --first-parent --format='%H %s' | awk '!d && /^[0-9a-f]+ Restore the tree before the walk / {d=1} !d && /^[0-9a-f]+ Seed the walk / {print \$1; d=1}')
+            if [ -n \"\$b\" ] && git -C $1 rev-parse -q --verify \"\$b^\" >/dev/null; then git -C $1 checkout -q --detach \"\$b^\"
                 echo \"walk: $2 is seeded by a walk not over yet; taken as before it, at \$(git -C $1 rev-parse HEAD)\" >&2; fi"
 }
 
