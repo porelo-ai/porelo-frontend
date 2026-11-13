@@ -13,7 +13,7 @@ work:
     blocked: Reworking
     per: repository
     modes: [UNATTENDED]
-    order: "Read {tasks}. Read every test of the repository as well: a test that cannot pass as it is written is a blocking finding, named with its file and line."
+    order: "Read {tasks}. Read every test of the repository as well: a test that cannot pass as it is written is a blocking finding, named with its file and its one line number. Give every finding one line number or -, never a range."
     models: {pi: z-ai/glm-5.3-flash}
   Reworking:
     from: [Reading]
