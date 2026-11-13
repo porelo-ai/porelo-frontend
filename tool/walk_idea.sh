@@ -313,8 +313,9 @@ github() {
 # repository, each noted repository's tree as at its T0, the forge's
 # token and its declaration, porelod's agent put back, the run's copy.
 porelo_commit='' swapped='' pointed='' agent_before='' holder='' central_match='' vault='' declared='' taken='' planned=''
-# The tasks of the porelo project porelod listed before the window's part began: never the run's.
-before_tasks=''
+# The tasks of the porelo project porelod listed before the run began: never the run's. Only once that list was taken
+# (before_known) is any task porelod lists counted as the run's.
+before_tasks='' before_known=''
 # Each noted repository's default branch and its tip at T0, by name; only a noted one is restored.
 declare -A branch_of=() t0_of=()
 left=()
@@ -355,9 +356,11 @@ cleanup() {
     local tasks='' listed='' each
     # The tasks the window noted, and every task of the project porelod lists now that was not there before the
     # window's part: one the window started after it last looked, such as a reader of a rework, or in a resume.
-    for each in $(project_tasks); do
-        case " $before_tasks " in *" $each "*) ;; *) listed+="$each " ;; esac
-    done
+    if [ -n "$before_known" ]; then
+        for each in $(project_tasks); do
+            case " $before_tasks " in *" $each "*) ;; *) listed+="$each " ;; esac
+        done
+    fi
     tasks=$({ on_vm "cat ~/$run/tasks.txt 2>/dev/null" </dev/null || true; printf '%s\n' "$listed"; } | tr ' ' '\n' |
         grep -Ex '[A-Za-z0-9][A-Za-z0-9._-]{2,}' | sort -u || true)
     if [ -n "$taken" ]; then
@@ -623,6 +626,10 @@ if [ "$mode" = clean ] && [ "$(on_vm "if [ -d ~/$run ]; then echo kept; else ech
     rm -rf "$work"
     exit 0
 fi
+if [ "$mode" = run ]; then
+    before_tasks=$(project_tasks | tr '\n' ' ')
+    before_known=yes
+fi
 trap cleanup EXIT
 [ "$mode" != clean ] || exit 0
 
@@ -823,9 +830,8 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
         esac
     fi
 
-    before_tasks=$(project_tasks | tr '\n' ' ')
     # What a resume or a clean takes the run up with.
-    declare -p before_tasks test vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
+    declare -p before_tasks before_known test vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
         declared pointed agent_before swapped porelo_commit taken planned branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
 fi
 
