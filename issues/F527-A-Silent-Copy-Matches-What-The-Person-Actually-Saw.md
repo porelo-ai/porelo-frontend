@@ -11,7 +11,7 @@
   "rank": 99,
   "blockedBy": [],
   "covers": "A task's silent clipboard write matches the text the person saw and dragged, not text the task hid in its buffer or repainted under the gesture; or no task write is silent.",
-  "openQuestions": 1
+  "openQuestions": 0
 }
 ```
 
@@ -103,10 +103,13 @@ task did to the screen during or right after the gesture to make a different tex
   today's silent path.
 - A write from tmux's copy mode, the person's own copy keys and the paste keys behave as today.
 
-## Open questions
+## Decided
 
-- Keep a silent path at all, made to match what was drawn with a settle time and the staged write accepted as a risk,
-  or ask about every copy a task makes, as recommended?
+- Answered by the coordinator in the night of 2026-11-13, for the operator: no silent path. Every copy a task makes is
+  asked about in the bar. Reason: the silent path applies only when the task does not hear the mouse, so no program in
+  it knows what was dragged and a matching write is a guess, which is the staged write no read can tell apart; dropping
+  it is the safer and the smaller change. The operator can still ask for the kept path, matched to what was drawn, in
+  the morning.
 
 ## To be checked
 

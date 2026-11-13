@@ -77,7 +77,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f527"></a>[F527](F527-A-Silent-Copy-Matches-What-The-Person-Actually-Saw.md) | S | - | A task's silent clipboard write matches the text the person saw and dragged, not text the task hid in its buffer or repainted under the gesture; or no task write is silent. | 1 |
+| <a id="f527"></a>[F527](F527-A-Silent-Copy-Matches-What-The-Person-Actually-Saw.md) | S | - | A task's silent clipboard write matches the text the person saw and dragged, not text the task hid in its buffer or repainted under the gesture; or no task write is silent. | 0 |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | - | Windows notifications from the MSIX's identity. | - |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | - | A fine-grained token waiting for an organisation's approval said as waiting. | - |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | - | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | - |
