@@ -599,7 +599,11 @@ github() {
 
 # Whether the organization, read anew, lists the porelo project: yes, no, or nothing where it cannot be asked.
 in_the_organization() {
-    as_the_person_on_vm "${in_vault:-}porelo org --json --refresh" </dev/null 2>/dev/null | python3 -I -c 'import json, sys
+    local with=''
+    # The run's vault once it has one, also where a project still placed moved it beside the run.
+    [ -z "${in_vault:-}" ] ||
+        with="v=\$HOME/$run/vault/vault.bin; [ -f \$v ] || v=\$HOME/$run.vault/vault.bin; PORELO_VAULT=\$v "
+    as_the_person_on_vm "${with}porelo org --json --refresh" </dev/null 2>/dev/null | python3 -I -c 'import json, sys
 print("yes" if any(p.get("project") == sys.argv[1] for p in json.load(sys.stdin)["projects"]) else "no")' "$porelo_project" ||
         true
 }
@@ -752,11 +756,23 @@ cleanup() {
     if [ -n "$org_added" ]; then
         case $(in_the_organization) in
         yes)
-            if as_the_person_on_vm "${in_vault:-}porelo org project remove --id '$name-org-remove' '$porelo_project'" \
-                </dev/null >/dev/null 2>&1; then
+            # With the run's forge token, which the organization is read with: from the run's vault, also where a
+            # project still placed moved it beside the run, and while the declaration naming it stands. Asked again
+            # under the same id, which answers a change made already, before it is given up.
+            local said='' try removed=''
+            for try in 1 2 3; do
+                if said=$(as_the_person_on_vm "v=\$HOME/$run/vault/vault.bin; [ -f \$v ] || v=\$HOME/$run.vault/vault.bin
+                    PORELO_VAULT=\$v porelo org project remove --id '$name-org-remove' '$porelo_project' 2>&1" </dev/null); then
+                    removed=yes
+                    break
+                fi
+                [ "$try" = 3 ] || sleep 10
+            done
+            if [ -n "$removed" ]; then
                 echo "walk: $porelo_project is taken out of the organization" >&2
             else
-                left+=("$porelo_project in the organization (porelo org project remove $porelo_project, as the test person on $vm)")
+                left+=("$porelo_project in the organization, which said: $(printf '%s' "$said" | tr -s '\n' ' ' | cut -c1-300)" \
+                    "(porelo org project remove $porelo_project, as the test person on $vm with the forge token declared)")
             fi
             ;;
         no) ;;
