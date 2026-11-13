@@ -113,7 +113,7 @@ class MachineDetailsPage extends StatelessWidget {
           machines.tunnels.of(machine)?.words ??
               // An organization's machine has a second connection, the one work starts through, said on its page:
               // this one is the window's to the machine's Porelo, and says so.
-              (machines.of(machine).reachability == Reachability.connected
+              (machines.watching(machine)?.reachability == Reachability.connected
                   ? (machine.hostCard == null ? 'Connected' : 'This window reaches its Porelo')
                   : (machine.hostCard == null
                         ? 'Not connected; last known state'

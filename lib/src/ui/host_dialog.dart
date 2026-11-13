@@ -610,7 +610,7 @@ class _HostDialogState extends State<HostDialog> {
   List<({String project, String repository, String words})> _daemonCentralBlockers(String host) => [
     for (final machine in widget.machines.all)
       if (machine.hostCard?.name == host)
-        for (final project in widget.machines.of(machine).projects)
+        for (final project in widget.machines.watching(machine)?.projects ?? const <Never>[])
           for (final repository in project.project.repositoryStates)
             if (repository.carriedHere != false &&
                 repository.central != null &&

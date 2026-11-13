@@ -329,7 +329,7 @@ class _WorkPageState extends State<WorkPage> {
       for (final machine in widget.attention.machinesOnce) {
         if (widget.onlyMachine != null && machine != widget.onlyMachine) continue;
         // A machine not answering has nothing to say, and each call would wait for that.
-        if (widget.machines.of(machine).reachability != Reachability.connected) continue;
+        if (widget.machines.watching(machine)?.reachability != Reachability.connected) continue;
         for (final tile in widget.attention.tilesOn(machine)) {
           final task = tile.task;
           if (task == null || !task.running || task.mode == Mode.unattended) continue;
@@ -361,12 +361,13 @@ class _WorkPageState extends State<WorkPage> {
   /// on the work once there is some.
   Widget _firstSteps(BuildContext context) {
     final machineReady = widget.machines.all.any(
-      (each) => widget.machines.of(each).reachability == Reachability.connected,
+      (each) => widget.machines.watching(each)?.reachability == Reachability.connected,
     );
     final projectReady =
         _withoutAProject ||
         widget.machines.all.any(
-          (each) => widget.machines.of(each).projects.any((project) => project.name != defaultProject),
+          (each) =>
+              (widget.machines.watching(each)?.projects ?? const []).any((project) => project.name != defaultProject),
         );
     Widget step(int number, String key, String title, String says, bool done, bool open, List<Widget> actions) => Card(
       key: ValueKey<String>('first-step $key'),
@@ -449,7 +450,7 @@ class _WorkPageState extends State<WorkPage> {
     listenable: Listenable.merge(<Listenable>[
       widget.attention,
       _view,
-      for (final machine in widget.machines.all) widget.machines.of(machine),
+      for (final machine in widget.machines.all) ?widget.machines.watching(machine),
     ]),
     builder: (context, _) => _build(context),
   );
@@ -626,9 +627,10 @@ class _WorkPageState extends State<WorkPage> {
         ClaimedDefaultRows(
           machines: [
             for (final machine in widget.machines.all)
-              if ((widget.onlyMachine == null || machine == widget.onlyMachine) &&
-                  widget.machines.of(machine).reachability == Reachability.connected)
-                (name: machine.name, backend: widget.machines.of(machine).backend),
+              if (widget.onlyMachine == null || machine == widget.onlyMachine)
+                if (widget.machines.watching(machine) case final fleet?
+                    when fleet.reachability == Reachability.connected)
+                  (name: machine.name, backend: fleet.backend),
           ],
         ),
         if (tiles.isEmpty && widget.onlyMachine == null)

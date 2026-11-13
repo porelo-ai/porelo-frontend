@@ -1170,8 +1170,9 @@ class Attention extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The model of one machine, for a row's machine: rows are worked out from watched machines alone.
-  FleetModel fleetOf(Machine machine) => _machines.of(machine);
+  /// The model of a row's machine while it is watched: rows are worked out from watched machines, and a row kept as
+  /// seen can outlast the fleet it came from, as while its machine reconnects.
+  FleetModel? fleetOf(Machine machine) => _machines.watching(machine);
 
   /// The model of [machine] while it is watched; one listed and not opened yet answers nothing.
   FleetModel? _fleet(Machine machine) => _machines.watching(machine);

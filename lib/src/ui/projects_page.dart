@@ -67,10 +67,10 @@ class ProjectsPage extends StatelessWidget {
           storageId: 'projects',
           leaf: true,
           titleInAppBar: title == 'My projects',
-          read: machines.all.any((machine) => machines.of(machine).listRead),
+          read: machines.all.any((machine) => machines.watching(machine)?.listRead ?? false),
           path: path,
           pathKeys: const {'My projects': Key('projects-of-organization')},
-          subtitle: machines.all.any((machine) => machines.of(machine).listRead)
+          subtitle: machines.all.any((machine) => machines.watching(machine)?.listRead ?? false)
               ? '${counted(rows.length, 'project', 'projects')} on '
                     '${counted(listedMachines(machines).length, 'machine', 'machines')}'
               : 'not read',
@@ -110,9 +110,10 @@ Widget projectListRow({
   final isDefault = project.name == defaultProject;
   final identity = '${machine.name}/${project.name}';
   final watched = machines.all.contains(machine);
-  final connected = watched && machines.of(machine).reachability == Reachability.connected;
+  final connected = watched && machines.watching(machine)?.reachability == Reachability.connected;
   final tunnel = watched ? machines.tunnels.of(machine) : null;
-  final selected = watched && machines.current == machine && machines.of(machine).selectedProject?.name == project.name;
+  final selected =
+      watched && machines.current == machine && machines.watching(machine)?.selectedProject?.name == project.name;
 
   final menu = isDefault ? commands.where((command) => command.id == 'work.start').toList() : commands;
   return ItemListRow(

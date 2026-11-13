@@ -131,10 +131,13 @@ class _RunningViewState extends State<RunningView> {
               !_view.startedTasks.containsKey((machine.name, tile.task!.name)),
         ),
       );
+      // A machine reconnecting has no fleet to show its started work on: its tabs come back with it.
+      final fleet = widget.machines.watching(machine);
+      if (fleet == null) continue;
       for (final entry in _view.startedTasks.entries.where(
         (entry) => entry.key.$1 == machine.name && entry.value.name.isNotEmpty && entry.value.running,
       )) {
-        tabs.add(Tile(machine: machine, fleet: widget.machines.of(machine), demand: Demand.unseen, task: entry.value));
+        tabs.add(Tile(machine: machine, fleet: fleet, demand: Demand.unseen, task: entry.value));
       }
     }
     return tabs..sort((a, b) {
@@ -285,7 +288,7 @@ class _RunningViewState extends State<RunningView> {
       widget.attention,
       _view,
       widget.sessions,
-      for (final machine in widget.machines.all) widget.machines.of(machine),
+      for (final machine in widget.machines.all) ?widget.machines.watching(machine),
     ]),
     builder: (context, _) {
       final tabs = _tabs();

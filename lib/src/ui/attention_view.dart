@@ -376,32 +376,39 @@ extension on _AttentionViewState {
         title = HeldMessageRow.headline(each.message);
         state = each.message.standing;
         icon = Icons.mail_outline;
-        open = () => unawaited(
-          showDialog<void>(
-            context: context,
-            builder: (_) => HeldMessageDialog(
-              fleet: attention.fleetOf(each.machine),
-              message: each.message,
-              readOnly: resolved,
-              initialRead: row.read,
-              onRead: resolved ? null : (read) => attention.messageRead(each.machine, each.message, read),
+        // A machine reconnecting has no fleet to read the message from: the row opens its details until it answers.
+        final fleet = attention.fleetOf(each.machine);
+        if (fleet != null) {
+          open = () => unawaited(
+            showDialog<void>(
+              context: context,
+              builder: (_) => HeldMessageDialog(
+                fleet: fleet,
+                message: each.message,
+                readOnly: resolved,
+                initialRead: row.read,
+                onRead: resolved ? null : (read) => attention.messageRead(each.machine, each.message, read),
+              ),
             ),
-          ),
+          );
+        }
+        primary = readAttentionMessageCommand(
+          message: each.message,
+          run: open,
+          unavailable: reason ?? (fleet == null ? notWatchedYet : null),
         );
-        primary = readAttentionMessageCommand(message: each.message, run: open, unavailable: reason);
       case AttentionKind.authorization:
         final each = row.value as ({Machine machine, AuthorizationNeeded needed});
         title = AuthorizationRow.headline(each.needed);
         state = 'Grant needed';
         icon = Icons.verified_user_outlined;
+        final fleet = attention.fleetOf(each.machine);
         primary = grantAttentionCommand(
-          run: () => unawaited(
-            showGranting(
-              context,
-              Granting(attention.fleetOf(each.machine).backend, each.machine, each.needed.credential),
-            ),
-          ),
-          unavailable: reason,
+          run: () {
+            if (fleet == null) return;
+            unawaited(showGranting(context, Granting(fleet.backend, each.machine, each.needed.credential)));
+          },
+          unavailable: reason ?? (fleet == null ? notWatchedYet : null),
         );
       case AttentionKind.pullRequest:
         final each = row.value as PullRequestRow;
@@ -487,9 +494,10 @@ extension on _AttentionViewState {
         title = 'Dropped questions';
         state = '${each.count} unseen';
         icon = Icons.help_outline;
+        final fleet = attention.fleetOf(each.machine);
         primary = missedQuestionsSeenCommand(
-          run: attention.fleetOf(each.machine).clearance.missedSeen,
-          unavailable: reason,
+          run: () => fleet?.clearance.missedSeen(),
+          unavailable: reason ?? (fleet == null ? notWatchedYet : null),
         );
     }
     final navigation = listOpenCommand(label: 'Open details', home: Home.attentionRow, open: open);
@@ -712,9 +720,11 @@ extension on _AttentionViewState {
         );
       case AttentionKind.message:
         final each = row.value as ({Machine machine, HeldMessage message});
+        final fleet = attention.fleetOf(each.machine);
+        if (fleet == null) return _NotWatchedYet(each.machine);
         return HeldMessageRow(
           machine: each.machine,
-          fleet: attention.fleetOf(each.machine),
+          fleet: fleet,
           message: each.message,
           resolved: resolved,
           read: row.read,
@@ -722,12 +732,9 @@ extension on _AttentionViewState {
         );
       case AttentionKind.authorization:
         final each = row.value as ({Machine machine, AuthorizationNeeded needed});
-        return AuthorizationRow(
-          machine: each.machine,
-          fleet: attention.fleetOf(each.machine),
-          needed: each.needed,
-          resolved: resolved,
-        );
+        final fleet = attention.fleetOf(each.machine);
+        if (fleet == null) return _NotWatchedYet(each.machine);
+        return AuthorizationRow(machine: each.machine, fleet: fleet, needed: each.needed, resolved: resolved);
       case AttentionKind.pullRequest:
         final each = row.value as PullRequestRow;
         final request = each.request;
@@ -804,7 +811,7 @@ extension on _AttentionViewState {
         return _MissedQuestions(
           machine: each.machine,
           count: each.count,
-          onSeen: resolved ? null : attention.fleetOf(each.machine).clearance.missedSeen,
+          onSeen: resolved ? null : attention.fleetOf(each.machine)?.clearance.missedSeen,
         );
     }
   }
@@ -1143,6 +1150,29 @@ class _RowsCard extends StatelessWidget {
 }
 
 /// A machine that is not answering, said about the machine: it is not work, so it is not a tile.
+/// A row whose machine is listed and not watched yet, as while it reconnects: what the row holds is read once it
+/// answers.
+class _NotWatchedYet extends StatelessWidget {
+  const _NotWatchedYet(this.machine);
+
+  final Machine machine;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    key: ValueKey('row-not-watched-yet ${machine.name}'),
+    child: Padding(
+      padding: const EdgeInsets.all(Space.normal),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${machine.name} is not answering yet: it is being opened. This row is read once it answers.'),
+          NeedsMachine(machine.name),
+        ],
+      ),
+    ),
+  );
+}
+
 class _MachineNotice extends StatelessWidget {
   const _MachineNotice({required this.machine, required this.words, required this.retry, required this.onSeen});
 

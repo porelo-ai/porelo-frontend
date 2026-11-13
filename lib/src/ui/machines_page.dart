@@ -145,7 +145,7 @@ class MachinesPage extends StatelessWidget {
 
   Widget _row(BuildContext context, Machine machine) {
     final watched = machines.all.contains(machine);
-    final fleet = watched ? machines.of(machine) : null;
+    final fleet = watched ? machines.watching(machine) : null;
     final tunnel = watched ? machines.tunnels.of(machine) : null;
     void open() => onDetails(machine);
 
