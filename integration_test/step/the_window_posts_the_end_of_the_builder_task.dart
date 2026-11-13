@@ -44,7 +44,13 @@ Future<void> theWindowPostsTheEndOfTheBuilderTask(WidgetTester tester) =>
           );
         }
       }
+      // The builder's end raises nothing. A quick reader may have read its issue already, and its blocking findings
+      // are the reading's, which a later step reads.
       for (final issue in Walk.issues) {
+        if (await probeHolds(['attention', issue.id, 'BLOCKING_FINDINGS'])) {
+          noteStep('   ${issue.id} was read already and its reading stopped on blocking findings');
+          continue;
+        }
         await probe(['attention', issue.id, 'NONE']);
       }
     });
