@@ -212,8 +212,26 @@ Future<ProcessResult> _probe(List<String> check) async {
       'XDG_RUNTIME_DIR': await theAccountsRuntime(),
     },
   );
-  _logProbe(check, ran);
-  return ran;
+  // Blanked before anything reads it: what the probe printed reaches the probe log, the steps, a failure's words and
+  // the test's output.
+  final blanked = ProcessResult(
+    ran.pid,
+    ran.exitCode,
+    withoutSecrets('${ran.stdout}'),
+    withoutSecrets('${ran.stderr}'),
+  );
+  _logProbe(check, blanked);
+  return blanked;
+}
+
+/// [text] with every secret the walk may come by blanked to `<token>`: the planner's bearer token, a forge token of the
+/// window's environment and the provider's key where its file can be read here. The driver blanks its own forge token
+/// and the provider key once more in every file it brings back.
+String withoutSecrets(String text) {
+  for (final secret in _secrets()) {
+    text = text.replaceAll(secret, '<token>');
+  }
+  return text;
 }
 
 /// Writes one call of the probe into the run's probe log, `PORELO_WALK_PROBE_LOG`: when, what was asked, its exit code
@@ -223,10 +241,7 @@ void _logProbe(List<String> check, ProcessResult ran) {
   final into = Platform.environment['PORELO_WALK_PROBE_LOG'] ?? '';
   if (into.isEmpty) return;
   String said(Object? output) {
-    var text = '$output'.trimRight();
-    for (final token in _tokens()) {
-      text = text.replaceAll(token, '<token>');
-    }
+    final text = '$output'.trimRight();
     return text.isEmpty ? '' : text.replaceAll(RegExp('^', multiLine: true), '    ');
   }
 
@@ -241,12 +256,23 @@ void _logProbe(List<String> check, ProcessResult ran) {
   );
 }
 
-/// The tokens the probe's output could carry: the planner's bearer token and a forge token of the environment.
-List<String> _tokens() {
+/// The secrets a probe's output could carry: the planner's bearer token, a forge token of the environment, and the
+/// provider's key, read from its file where the walk names one this window can read.
+List<String> _secrets() {
   final tokens = <String>[
-    for (final name in ['PLANNER_TOKEN', 'PORELO_FORGE_TOKEN'])
+    for (final name in ['PLANNER_TOKEN', 'PORELO_FORGE_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN'])
       if ((Platform.environment[name] ?? '').length >= 8) Platform.environment[name]!,
   ];
+  for (final name in ['WALK_PROVIDER_KEY_FILE', 'PORELO_WALK_PROVIDER_KEY_FILE']) {
+    final file = Platform.environment[name] ?? '';
+    if (file.isEmpty) continue;
+    try {
+      final key = File(file).readAsStringSync().trim();
+      if (key.length >= 8) tokens.add(key);
+    } on FileSystemException {
+      // Not readable here: the driver blanks it in what it brings back.
+    }
+  }
   try {
     final address = jsonDecode(File(plannerAddressFile()).readAsStringSync());
     if (address case {'token': final String token} when token.length >= 8) tokens.add(token);
@@ -256,17 +282,36 @@ List<String> _tokens() {
   return tokens;
 }
 
-/// The commit the builder in [container] landed its work as: from porelo's row of the task, where it names one, else
-/// from porelo's event log on this machine, the last accepted push that arrived at the task's gate. Null where neither
-/// names one.
-Future<String?> theLandedCommitOf(String container) async {
+/// The issue of the second issue repository, which the moving-on story's seed gives a fault its reader blocks on; fails
+/// where the walk was given fewer than two issue repositories.
+({String id, String repository, String state}) theSecondIssue() {
+  final repositories = Walk.issueRepositories;
+  if (repositories.length < 2) {
+    fail(
+      'this story needs two issue repositories, the second seeded with a fault; the walk names ${repositories.join(', ')}',
+    );
+  }
+  return Walk.issues.firstWhere(
+    (each) => each.repository == repositories[1],
+    orElse: () => fail('asked the story for the issue of ${repositories[1]}; it holds none'),
+  );
+}
+
+/// The commit the builder in [container] landed its work in [repository] as: from porelo's row of the task, where it
+/// names one, else from porelo's event log on this machine, the last accepted push of this run's project that arrived
+/// at that task's gate since the run began. Never the repository's tip at the run's start, the seed's: null where
+/// neither names another.
+Future<String?> theLandedCommitOf(String container, String repository) async {
+  final seeded = Walk.issueHeadOf(repository);
+  bool builders(String commit) => _fullCommit.hasMatch(commit) && commit != seeded;
   final row = (await theProjectsTasks()).where((each) => theContainerOf(each) == container).firstOrNull;
   final landed = row?['landed'];
   if (landed is List) {
     for (final entry in landed.reversed) {
-      if (entry case {'commit': final String commit} when _fullCommit.hasMatch(commit)) return commit;
+      if (entry case {'commit': final String commit} when builders(commit)) return commit;
     }
   }
+  final began = DateTime.parse(Walk.since);
   final state = Platform.environment['XDG_STATE_HOME'] ?? '${Platform.environment['HOME']}/.local/state';
   final events = File('$state/porelo/events.jsonl');
   if (!events.existsSync()) return null;
@@ -278,10 +323,17 @@ Future<String?> theLandedCommitOf(String container) async {
     } on FormatException {
       continue;
     }
-    if (event case {'kind': 'arrived', 'task': final String task, 'detail': final String detail}
-        when task == container) {
+    if (event
+        case {
+          'kind': 'arrived',
+          'at': final String at,
+          'project': final String project,
+          'task': final String task,
+          'detail': final String detail,
+        }
+        when task == container && project == Walk.poreloProject && !(DateTime.tryParse(at)?.isBefore(began) ?? true)) {
       final arrived = RegExp(r'^[0-9a-f]+\.\.([0-9a-f]{40,64}) arrived .*: accepted$').firstMatch(detail);
-      if (arrived != null) commit = arrived.group(1);
+      if (arrived != null && builders(arrived.group(1)!)) commit = arrived.group(1);
     }
   }
   return commit;
@@ -296,8 +348,13 @@ Future<void> theForgeHoldsTheLandedCommits() async {
   for (final builder in Walk.builders) {
     final repository = '${(await theTask(builder))['repository'] ?? ''}';
     if (repository.isEmpty) fail('asked porelo for the repository $builder works in; it names none');
-    final commit = await theLandedCommitOf(builder);
-    if (commit == null) fail("asked porelo's row and event log for the commit $builder landed; neither names one");
+    final commit = await theLandedCommitOf(builder, repository);
+    if (commit == null) {
+      fail(
+        "asked porelo's row and this run's event log for the commit $builder landed in $repository, other than its "
+        'tip at the start; neither names one',
+      );
+    }
     final check = ['forge-commit', Walk.urlOf(repository), commit];
     final ran = await _probe(check);
     final said = '${ran.stderr}${ran.stdout}';

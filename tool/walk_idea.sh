@@ -856,6 +856,28 @@ as_the_person_on_vm \
 # The steps and pictures, before the run's copy is taken away; a run taken up again adds its steps to the earlier ones.
 on_vm "cat ~/$run/steps.txt 2>/dev/null" </dev/null >"$report/steps.txt" || true
 on_vm "cat ~/$run/probe.log 2>/dev/null" </dev/null >"$report/probe.log" || true
+# What came back is blanked of the run's forge token and the provider's key wherever it may show: the token goes in on
+# standard input, the key is read from its file, neither reaches a command line.
+printf '%s' "${token:-}" | python3 -I -c '
+import sys
+secrets = [sys.stdin.read().strip()]
+try:
+    secrets.append(open(sys.argv[1]).read().strip())
+except OSError:
+    pass
+secrets = [each for each in secrets if len(each) >= 8]
+for path in sys.argv[2:]:
+    try:
+        text = open(path, encoding="utf-8", errors="surrogateescape").read()
+    except OSError:
+        continue
+    blanked = text
+    for each in secrets:
+        blanked = blanked.replace(each, "<token>")
+    if blanked != text:
+        open(path, "w", encoding="utf-8", errors="surrogateescape").write(blanked)
+' "${WALK_PROVIDER_KEY_FILE:-/nonexistent}" "$report/steps.txt" "$report/probe.log" "$report/run.log" "$report/results.json" ||
+    echo "walk: the report could not be blanked of the run's secrets" >&2
 tail -n +"$((steps_before + 1))" "$report/steps.txt" >"$work/these-steps"
 if on_vm "[ -d ~/$run/pictures ]" </dev/null; then on_vm "tar -C ~/$run -c pictures" </dev/null | tar -x -C "$report" || true; fi
 [ "$status" -ne 124 ] || echo "walk: the window's part ran out its $budget minutes and was stopped" | tee -a "$report/run.log" >&2
