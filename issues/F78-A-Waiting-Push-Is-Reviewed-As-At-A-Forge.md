@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F78",
   "title": "A Waiting Push Is Reviewed As At A Forge",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
   "rank": 5,

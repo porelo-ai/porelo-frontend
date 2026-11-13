@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F107",
   "title": "Code Comments In The Review",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 6,
