@@ -52,6 +52,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A task started for a planner's offer is told to the planner as started once its agent runs, no longer when the agent's run ends, so the next offer of the story starts at once instead of waiting on a builder that works for half an hour.
 - While a machine reconnects, or a host's card is replaced, the window no longer shows an error in place of its pages: that machine shows as not answering yet until it is watched again, and a reconnect whose connection could not be taken down leaves the machine connected as it was.
 - An ended discussion whose idea was handed in stays on its machine while the machine's listing still holds back ideas it proposed, so those ideas are not removed with it before the planner has them.
 - On Windows the planning board finds porelo-planner's address file where the planner itself writes it.

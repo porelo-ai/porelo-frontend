@@ -152,6 +152,39 @@ void main() {
 
       expect((answer.container, answer.exitCode), ('porelo-demo_porelo-2', 0));
     });
+
+    // Harm: a start refused before its agent runs is told to the planner as started, with a container the machine
+    // lists meanwhile, or loses the words the machine gave for the refusal.
+    test('a refusal before the agent runs stays a refusal in the machine\'s words', () async {
+      daemon.description = declares;
+      var listings = 0;
+      daemon.method('List', (_) {
+        listings++;
+        return <String, dynamic>{
+          'tasks': [
+            if (listings > 1)
+              {'name': 'porelo-demo_porelo', 'task': 'porelo', 'project': 'demo', 'repository': 'porelo', 'run': 'r1'},
+          ],
+        };
+      });
+      daemon.stream('Start', (_) async* {
+        yield <String, dynamic>{
+          'step': {'step': 'WORKSPACE', 'state': 'STARTED', 'text': 'Making the workspace'},
+        };
+        yield <String, dynamic>{
+          'step': {'step': 'CREDENTIALS', 'state': 'FAILED', 'text': 'Reading credentials', 'cause': 'vault locked'},
+        };
+        yield <String, dynamic>{'line': 'porelo: the vault is locked; unlock it and start again'};
+        yield <String, dynamic>{'exitCode': 75};
+      }, isFinal: _finalReply);
+      final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+      await backend.open();
+
+      final answer = await startOrdered(backend).timeout(const Duration(seconds: 5));
+
+      expect((answer.container, answer.exitCode), (null, 75));
+      expect(answer.output, ['porelo: the vault is locked; unlock it and start again']);
+    });
   });
 
   // Harm: a discussion starts as an ordinary task, one repository writable and nothing handed back, or with a
