@@ -17,6 +17,7 @@ import 'loopback_carrier.dart';
 import 'person_only_relay.dart';
 import 'owned_process.dart';
 import 'ssh_words.dart';
+import 'windows_vault_unlock.dart' show hostUnlockerHere;
 
 /// What an attempt to start a daemon came back with.
 @immutable
@@ -90,7 +91,7 @@ class Tunnel {
        _tighten = run ?? _runAndWait,
        _untilItBinds = appears,
        _untilExplained = explains,
-       _unlocker = unlocker ?? CoreHostUnlocker(environment: configEnvironment),
+       _unlocker = unlocker ?? hostUnlockerHere(environment: configEnvironment),
        _budget = budget ?? CarrierBudget();
 
   /// The local public-key availability check, without agent forwarding.
@@ -995,7 +996,7 @@ class Tunnels extends ChangeNotifier {
        _launch = start,
        _run = run ?? _runIt,
        _untilItBinds = appears,
-       _unlocker = unlocker ?? CoreHostUnlocker(environment: configEnvironment);
+       _unlocker = unlocker ?? hostUnlockerHere(environment: configEnvironment);
 
   /// The public-key availability boundary, without guessing from remote refusals.
   final Future<bool> Function(HostCardSsh)? keyAvailable;
