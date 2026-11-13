@@ -6,6 +6,7 @@
 #   tool/play_story.sh run   --story NAME --report DIR [--vm USER@VM --vm-key FILE] [--packages DIR]
 #                            [--expect PART=ISSUE]... [--budget-minutes 60]
 #                            [--org ORG] [--seed DIR] [--issue-repo REPO]... [--porelo-project NAME] [--planner DIR]
+#                            [--porelo DIR] [--snapshot NAME --revert-hook PROGRAM]
 #   each also with [--vm-known-hosts FILE] [--vm-jump USER@HOST [--vm-jump-known-hosts FILE]], as tool/walk_idea.sh
 #
 # NAME is a story of the `case` below: integration_test/NAME.feature and its generated NAME_test.dart, played on the
@@ -34,17 +35,17 @@
 # and names the latest trial run as it stands. The token reaches curl on its standard input alone.
 #
 # A story the `case` hands to tool/walk_idea.sh is played by it on its Linux VM, with its forge, vault and seed: --org,
-# --seed, --issue-repo and --porelo-project go to it as they are, the last two naming templates the walk copies into
-# repositories of the story's own name (tasks-results-foo-1), its test is the story's and its project goes without
-# mail, and its environment is the walk's own (SSH_AUTH_SOCK holding the test person's key, WALK_FORGE_TOKEN,
-# WALK_PROVIDER_KEY_FILE; tool/walk_idea.sh says what each is). Its report, in DIR/walk, becomes this one's; a run it
-# kept after a red step is taken up or away with tool/walk_idea.sh, as it says. The walk numbers its own steps, one
-# number for a doing and its reading, so its lines are taken in order for the feature's steps that note one: every
-# step but `the interface is running`.
+# --seed, --issue-repo, --porelo-project, --planner, --porelo, --snapshot and --revert-hook go to it as they are
+# (--issue-repo and --porelo-project naming templates the walk copies into repositories of the story's own name, such as
+# tasks-results-foo-1), its test is the story's and its project goes without mail, and its environment is the walk's own
+# (SSH_AUTH_SOCK holding the test person's key, WALK_FORGE_TOKEN, WALK_PROVIDER_KEY_FILE; tool/walk_idea.sh says what
+# each is). Its report, in DIR/walk, becomes this one's; a run it kept after a red step is taken up or away with
+# tool/walk_idea.sh, as it says. The walk numbers its own steps, one number for a doing and its reading, so its lines
+# are taken in order for the feature's steps that note one: every step but `the interface is running`.
 set -euo pipefail
 
 usage() {
-    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
 }
 
@@ -65,7 +66,7 @@ while [ $# -gt 0 ]; do
     --packages) packages=$2 ;;
     --expect) expects+=("$2") ;;
     --budget-minutes) budget=$2 ;;
-    --org | --seed | --issue-repo | --porelo-project | --planner) walk+=("$1" "$2") ;;
+    --org | --seed | --issue-repo | --porelo-project | --planner | --porelo | --snapshot | --revert-hook) walk+=("$1" "$2") ;;
     *) usage ;;
     esac
     shift 2

@@ -3,9 +3,11 @@
 # display against that VM's own porelo and the planner given, never on this computer's.
 #
 #   tool/walk_idea.sh check --vm USER@VM --vm-key FILE [--planner DIR]
+#   tool/walk_idea.sh prepare --vm USER@VM --vm-key FILE [--planner DIR] [--porelo DIR]
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
 #                           [--porelo-project foo-project] [--mail drop|keep] [--project NAME] [--issue-repo foo-1]... [--budget-minutes 180]
 #                           [--porelo DIR] [--test walking_an_idea|a_tasks_results_land|the_planner_moves_work_on|forwarding_to_a_branch]
+#                           [--snapshot NAME --revert-hook PROGRAM]
 #   tool/walk_idea.sh resume --vm USER@VM --vm-key FILE --report DIR --from N
 #   tool/walk_idea.sh clean  --vm USER@VM --vm-key FILE --report DIR
 #   each also with [--vm-known-hosts FILE] [--vm-jump USER@HOST [--vm-jump-known-hosts FILE]]
@@ -40,6 +42,18 @@
 # which is then the only key taken (StrictHostKeyChecking=yes). Nothing of the run needs sudo on the VM; what it lacks
 # there, check says with the line an operator installs it with.
 #
+# `prepare` sets up what a run needs on the VM once per package state, for a snapshot of the VM to keep: porelo and
+# porelod of --porelo in ~/.local/bin (the ones there kept beside as *.walk-kept), Flutter, and the pub cache of this
+# checkout's pubspec.lock. It names no repository, places no project and declares nothing. The package state is one
+# short id hashed from the porelo of --porelo (its COMMIT) or else the VM's own (`porelo --version`), the planner's
+# SHA256SUMS, the Flutter version and pubspec.lock; it is written to ~/.walk-prepared/STATE on the VM and named in
+# the snapshot prepare asks for, walk-prepared-<id>: whoever keeps the VM's snapshots takes it, the VM shut down.
+# `run --snapshot NAME` starts a scenario from that snapshot: the program of --revert-hook (or WALK_REVERT_HOOK) is
+# called with NAME alone and takes the VM back to it, the run then waits for the VM, and starts only where the VM's
+# STATE is this run's package state; nothing is installed again, porelo is not swapped. Everything that names the
+# story's repositories (the project placed, the vault, the declaration, the planner's state) is made by the run after
+# the revert. A `resume` never reverts: it goes on with the kept VM as it is.
+#
 # --mail drop, the default, applies the porelo project without its mail section; keep applies it as it is, which only a
 # VM whose porelo applies a project's mail section takes: until the VM's porelo does, a walk goes without mail.
 #
@@ -64,14 +78,14 @@
 set -euo pipefail
 
 usage() {
-    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
 }
 
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-test=walking_an_idea from=1 vm='' vm_key='' vm_jump='' vm_known_hosts='' vm_jump_known_hosts='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=drop report='' budget=180
+test=walking_an_idea from=1 vm='' vm_key='' vm_jump='' vm_known_hosts='' vm_jump_known_hosts='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=drop report='' budget=180 snapshot='' revert_hook=${WALK_REVERT_HOOK:-}
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
@@ -92,11 +106,28 @@ while [ $# -gt 0 ]; do
     --issue-repo) issue_repos+=("$2") ;;
     --report) report=$2 ;;
     --budget-minutes) budget=$2 ;;
+    --snapshot) snapshot=$2 ;;
+    --revert-hook) revert_hook=$2 ;;
     *) usage ;;
     esac
     shift 2
 done
-case "$mode" in check | run | resume | clean) ;; *) usage ;; esac
+case "$mode" in check | prepare | run | resume | clean) ;; *) usage ;; esac
+shaped() {
+    [ -z "$2" ] || printf '%s\n' "$2" | grep -Eqx "$3" || {
+        echo "walk: $1 is not of the form it takes" >&2
+        exit 64
+    }
+}
+# A scenario starts from the VM's snapshot only in a run, and only with the program that takes the VM back to it.
+if [ -n "$snapshot" ]; then
+    [ "$mode" = run ] || usage
+    shaped --snapshot "$snapshot" '[A-Za-z0-9][A-Za-z0-9._-]{0,63}'
+    [ -n "$revert_hook" ] && [ -x "$revert_hook" ] && [ -f "$revert_hook" ] || {
+        echo "walk: --snapshot needs --revert-hook or WALK_REVERT_HOOK naming a program that takes the VM back to it" >&2
+        exit 64
+    }
+fi
 case "$from" in '' | *[!0-9]*) echo "walk: --from is a step's number" >&2 && exit 64 ;; esac
 case "$mail" in keep | drop) ;; *) usage ;; esac
 case "$test" in walking_an_idea | a_tasks_results_land | the_planner_moves_work_on | forwarding_to_a_branch) ;; *) usage ;; esac
@@ -109,13 +140,7 @@ task_minutes=${PORELO_WALK_TASK_MINUTES:-30}
 # What ends the discussion's agent session, typed as the person would; the test's own default where unset.
 agent_quit=${WALK_AGENT_QUIT:-}
 case "$task_minutes" in '' | *[!0-9]*) echo "walk: PORELO_WALK_TASK_MINUTES is a whole number" >&2 && exit 64 ;; esac
-# Every value goes into a command line on the VM or a URL, so each is held to what it can be.
-shaped() {
-    [ -z "$2" ] || printf '%s\n' "$2" | grep -Eqx "$3" || {
-        echo "walk: $1 is not of the form it takes" >&2
-        exit 64
-    }
-}
+# Every value goes into a command line on the VM or a URL, so each is held to what it can be (shaped, above).
 shaped --vm "$vm" '[A-Za-z0-9_][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9.:-]*'
 shaped --vm-jump "$vm_jump" '[A-Za-z0-9_][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9.:-]*'
 # The VM's own key and, where given, the hop it is reached through and each one's pinned host key: every ssh of the
@@ -267,8 +292,85 @@ check() {
     echo "walk: $vm has what the run needs; Flutter $flutter_version is fetched into ~/$flutter_dir if missing"
 }
 
+# Flutter of pubspec.yaml's version into the account's cache on the VM, where it is not there yet.
+fetch_flutter() {
+    on_vm "set -e
+    if [ ! -x ~/$flutter_dir/bin/flutter ]; then
+        mkdir -p ~/.cache/porelo-frontend && cd ~/.cache/porelo-frontend
+        listed=\$(curl -fsSL https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json)
+        line=\$(printf '%s' \"\$listed\" | python3 -I -c 'import json,sys
+d=json.load(sys.stdin)
+r=[r for r in d[\"releases\"] if r[\"version\"]==\"$flutter_version\" and r[\"channel\"]==\"stable\"]
+print(r[0][\"archive\"], r[0][\"sha256\"]) if r else None')
+        [ -n \"\$line\" ] || { echo 'walk: Flutter $flutter_version is not listed' >&2; exit 1; }
+        set -- \$line
+        curl -fsSL -o flutter.tar.xz \"https://storage.googleapis.com/flutter_infra_release/releases/\$1\"
+        echo \"\$2  flutter.tar.xz\" | sha256sum -c --quiet
+        rm -rf flutter-$flutter_version.part && mkdir flutter-$flutter_version.part
+        tar -xJf flutter.tar.xz -C flutter-$flutter_version.part && rm flutter.tar.xz
+        rm -rf ~/$flutter_dir && mv flutter-$flutter_version.part/flutter ~/$flutter_dir && rmdir flutter-$flutter_version.part
+    fi" </dev/null
+}
+
+# The package state a prepared VM is of: one short id of the porelo given (its COMMIT) or else the VM's own, the
+# planner's SHA256SUMS, the Flutter version and the pubspec.lock of this checkout's HEAD.
+state_id() {
+    local porelo_part id
+    if [ -n "$porelo_dir" ]; then
+        porelo_part="commit $(cat "$porelo_dir/COMMIT")"
+    else
+        porelo_part="installed $(on_vm "porelo --version" </dev/null)" || return 1
+    fi
+    id=$({
+        printf '%s\n' "$porelo_part"
+        if [ -n "$planner" ]; then cat "$planner/SHA256SUMS"; else echo 'no planner'; fi
+        printf 'flutter %s\n' "$flutter_version"
+        git -C "$here" show HEAD:pubspec.lock
+    } | sha256sum | cut -c1-12)
+    printf '%s\n' "$id"
+}
+
+# What every run of this package state needs on the VM, set up once for a snapshot to keep.
+prepare_vm() {
+    local id
+    id=$(state_id)
+    [[ $id =~ ^[0-9a-f]{12}$ ]] || {
+        echo "walk: the package state of $vm could not be told" >&2
+        return 1
+    }
+    if [ -n "$porelo_dir" ]; then
+        tar -C "$porelo_dir" -c porelo porelod SHA256SUMS | on_vm "rm -rf ~/.walk-prepared/porelo && mkdir -p ~/.walk-prepared/porelo && tar -x -C ~/.walk-prepared/porelo"
+        on_vm "set -e; cd ~/.walk-prepared/porelo; sha256sum --strict --quiet -c SHA256SUMS; chmod 755 porelo porelod
+        mkdir -p ~/.local/bin; cd ~/.local/bin
+        for f in porelo porelod; do [ -f \$f.walk-kept ] || [ ! -f \$f ] || mv \$f \$f.walk-kept; cp ~/.walk-prepared/porelo/\$f \$f; done
+        systemctl --user restart porelod
+        for _ in \$(seq 50); do [ -S /run/user/\$(id -u)/porelo/porelod.sock ] && break; sleep 0.2; done
+        systemctl --user is-active --quiet porelod" </dev/null || {
+            echo "walk: porelo of $(cat "$porelo_dir/COMMIT") could not be put in place on $vm" >&2
+            return 1
+        }
+    fi
+    fetch_flutter
+    # The pub cache of this checkout's packages, so a run's build fetches none of them.
+    git -C "$here" archive --format=tar HEAD pubspec.yaml pubspec.lock |
+        on_vm "set -e; rm -rf ~/.walk-prepared/pub; mkdir -p ~/.walk-prepared/pub; tar -x -C ~/.walk-prepared/pub
+        cd ~/.walk-prepared/pub; PATH=\$HOME/$flutter_dir/bin:\$PATH flutter --suppress-analytics pub get >/dev/null
+        PATH=\$HOME/$flutter_dir/bin:\$PATH flutter --suppress-analytics precache --linux >/dev/null" || {
+        echo "walk: the packages of pubspec.lock could not be fetched on $vm" >&2
+        return 1
+    }
+    on_vm "printf '%s\\n' '$id' >~/.walk-prepared/STATE" </dev/null
+    echo "walk: $vm is prepared for the package state $id"
+    echo "walk: take its snapshot walk-prepared-$id now, the VM shut down; a run starts from it with --snapshot walk-prepared-$id"
+}
+
 if [ "$mode" = check ]; then
     check
+    exit
+fi
+if [ "$mode" = prepare ]; then
+    check
+    prepare_vm
     exit
 fi
 
@@ -304,7 +406,24 @@ if [ -z "${SSH_AUTH_SOCK:-}" ] || ! ssh-add -l >/dev/null 2>&1; then
     echo "walk: SSH_AUTH_SOCK names no agent holding the test person's key" >&2
     exit 1
 fi
+if [ -n "$snapshot" ]; then
+    # The scenario starts from the prepared VM: taken back by whoever keeps its snapshots, then waited for.
+    echo "walk: $vm is taken back to its snapshot $snapshot"
+    "$revert_hook" "$snapshot" </dev/null || {
+        echo "walk: $revert_hook could not take $vm back to $snapshot" >&2
+        exit 1
+    }
+    for _ in $(seq 60); do on_vm true </dev/null >/dev/null 2>&1 && break; sleep 5; done
+fi
 check
+if [ -n "$snapshot" ]; then
+    prepared=$(on_vm "cat ~/.walk-prepared/STATE 2>/dev/null" </dev/null || true)
+    wanted=$(state_id) || wanted=''
+    [ -n "$wanted" ] && [ "$prepared" = "$wanted" ] || {
+        echo "walk: $vm at $snapshot is prepared for the package state '${prepared}', this run's is '${wanted}': prepare it anew" >&2
+        exit 1
+    }
+fi
 [ -z "$(git -C "$here" status --porcelain --untracked-files=no)" ] || echo "walk: runs HEAD; changes not committed are not in it" >&2
 commit=$(git -C "$here" rev-parse --short HEAD)
 name="walk-$(date -u +%Y%m%d-%H%M%S)-$commit"
@@ -782,7 +901,14 @@ if [ "$mode" = run ] && [ -n "$planner" ]; then
     }
 fi
 if [ "$mode" = run ]; then
-    if [ -n "$porelo_dir" ]; then
+    if [ -n "$porelo_dir" ] && [ -n "$snapshot" ]; then
+        # In place since the VM was prepared, as its package state says.
+        porelo_commit=$(cat "$porelo_dir/COMMIT")
+        {
+            echo "porelo $porelo_commit, prepared in $snapshot"
+            on_vm "porelo --version" </dev/null
+        } | tee "$report/porelo.txt"
+    elif [ -n "$porelo_dir" ]; then
         porelo_commit=$(cat "$porelo_dir/COMMIT")
         tar -C "$porelo_dir" -c porelo porelod SHA256SUMS | on_vm "mkdir -p ~/$run/porelo && tar -x -C ~/$run/porelo"
         swapped=yes
@@ -801,22 +927,7 @@ if [ "$mode" = run ]; then
         } | tee "$report/porelo.txt"
     fi
 
-    on_vm "set -e
-    if [ ! -x ~/$flutter_dir/bin/flutter ]; then
-        mkdir -p ~/.cache/porelo-frontend && cd ~/.cache/porelo-frontend
-        listed=\$(curl -fsSL https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json)
-        line=\$(printf '%s' \"\$listed\" | python3 -I -c 'import json,sys
-d=json.load(sys.stdin)
-r=[r for r in d[\"releases\"] if r[\"version\"]==\"$flutter_version\" and r[\"channel\"]==\"stable\"]
-print(r[0][\"archive\"], r[0][\"sha256\"]) if r else None')
-        [ -n \"\$line\" ] || { echo 'walk: Flutter $flutter_version is not listed' >&2; exit 1; }
-        set -- \$line
-        curl -fsSL -o flutter.tar.xz \"https://storage.googleapis.com/flutter_infra_release/releases/\$1\"
-        echo \"\$2  flutter.tar.xz\" | sha256sum -c --quiet
-        rm -rf flutter-$flutter_version.part && mkdir flutter-$flutter_version.part
-        tar -xJf flutter.tar.xz -C flutter-$flutter_version.part && rm flutter.tar.xz
-        rm -rf ~/$flutter_dir && mv flutter-$flutter_version.part/flutter ~/$flutter_dir && rmdir flutter-$flutter_version.part
-    fi" </dev/null
+    fetch_flutter
 
     # The account's card is the person's only while the forwarded agent holds its key.
     holds=$(as_the_person_on_vm "porelo identity show --json" </dev/null | python3 -I -c 'import json,sys; print(json.load(sys.stdin).get("agent_holds_key"))' || true)
