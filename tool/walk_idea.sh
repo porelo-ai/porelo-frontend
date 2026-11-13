@@ -4,7 +4,7 @@
 #
 #   tool/walk_idea.sh check --vm USER@VM --vm-key FILE [--planner DIR]
 #   tool/walk_idea.sh run   --vm USER@VM --vm-key FILE --planner DIR --seed DIR --org ORG --report DIR \
-#                           [--porelo-project foo-project] [--mail keep|drop] [--project NAME] [--issue-repo foo-1]... [--budget-minutes 180]
+#                           [--porelo-project foo-project] [--mail drop|keep] [--project NAME] [--issue-repo foo-1]... [--budget-minutes 180]
 #                           [--porelo DIR] [--test walking_an_idea|a_tasks_results_land|the_planner_moves_work_on|forwarding_to_a_branch]
 #   tool/walk_idea.sh resume --vm USER@VM --vm-key FILE --report DIR --from N
 #   tool/walk_idea.sh clean  --vm USER@VM --vm-key FILE --report DIR
@@ -23,7 +23,11 @@
 # that name. It copies this checkout's HEAD to the VM, puts the planner of DIR first on the window's path and runs
 # integration_test/walking_an_idea_test.dart there through tool/e2e.sh, and writes the report into DIR: one line per
 # step (`OK` or `FAIL` with what was asked and got), a picture of the window where it failed, the HTML and JUnit
-# report, and the test's own output.
+# report, and the test's own output, and probe.log: every call of the planner's probe, its arguments, exit code and
+# whole output, OK or not, never a token.
+#
+# --mail drop, the default, applies the porelo project without its mail section; keep applies it as it is, which only a
+# VM whose porelo applies a project's mail section takes: until the VM's porelo does, a walk goes without mail.
 #
 # --test names the integration test the window runs: walking_an_idea (the default), a_tasks_results_land and
 # the_planner_moves_work_on need --planner and --seed;
@@ -54,7 +58,7 @@ usage() {
 [ $# -ge 1 ] || usage
 mode=$1
 shift
-test=walking_an_idea from=1 vm='' vm_key='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=keep report='' budget=180
+test=walking_an_idea from=1 vm='' vm_key='' porelo_dir='' planner='' seed='' org='' project='' issue_repos=() porelo_project=foo-project mail=drop report='' budget=180
 while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || usage
     case "$1" in
@@ -254,7 +258,7 @@ run="walk/$name"
 mkdir -p "$report"
 # A report left from an earlier run would be read as this one's.
 rm -f "$report/results.json" "$report/run.log" "$report/report.html" "$report/results.xml" "$report/scenarios.txt" \
-    "$report/steps.txt"
+    "$report/steps.txt" "$report/probe.log"
 rm -rf "$report/pictures"
 
 # Read once and kept in this shell alone, for the vault and for the forge's API in the set-up and the clean-up.
@@ -844,12 +848,14 @@ as_the_person_on_vm \
         PORELO_WALK_AGENT_QUIT='$agent_quit' \
         PORELO_WALK_FROM='$from' PORELO_WALK_STATE=\$HOME/$run/walk-state.json \
         PORELO_WALK_STEPS=\$HOME/$run/steps.txt PORELO_WALK_TASKS=\$HOME/$run/tasks.txt \
+        PORELO_WALK_PROBE_LOG=\$HOME/$run/probe.log \
         PORELO_REHEARSAL_SHOTS=\$HOME/$run/pictures \
         timeout --signal=TERM ${budget}m dbus-run-session -- \
         tool/e2e.sh --machine integration_test/${test}_test.dart" \
     </dev/null >"$report/results.json" 2>"$report/run.log" || status=$?
 # The steps and pictures, before the run's copy is taken away; a run taken up again adds its steps to the earlier ones.
 on_vm "cat ~/$run/steps.txt 2>/dev/null" </dev/null >"$report/steps.txt" || true
+on_vm "cat ~/$run/probe.log 2>/dev/null" </dev/null >"$report/probe.log" || true
 tail -n +"$((steps_before + 1))" "$report/steps.txt" >"$work/these-steps"
 if on_vm "[ -d ~/$run/pictures ]" </dev/null; then on_vm "tar -C ~/$run -c pictures" </dev/null | tar -x -C "$report" || true; fi
 [ "$status" -ne 124 ] || echo "walk: the window's part ran out its $budget minutes and was stopped" | tee -a "$report/run.log" >&2
