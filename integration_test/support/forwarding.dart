@@ -10,7 +10,7 @@ import 'rehearsal.dart';
 /// forwarding_to_a_branch` is told them. GitHub is read with git, through the run's own credential helper: no token is
 /// ever in this process.
 abstract final class Forwarding {
-  /// The repository's https address at GitHub, for example `https://github.com/porelo-ai-test/foo-1`.
+  /// The repository's https address at GitHub, for example `https://github.com/porelo-ai-test/forwarding-foo-1`.
   static String get url => _required('PORELO_FORWARD_URL');
 
   /// The repository's name in the project, as the window lists it.

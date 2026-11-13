@@ -13,41 +13,47 @@
 # the run's state. `resume` copies this checkout's HEAD there again and walks on from step N (step 1, which opens the
 # planning, always runs); `clean` takes the kept run away as a run's own ending does.
 #
-# `check` says what the VM lacks and changes nothing. `run` checks first, then seeds the existing repositories of ORG:
-# the seed holds one directory per repository, named as it is, whose files are written over that repository's at the
-# same paths and pushed as one commit, after each repository's tip was noted as T0; the issue repository's T0 is noted
-# whether it is seeded or not. A top-level <name>.diff whose first line is `--- <repository>/<file>` is applied to that
-# file as it is at T0 instead of copying it, and the run stops before any push where it does not apply. The porelo
-# project's repository, where seeded, is signed anew as the person (`porelo project sign`) on the pushed tip. The
-# planner's project is the porelo project (--project defaults to --porelo-project), whose own repository is the one of
-# that name. It copies this checkout's HEAD to the VM, puts the planner of DIR first on the window's path and runs
+# `check` says what the VM lacks and changes nothing. `run` checks first, then makes the story's own repositories in ORG
+# and seeds them. --porelo-project, --issue-repo and the seed's folders name templates in ORG (foo-project, foo-1,
+# foo-2); the run works in repositories named for its story instead, the short form of --test before the template's name
+# (tasks-results-foo-1): idea-walk for walking_an_idea, tasks-results for a_tasks_results_land, moves-on for
+# the_planner_moves_work_on, forwarding for forwarding_to_a_branch. Each is made new as a copy of its template's default
+# branch, for the porelo project's template, the issue repositories, the seeded ones and every repository the porelo
+# project's project.yml names; in the porelo project's copy every template's name is the story's from then on, in the
+# seed too. Two runs of one story never run at once: where a story's repository is in ORG already, left by a run that
+# failed, the run refuses to start and names it. The seed holds one directory per repository, named for its template,
+# whose files are written over that repository's at the same paths and pushed as one commit, after each repository's tip
+# was noted as T0. A top-level <name>.diff whose first line is `--- <repository>/<file>` is applied to that file as it
+# is at T0 instead of copying it, and the run stops before any push where it does not apply. The porelo project's
+# repository is signed anew as the person (`porelo project sign`) on the pushed tip. The planner's project is the porelo
+# project (--project defaults to the story's porelo project), whose own repository is the one of that name. It copies
+# this checkout's HEAD to the VM, puts the planner of DIR first on the window's path and runs
 # integration_test/walking_an_idea_test.dart there through tool/e2e.sh, and writes the report into DIR: one line per
-# step (`OK` or `FAIL` with what was asked and got), a picture of the window where it failed, the HTML and JUnit
-# report, and the test's own output, and probe.log: every call of the planner's probe, its arguments, exit code and
-# whole output, OK or not, never a token.
+# step (`OK` or `FAIL` with what was asked and got), a picture of the window where it failed, the HTML and JUnit report,
+# and the test's own output, and probe.log: every call of the planner's probe, its arguments, exit code and whole
+# output, OK or not, never a token.
 #
 # --mail drop, the default, applies the porelo project without its mail section; keep applies it as it is, which only a
 # VM whose porelo applies a project's mail section takes: until the VM's porelo does, a walk goes without mail.
 #
 # --test names the integration test the window runs: walking_an_idea (the default), a_tasks_results_land and
-# the_planner_moves_work_on need --planner and --seed;
-# forwarding_to_a_branch needs neither. It has a task of the first --issue-repo push to its gate and the person forward
-# it upstream at GitHub, onto a branch the script made at the default branch's tip and onto a new one typed: both are
-# named for the run, so its ending deletes them; the window reaches GitHub with the run's token from the run's vault.
+# the_planner_moves_work_on need --planner and --seed; forwarding_to_a_branch needs neither. It has a task of the first
+# --issue-repo push to its gate and the person forward it upstream at GitHub, onto a branch the script made at the
+# default branch's tip and onto a new one typed: both are named for the run, so its ending deletes them; the window
+# reaches GitHub with the run's token from the run's vault.
 #
 # DIR of --porelo, where given, holds porelo and porelod, a SHA256SUMS naming both and a COMMIT naming what they were
 # built from: for the run they stand in the person's ~/.local/bin on the VM, the ones there kept beside them as
-# *.walk-kept and put back on every ending, porelod restarted each time; the report names the commit.
-# DIR of --planner holds porelo-planner, planner-probe.sh and SHA256SUMS naming both; nothing unchecked is copied.
-# The test person's key never enters the VM: SSH_AUTH_SOCK must name an agent holding it (a throwaway one, never the
-# operator's), forwarded for the run alone. WALK_FORGE_TOKEN names a program that prints the test identity's token
-# for the forge: it goes on standard input alone into a vault of the run's own on the VM, and to GitHub's API as a
-# curl config on standard input, never on a command line. WALK_PROVIDER_KEY_FILE names the file holding the
-# OpenRouter key the tasks' agent pi signs in with: it goes from that file on standard input alone into the same vault,
-# never read into this shell. Every ending takes away what the run made: the task branches
-# and pull requests in the issue repository, each noted repository's tree back to its T0 in one new commit where it
-# differs (never a force push), the porelo project's repository signed anew on that commit, the run's vault and copy
-# on the VM; it exits non-zero naming what it left.
+# *.walk-kept and put back on every ending, porelod restarted each time; the report names the commit. DIR of --planner
+# holds porelo-planner, planner-probe.sh and SHA256SUMS naming both; nothing unchecked is copied. The test person's key
+# never enters the VM: SSH_AUTH_SOCK must name an agent holding it (a throwaway one, never the operator's), forwarded
+# for the run alone. WALK_FORGE_TOKEN names a program that prints the test identity's token for the forge, allowed to
+# make and delete ORG's repositories: it goes on standard input alone into a vault of the run's own on the VM, and to
+# GitHub's API as a curl config on standard input, never on a command line. WALK_PROVIDER_KEY_FILE names the file
+# holding the OpenRouter key the tasks' agent pi signs in with: it goes from that file on standard input alone into the
+# same vault, never read into this shell. Every ending takes away what the run made: the story's repositories, deleted
+# whole with their branches and pull requests, the run's vault and copy on the VM; it exits non-zero naming what it
+# left, a repository with the command that deletes it.
 set -euo pipefail
 
 usage() {
@@ -108,6 +114,22 @@ shaped --porelo-project "$porelo_project" '[A-Za-z0-9][A-Za-z0-9._-]*'
 # The repositories the story's issues are worked in, each with its builder and reader; foo-1 alone where none is named.
 [ ${#issue_repos[@]} -gt 0 ] || issue_repos=(foo-1)
 for each in "${issue_repos[@]}"; do shaped --issue-repo "$each" '[A-Za-z0-9][A-Za-z0-9._-]{0,99}'; done
+# The story's own name for a template's repository: the short form of the story before it. A kept run reads the names
+# it was given from its state.
+case "$test" in
+walking_an_idea) story='idea-walk' ;;
+a_tasks_results_land) story='tasks-results' ;;
+the_planner_moves_work_on) story='moves-on' ;;
+*) story=forwarding ;;
+esac
+own() { printf '%s-%s\n' "$story" "$1"; }
+porelo_template=$porelo_project issue_templates=("${issue_repos[@]}")
+if [ "$mode" = run ]; then
+    porelo_project=$(own "$porelo_template")
+    issue_repos=()
+    for each in "${issue_templates[@]}"; do issue_repos+=("$(own "$each")"); done
+    for each in "$porelo_project" "${issue_repos[@]}"; do shaped "the story's repository" "$each" '[A-Za-z0-9][A-Za-z0-9._-]{0,99}'; done
+fi
 shaped WALK_AGENT "$agent" '[A-Za-z0-9][A-Za-z0-9._-]*'
 shaped WALK_TASK_MODEL "$task_model" '[A-Za-z0-9][A-Za-z0-9._/:-]*'
 shaped WALK_AGENT_QUIT "$agent_quit" '[/A-Za-z0-9._-]+'
@@ -273,21 +295,54 @@ token=$("$WALK_FORGE_TOKEN") || {
 # The answers of the forge's API, never the token; gone with the clean-up.
 work=$(mktemp -d)
 
-# A story's own seed in this checkout, tool/walk-seeds/<test>, written over the seed given: what its test needs of the
-# repositories beyond the shared seed, such as a fault its reader is bound to find. The given folder is never changed.
-# Its folders carry the seed's own names: a foo-project folder there holds the work rules only for the default
-# --porelo-project foo-project, and a walk under another project name finds them not.
-if [ "$mode" = run ] && [ -d "$here/tool/walk-seeds/$test" ]; then
+# The seed is copied, its templates' names made the story's below; the given folder is never changed. A story's own
+# seed in this checkout, tool/walk-seeds/<test>, is written over the seed given: what its test needs of the
+# repositories beyond the shared seed, such as a fault its reader is bound to find. Its folders carry the templates'
+# names: a foo-project folder there holds the work rules only for the default --porelo-project foo-project, and a walk
+# under another project name finds them not.
+if [ "$mode" = run ] && [ -n "$seed" ]; then
     mkdir "$work/seed"
     cp -R "$seed/." "$work/seed/"
-    cp -R "$here/tool/walk-seeds/$test/." "$work/seed/"
     seed=$work/seed
-    for each in "$seed"/*/; do
-        each=$(basename "$each")
-        case " ${seeded[*]} " in *" $each "*) ;; *) seeded+=("$each") ;; esac
-    done
-    echo "walk: the seed of $test from tool/walk-seeds is written over the one given"
+    if [ -d "$here/tool/walk-seeds/$test" ]; then
+        cp -R "$here/tool/walk-seeds/$test/." "$seed/"
+        for each in "$seed"/*/; do
+            each=$(basename "$each")
+            case " ${seeded[*]} " in *" $each "*) ;; *) seeded+=("$each") ;; esac
+        done
+        echo "walk: the seed of $test from tool/walk-seeds is written over the one given"
+    fi
 fi
+# Every template's name, where it stands alone, made the story's: in a file of the folders or files named, never in
+# .git, a file that is not text left as it is. Run here on the seed and on the VM on the porelo project's copy.
+cat >"$work/rename.py" <<'EOF'
+import os, re, sys
+prefix, names, paths = sys.argv[1], sys.argv[2].split(), sys.argv[3:]
+alone = re.compile(r"(?<![A-Za-z0-9_-])(" + "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True)) +
+                   r")(?![A-Za-z0-9_-])")
+def files(path):
+    if not os.path.isdir(path):
+        yield path
+        return
+    for root, folders, names_there in os.walk(path):
+        folders[:] = [f for f in folders if f != ".git"]
+        for each in names_there:
+            yield os.path.join(root, each)
+for path in paths:
+    for file in files(path):
+        if os.path.islink(file) or not os.path.isfile(file):
+            continue
+        data = open(file, "rb").read()
+        if b"\0" in data:
+            continue
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+        renamed = alone.sub(lambda m: prefix + m[1], text)
+        if renamed != text:
+            open(file, "w", encoding="utf-8").write(renamed)
+EOF
 
 # One call of GitHub's API: the token reaches curl on its standard input as a config line. Prints the status; the
 # answer's body is in $work/answer.
@@ -308,16 +363,76 @@ github() {
     exit 1
 }
 
+# The templates the story's repositories are copied from, each with its default branch and whether it is private: the
+# porelo project's, every repository its project.yml names, the issue repositories and the seeded ones. None of the
+# story's own may be there yet: one left by a failed run is named with what deletes it, and nothing is made.
+templates=()
+declare -A branch_of_template=() private_of_template=()
+if [ "$mode" = run ]; then
+    refused() {
+        echo "walk: $*" >&2
+        rm -rf "$work"
+        exit 1
+    }
+    [ "$(github GET "/repos/$org/$porelo_template/contents/project.yml")" = 200 ] ||
+        refused "$org/$porelo_template holds no project.yml to name its repositories"
+    named=$(python3 -I -c 'import base64, json, re, sys
+text = base64.b64decode(json.load(open(sys.argv[1]))["content"]).decode()
+block = re.search(r"(?m)^repositories:[ \t]*\n((?:[ \t]+.*\n?|[ \t]*\n)*)", text)
+lines = [line for line in (block[1] if block else "").split("\n") if line.strip() and not line.strip().startswith("#")]
+indent = len(lines[0]) - len(lines[0].lstrip()) if lines else 0
+for line in lines:
+    key = re.match(r"([A-Za-z0-9][A-Za-z0-9._-]*)[ \t]*:", line[indent:])
+    if len(line) - len(line.lstrip()) == indent and key:
+        print(key[1])' "$work/answer") || refused "the project.yml of $org/$porelo_template could not be read"
+    for each in "$porelo_template" $named "${issue_templates[@]}" "${seeded[@]}"; do
+        case " ${templates[*]} " in *" $each "*) ;; *) templates+=("$each") ;; esac
+    done
+    there=()
+    for each in "${templates[@]}"; do
+        shaped "the story's repository" "$(own "$each")" '[A-Za-z0-9][A-Za-z0-9._-]{0,99}'
+        [ "$(github GET "/repos/$org/$each")" = 200 ] || refused "$org/$each is no template the token can read"
+        read -r "branch_of_template[$each]" "private_of_template[$each]" < <(python3 -I -c 'import json, sys
+answer = json.load(open(sys.argv[1]))
+print(answer["default_branch"], "true" if answer["private"] else "false")' "$work/answer")
+        shaped "the default branch of $each" "${branch_of_template[$each]}" '[A-Za-z0-9][A-Za-z0-9._/-]*'
+        case $(github GET "/repos/$org/$(own "$each")") in
+        404) ;;
+        200) there+=("$(own "$each")") ;;
+        *) refused "whether $org/$(own "$each") is there could not be asked" ;;
+        esac
+    done
+    if [ ${#there[@]} -gt 0 ]; then
+        echo "walk: the story's repositories are in $org already, left by a run of $test that failed or is kept; nothing is made" >&2
+        echo "walk: where its report DIR is kept, tool/walk_idea.sh clean --vm $vm --vm-key $vm_key --report DIR takes them away; else:" >&2
+        for each in "${there[@]}"; do echo "  gh repo delete $org/$each --yes" >&2; done
+        rm -rf "$work"
+        exit 1
+    fi
+    # The seed under the story's names: its folders, its diffs' paths and hunks and the porelo project's files.
+    if [ -n "$seed" ]; then
+        python3 -I "$work/rename.py" "$story-" "${templates[*]}" "$seed"/*.diff "$seed/$porelo_template" ||
+            refused "the seed could not be named for the story"
+        renamed=()
+        for each in "${seeded[@]}"; do
+            mv "$seed/$each" "$seed/$(own "$each")"
+            renamed+=("$(own "$each")")
+        done
+        seeded=("${renamed[@]}")
+    fi
+fi
+
 # Taken away on every ending, in this order: what still runs of the window's part and the planner it started, the
-# planner's own state of the project as it stood before the run, the task branches and pull requests in the issue
-# repository, each noted repository's tree as at its T0, the forge's
-# token and its declaration, porelod's agent put back, the run's copy.
+# planner's own state of the project as it stood before the run, the run's tasks, the story's repositories the run
+# made, the forge's token and its declaration, porelod's agent put back, the run's copy.
 porelo_commit='' swapped='' pointed='' agent_before='' holder='' central_match='' vault='' declared='' taken='' planned=''
 # The tasks of the porelo project porelod listed before the run began: never the run's. Only once that list was taken
 # (before_known) is any task porelod lists counted as the run's.
 before_tasks='' before_known=''
-# Each noted repository's default branch and its tip at T0, by name; only a noted one is restored.
+# Each noted repository's default branch and its tip at T0, by name.
 declare -A branch_of=() t0_of=()
+# The story's repositories this run made, deleted on its ending: never one it did not make.
+created=()
 left=()
 # A kept run is taken up again as it was left; a red step keeps it so.
 kept=''
@@ -380,8 +495,12 @@ cleanup() {
                 porelo task stop -- '$each' >/dev/null 2>&1; porelo task remove --force -- '$each' >/dev/null; fi" </dev/null ||
             left+=("the task $each on $vm (porelo task remove --force $each there)")
     done
-    for each in "${!t0_of[@]}"; do take_back_the_tasks_work "$each" "$tasks"; done
-    for each in "${!t0_of[@]}"; do restore "$each"; done
+    # Deleted whole, with every branch, pull request and commit of the run in them.
+    for each in "${created[@]}"; do
+        case $(github DELETE "/repos/$org/$each") in
+        204 | 404) ;; *) left+=("the repository $org/$each (gh repo delete $org/$each --yes)") ;;
+        esac
+    done
     if [ -n "$declared" ]; then
         as_the_person_on_vm "porelo credentials forget '$central_match'" </dev/null >/dev/null 2>&1 ||
             left+=("the declaration of $central_match on $vm (porelo credentials forget there)")
@@ -409,68 +528,6 @@ cleanup() {
         echo "walk: the clean-up left:" >&2
         printf '  %s\n' "${left[@]}" >&2
         exit 1
-    fi
-}
-
-# A noted repository's branches named for the run's project or one of its tasks go, each open pull request from one
-# of them closed first: the API deletes no pull request, so a closed one with its branch gone is all that can go.
-# shellcheck disable=SC2329 # run by cleanup, on the EXIT trap
-take_back_the_tasks_work() {
-    local repository=$1 names=$2 status branch number
-    status=$(github GET "/repos/$org/$repository/pulls?state=open&per_page=100")
-    if [ "$status" = 200 ]; then
-        while read -r number branch; do
-            if carries_the_run "$branch" "$names"; then
-                case $(github PATCH "/repos/$org/$repository/pulls/$number" '{"state":"closed"}') in
-                200) ;; *) left+=("pull request #$number of $org/$repository") ;;
-                esac
-            fi
-        done < <(jq -r '.[] | "\(.number) \(.head.ref)"' "$work/answer")
-    else
-        left+=("the pull requests of $org/$repository could not be listed ($status)")
-    fi
-    status=$(github GET "/repos/$org/$repository/branches?per_page=100")
-    if [ "$status" = 200 ]; then
-        while read -r branch; do
-            if carries_the_run "$branch" "$names"; then
-                case $(github DELETE "/repos/$org/$repository/git/refs/heads/$branch") in
-                204 | 422) ;; *) left+=("the branch $branch of $org/$repository") ;;
-                esac
-            fi
-        done < <(jq -r '.[].name' "$work/answer" | grep -Ex '[A-Za-z0-9][A-Za-z0-9._/-]*' || true)
-    else
-        left+=("the branches of $org/$repository could not be listed ($status)")
-    fi
-}
-
-# shellcheck disable=SC2329 # run by cleanup, on the EXIT trap
-carries_the_run() {
-    local branch=$1 each
-    case "$branch" in *"$project"* | *"$name"*) return 0 ;; esac
-    for each in $2; do
-        case "$branch" in *"$each"*) return 0 ;; esac
-    done
-    return 1
-}
-
-# One new commit on the repository's tip holding its T0 tree, where the tree differs: never a force push. The porelo
-# project's repository is signed anew on it, since porelo judges its project.yml by its newest change.
-# shellcheck disable=SC2329 # run by cleanup, on the EXIT trap
-restore() {
-    local repository=$1 branch=${branch_of[$1]} t0=${t0_of[$1]} pushed
-    pushed=$(as_the_person_on_vm "set -e; d=~/$run/restore/$repository; rm -rf \$d
-        git clone -q --bare --filter=blob:none --single-branch --branch '$branch' 'git@github.com:$org/$repository.git' \$d
-        tip=\$(git -C \$d rev-parse 'refs/heads/$branch')
-        tree=\$(git -C \$d rev-parse '$t0^{tree}')
-        [ \"\$(git -C \$d rev-parse \$tip^{tree})\" != \"\$tree\" ] || exit 0
-        c=\$(git -C \$d -c user.name='Porelo walk' -c user.email=walk@example.org commit-tree \$tree -p \$tip \
-            -m 'Restore the tree before the walk $name')
-        git -C \$d push -q origin \$c:'refs/heads/$branch' >&2; echo \$c" </dev/null) || {
-        left+=("$org/$repository is not back at the tree of $t0")
-        return
-    }
-    if [ "$repository" = "$porelo_project" ] && [ -n "$pushed" ]; then
-        sign_the_project "$pushed" || left+=("the signature of $porelo_project on the restore commit $pushed")
     fi
 }
 
@@ -567,6 +624,41 @@ sys.stdout.write(re.sub(r"(?m)^mail:\n(?:[ \t].*\n?|\n)*", "", text))' "$work/ap
         echo "walk: the seed could not be committed to $org/$repository on $vm" >&2
         exit 1
     }
+}
+
+# The story's repository of the template named, made new in the organization and filled with the template's default
+# branch as it is; in the porelo project's copy every template's name is made the story's in one commit. Noted as made
+# at once, so every ending deletes it.
+make_repository() {
+    local template=$1 repository branch=${branch_of_template[$1]} status
+    repository=$(own "$template")
+    status=$(github POST "/orgs/$org/repos" "{\"name\": \"$repository\", \"private\": ${private_of_template[$template]}, \"auto_init\": false, \"description\": \"The walk $name of $test, a copy of $template; deleted at its end\"}")
+    [ "$status" = 201 ] || {
+        echo "walk: $org/$repository could not be made ($status)" >&2
+        exit 1
+    }
+    created+=("$repository")
+    as_the_person_on_vm "set -e; d=~/$run/fill/$repository; rm -rf \$d
+        git clone -q --single-branch --branch '$branch' 'git@github.com:$org/$template.git' \$d" </dev/null >&2 || {
+        echo "walk: $org/$template could not be cloned on $vm" >&2
+        exit 1
+    }
+    if [ "$template" = "$porelo_template" ]; then
+        # shellcheck disable=SC2015 # either failing stops the run
+        on_vm "cd ~/$run/fill/'$repository' && python3 -I - '$story-' '${templates[*]}' ." <"$work/rename.py" >&2 &&
+            on_vm "set -e; cd ~/$run/fill/'$repository'; git add -A; git diff --cached --quiet ||
+                git -c user.name='Porelo walk' -c user.email=walk@example.org commit -q -m 'Name the repositories for the walk $name'" \
+                </dev/null >&2 || {
+            echo "walk: the copy of $template could not be named for the story on $vm" >&2
+            exit 1
+        }
+    fi
+    as_the_person_on_vm "git -C ~/$run/fill/'$repository' push -q 'git@github.com:$org/$repository.git' HEAD:'refs/heads/$branch'" \
+        </dev/null >&2 || {
+        echo "walk: $org/$repository could not be filled from $org/$template" >&2
+        exit 1
+    }
+    echo "walk: $org/$repository made, a copy of $org/$template on $branch"
 }
 
 # The seed's commit pushed onto the repository's default branch, never forced.
@@ -767,21 +859,19 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
         esac
         diffs+=("$each")
     done
-    # T0 of every repository the run may change, then the seed written over the seeded ones.
-    for each in "${seeded[@]}"; do note_t0 "$each"; done
-    for each in "${issue_repos[@]}"; do [ -n "${t0_of[$each]:-}" ] || note_t0 "$each"; done
+    # The story's repositories, each a copy of its template; T0 of each, then the seed written over the seeded ones.
+    for each in "${templates[@]}"; do make_repository "$each"; done
+    for each in "${templates[@]}"; do note_t0 "$(own "$each")"; done
     # Every seeded repository is prepared before any is pushed: a diff that does not apply stops the run with nothing pushed.
     for each in "${seeded[@]}"; do prepare_seed "$each"; done
     for each in "${seeded[@]}"; do push_seed "$each"; done
-    # A changed project.yml counts only once its newest change is signed by a Project Admin.
-    case " ${seeded[*]} " in *" $porelo_project "*)
-        sign_the_project "$(tip_of "$porelo_project")" || {
-            echo "walk: $porelo_project could not be signed anew on $vm" >&2
-            exit 1
-        }
-        echo "walk: $org/$porelo_project stands signed at $(tip_of "$porelo_project")"
-        ;;
-    esac
+    # A changed project.yml counts only once its newest change is signed by a Project Admin; the story's names changed
+    # it, so it is signed whether seeded or not.
+    sign_the_project "$(tip_of "$porelo_project")" || {
+        echo "walk: $porelo_project could not be signed anew on $vm" >&2
+        exit 1
+    }
+    echo "walk: $org/$porelo_project stands signed at $(tip_of "$porelo_project")"
     # Each issue repository's tip once seeded, as the window's walk reads its builder's work against it.
     issue_heads=''
     for each in "${issue_repos[@]}"; do issue_heads+="${issue_heads:+ }$each=$(tip_of "$each")"; done
@@ -831,7 +921,7 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
     fi
 
     # What a resume or a clean takes the run up with.
-    declare -p before_tasks before_known test vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
+    declare -p created before_tasks before_known test vm org planner project porelo_project mail issue_repos name run since issue_heads vault in_vault central_match \
         declared pointed agent_before swapped porelo_commit taken planned branch_of t0_of | sed 's/^declare -A/declare -gA/' >"$report/state.sh"
 fi
 

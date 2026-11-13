@@ -33,7 +33,8 @@
 # and names the latest trial run as it stands. The token reaches curl on its standard input alone.
 #
 # A story the `case` hands to tool/walk_idea.sh is played by it on its Linux VM, with its forge, vault and seed: --org,
-# --seed, --issue-repo and --porelo-project go to it as they are, its test is the story's and its project goes without
+# --seed, --issue-repo and --porelo-project go to it as they are, the last two naming templates the walk copies into
+# repositories of the story's own name (tasks-results-foo-1), its test is the story's and its project goes without
 # mail, and its environment is the walk's own (SSH_AUTH_SOCK holding the test person's key, WALK_FORGE_TOKEN,
 # WALK_PROVIDER_KEY_FILE; tool/walk_idea.sh says what each is). Its report, in DIR/walk, becomes this one's; a run it
 # kept after a red step is taken up or away with tool/walk_idea.sh, as it says. The walk numbers its own steps, one
