@@ -286,9 +286,10 @@ void main() {
     expect(watched?.selectedProject?.name, 'billing', reason: 'and the project chosen on it');
   });
 
-  // Harm: a reader of a machine that reconnects was handed a stand-in, and what it asked of it was lost once the
-  // machine was watched again, without a word: every reader asks whether the machine is watched.
-  test('a machine that reconnects is not watched, and reading it as though it were throws', () async {
+  // Harm: a reader of a machine that reconnects was handed a stand-in through `of`, and what it set there was lost
+  // once the machine was watched again, without a word. No stand-in is handed out: such a reader throws, which the
+  // window's tests of a machine that reconnects find.
+  test('a machine that reconnects has no fleet, and reading one through of throws', () async {
     final window = await _reconnecting();
     final machines = window.machines;
     final disconnecting = machines.disconnect(window.going);
@@ -365,23 +366,6 @@ void main() {
     expect(seen, contains(isNull), reason: 'while it is not watched it is handed no fleet');
     expect(seen.last, same(machines.watching(window.going)), reason: 'then the fleet watching it now');
     expect(seen.last?.reachability, Reachability.connected, reason: 'which answers');
-  });
-
-  // Harm: a machine watched again stayed unreadable, as though it were still being opened.
-  test('once the machine is watched again its own fleet is read', () async {
-    final window = await _reconnecting();
-    final machines = window.machines;
-    final disconnecting = machines.disconnect(window.going);
-    await pumpEventQueue();
-    final listed = machines.all.singleWhere((each) => each.name == window.going.name);
-    expect(machines.watching(listed), isNull, reason: 'not watched yet');
-
-    window.tunnels.let.complete();
-    await disconnecting;
-
-    final watched = machines.all.singleWhere((each) => each.name == window.going.name);
-    expect(machines.watching(watched), isNotNull, reason: 'watched again');
-    expect(machines.of(watched), same(machines.watching(watched)), reason: 'its own fleet once it is watched');
   });
 
   // Harm: a stored list that could not be taken in left the window drawing the machine it started with as not

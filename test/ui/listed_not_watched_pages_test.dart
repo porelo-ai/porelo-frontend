@@ -71,8 +71,8 @@ void main() {
     expect(thrown, isEmpty, reason: 'the selected machine not watched yet is drawn as not answering');
   });
 
-  // Harm: an action on the selected machine while it reconnects ran on a stand-in that is then replaced, so what the
-  // person asked for was lost without a word.
+  // Harm: Refresh and Reconnect of the selected machine while it reconnects were offered and ran on a stand-in that is
+  // then replaced, so what the person asked for was lost without a word; they are unavailable and say why.
   testWidgets('the selected machine reconnecting offers no action, and says it is being opened', (tester) async {
     final end = await reconnecting(tester, selected: true);
 

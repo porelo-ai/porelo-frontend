@@ -812,6 +812,7 @@ extension on _AttentionViewState {
           machine: each.machine,
           count: each.count,
           onSeen: resolved ? null : attention.fleetOf(each.machine)?.clearance.missedSeen,
+          unavailable: !resolved && attention.fleetOf(each.machine) == null ? notWatchedYet : null,
         );
     }
   }
@@ -1012,11 +1013,14 @@ class _FailedOperation extends StatelessWidget {
 
 /// Questions about blocked connections a machine dropped before they were seen.
 class _MissedQuestions extends StatelessWidget {
-  const _MissedQuestions({required this.machine, required this.count, required this.onSeen});
+  const _MissedQuestions({required this.machine, required this.count, required this.onSeen, this.unavailable});
 
   final Machine machine;
   final int count;
   final VoidCallback? onSeen;
+
+  /// Why *Seen* cannot be pressed now, as while the machine is being opened; null where nothing is said.
+  final String? unavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -1037,6 +1041,8 @@ class _MissedQuestions extends StatelessWidget {
               'A dropped question is not asked again: work may be waiting for an answer until it '
               'runs out. Look at its work under Work, or at the connections it is blocked on.',
             ),
+            if (unavailable case final why?)
+              Text('Seen is unavailable: $why.', key: ValueKey<String>('missed-questions-why ${machine.name}')),
           ],
         ),
         trailing: TextButton(

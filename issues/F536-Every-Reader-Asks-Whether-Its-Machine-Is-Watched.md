@@ -81,7 +81,8 @@ Each step adds to the widget tests of the window in which a machine is listed an
 - `lib/src/app/unattended_run.dart`: a run takes the machines and follows the fleet that watches its machine
   (`Machines.follow`), reading the run and its last line again from a fleet that replaced the first.
 - `lib/src/app/attention.dart`, `lib/src/ui/attention_view.dart`: `fleetOf` may be null; a row's actions are then
-  unavailable with the same reason, and a held message's or grant's row says the machine is being opened. My
+  unavailable with the same reason, and a held message's or grant's row says the machine is being opened; *Seen* of
+  dropped questions says why it cannot be pressed. My
   machines, My projects, the machine's details, Work, the running view and the host dialog read `watching`.
 - `lib/src/app/where_you_were.dart`: the saved project and task are set on the machine's fleet once it is watched.
   The planning starts and reports, the agents offered and the planner's chosen project read `watching`; a planned
@@ -92,8 +93,13 @@ Each step adds to the widget tests of the window in which a machine is listed an
   (`test/ui/listed_not_watched_pages_test.dart`); a run follows its machine through a reconnect
   (`test/ui/unattended_run_test.dart`); the place saved on a machine that reconnects is taken up once it is watched
   (`test/app/listed_not_watched_test.dart`). With the stand-in gone and the readers as they were before, the pages
-  test throws in all three cases; the two app tests of the stand-in now check that `of` throws for a machine not
-  watched. The pages and listeners moved in the third step change nothing a test can see while the stand-in stood;
-  the last step's red covers them.
+  test throws in all three cases. Of the two app tests of the stand-in, one now checks that `of` throws for a machine
+  not watched, so a reader left on it is found; the other, that a machine watched again is read, guarded nothing the
+  other reconnect tests do not, and went. The pages and listeners moved in the third step change nothing a test can
+  see while the stand-in stood; the last step's red covers them.
+- Left as they are, from the code reading: two restores in one turn could let the first one's end stop the second's
+  wait for the machine; `work.stop`, `work.resume` and `work.messages` give no reason, or another, for a fleet that is
+  null, on a path nothing takes today; and a few actions in `shell.dart` keep the fleet they read across an await,
+  which a disposed fleet ignores.
 - Each step ran the tests built on what it changed (498, 601, 519, 365 and 409); the module suites ran on the build
   box at the end.
