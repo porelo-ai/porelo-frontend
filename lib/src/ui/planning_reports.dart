@@ -724,7 +724,8 @@ class WindowTaskReports {
     // Its idea is the planner's now, so the ended discussion goes, as a person would remove it; one whose idea was not
     // saved stays with its result file, and one with ideas of its own not yet handed stays with them.
     if (_ideasWaiting(kept.machine, kept.container)) {
-      await settings.discussionStays(kept.machine, kept.container, stays: true);
+      final run = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull?.run;
+      await settings.discussionStays(kept.machine, kept.container, stays: run ?? '');
       return _sayIdea(
         kept,
         'The discussion ${kept.container} was handed in as $story; it stays until the ideas it proposed are handed in.',
@@ -741,10 +742,13 @@ class WindowTaskReports {
   /// with none of them waiting or held back: once, also across restarts, as a person would remove it.
   Future<void> _removeWaitedDiscussions() async {
     for (final kept in settings.keptDiscussions) {
-      if (!kept.stays) continue;
-      if (tasksOn(kept.machine)?.any((each) => each.name == kept.container) != true) continue;
+      final run = kept.stays;
+      if (run == null) continue;
+      final task = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
+      // Only the ended task that stayed: a later one under its name, started meanwhile, is not it.
+      if (task == null || task.running || (task.run ?? '') != run) continue;
       if (_ideasWaiting(kept.machine, kept.container)) continue;
-      await settings.discussionStays(kept.machine, kept.container, stays: false);
+      await settings.discussionStays(kept.machine, kept.container, stays: null);
       try {
         await removeOn(kept.machine, kept.container);
       } on Object catch (error) {

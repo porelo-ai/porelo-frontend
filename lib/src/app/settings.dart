@@ -131,7 +131,7 @@ class KeptDiscussion {
     required this.provider,
     required this.project,
     this.ended,
-    this.stays = false,
+    this.stays,
   });
 
   /// The machine's name, as the window shows it.
@@ -152,8 +152,9 @@ class KeptDiscussion {
   /// The end whose idea was handed in, or said not to be, or seen when the discussion started; null for none.
   final String? ended;
 
-  /// Whether its idea was saved and it stays only while ideas it proposed wait to be handed in: it goes once none does.
-  final bool stays;
+  /// Where its idea was saved and it stays only while ideas it proposed wait to be handed in, the run of the ended
+  /// task that stays (empty where the machine names none): it goes once none waits, as that very task; null otherwise.
+  final String? stays;
 }
 
 /// A validated rental identity and optional signed-state setup progress.
@@ -1142,9 +1143,9 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
-  /// Notes whether the discussion in [container] on [machine], whose idea was saved, stays only for ideas it proposed
-  /// that wait to be handed in ([stays]), or no longer does.
-  Future<void> discussionStays(String machine, String container, {required bool stays}) async {
+  /// Notes that the ended discussion in [container] on [machine], whose idea was saved, stays only for ideas it proposed
+  /// that wait to be handed in, as the task of the run [stays]; null where it no longer does.
+  Future<void> discussionStays(String machine, String container, {required String? stays}) async {
     final kept = _discussions[(machine, container)];
     if (kept == null || kept.stays == stays) return;
     _discussions[(machine, container)] = KeptDiscussion(
@@ -1273,7 +1274,7 @@ class Settings extends ChangeNotifier {
             provider: provider,
             project: project,
             ended: ended is String && _validEnd(ended) ? ended : null,
-            stays: value['stays'] == true,
+            stays: value['stays'] is String && _validEnd(value['stays'] as String) ? value['stays'] as String : null,
           );
         }
       }
@@ -1369,7 +1370,7 @@ class Settings extends ChangeNotifier {
           'provider': kept.provider,
           'project': kept.project,
           'ended': ?kept.ended,
-          if (kept.stays) 'stays': true,
+          'stays': ?kept.stays,
         },
     ],
   };

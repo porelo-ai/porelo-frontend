@@ -34,11 +34,14 @@ Found in the code reading of [F535](README.md#f535) (2026-11-13).
 
 ## How it was built
 
-- `KeptDiscussion.stays` in `lib/src/app/settings.dart`, kept with the discussion across restarts: set by
-  `discussionStays` when the discussion's idea was saved while ideas it proposed still waited or were held back.
+- `KeptDiscussion.stays` in `lib/src/app/settings.dart`, kept with the discussion across restarts: the run of the
+  ended task, set by `discussionStays` when the discussion's idea was saved while ideas it proposed still waited or
+  were held back. Only that ended task goes: a later task under the container's name, of another run or running, is
+  left alone.
 - `WindowTaskReports` (`lib/src/ui/planning_reports.dart`) sets it where it says the discussion stays, and each sweep,
   after the proposed ideas are handed, removes every such discussion its machine lists with nothing waiting and none
   held back. The mark is cleared before the removal, so it goes once; a removal the machine refuses is said once.
 - Only a saved idea sets the mark: a discussion whose idea was refused, or that wrote none, stays as before.
 - Tests in `test/ui/window_task_reports_test.dart`: a saved discussion goes once nothing of it waits, also after a
-  restart, and only once (seen red first); a refused one stays.
+  restart, and only once; a later discussion under its name is not removed (both seen red first); a refused one
+  stays.

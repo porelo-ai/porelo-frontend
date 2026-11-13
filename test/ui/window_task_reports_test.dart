@@ -883,6 +883,30 @@ void main() {
       expect(handed, hasLength(1));
     });
 
+    // Harm: a later discussion under the same container name, started while the window was closed, is removed as the
+    // earlier one that waited for its ideas.
+    test('that waited goes only as the ended task it was, never a later one under its name', () async {
+      final (reports, _, saved) = await discussed();
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      machine.end('porelo-demo-discussion', endAt('2026-11-12T01:00:00Z', result: ideaFile));
+      holdsBack(2);
+      await sweeps(reports);
+      expect(saved, ['demo ST900']);
+
+      final index = machine.listed.indexWhere((task) => task.name == 'porelo-demo-discussion');
+      machine.listed[index] = Task.from({
+        'name': 'porelo-demo-discussion',
+        'task': 'discussion',
+        'project': 'demo',
+        'running': true,
+        'run': 'a-later-run',
+        'ideas': <Object>[],
+      });
+      await sweeps(window(kept: await loaded()).$2);
+
+      expect(removed, isEmpty);
+    });
+
     // Harm: a discussion whose idea the planner refused goes with its result file once its waiting ideas are handed.
     test('whose idea was refused stays once nothing of it waits any more', () async {
       final (reports, _, saved) = await discussed();
