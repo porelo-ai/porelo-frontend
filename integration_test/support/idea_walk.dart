@@ -54,6 +54,11 @@ abstract final class Walk {
   static Duration get taskDeadline =>
       Duration(minutes: int.tryParse(Platform.environment['PORELO_WALK_TASK_MINUTES'] ?? '') ?? 30);
 
+  /// How long a started task may take to be bound to the planner's offer it answers, which the window reports some
+  /// time after porelo lists the task.
+  static Duration get bindDeadline =>
+      Duration(minutes: int.tryParse(Platform.environment['PORELO_WALK_TASK_MINUTES'] ?? '') ?? 10);
+
   /// What the discussion's agent is told to end its session.
   static String get quit {
     final said = Platform.environment['PORELO_WALK_AGENT_QUIT'] ?? '';
@@ -196,6 +201,45 @@ Future<String> probe(List<String> check) async {
     _ => fail('the probe could not run ${check.join(' ')} (exit ${ran.exitCode}): ${ran.stderr}${ran.stdout}'),
   };
 }
+
+/// The tasks the planner's run of [story] holds, each bound to the offer it answers: an offer the window has not
+/// reported started yet has none, and is no task of the run here.
+Future<Set<String>> theRunsTasks(String story) async {
+  final ran = await _probe(['work', story, 'started']);
+  return {
+    for (final line in '${ran.stdout}'.split('\n'))
+      if (RegExp(r'^\s*task (\S+) ').firstMatch(line) case final found?) found.group(1)!,
+  };
+}
+
+/// Whether every issue of [story] stands in one of [states] on the board, whatever its attention.
+Future<bool> everyIssueIn(String story, Set<String> states) async {
+  final ran = await _probe(['issues', story]);
+  if (ran.exitCode != 0) return false;
+  final standing = {
+    for (final line in '${ran.stdout}'.split('\n'))
+      if (RegExp(r'^\s*(\S+) \S+ (.+?) worker=').firstMatch(line) case final found?) found.group(1)!: found.group(2)!,
+  };
+  return Walk.issues.every((issue) => states.contains(standing[issue.id]));
+}
+
+/// Whether every task in [containers] is one of the planner's run of [story]: its offer bound, so what the planner
+/// says of the run and its issues already counts it.
+Future<bool> everyTaskBound(String story, List<String> containers) async {
+  final bound = await theRunsTasks(story);
+  for (final container in containers) {
+    if (!bound.contains('${(await theTask(container))['task'] ?? ''}')) return false;
+  }
+  return true;
+}
+
+/// Waits until every task in [containers] is bound to its offer in the planner's run, at most [Walk.bindDeadline].
+Future<void> untilEveryTaskBound(WidgetTester tester, List<String> containers, String what) => pumpUntil(
+  tester,
+  () => everyTaskBound(Walk.story!, containers),
+  timeout: Walk.bindDeadline,
+  what: 'the planner to hold $what as tasks of its run',
+);
 
 /// Whether the probe's [check] holds now: for a wait, which asks again rather than failing.
 Future<bool> probeHolds(List<String> check) async => (await _probe(check)).exitCode == 0;

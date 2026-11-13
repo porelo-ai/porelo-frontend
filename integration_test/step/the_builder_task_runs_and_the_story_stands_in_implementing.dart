@@ -11,8 +11,18 @@ Future<void> theBuilderTaskRunsAndTheStoryStandsInImplementing(WidgetTester test
         final task = await theTask(builder);
         expect(task['running'] == true || hasEnded(task), isTrue, reason: 'porelo says $builder ran: $task');
       }
-      // The window posts STARTED after Start confirmed it; the planner moves on its own word. Where every builder
-      // ended already, the window posted their ends too, and the run stands ended.
+      // The window posts STARTED after Start confirmed it, a while after porelo lists the task; the planner moves an
+      // issue on only on that word. So nothing is judged before every issue left Backlog and every builder is bound
+      // to its offer: an offer not yet bound is no task of the run, and a run of bound tasks all ended is not over.
+      await pumpUntil(
+        tester,
+        () async =>
+            await everyIssueIn(Walk.story!, const {'Implementing', 'Reading', 'Review'}) &&
+            await everyTaskBound(Walk.story!, Walk.builders),
+        timeout: Walk.bindDeadline,
+        what: 'every issue to leave Backlog and every builder to be bound to its offer',
+      );
+      // Where every builder ended already, the window posted their ends too, and the run stands ended.
       Future<bool> allEndedNow() async {
         for (final builder in Walk.builders) {
           if (!hasEnded(await theTask(builder))) return false;
