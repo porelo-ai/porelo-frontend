@@ -725,7 +725,7 @@ cleanup() {
             rm -f ~/$run.planner-state.tar" </dev/null ||
             left+=("the planner's state of $project on $vm (~/.local/state/porelo-planner/$project; before the run: ~/$run.planner-state.tar)")
     fi
-    local tasks='' listed='' each
+    local tasks='' listed='' each keep_vault=''
     # The tasks the window noted, and every task of the project porelod lists now that was not there before the
     # window's part: one the window started after it last looked, such as a reader of a rework, or in a resume.
     if [ -n "$before_known" ]; then
@@ -741,7 +741,8 @@ cleanup() {
         as_the_person_on_vm "${in_vault:-}porelo project clear --yes --force '$porelo_project'" </dev/null >/dev/null 2>&1 || true
         if [ "$(placed)" = True ]; then
             # The project's deploy keys are in the run's vault: kept beside the run, a later clear can still forget them.
-            on_vm "mv ~/$run/vault ~/$run.vault" </dev/null >/dev/null 2>&1 || true
+            # Moved there once the organization is done with, which is asked with the vault where porelod knows it.
+            keep_vault=yes
             left+=("$porelo_project placed on $vm (PORELO_VAULT=~/$run.vault/vault.bin porelo project clear --yes --force $porelo_project there)")
         fi
     fi
@@ -772,12 +773,18 @@ cleanup() {
                 echo "walk: $porelo_project is taken out of the organization" >&2
             else
                 left+=("$porelo_project in the organization, which said: $(printf '%s' "$said" | tr -s '\n' ' ' | cut -c1-300)" \
-                    "(porelo org project remove $porelo_project, as the test person on $vm with the forge token declared)")
+                    "(porelo org project remove $porelo_project, as the test person on $vm, with the forge token" \
+                    "declared anew in a vault: the run's declaration is forgotten below)")
             fi
             ;;
         no) ;;
         *) left+=("whether $porelo_project is in the organization could not be asked (porelo org project remove $porelo_project)") ;;
         esac
+    fi
+    if [ -n "$keep_vault" ]; then
+        # A kept vault of an earlier run of the same name would take this one in, where nothing finds it.
+        on_vm "rm -rf ~/$run.vault; mv -T ~/$run/vault ~/$run.vault" </dev/null >/dev/null 2>&1 ||
+            left+=("the run's vault on $vm, to be kept as ~/$run.vault: ~/$run/vault goes with the run's copy")
     fi
     # Deleted whole, with every branch, pull request and commit of the run in them.
     for each in "${created[@]}"; do
@@ -797,7 +804,9 @@ cleanup() {
             left+=("the declaration of $central_match on $vm (porelo credentials forget there)")
     fi
     if [ -n "$vault" ]; then
-        on_vm "PORELO_VAULT=$vault porelo vault lock" </dev/null >/dev/null 2>&1 || true
+        # Also where it was kept beside the run.
+        on_vm "v=$vault; [ -f \$v ] || v=\$HOME/$run.vault/vault.bin; PORELO_VAULT=\$v porelo vault lock" \
+            </dev/null >/dev/null 2>&1 || true
     fi
     if [ -n "$swapped" ]; then
         # The kept ones go back over the run's; porelod is restarted on them below, or here where nothing else does.
