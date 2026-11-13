@@ -51,8 +51,16 @@ connections already do (16 per card, 48 in all, 8 starts a second per card).
    `porelo daemon connect` (or Core offers a relay that does), so a card costs one ssh for its daemon.
 3. Leave the daemon unbounded and say so in [F290](README.md#f290)'s acceptance, since nothing outside the window drives the count.
 
-## Acceptance (for option 1 or 2)
+## Decided
+
+Option 1, two pools (2026-11-13): option 2 needs a new contract of Porelo's or an L in the window's client, and
+option 3 leaves the reading's grave finding open. A burst of daemon calls past the call pool waits for a place
+instead of starting more ssh.
+
+## Acceptance
 
 - On Windows, a test with `inAll` small holds its daemon's watches and a flood of calls and of carried connections
   within the stated caps, and every view still answers.
+- A burst of daemon calls larger than the call pool waits for places and is answered in turn: none is refused and
+  no ssh past the caps is started; a watch keeps its own place throughout.
 - On Linux nothing changes: the daemon goes through the card's master as now.
