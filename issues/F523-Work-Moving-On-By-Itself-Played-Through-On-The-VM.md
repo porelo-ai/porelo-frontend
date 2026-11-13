@@ -10,7 +10,7 @@
   "priority": "High",
   "rank": 96,
   "blockedBy": [],
-  "covers": "Story ST314, the planner moves work on from state to state by itself, played once on the test VM in the window as a person would, for ST347's gathered story run: DONE work set to Reading with its reader started unasked, an OK reading set to Review, a blocking one to Reworking with a Needs-you entry, a failed task kept with a warning."
+  "covers": "Story ST314, the planner moves work on from state to state by itself, played once on the test VM in the window as a person would, for ST347's gathered story run: DONE work set to Reading with its reader started unasked, an OK reading set to Review, a blocking one stopped under Needs you and reworked once the person chooses Rework, a failed task kept with a warning."
 }
 ```
 
@@ -19,9 +19,9 @@ each with its reads of the board, Needs you and the tasks; the walk to Reading a
 `walking_an_idea.feature`.
 
 **What must be true.** A run on the test VM shows, or names as missing, what ST314 promises: work that ends DONE goes to
-Reading and its reader starts with no dialog, an OK reading sets Review, a blocking one sets Reworking with a Needs-you
-entry that opens its dialog and nothing started unasked, and a failed task keeps its card with a warning and a Needs-you
-entry to its result.
+Reading and its reader starts with no dialog, an OK reading sets Review, a blocking one stops with its findings under
+its Needs-you entry until the person chooses Rework there, whereupon the issue stands in Reworking and the window runs
+the rework, and a failed task keeps its card with a warning and a Needs-you entry to its result.
 
 ## Why
 
@@ -32,10 +32,11 @@ entry to its result.
 ## What the story's test asks
 
 - **Does:** lets an issue's work end DONE in Implementing and watches; lets one reading end OK and another end
-  blocking; lets a task fail; opens the Needs-you entries.
+  blocking; chooses Rework on the stopped reading's Needs-you entry; lets a task fail.
 - **Sees:** Reading set and the reader started without a dialog, with the proposed model; Review after the OK
-  reading; Reworking after the blocking one, with a Needs-you entry that opens the Reworking dialog and nothing
-  started; the failed task's card kept, with a warning and a Needs-you entry to its result.
+  reading; the blocking reading stopped, its findings under its Needs-you entry; after Rework is chosen, the issue in
+  Reworking and its rework run by the window to its end; the failed task's card kept, with a warning and a Needs-you
+  entry to its result.
 
 ## What exists already
 
@@ -59,12 +60,19 @@ entry to its result.
 
 ## Plan
 
-- Two issues in the seeded story: one whose builder work passes the reader, one with a fault the reader blocks on;
-  a third task given a prompt it cannot finish, or a provider key refused, so it fails.
+- A blocking reading does not set Reworking by itself: the planner stops it, keeps the reader's findings in its own
+  work record (not in Git) and lists the issue under Needs you, where the person chooses Review anyway, One more
+  round or Rework. The story plays the Rework choice, as the results story ([F522](README.md#f522)) does.
+- The walk's own seed, `tool/walk-seeds/the_planner_moves_work_on`, is written over the seed given: in `foo-2` a test
+  that cannot pass as written, and the story's work rules (`stories/work.yml`) with one reader per repository, a
+  reading order that names such a test a blocking finding and a rework order that works off every blocking finding.
+  So the first issue's reading ends OK and the second's stops.
 - Steps: `Then Reading is set and its reader runs with no dialog shown`, the reader's task read on the VM with its
-  model; `Then the first issue stands in Review`; `Then the second stands in Reworking and Needs you lists it`; `When
-  I open its Needs-you entry`; `Then the Reworking dialog is open and no task was started`; `Then the failed task's
-  card stays, with a warning and a Needs-you entry to its result`.
+  model; `Then the first issue stands in Review`; `And the second's reading stops on its blocking findings and Needs
+  you lists it`, the probe's attention `BLOCKING_FINDINGS` and the findings under the issue's entry; `When I choose
+  Rework on its Needs-you entry`, sent once the dialog offers it; `Then the window runs the rework and it ends`, the
+  second in Reworking and its rework started by the window; `Then the failed task's card stays, with a warning and a
+  Needs-you entry to its result`. The helpers to read the findings and to choose Rework are shared with the results story.
 - The walk's own ending removes tasks and puts repositories back at T0.
 
 ## Expected failures
@@ -72,6 +80,8 @@ entry to its result.
 - [F492](README.md#f492) (Implementing): the real walk this script stands on.
 - [F500](README.md#f500) (Backlog): a reader started naming the work it reads.
 - [F501](README.md#f501) (Backlog): a started offer found again by its key.
+- Whether the reader on the VM names the seeded test a blocking finding is known only from a run; if it does not, the
+  second's reading ends OK and the stop step fails.
 - porelo-planner carrying one story in a real run beside a real installed Porelo, and work moving on by itself from a
   move on the board: the Start dialog filled with the project's defaults and the chain of build, reading and review
   running on, asking the person where a reading blocks.
