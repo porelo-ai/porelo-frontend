@@ -834,8 +834,8 @@ class Build {
   /// The commit that was pushed.
   final String commit;
 
-  /// `queued`, `running`, `success`, `failure`, `cancelled` or `unknown`; a string, so a value added
-  /// later renders rather than throws.
+  /// `queued`, `running`, `success`, `failure`, `cancelled`, `none` (a push the forge will not build) or `unknown`;
+  /// a string, so a value added later renders rather than throws.
   final String verdict;
 
   /// Every job the forge reported, once the verdict is `failure` or final; empty before.

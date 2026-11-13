@@ -74,6 +74,8 @@ abstract final class BuildsSaid {
     'queued' => (BuildLook.running, 'Build queued'),
     'running' => (BuildLook.running, 'Build running'),
     '' => (BuildLook.none, 'Build: no verdict given'),
+    // Final: the forge will not build this push, so no build is to come.
+    'none' => (BuildLook.none, 'No build for this push'),
     // Said as it comes, never mapped onto one of the three: a verdict this interface does not
     // know is not a pass, a failure or a run.
     'cancelled' || 'unknown' => (BuildLook.none, 'Build $verdict'),

@@ -132,7 +132,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
-| <a id="f539"></a>[F539](F539-A-Push-That-Will-Not-Be-Built-Reads-So.md) | XS | - | A pushed commit whose build verdict is `none`, a push the forge will not build, reads as no build for that push, never as "Build: none". |
 
 ## Implementing
 
@@ -295,6 +294,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f544"></a>[F544](F544-The-Window-And-The-Planner-Trust-The-Same-Porelo.md) | XS | - | The window hands the planner it starts only a Porelo executable the planner also accepts: neither may be written by others, or by a group other than the person's own private group, so a umask 002 setup keeps its lent login and a shared group never reaches it. |
 | <a id="f490"></a>[F490](F490-The-Command-Finder-Offers-A-Planning-Actions-Way-On.md) | S | - | An unavailable planning action in the command finder offers its way on, a runnable step to what holds it, beside the disabled action. |
 | <a id="f505"></a>[F505](F505-The-Issue-Heads-Are-Checked-Every-Day.md) | XS | - | The repository's daily shared-rules run checks its issues' heads with `issues check issues` from the released porelo-release, as the build tools' own shared rules do. |
+| <a id="f539"></a>[F539](F539-A-Push-That-Will-Not-Be-Built-Reads-So.md) | XS | - | A pushed commit whose build verdict is `none`, a push the forge will not build, reads as no build for that push, never as "Build: none". |
 
 ### Finished
 

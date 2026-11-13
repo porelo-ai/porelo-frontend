@@ -92,6 +92,12 @@ void main() {
     expect(said(withBuild('')).headline, 'Build: no verdict given');
   });
 
+  // Harm: a push the forge will never build reads as a verdict still to come, and the person waits for a build.
+  test('a push that will not be built reads so, grey, never as running, passed or failed', () {
+    final none = BuildsSaid.onTheTile(withBuild('none'))!;
+    expect((none.look, none.headline), (BuildLook.none, 'No build for this push'));
+  });
+
   test('before any build, and when the reader does not work, the tile is grey and says why', () {
     final none = Task.from(
       aTask(const <String, dynamic>{'buildReader': 'github', 'buildProblem': '', 'builds': <Object>[]}),
@@ -322,6 +328,12 @@ void main() {
     });
 
     // The harm: a reading that failed, or one not yet made, reads as a commit no workflow ran on.
+    // Harm: a push the forge will never build reads as a workflow that did not run, a verdict still to come.
+    test('a push that will not be built reads so beside runs listed empty', () {
+      final listed = BuildsSaid.onTheTile(withRuns('none', const <Object?>[]))!;
+      expect((listed.look, listed.headline), (BuildLook.none, 'No build for this push'));
+    });
+
     test('no runs beside a verdict that is not final keeps that verdict, never no workflow ran', () {
       final unknown = BuildsSaid.onTheTile(withRuns('unknown', const <Object?>[]))!;
       final queued = BuildsSaid.onTheTile(withRuns('queued', const <Object?>[]))!;

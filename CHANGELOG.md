@@ -18,6 +18,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A pushed commit the forge will not build reads *No build for this push* on its tile, instead of *Build: none*.
 - A move on *Planning* is saved at once, as the preview of what it would do showed it. Where it would stop work at hand, among it a start this window handed on that the planner does not report yet, the board warns first, and once confirmed the window ends exactly the tasks the planner says it stopped.
 - A story's row in *Needs you* whose work stopped, or whose save or next step was refused, offers *Start again…* in the window's own *Needs you* too, before the planning board was ever opened.
 - The dialog *Repositories of the Default project* refuses to take out a repository a task of *Default* works on, naming the tasks, and words a removal as the page of *Default* does.

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F539",
   "title": "A Push That Will Not Be Built Reads So",
-  "state": "Backlog",
+  "state": "Review",
   "size": "XS",
   "priority": "Low",
   "rank": 108,
@@ -32,3 +32,10 @@ beside `success`, `failure` and `cancelled` (2026-11-13).
 - `lib/src/app/builds.dart`: `'none' => (BuildLook.none, 'No build for this push')` in `_fromVerdict`.
 - `lib/src/client/models.dart`: name `none` among the verdicts of `Build.verdict`.
 - Red first in the builds' test: a build with verdict `none` reads "No build for this push".
+
+## How it was built
+
+- `Builds._fromVerdict` says `none` as "No build for this push", with the look of no verdict; `Build.verdict` names
+  `none` among the verdicts. `unknown` reads as before.
+- Red seen first: the builds' tests for a build with verdict `none`, alone and beside runs listed empty, read
+  "Build: none" before the change and "No build for this push" after it.
