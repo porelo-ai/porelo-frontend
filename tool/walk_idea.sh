@@ -616,6 +616,13 @@ for task in json.load(sys.stdin)["parameters"]["tasks"]:
 }
 placed() { porelod_call Projects '{}' | python3 -I -c 'import json, sys
 print(any(p.get("name") == sys.argv[1] for p in json.load(sys.stdin)["parameters"]["projects"]))' "$porelo_project"; }
+# A run whose copy on the VM is gone was taken away already, by its own ending or an earlier clean: nothing of the
+# forge or the VM is touched again, as what a second clean would judge is no longer the run's.
+if [ "$mode" = clean ] && [ "$(on_vm "if [ -d ~/$run ]; then echo kept; else echo gone; fi" </dev/null || true)" = gone ]; then
+    echo "walk: ~/$run is gone on $vm: the run was cleaned up already; nothing is touched" >&2
+    rm -rf "$work"
+    exit 0
+fi
 trap cleanup EXIT
 [ "$mode" != clean ] || exit 0
 
