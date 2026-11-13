@@ -11,7 +11,7 @@ Future<void> theWindowStartsTheOfferedReworkTaskAndItEnds(WidgetTester tester) =
     // The window starts the planner's follow-up order by itself, as it starts the readers: one rework per repository
     // of an issue whose reading stopped, with the reading's blocking findings.
     Walk.tasksBefore = {...Walk.tasksBefore, ...Walk.readers};
-    final repositories = {for (final issue in await theBlockedIssues()) issue.repository};
+    final repositories = {for (final issue in await theStoppedIssues()) issue.repository};
     final reworks = [
       for (final each in await theNewTasks(tester, 'the rework tasks', repositories.length, within: Walk.taskDeadline))
         theContainerOf(each),

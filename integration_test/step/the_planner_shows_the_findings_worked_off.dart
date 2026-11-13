@@ -7,10 +7,10 @@ import '../support/results_land.dart';
 
 /// Usage: the planner shows the findings worked off
 Future<void> thePlannerShowsTheFindingsWorkedOff(WidgetTester tester) =>
-    walked(tester, '13 [findings] read: the planner shows the findings worked off', () async {
+    walked(tester, '14 [findings] read: the planner shows the findings worked off', () async {
       // After the rework the issue is read again: the window starts that reader by itself. Worked off, the reading
       // finds nothing blocking and the issue goes on to Review, needing nobody, and leaves what needs a person.
-      for (final issue in await theBlockedIssues()) {
+      for (final issue in await theStoppedIssues()) {
         await pumpUntil(
           tester,
           () => probeHolds(['issue-state', issue.id, 'Review']),

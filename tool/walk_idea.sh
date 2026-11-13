@@ -271,6 +271,8 @@ work=$(mktemp -d)
 
 # A story's own seed in this checkout, tool/walk-seeds/<test>, written over the seed given: what its test needs of the
 # repositories beyond the shared seed, such as a fault its reader is bound to find. The given folder is never changed.
+# Its folders carry the seed's own names: a foo-project folder there holds the work rules only for the default
+# --porelo-project foo-project, and a walk under another project name finds them not.
 if [ "$mode" = run ] && [ -d "$here/tool/walk-seeds/$test" ]; then
     mkdir "$work/seed"
     cp -R "$seed/." "$work/seed/"

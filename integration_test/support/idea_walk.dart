@@ -100,6 +100,10 @@ abstract final class Walk {
 
   /// The builders' and the readers' containers, one per issue, once each was seen.
   static List<String> builders = [], readers = [];
+
+  /// The issues whose reading stopped on the reader's blocking findings, with their repositories, once they were read:
+  /// kept for a resume, since the planner names them no more once the person chose.
+  static List<({String id, String repository})> stopped = [];
 }
 
 /// Runs one step of the walk: a picture of the window where it fails, and one line `OK` or `FAIL` in the steps file
@@ -145,6 +149,9 @@ void _writeState() => _stateFile?.writeAsStringSync(
     'discussion': Walk.discussion,
     'builders': Walk.builders,
     'readers': Walk.readers,
+    'stopped': [
+      for (final each in Walk.stopped) [each.id, each.repository],
+    ],
   }),
   flush: true,
 );
@@ -162,6 +169,10 @@ void _readState() {
   Walk.discussion = state['discussion'] as String?;
   Walk.builders = [...(state['builders'] as List? ?? const []).cast<String>()];
   Walk.readers = [...(state['readers'] as List? ?? const []).cast<String>()];
+  Walk.stopped = [
+    for (final each in (state['stopped'] as List? ?? const []).cast<List<dynamic>>())
+      (id: each[0] as String, repository: each[1] as String),
+  ];
 }
 
 /// Adds [line] to the steps file the driver reads, where it names one.
@@ -545,20 +556,28 @@ Future<void> moveAndSave(WidgetTester tester, String issue, String state) async 
     timeout: const Duration(minutes: 2),
     what: 'the planner to save the move of $issue to $state',
   );
-  if (confirm.evaluate().isNotEmpty) {
+  // Planning that changed since a confirm asks again (planning-move-warning-again): confirmed again, a few times at most.
+  final again = find.byKey(const Key('planning-move-warning-again'));
+  for (var asked = 0; confirm.evaluate().isNotEmpty; asked++) {
+    if (asked == 3) fail('the move of $issue to $state was asked about again after three confirms');
     await tester.tap(confirm.first);
     await pumpFor(tester);
+    // Taken: the question goes, or comes back marked as asked again.
+    await pumpUntil(
+      tester,
+      () => confirm.evaluate().isEmpty || again.evaluate().isNotEmpty || error.evaluate().isNotEmpty,
+      timeout: const Duration(minutes: 2),
+      what: 'the confirm of the move of $issue to $state taken',
+    );
+    await pumpUntil(
+      tester,
+      () => confirm.evaluate().isNotEmpty || pending.evaluate().isEmpty || error.evaluate().isNotEmpty,
+      timeout: const Duration(minutes: 2),
+      what: 'the planner to save the move of $issue to $state',
+    );
   }
-  await pumpUntil(
-    tester,
-    () => pending.evaluate().isEmpty || error.evaluate().isNotEmpty,
-    timeout: const Duration(minutes: 2),
-    what: 'the planner to save the move of $issue to $state',
-  );
-  for (final problem in [Key('planning-move-problem $issue'), const Key('planning-move-error')]) {
-    if (find.byKey(problem).evaluate().isNotEmpty) {
-      fail('the move of $issue to $state was refused: ${tester.widget<Text>(find.byKey(problem).first).data}');
-    }
+  if (error.evaluate().isNotEmpty) {
+    fail('the move of $issue to $state was refused: ${tester.widget<Text>(error.first).data}');
   }
 }
 

@@ -4,20 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'idea_walk.dart';
 
-/// What the story of a task's results shares: the issues whose reading stopped on blocking findings.
-abstract final class ResultsLand {
-  /// The issues whose reading stopped on the reader's blocking findings, with their repositories, once they were read.
-  static List<({String id, String repository})> blocked = [];
-}
-
-/// The issues of the story whose reading stopped on blocking findings, as the planner says: kept from the step that
-/// read them, or asked again on a resume.
-Future<List<({String id, String repository})>> theBlockedIssues() async {
-  if (ResultsLand.blocked.isNotEmpty) return ResultsLand.blocked;
-  return ResultsLand.blocked = [
-    for (final issue in Walk.issues)
-      if (await probeHolds(['attention', issue.id, 'BLOCKING_FINDINGS'])) (id: issue.id, repository: issue.repository),
-  ];
+/// The issues of the story whose reading stopped on blocking findings, as the planner named them once its readings
+/// ended: kept in the walk's state from then on, since the planner names them no more once the person chose. Fails
+/// where none was kept, as a later step that expects them would otherwise pass over nothing.
+Future<List<({String id, String repository})>> theStoppedIssues() async {
+  if (Walk.stopped.isEmpty) fail('no issue whose reading stopped on blocking findings was kept from step 11');
+  return Walk.stopped;
 }
 
 /// A fresh clone of the forge's repository [repository], every branch of it, made apart from everything the window and
