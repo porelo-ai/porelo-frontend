@@ -826,13 +826,18 @@ again in the same way.
 ## A task's program may write this computer's clipboard, never read it
 
 **What holds.** In a task's terminal, what the program copies itself (OSC 52, as tmux's copy mode sends it with
-`set-clipboard on`) is put on this computer's clipboard, up to a megabyte; a request to read the clipboard is never
-answered, since that would hand whatever was copied here to the container.
+`set-clipboard on`), up to a megabyte, is held and asked about in a bar under the terminal, with its size and a preview
+that shows line breaks and every character that would not show, and reaches this computer's clipboard only on *Copy*.
+**No write goes through without a word**, not even one of exactly the text the person just dragged across: no program
+in the task is told of a drag this window selects itself, so a write that matches it is a guess, or text the task
+staged on the screen for the person to drag, which no reading of the screen can tell apart. A request to read the
+clipboard is never answered, since that would hand whatever was copied here to the container.
 
-**The accepted risk:** a program in a task can replace what is on the clipboard, so text pasted afterwards elsewhere
-may be the task's rather than the person's. It stays because copying out of tmux is otherwise impossible while tmux
-takes the mouse, and other terminals allow the same write. A paste into the interface's own terminals goes to the
-task it came from. What would change the answer: a task found writing the clipboard unasked.
+**The accepted risk:** text the person allowed with *Copy* lands on the clipboard and may be pasted elsewhere later;
+the preview is what they judged it by. It stays because copying out of tmux is otherwise impossible while tmux takes
+the mouse, and other terminals allow the same write without asking. The window's own copy keys copy its selection
+without a question, and a paste into the interface's own terminals goes to the task it came from. What would change
+the answer: copies asked about so often that people allow them without reading.
 
 ## Each repository's agent is started one after another
 

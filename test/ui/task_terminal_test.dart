@@ -44,8 +44,6 @@ void main() {
       machine: const Machine(name: 'laptop', socketPath: ''),
       open: (executable, arguments, {int columns = 80, int rows = 24}) => channel,
       startedAt: startedAt,
-      // The test's own time, so what it pumps is what the window waits.
-      clock: () => Duration(microseconds: tester.binding.clock.now().microsecondsSinceEpoch),
     );
     atTheTestSize(tester);
     final focus = FocusNode();
@@ -390,18 +388,18 @@ void main() {
       tester.widget<SelectableText>(find.byKey(const Key('terminal-copy-preview'))).data!;
   String size(WidgetTester tester) => tester.widget<Text>(find.byKey(const Key('terminal-copy-size'))).data!;
 
-  testWidgets('what the program copies of a drag across its text reaches the clipboard, and a read gets no answer', (
+  testWidgets('what the program copies of a drag across its text is asked about, and a read gets no answer', (
     tester,
   ) async {
     final (_, channel) = await open(tester);
     await prints(tester, channel, '\x1b[2J\x1b[Hgit log --oneline');
     await dragAcrossTheTopLine(tester, find.byKey(const Key('terminal')), 'git log --oneline'.length);
     await prints(tester, channel, write('git log --oneline'));
-    expect(copied, <String>['git log --oneline']);
-    expect(ask, findsNothing);
+    expect(copied, isEmpty);
+    expect(preview(tester), 'git log --oneline');
 
     await prints(tester, channel, '\x1b]52;c;?\x07');
-    expect(copied, hasLength(1), reason: 'a read copies nothing');
+    expect(copied, isEmpty, reason: 'a read copies nothing');
     expect(channel.sent.where((each) => each.contains(']52')), isEmpty, reason: 'nor is it answered');
   });
 
@@ -492,50 +490,6 @@ void main() {
       await tester.pump();
       expect(button.hasFocus, isFalse);
       expect(copied, isEmpty);
-    });
-
-    // Harm: a task waiting a while after the person's drag still writes without a word.
-    testWidgets('two seconds of the test clock after a drag still copy, a moment more asks', (tester) async {
-      final (_, channel) = await open(tester);
-      final view = find.byKey(const Key('terminal'));
-      await prints(tester, channel, '\x1b[2J\x1b[Hjust inside');
-      await dragAcrossTheTopLine(tester, view, 'just inside'.length);
-      await tester.pump(const Duration(seconds: 2) - kDoubleTapTimeout * 2);
-      await prints(tester, channel, write('just inside'));
-      expect(copied, <String>['just inside']);
-
-      await prints(tester, channel, '\x1b[2J\x1b[Hjust past');
-      await dragAcrossTheTopLine(tester, view, 'just past'.length);
-      await tester.pump(const Duration(seconds: 2, milliseconds: 1) - kDoubleTapTimeout * 2);
-      await prints(tester, channel, write('just past'));
-      expect(copied, <String>['just inside']);
-      expect(preview(tester), 'just past');
-    });
-
-    // Harm: a pointer only passing over the terminal opens the way for the task's copy.
-    testWidgets('a pointer passing over the terminal or clicking in it does not count, a drag does', (tester) async {
-      final (_, channel) = await open(tester);
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: tester.getTopLeft(find.byKey(const Key('terminal'))));
-      await mouse.moveTo(tester.getCenter(find.byKey(const Key('terminal'))));
-      await tester.pump();
-      await prints(tester, channel, write('after a hover'));
-      expect(copied, isEmpty);
-      expect(ask, findsOneWidget);
-
-      await prints(tester, channel, '\x1b[2J\x1b[Hafter a drag');
-      await mouse.down(tester.getCenter(find.byKey(const Key('terminal'))));
-      await mouse.up();
-      await tester.pump(const Duration(milliseconds: 500));
-      await prints(tester, channel, write('after a click'));
-      expect(copied, isEmpty);
-      expect(preview(tester), 'after a click');
-      await mouse.removePointer();
-
-      await dragAcrossTheTopLine(tester, find.byKey(const Key('terminal')), 'after a drag'.length);
-      await prints(tester, channel, write('after a drag'));
-      expect(copied, <String>['after a drag']);
-      expect(ask, findsNothing);
     });
   });
 

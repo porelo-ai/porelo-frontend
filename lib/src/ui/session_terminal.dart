@@ -1,20 +1,16 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 
 import '../app/session.dart';
 import 'terminal_copy.dart';
 import 'tokens.dart';
 
-/// A session's terminal on screen, telling the session when the person acts in it.
+/// A session's terminal on screen, with the window's own copy keys. Every terminal of a [Session] is drawn with this.
 ///
-/// **Only a drag the person made here lets a write to the clipboard through**: one pointer pressed with the main
-/// button alone, moved on the screen to another cell and let go, over lines no output changed meanwhile, while the
-/// task does not hear the mouse; its text the session reads off this screen ([Session.dragged]). Another button, a
-/// cancel or the keyboard leaving during it ends the drag; a key, a new press or the keyboard leaving after it ends
-/// what it lets through; every other write is held ([Session.held]). Every terminal of a [Session] is drawn with this.
-class SessionTerminal extends StatefulWidget {
+/// **What its task copies by itself is never taken as the person's copy**, whatever the person dragged across: the
+/// drag is this window's own selection, which no program in the task is told of. Every such write is held
+/// ([Session.held]) and asked about in a [TerminalCopyAsk].
+class SessionTerminal extends StatelessWidget {
   /// Constructor taking the session and how its terminal is drawn.
   const SessionTerminal({
     required this.session,
@@ -65,170 +61,22 @@ class SessionTerminal extends StatefulWidget {
   final bool hardwareKeyboardOnly;
 
   @override
-  State<SessionTerminal> createState() => _SessionTerminalState();
-}
-
-class _SessionTerminalState extends State<SessionTerminal> {
-  /// The drag that may be under way: one pointer pressed with the main button alone while no other was down; null
-  /// otherwise, and once anything ends it.
-  _Drag? _drag;
-
-  /// How many pointers are down here.
-  int _down = 0;
-
-  Session get _session => widget.session;
-
-  @override
-  void initState() {
-    super.initState();
-    HardwareKeyboard.instance.addHandler(_key);
-  }
-
-  @override
-  void dispose() {
-    HardwareKeyboard.instance.removeHandler(_key);
-    super.dispose();
-  }
-
-  /// Every key, also one an input method takes while it composes, which never reaches the terminal's own handler.
-  bool _key(KeyEvent event) {
-    _session.ownKey(event);
-    return false;
-  }
-
-  /// The cell of the terminal's buffer under [position] on the screen, or null while it is not laid out.
-  CellOffset? _cellAt(Offset position) {
-    TerminalViewState? view;
-    void visit(Element element) {
-      if (element is StatefulElement && element.state is TerminalViewState) {
-        view = element.state as TerminalViewState;
-      } else {
-        element.visitChildElements(visit);
-      }
-    }
-
-    context.visitChildElements(visit);
-    final render = view?.renderTerminal;
-    if (render == null || !render.hasSize) return null;
-    return render.getCellOffset(render.globalToLocal(position));
-  }
-
-  void _pressed(PointerDownEvent event) {
-    _session.pressed();
-    _down++;
-    _drag = null;
-    final terminal = _session.terminal;
-    // A press the task hears is its own, and so is the drag after it.
-    if (_down != 1 || event.buttons != kPrimaryButton || terminal.mouseMode != MouseMode.none) return;
-    final from = _cellAt(event.position);
-    if (from == null) return;
-    _drag = _Drag(event.pointer, event.position, event.kind, from, _Lines.around(terminal, from.y));
-  }
-
-  void _moved(PointerMoveEvent event) {
-    // Another button joined the main one: whatever the pointer does now is no plain drag.
-    if (event.pointer == _drag?.pointer && event.buttons != kPrimaryButton) _drag = null;
-  }
-
-  void _letGo(PointerUpEvent event) {
-    _down = _down > 0 ? _down - 1 : 0;
-    final drag = _drag;
-    _drag = null;
-    if (drag == null || event.pointer != drag.pointer) return;
-    // Moved is judged by where the pointer is, never by the cells under it, which output or scrolling change.
-    if ((event.position - drag.at).distance <= computeHitSlop(drag.kind, null)) return;
-    final to = _cellAt(event.position);
-    if (to == null || to == drag.from || !drag.lines.unchanged(_session.terminal, drag.from.y, to.y)) return;
-    _session.dragged(drag.from, to);
-  }
-
-  void _cancelled(PointerCancelEvent event) {
-    _down = _down > 0 ? _down - 1 : 0;
-    _drag = null;
-  }
-
-  @override
-  Widget build(BuildContext context) => Listener(
-    onPointerDown: _pressed,
-    onPointerMove: _moved,
-    onPointerUp: _letGo,
-    onPointerCancel: _cancelled,
-    // Holds no keyboard of its own: it hears the terminal's leaving.
-    child: Focus(
-      canRequestFocus: false,
-      skipTraversal: true,
-      onFocusChange: (focused) {
-        if (focused) return;
-        _drag = null;
-        _session.lostFocus();
-      },
-      child: TerminalView(
-        _session.terminal,
-        key: widget.viewKey,
-        scrollController: widget.scrollController,
-        theme: widget.theme,
-        controller: widget.controller,
-        shortcuts: terminalShortcuts,
-        focusNode: widget.focusNode,
-        onKeyEvent: (node, event) => widget.onKey?.call(node, event) ?? KeyEventResult.ignored,
-        autofocus: true,
-        alwaysShowCursor: widget.alwaysShowCursor,
-        readOnly: !_session.live,
-        padding: widget.padding,
-        hardwareKeyboardOnly: widget.hardwareKeyboardOnly,
-        textStyle: widget.textStyle,
-      ),
-    ),
+  Widget build(BuildContext context) => TerminalView(
+    session.terminal,
+    key: viewKey,
+    scrollController: scrollController,
+    theme: theme,
+    controller: controller,
+    shortcuts: terminalShortcuts,
+    focusNode: focusNode,
+    onKeyEvent: (node, event) => onKey?.call(node, event) ?? KeyEventResult.ignored,
+    autofocus: true,
+    alwaysShowCursor: alwaysShowCursor,
+    readOnly: !session.live,
+    padding: padding,
+    hardwareKeyboardOnly: hardwareKeyboardOnly,
+    textStyle: textStyle,
   );
-}
-
-/// A pointer pressed with the main button: where, and the buffer's lines around the cell it was pressed on.
-class _Drag {
-  _Drag(this.pointer, this.at, this.kind, this.from, this.lines);
-
-  final int pointer;
-  final Offset at;
-  final PointerDeviceKind kind;
-  final CellOffset from;
-  final _Lines lines;
-}
-
-/// The lines of a terminal's buffer a screen above and below one, as they were: which line and what its cells held.
-///
-/// **A drag counts only across lines that stayed as they were.** Output scrolling the buffer or writing over a line
-/// under the pointer makes the cells pressed and let go on stand for other text than the person saw.
-class _Lines {
-  _Lines._(this.buffer, this.height, this.first, this.lines, this.cells);
-
-  factory _Lines.around(Terminal terminal, int y) {
-    final buffer = terminal.buffer;
-    final first = (y - terminal.viewHeight).clamp(0, buffer.height);
-    final last = (y + terminal.viewHeight).clamp(0, buffer.height - 1);
-    final lines = <BufferLine>[for (var i = first; i <= last; i++) buffer.lines[i]];
-    return _Lines._(buffer, buffer.height, first, lines, lines.map(_cellsOf).toList());
-  }
-
-  final Buffer buffer;
-  final int height;
-  final int first;
-  final List<BufferLine> lines;
-  final List<String> cells;
-
-  /// Whether lines [from] to [to] of [terminal]'s buffer are the very lines seen at the press, holding the same.
-  bool unchanged(Terminal terminal, int from, int to) {
-    final now = terminal.buffer;
-    if (!identical(now, buffer) || now.height != height) return false;
-    final (low, high) = from <= to ? (from, to) : (to, from);
-    if (low < first || high - first >= lines.length) return false;
-    for (var y = low; y <= high; y++) {
-      final line = now.lines[y];
-      if (!identical(line, lines[y - first]) || _cellsOf(line) != cells[y - first]) return false;
-    }
-    return true;
-  }
-
-  static String _cellsOf(BufferLine line) =>
-      String.fromCharCodes([for (var x = 0; x < line.length; x++) line.getCodePoint(x)]);
 }
 
 /// What a session's task asked to put on this computer's clipboard by itself, asked about inside its own view: the

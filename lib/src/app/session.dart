@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:xterm/xterm.dart';
 
-import '../ui/terminal_copy.dart';
 import 'connections.dart';
 import 'conpty.dart';
 import 'desk.dart';
@@ -23,13 +22,6 @@ typedef CopyToClipboard = Future<void> Function(String text);
 
 /// What a terminal's program copies goes here: the desktop's clipboard.
 CopyToClipboard copyToClipboard = (text) => Clipboard.setData(ClipboardData(text: text));
-
-/// Makes the clock a session reads how long ago the person acted on, one that never goes back. Injectable, so a
-/// widget test drives it with its own time.
-Duration Function() Function() sessionClock = () {
-  final watch = Stopwatch()..start();
-  return () => watch.elapsed;
-};
 
 /// How a terminal is opened. Injectable, so everything above it runs without a process.
 typedef OpenTerminal = SessionChannel Function(String executable, List<String> arguments, {int columns, int rows});
@@ -97,16 +89,14 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     this.run,
     this.forwardsALoginReply = false,
     this.startedAt,
-    Duration Function()? clock,
-  }) : _open = open ?? openHere,
-       _now = clock ?? sessionClock() {
+  }) : _open = open ?? openHere {
     terminal = Terminal(maxLines: scrollback)
       ..inputHandler = CascadeInputHandler(<TerminalInputHandler>[
         _modifiedKeys,
         ModifiedCursorKeys(),
         defaultInputHandler,
       ])
-      ..onOutput = _typed
+      ..onOutput = type
       ..onResize = _resized
       ..onPrivateOSC = _hyperlink;
     _start(columns, rows);
@@ -125,49 +115,9 @@ class Session extends ChangeNotifier with QuietAfterDispose {
 
   final OpenTerminal _open;
 
-  /// Time on a clock that never goes back, for how long ago the person last acted here.
-  final Duration Function() _now;
-
-  /// The text the person last dragged across here, as a copy of it would read, and when; null once a key, a press,
-  /// the keyboard leaving, anything this terminal sends of its own, the session's end or a write of that text has
-  /// ended it.
-  ({Set<String> texts, Duration at})? _drag;
-
   /// What the task asked to put on this computer's clipboard on its own, waiting for the person to allow it.
   HeldCopy? get held => _held;
   HeldCopy? _held;
-
-  /// A key the person pressed or holds down in this terminal: it ends what a drag lets through, so a copy made by
-  /// a key — or a paste — is asked about.
-  void ownKey(KeyEvent event) {
-    if (event is KeyDownEvent || event is KeyRepeatEvent) _drag = null;
-  }
-
-  /// The person dragged the pointer from cell [from] to cell [to] of this terminal's buffer: **a write of the very
-  /// text between them** goes through without a word, once, shortly after. The text is read now, as this window
-  /// shows it — a gap the cursor skipped is the space it shows — so whatever took the drag can copy nothing else
-  /// silently; the end cell may count or not. **Nothing while the task hears the mouse**: the drag went to it then,
-  /// and what it copies is its own choice.
-  void dragged(CellOffset from, CellOffset to) {
-    _drag = null;
-    if (terminal.mouseMode != MouseMode.none) return;
-    final range = BufferRangeLine(from, to).normalized;
-    final through = BufferRangeLine(range.begin, CellOffset(range.end.x + 1, range.end.y));
-    final texts = {_asCopied(copiedText(terminal, range)), _asCopied(copiedText(terminal, through))}..remove('');
-    if (texts.isNotEmpty) _drag = (texts: texts, at: _now());
-  }
-
-  /// The person pressed the pointer in this terminal: whatever an earlier drag let through ends.
-  void pressed() => _drag = null;
-
-  /// This terminal lost the keyboard: whatever a drag let through ends.
-  void lostFocus() => _drag = null;
-
-  /// [text] as compared with a drag: each line without the plain spaces at its end, which a copy may drop or keep.
-  /// **Nothing else is dropped**: a carriage return or any other control is kept, and so never matches a drag.
-  static String _asCopied(String text) => text.split('\n').map((line) => line.replaceFirst(_endSpaces, '')).join('\n');
-
-  static final _endSpaces = RegExp(r' +$');
 
   /// Puts [copy] on this computer's clipboard, the person having allowed it — only while it is the one shown.
   void copyHeld(HeldCopy copy) {
@@ -243,8 +193,8 @@ class Session extends ChangeNotifier with QuietAfterDispose {
 
   /// The program's own copy (OSC 52, as tmux's `set-clipboard on` sends it), for this computer's clipboard.
   /// **Writing only**: a request to read the clipboard (`?`) is never answered, since that would hand whatever was
-  /// copied here to the container. **Without a word only for the text the person just dragged across here**, once
-  /// per drag; any other write is held for the person to allow, since a task's text pasted into a shell runs there.
+  /// copied here to the container. **Never without a word**: every write is held for the person to allow, since a
+  /// task's text pasted into a shell runs there, and no program in the task can know what the person meant to copy.
   void _copied(List<String> arguments) {
     if (!live || arguments.length != 2) return;
     final [selection, encoded] = arguments;
@@ -258,23 +208,9 @@ class Session extends ChangeNotifier with QuietAfterDispose {
       return;
     }
     if (text.isEmpty) return;
-    final drag = _drag;
-    final dragged = drag != null && _now() - drag.at <= _silentAfterDrag && drag.texts.contains(_asCopied(text));
-    if (dragged) {
-      _drag = null;
-      if (_held != null) {
-        _held = null;
-        notifyListeners();
-      }
-      unawaited(copyToClipboard(text));
-      return;
-    }
     _held = HeldCopy(text);
     notifyListeners();
   }
-
-  /// How long after a drag a write of its text is taken as the person's copy.
-  static const Duration _silentAfterDrag = Duration(seconds: 2);
 
   /// How much a program may copy at once, in base64: more than any selection, less than a flood.
   static const int _mostCopied = 1 << 20;
@@ -369,7 +305,6 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   Future<void> leave() async {
     _gone = true;
     _held = null;
-    _drag = null;
     final reading = _reading;
     _reading = null;
     final channel = _channel;
@@ -434,13 +369,6 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     notifyListeners();
   }
 
-  /// What this terminal sends of its own — typed text, an input method's, a paste, a mouse report or an answer —
-  /// ends what a drag lets through: the person acted, or the task did.
-  void _typed(String data) {
-    _drag = null;
-    type(data);
-  }
-
   void _resized(int width, int height, int pixelWidth, int pixelHeight) =>
       _channel?.resize(columns: width, rows: height);
 
@@ -453,7 +381,6 @@ class Session extends ChangeNotifier with QuietAfterDispose {
       return;
     }
     _held = null;
-    _drag = null;
     // The login is over, so its reply has nothing left to reach.
     exitCode = code;
     final forward = _forward;

@@ -114,7 +114,7 @@ void main() {
   });
 
   // Harm: Tresorit's terminal writing the clipboard without a word, or holding a write with nothing to ask about it.
-  testWidgets('the drive terminal asks before its program writes the clipboard, and takes a drag in it', (
+  testWidgets('the drive terminal asks before its program writes the clipboard, also after a drag in it', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 1000);
@@ -124,10 +124,6 @@ void main() {
     final before = copyToClipboard;
     copyToClipboard = (text) async => copied.add(text);
     addTearDown(() => copyToClipboard = before);
-    final clockBefore = sessionClock;
-    sessionClock = () =>
-        () => Duration(microseconds: tester.binding.clock.now().microsecondsSinceEpoch);
-    addTearDown(() => sessionClock = clockBefore);
     const reached = Machine(name: 'test machine', socketPath: '/unused');
     final run = SetupRun(name: 'test machine', workUser: 'alice', setup: _Machine())
       ..step = SetupStep.drive
@@ -166,6 +162,9 @@ void main() {
     await World.settle(tester);
     await dragAcrossTheTopLine(tester, find.byKey(const Key('drive-terminal')), 'after a drag'.length);
     terminals.single.prints('\x1b]52;c;${base64.encode(utf8.encode('after a drag'))}\x07');
+    await World.settle(tester);
+    expect(copied, isEmpty, reason: 'a write of the dragged text is held too');
+    await tester.tap(find.byKey(const Key('terminal-copy-allow')));
     await World.settle(tester);
     expect(copied, <String>['after a drag']);
     expect(find.byKey(const Key('terminal-copy-ask')), findsNothing);

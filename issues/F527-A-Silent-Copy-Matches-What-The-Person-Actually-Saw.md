@@ -5,40 +5,30 @@
   "$schema": "issue-1.json",
   "id": "F527",
   "title": "A Silent Copy Matches What The Person Actually Saw",
-  "state": "Analyzed",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 99,
   "blockedBy": [],
-  "covers": "A task's silent clipboard write matches the text the person saw and dragged, not text the task hid in its buffer or repainted under the gesture; or no task write is silent.",
-  "openQuestions": 0
+  "covers": "No task write to the clipboard is silent: every OSC 52 write, also one of exactly the text the person just dragged across, is held and asked about in the bar under the terminal."
 }
 ```
 
 **Why this size.** S: dropping the silent path takes code out of the session and its terminal widget and the tests
-over it, adds one test, and words the decision again; no contract another repository reads. Keeping the path and
-making it match what was drawn is M: a read of the cells as drawn against the theme, a per-frame record of the lines on
-screen, a settle time, and their tests.
+over it, adds one test, and words the decision again; no contract another repository reads.
 
-**What must be true.** A task's clipboard write (OSC 52) goes through without a word only when its text is what the
-person saw and meant to copy with their drag, not merely what the task's own buffer held under the drag; whatever the
-task did to the screen during or right after the gesture to make a different text match is asked about instead.
+**What must be true.** A task's clipboard write (OSC 52) never goes through without a word, not even one of exactly
+the text the person just dragged across: a task cannot make a text match the drag, by hiding it in its buffer or
+repainting it under the gesture, and have it land on the clipboard unasked.
 
-## The contract today
+## Decided
 
-- A task's terminal lets one OSC 52 write onto this computer's clipboard silently only if it equals the text the
-  person just dragged across in that terminal, read from the window's own buffer at the release, once, within two
-  seconds. Every other write is held and shown in a bar under the terminal with its size and a preview that shows
-  hidden characters, and is copied only on *Copy*.
-- The drag counts only when one pointer pressed with the main button alone moved on the screen to another cell and was
-  let go, the task did not hear the mouse at the press or the release, and the buffer lines under the gesture were the
-  same objects with the same characters at the release as at the press. Another button, a cancel or the keyboard
-  leaving during the gesture ends it; a key (also one an input method takes while composing), any text the terminal
-  sends, a new press, the keyboard leaving or the session's end after it ends the allowance.
-- The dragged text keeps a gap the cursor skipped as the space it shows; only plain spaces at a line's end are
-  dropped, so any control in the write that the screen did not show holds it.
+- No silent path: every copy a task makes is asked about in the bar. The silent path applied only while the task did
+  not hear the mouse, so no program in it knew what was dragged and a matching write was a guess, which is the staged
+  write no reading of the screen can tell apart; dropping it is the safer and the smaller change. Keeping the path,
+  matched to what was drawn, would be M (see *What the code showed before the change*).
 
-## What the code shows
+## What the code showed before the change
 
 - **Who the silent path serves.** It applies only while the task does not hear the mouse
   (`Session.dragged`, `_SessionTerminalState._pressed` in `lib/src/ui/session_terminal.dart`). Then the drag is
@@ -76,42 +66,34 @@ task did to the screen during or right after the gesture to make a different tex
 
 ## Plan
 
-- **Recommended: no task write is silent.** Every OSC 52 write is held and asked about in the bar under the terminal.
-  This removes the whole class of mismatch, closes the staged write, which matching cannot, and costs no honest
-  program anything, since none can answer this window's drag. Its cost is one click on *Copy* for a write that today
-  goes through, which only a program guessing the selection gets.
-- `lib/src/app/session.dart`: `_copied` holds every write that passes its checks; `_drag`, `ownKey`, `dragged`,
-  `pressed`, `lostFocus`, `_asCopied` and `_silentAfterDrag` go, and with them the session's clock (`sessionClock`,
-  `_now`), which only the drag reads.
-- `lib/src/ui/session_terminal.dart`: `SessionTerminal` keeps drawing the terminal and the bar; the `Listener`, the
-  focus watch, the keyboard handler, `_Drag` and `_Lines` go. Its four users (`session_view.dart`,
-  `new_machine.dart` twice, `unlock_terminal.dart`) are unchanged, and every one of their terminals asks.
-- Red first, in `test/app/session_clipboard_test.dart`: a write of exactly the text just dragged across, in a
-  terminal whose task does not hear the mouse, is held; red against today's silent path. The drag tests in it and in
-  `test/ui/session_terminal_test.dart` go; the bar's tests and the held-write tests stay. In
-  `test/ui/drive_step_test.dart` the drive terminal's drag ends in the bar instead of a copy.
+Built:
+
+- `lib/src/app/session.dart`: `_copied` holds every write that passes its checks (the clipboard selection, not empty,
+  not a read, at most a megabyte of base64). `_drag`, `ownKey`, `dragged`, `pressed`, `lostFocus`, `_asCopied`,
+  `_silentAfterDrag`, the session's clock (`sessionClock`, `_now`, the constructor's `clock`) and `_typed` are gone;
+  the terminal's output goes straight to `type`.
+- `lib/src/ui/session_terminal.dart`: `SessionTerminal` is a stateless widget drawing the `TerminalView` with the
+  window's own copy keys (`terminalShortcuts`, copying as shown with `copiedText`); the `Listener`, the focus watch,
+  the keyboard handler, `_Drag` and `_Lines` are gone. Its four users (`session_view.dart`, `new_machine.dart` twice,
+  `unlock_terminal.dart`) are unchanged.
+- Red first, `test/ui/session_terminal_test.dart`: a real drag across `copy me` in a terminal whose task does not hear
+  the mouse, then a write of `copy me`, is held and copied only on *Copy*; seen red against the silent path with
+  `['copy me']` copied at once.
+- The tests of the silent path went: 19 unit tests in `test/app/session_clipboard_test.dart` and 22 widget tests (all
+  20 in `test/ui/session_terminal_test.dart`, two in `test/ui/task_terminal_test.dart`). The held-write tests stay,
+  those that dragged first now without the drag; the bar's tests and its preview stay. In
+  `test/ui/task_terminal_test.dart`, `test/ui/drive_step_test.dart` and `test/ui/terminal_paste_test.dart` (the
+  session, sign-in and vault terminals) a drag and a write of its text end in the bar, copied on *Copy*.
 - `doc/decisions.md`, *A task's program may write this computer's clipboard, never read it*: every write is asked
-  about. A changelog entry under *Changed*.
-- **If the silent path is kept** (M): the widget reads the dragged cells as drawn (above) and keeps the per-frame
-  record with a settle time of about half a second before the release; unit tests over a fake terminal for each
-  hiding attribute, contrast threshold and blank code point, and widget tests that pump frames for each repaint
-  timing. The staged write stays open and goes into the decision as an accepted risk.
+  about. The changelog's OSC 52 entry under *Unreleased* says so.
 
 ## Acceptance
 
 - A write of exactly the text the person just dragged across is held and copied only on *Copy*; seen red against
-  today's silent path.
-- A write from tmux's copy mode, the person's own copy keys and the paste keys behave as today.
-
-## Decided
-
-- Answered by the coordinator in the night of 2026-11-13, for the operator: no silent path. Every copy a task makes is
-  asked about in the bar. Reason: the silent path applies only when the task does not hear the mouse, so no program in
-  it knows what was dragged and a matching write is a guess, which is the staged write no read can tell apart; dropping
-  it is the safer and the smaller change. The operator can still ask for the kept path, matched to what was drawn, in
-  the morning.
+  the silent path.
+- A write from tmux's copy mode, the person's own copy keys and the paste keys behave as before.
 
 ## To be checked
 
-- Measure in a task on Linux and on Windows that a drag with Porelo's tmux never takes the silent path today, so that
-  dropping it changes nothing an honest program does.
+- Measure in a task on Linux and on Windows that a copy from Porelo's tmux is asked about as before, so that dropping
+  the silent path changed nothing an honest program does.

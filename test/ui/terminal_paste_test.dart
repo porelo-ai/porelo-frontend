@@ -23,15 +23,10 @@ void main() {
     // task's own write to the clipboard held where nothing asks about it, or copied without a word.
     testWidgets(
       asks
-          ? '$kind terminal asks before a write to the clipboard and takes a drag in it as a copy'
+          ? '$kind terminal asks before a write to the clipboard, also after a drag in it'
           : '$kind terminal sends the clipboard once for each paste shortcut',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-        // The test's own time, so what it pumps is what the window waits.
-        final clockBefore = sessionClock;
-        sessionClock = () =>
-            () => Duration(microseconds: tester.binding.clock.now().microsecondsSinceEpoch);
-        addTearDown(() => sessionClock = clockBefore);
         try {
           tester.view.physicalSize = const Size(1280, 800);
           tester.view.devicePixelRatio = 1;
@@ -106,7 +101,10 @@ void main() {
             await dragAcrossTheTopLine(tester, find.byKey(Key(key)), 'after a drag'.length);
             far.prints('\x1b]52;c;${base64.encode(utf8.encode('after a drag'))}\x07');
             await World.settle(tester);
-            expect(copied, <String>['after a drag'], reason: 'a drag across its text in this terminal is a copy');
+            expect(copied, isEmpty, reason: 'a write of the dragged text is held too');
+            await tester.tap(find.byKey(const Key('terminal-copy-allow')));
+            await World.settle(tester);
+            expect(copied, <String>['after a drag'], reason: 'and copied on Copy');
             await tester.pumpWidget(const SizedBox.shrink());
             await World.settle(tester);
             return;
