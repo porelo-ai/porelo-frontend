@@ -33,10 +33,10 @@ const plannerNotInstalled =
     'Planning comes from porelo-planner, which is not installed on this computer. '
     'Install the porelo-planner package and open Porelo again.';
 
-/// What the planning place says on Windows, which porelo-planner is not built for.
-const plannerNotOnWindows =
-    'Planning comes from porelo-planner, which runs on Linux only for now. '
-    'Planning is not offered in Porelo on Windows yet.';
+/// What the planning place says on Windows where this computer has no planner to start.
+const plannerNotInstalledOnWindows =
+    'Planning comes from porelo-planner, which is not installed on this computer. '
+    'Install porelo-planner for Windows and open Porelo again.';
 
 /// What the planning place says while the window looks for the planner or waits for the one it started.
 const plannerLookedFor = 'Looking for porelo-planner…';
@@ -119,8 +119,10 @@ abstract interface class PlanningReach implements Listenable {
 class LocalPlanner extends ChangeNotifier
     implements PlanningClient, PlanningReach, NamesItsLog, TakesTheLogLevel, EndsWithTheWindow {
   /// Takes the projects the window knows and their repositories; [runtimeDirectory] is the one the planner writes its
-  /// address under, `XDG_RUNTIME_DIR` when null, and [candidates] where the planner may be, in the order they are tried.
-  /// [onWindows] is whether the window runs on Windows, where no planner is looked for or started.
+  /// address under, `XDG_RUNTIME_DIR` when null and none on Windows, and [candidates] where the planner may be, in the
+  /// order they are tried.
+  /// [onWindows] is whether the window runs on Windows, where the planner is `porelo-planner.exe` on the path and its
+  /// address lies in its own folder, so no runtime directory is passed.
   LocalPlanner({
     required this._projects,
     required this._repositories,
@@ -134,13 +136,19 @@ class LocalPlanner extends ChangeNotifier
     this.poll = const Duration(milliseconds: 200),
     this.follow = const Duration(seconds: 2),
     bool? onWindows,
+    Map<String, String>? environment,
     this._logLevel,
     TellPlannerLevel? tellLevel,
   }) : _onWindows = onWindows ?? Platform.isWindows,
+       _environment = environment ?? Platform.environment,
        _tellLevel = tellLevel ?? tellPlannerLevel,
        _chosen = chosenProject,
-       runtimeDirectory = runtimeDirectory == null || runtimeDirectory.trim().isEmpty ? null : runtimeDirectory,
-       candidates = candidates ?? plannerCandidates(Platform.environment),
+       // On Windows the planner keeps its address in its own folder under LOCALAPPDATA, whatever a runtime directory says.
+       runtimeDirectory =
+           (onWindows ?? Platform.isWindows) || runtimeDirectory == null || runtimeDirectory.trim().isEmpty
+           ? null
+           : runtimeDirectory,
+       candidates = candidates ?? plannerCandidates(Platform.environment, onWindows: onWindows ?? Platform.isWindows),
        _start = start ?? _startWithItsInput,
        _open = open ?? HttpPlanningSource.fromAddressFile {
     _changes?.addListener(notifyListeners);
@@ -170,7 +178,8 @@ class LocalPlanner extends ChangeNotifier
   /// The provider's name, shown beside its answers.
   static const name = 'porelo-planner';
 
-  /// The runtime directory the planner writes its address under, `XDG_RUNTIME_DIR` when null; a blank one is none.
+  /// The runtime directory the planner writes its address under, `XDG_RUNTIME_DIR` when null; a blank one is none, and
+  /// on Windows there is none: the planner writes it under `LOCALAPPDATA`.
   final String? runtimeDirectory;
 
   /// Where the planner may be, in the order they are tried.
@@ -192,6 +201,9 @@ class LocalPlanner extends ChangeNotifier
   final StartPlanner _start;
   final OpenPlanner _open;
   final bool _onWindows;
+
+  /// The window's environment, where the planner's address is looked for.
+  final Map<String, String> _environment;
   final ValueListenable<LogLevel>? _logLevel;
   final TellPlannerLevel _tellLevel;
   int _levelsTold = 0;
@@ -250,16 +262,16 @@ class LocalPlanner extends ChangeNotifier
 
   Future<void> _reach() async {
     if (_disposed) return;
-    if (_onWindows) return _say(plannerNotOnWindows);
     if (await _look() != _Look.notRunning) return;
     if (_started) {
       return _say('porelo-planner was started, but did not say where it answers yet.');
     }
-    if (runtimeDirectory case final runtime? when !runtime.startsWith('/')) {
+    if (runtimeDirectory case final runtime?
+        when !(_onWindows ? _absoluteOnWindows(runtime) : runtime.startsWith('/'))) {
       return _say('porelo-planner cannot be started: its runtime directory $runtime is not an absolute path.');
     }
-    final programs = candidates.where(_runnable).toList();
-    if (programs.isEmpty) return _say(plannerNotInstalled);
+    final programs = candidates.where(_onWindows ? _aFile : _runnable).toList();
+    if (programs.isEmpty) return _say(_onWindows ? plannerNotInstalledOnWindows : plannerNotInstalled);
     if (_disposed) return;
     if (await _startOneOf(programs) case final failure?) return _say('porelo-planner could not be started: $failure');
     final waited = Stopwatch()..start();
@@ -339,10 +351,11 @@ class LocalPlanner extends ChangeNotifier
 
   /// The planner's address file as it reads now, or null where there is none to read.
   Future<String?> _addressNow() async {
-    final runtime = runtimeDirectory ?? Platform.environment['XDG_RUNTIME_DIR'];
+    // On Windows the planner writes it under LOCALAPPDATA, as its package reads it there.
+    final runtime = runtimeDirectory ?? _environment[_onWindows ? 'LOCALAPPDATA' : 'XDG_RUNTIME_DIR'];
     if (runtime == null || runtime.trim().isEmpty) return null;
     try {
-      return await File('$runtime/porelo-planner/planner.json').readAsString();
+      return await File([runtime, 'porelo-planner', 'planner.json'].join(Platform.pathSeparator)).readAsString();
     } on FileSystemException {
       return null;
     }
@@ -464,6 +477,9 @@ class LocalPlanner extends ChangeNotifier
     super.dispose();
   }
 
+  /// On Windows a file is what can be run: it has no mode bits that say so.
+  static bool _aFile(String path) => FileStat.statSync(path).type == FileSystemEntityType.file;
+
   static bool _runnable(String path) {
     final stat = FileStat.statSync(path);
     return stat.type == FileSystemEntityType.file && stat.mode & 0x49 != 0;
@@ -578,12 +594,27 @@ enum _Look { found, notRunning, refused }
 typedef _Answers = (Object port, Object token);
 
 /// Where the planner may be: where its package installs it, then on [environment]'s path, taking only absolute folders
-/// that climb out of none.
-List<String> plannerCandidates(Map<String, String> environment) => [
-  plannerInstalled,
-  for (final folder in (environment['PATH'] ?? '').split(':'))
-    if (folder.startsWith('/') && !folder.split('/').contains('..')) '$folder/$plannerOnThePath',
-];
+/// that climb out of none. On Windows ([onWindows]) it is `porelo-planner.exe` on the path's folders that start at a
+/// drive's root, as its package and a ZIP put it there.
+List<String> plannerCandidates(Map<String, String> environment, {bool onWindows = false}) => onWindows
+    ? [
+        for (final entry in (environment['PATH'] ?? '').split(';'))
+          // An entry with spaces may stand in quotes, as Windows keeps it.
+          if (entry.length > 1 && entry.startsWith('"') && entry.endsWith('"')
+                  ? entry.substring(1, entry.length - 1)
+                  : entry
+              case final folder when _absoluteOnWindows(folder) && !folder.split(RegExp(r'[\\/]')).contains('..'))
+            '${folder.endsWith(r'\') ? folder.substring(0, folder.length - 1) : folder}\\$plannerOnThePath.exe',
+      ]
+    : [
+        plannerInstalled,
+        for (final folder in (environment['PATH'] ?? '').split(':'))
+          if (folder.startsWith('/') && !folder.split('/').contains('..')) '$folder/$plannerOnThePath',
+      ];
+
+/// Whether [path] is a Windows path from a drive's root, as `C:\Tools`: neither relative nor bound to a drive's own
+/// current folder, as `C:Tools` is.
+bool _absoluteOnWindows(String path) => RegExp(r'^[A-Za-z]:[\\/]').hasMatch(path);
 
 /// The projects the watched machines list, each once, without the default project, which has no repository of its own.
 List<String> plannedProjects(Machines machines) => {

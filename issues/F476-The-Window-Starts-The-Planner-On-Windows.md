@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F476",
   "title": "The Window Starts The Planner On Windows",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 17,
@@ -48,6 +48,15 @@ how to install it, in the same words as on Linux with the Windows package named.
 - Red first: `test/app/planner_windows_test.dart` turns from "says it is not offered" into "starts the planner once
   and reads its address", with a stand-in program and address file.
 - The Windows CI job runs it; `test/app/planner_test.dart` stays bound to Linux where it reads POSIX modes.
+
+## How it was built
+
+- `LocalPlanner` no longer refuses on Windows. There it takes `porelo-planner.exe` on the path's folders from a
+  drive's root, counts a file as runnable, passes no runtime directory, and reads the planner's address both at a look
+  (through the package) and while it follows the planner (`%LOCALAPPDATA%\porelo-planner\planner.json`), so a
+  planner found is not taken for gone.
+- `test/app/planner_windows_test.dart` (red first on Linux with the platform given as Windows): the start once with
+  no runtime directory, the path's candidates, the words where it is not installed, and the address followed.
 
 ## Acceptance
 

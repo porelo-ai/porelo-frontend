@@ -13,7 +13,7 @@ final theBoard = find.byWidgetPredicate(
 );
 
 /// The notes the planning place shows instead of a board where this computer gives it no planner.
-final planningNotOffered = [plannerNotOnWindows, plannerNotInstalled];
+final planningNotOffered = [plannerNotInstalledOnWindows, plannerNotInstalled];
 
 /// Usage: I open Planning
 Future<void> iOpenPlanning(WidgetTester tester) => played(
