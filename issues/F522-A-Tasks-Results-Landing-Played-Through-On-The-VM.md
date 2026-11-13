@@ -10,17 +10,17 @@
   "priority": "High",
   "rank": 95,
   "blockedBy": [],
-  "covers": "Story ST313, a task's results land where the next step and others find them, played once on the test VM in the window as a person would, for ST347's gathered story run: a reading's findings kept as a file, worked off and deleted by a rework, an idea brought back as an issue in Idea, both commits seen from another computer."
+  "covers": "Story ST313, a task's results land where the next step and others find them, played once on the test VM in the window as a person would, for ST347's gathered story run: a reading stopped by its blocking findings as the planner shows them, a rework chosen for them, the next reading finding them worked off, and an idea a task brought back as an issue in Idea."
 }
 ```
 
 **Why this size.** M: a walk of one story through Reading and Reworking on the idea walk's support (`tool/walk_idea.sh`,
 `integration_test/support/idea_walk.dart`), with a seed that gives the reader something to find, and reads of the
-findings file, the issue in Idea and a fresh clone's history.
+findings and the issue in Idea where the planner and the window show them.
 
-**What must be true.** A run on the test VM shows, or names as missing, what ST313 promises: a reading's findings lie as
-a Markdown file where the project's setting says, a rework started with that state's instructions works them off and
-deletes the file, an idea a task brings back is an issue in Idea, and a clone elsewhere shows both commits.
+**What must be true.** A run on the test VM shows, or names as missing, what ST313 promises: a reading's blocking
+findings stop it, and the planner shows them on the issue under Needs you; a rework chosen there works them off, and the
+next reading finds nothing blocking and sets the issue to Review; an idea a task brings back is an issue in Idea.
 
 ## Why
 
@@ -30,10 +30,10 @@ deletes the file, an idea a task brings back is an issue in Idea, and a clone el
 
 ## What the story's test asks
 
-- **Does:** runs a story's work with a reading that has findings and a task that brings back an idea; starts the
-  rework; then reads the repository on another computer.
-- **Sees:** the findings file where the project's setting says; after the rework the findings worked off and the file
-  gone; the idea as an issue in Idea; on the other computer both commits in Git's history.
+- **Does:** runs a story's work with a reading that has blocking findings and a task that brings back an idea; chooses
+  Rework for the stopped reading under Needs you; lets the window run the rework and the next reading.
+- **Sees:** the reading stopped and its blocking findings on the issue's Needs-you entry; after the rework and the next
+  reading the issue in Review, needing nobody, and gone from Needs you; the idea as an issue in Idea.
 
 ## What exists already
 
@@ -41,7 +41,7 @@ deletes the file, an idea a task brings back is an issue in Idea, and a clone el
   Review with a real pi task, seeds the test organization's repositories and puts them back.
 - `each issue is in reading for a reader`, `the window starts the offered reader task and it ends`, `the forge holds
   the work of the builder agent`, `the planner holds the story with its issues in idea`.
-- Nothing reads a findings file, starts a rework, or reads a second clone.
+- Nothing read a reading's findings or chose a rework before this story.
 
 ## How it is run
 
@@ -57,21 +57,27 @@ deletes the file, an idea a task brings back is an issue in Idea, and a clone el
 
 ## Plan
 
-- The seed gives the builder's work a fault the reader is bound to find (a test that fails), and the prompt of one
-  task asks it to bring back an idea.
-- Steps on the walk's support: `Then the findings file lies where the project's setting says`, read in the forge;
-  `When I start the rework the planner offers`; `Then the findings are worked off and the file is deleted`; `Then the
-  idea is an issue in Idea`, asked of the planner's probe; `Then a fresh clone shows the findings commit and its
-  deletion`, cloned on this host into the run's report directory, not on the VM.
+- A reader's findings are the one `Findings:` block its answer ends with. The planner judges it (`WorkEnds.judge`) and
+  keeps the answer and the findings in its own work record, not in Git. There is no findings place in `project.yml` or
+  in porelo.
+- The walk's own seed, `tool/walk-seeds/a_tasks_results_land`, is written over the seed given: a test in `foo-1` that
+  cannot pass as written and that the story's issue does not touch, and the story's work rules (`stories/work.yml`),
+  whose reading order asks for such a test as a blocking finding, whose rework order asks to work off every blocking
+  finding, and whose builder order asks the task to propose one idea of its own through Porelo.
+- Steps on the walk's support, after the readers end: `Then the idea a task brought back is an issue in Idea`, read in
+  the issue repositories and asked of the planner's probe; `And the planner shows the reading's blocking findings and
+  Needs you lists the issue`, the probe's attention `BLOCKING_FINDINGS` and the findings under the issue's entry;
+  `When I choose Rework for the stopped reading`, from that entry; `And the window starts the offered rework task and
+  it ends`; `Then the planner shows the findings worked off`, the issue read again and in Review, needing nobody, and
+  gone from Needs you.
 - The walk's own ending puts every repository back at T0.
 
 ## Expected failures
 
 - A task handing its ideas to the planner, whose backend, and before it the window, checks that an idea or an issue
   holds every field it must; the idea step fails until that holds.
-- A reading's findings written as a Markdown file in the repository where the start instructions of each state say,
-  the next task finding them, working them off and deleting the file, with the start instructions coming from the
-  store's adapter through the planner's API; the findings steps fail until that holds.
+- A task proposing an idea of its own (`Tasks1.ProposeIdea` in porelo, with the project's allowance of ideas): until
+  porelo offers it, the builder cannot bring back an idea, and the idea step fails.
 - [F492](README.md#f492) (Implementing): the real walk this script stands on; a fault in its steps names it.
 
 ## Note
@@ -90,12 +96,7 @@ deletes the file, an idea a task brings back is an issue in Idea, and a clone el
 
 - One run on the test VM with a report naming each step: OK, FAIL with what was asked and got, or EXPECTED with the
   missing issue.
-- The test organization's repositories stand at T0 after the run, and the second clone is removed.
-
-## To be checked
-
-- The project setting that names the findings file's place, once porelo-project has settled where a task's results
-  are kept.
+- The test organization's repositories stand at T0 after the run.
 
 ## Estimate
 
