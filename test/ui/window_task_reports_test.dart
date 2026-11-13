@@ -982,6 +982,43 @@ void main() {
       expect(problems.join(), isNot(contains('forged')));
     });
 
+    // Harm: a task the planner voided, stopped but not removed, has its handed ideas sent again as new issues.
+    test('of a task the planner voided is not handed again', () async {
+      final (starts, reports) = window();
+      final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+      await reports.idle;
+      final row = machine.listed.singleWhere((task) => task.name == started.container);
+      machine.listed[machine.listed.indexOf(row)] = Task.from({
+        'name': row.name,
+        'task': row.task,
+        'project': 'demo',
+        'repository': 'shop',
+        'running': false,
+        'run': row.run!,
+        'ideas': [idea(1)],
+      });
+      await swept(reports);
+      expect(planner.issues, hasLength(1));
+
+      planner.answers.add(const PlanningRefusal('TaskNotAnswered', {}, 'The planner no longer answers for this task.'));
+      final ended = machine.listed.indexWhere((task) => task.name == started.container);
+      machine.listed[ended] = Task.from({
+        'name': row.name,
+        'task': row.task,
+        'project': 'demo',
+        'repository': 'shop',
+        'running': false,
+        'run': row.run!,
+        'agentEnded': {'at': 'the end', 'finished': true},
+        'ideas': [idea(1)],
+      });
+      await swept(reports);
+      await swept(window(kept: await loaded()).$2);
+
+      expect(stopped, [(_laptop, started.container)]);
+      expect(planner.issues, hasLength(1));
+    });
+
     // Harm: an idea is handed into a repository nobody named, or lost while no machine names its repository yet.
     test('waits while no watched machine names its repository, and goes once one does', () async {
       lists('porelo-demo-pi', [idea(1)], repository: '');
@@ -1005,7 +1042,7 @@ void main() {
       await swept();
       expect(jsonEncode(await store.read()), allOf(contains('porelo-demo-pi'), contains('porelo-demo-ui')));
 
-      await settings.forgetPlanningOffer('laptop', 'porelo-demo-pi');
+      await settings.forgetRemovedTask('laptop', 'porelo-demo-pi');
 
       expect(jsonEncode(await store.read()), allOf(isNot(contains('porelo-demo-pi')), contains('porelo-demo-ui')));
     });

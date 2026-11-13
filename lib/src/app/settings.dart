@@ -1139,14 +1139,21 @@ class Settings extends ChangeNotifier {
     if (_planningOffers.remove((machine, container)) != null) await _write();
   }
 
-  /// Drops the offer, the discussion and the marks of handed ideas kept for the task in [container] on [machine], once
-  /// that task is removed.
+  /// Drops the offer and the discussion kept for the task in [container] on [machine], once that task is removed or
+  /// the planner voided its offer.
   Future<void> forgetPlanningOffer(String machine, String container) async {
     final offer = _planningOffers.remove((machine, container));
     final discussion = _discussions.remove((machine, container));
+    if (offer != null || discussion != null) await _write();
+  }
+
+  /// Drops everything kept for the task in [container] on [machine] once it is removed: its offer, its discussion
+  /// and the marks of the ideas it proposed, which went with it.
+  Future<void> forgetRemovedTask(String machine, String container) async {
     final marks = _ideasHanded.length;
     _ideasHanded.removeWhere((key, _) => key.$1 == machine && key.$2 == container);
-    if (offer != null || discussion != null || marks != _ideasHanded.length) await _write();
+    if (marks != _ideasHanded.length) await _write();
+    await forgetPlanningOffer(machine, container);
   }
 
   /// The ideas handed to the planner, or marked not to be, by machine, container and the task's run: each as the

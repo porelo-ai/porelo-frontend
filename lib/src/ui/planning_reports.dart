@@ -33,7 +33,7 @@ const mostIdeasOfATask = 100;
 /// id `idea-<n>`, a title of one line of at most 120 characters, and at most 1000 characters of what must be true, with
 /// no control characters but its line breaks. Never quotes the idea, which is the task's agent's own text.
 String? proposedIdeaProblem(ProposedIdea idea) {
-  if (!RegExp(r'^idea-[1-9][0-9]{0,8}$').hasMatch(idea.id)) return 'its id is not one Porelo gives';
+  if (!RegExp(r'^idea-([1-9][0-9]?|100)$').hasMatch(idea.id)) return 'its id is not one Porelo gives';
   if (idea.title.trim().isEmpty) return 'it has no title';
   if (idea.title.runes.length > 120) return 'its title is longer than 120 characters';
   if (_unsafe.hasMatch(idea.title) || idea.title.contains(RegExp('[\n\r]'))) {
