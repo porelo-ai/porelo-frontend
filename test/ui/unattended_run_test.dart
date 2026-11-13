@@ -65,6 +65,39 @@ void main() {
     expect(World.backend.tasksNow.single.running, isTrue, reason: 'the work must carry on');
   });
 
+  // Harm: a run watched while its machine reconnected kept reading the fleet that was let go, and showed the task as it
+  // stood before the reconnect however it went on.
+  testWidgets('a run follows its machine through a reconnect', (tester) async {
+    await _start(tester);
+    World.backend.publish([_task()]);
+    await World.backend.launch.close();
+    await World.settle(tester);
+    World.elsewhere.publish([_task()]);
+    await World.machines.add(const Machine(name: 'elsewhere', socketPath: '/tmp/world-elsewhere.sock'));
+    await World.settle(tester);
+    final run = UnattendedRun(
+      machine: World.machines.all.singleWhere((each) => each.name == 'elsewhere'),
+      machines: World.machines,
+      project: 'checkout',
+      named: 'check',
+      operation: World.operations.latest!,
+      operations: World.operations,
+    );
+    addTearDown(run.dispose);
+    run.follow();
+    await World.settle(tester);
+    expect(run.task?.activity.name, 'WORKING', reason: 'the run reads the task as its machine reports it');
+
+    await World.machines.disconnect(run.machine);
+    await World.settle(tester);
+    await World.machines.reconnect(World.machines.all.singleWhere((each) => each.name == 'elsewhere'));
+    await World.settle(tester);
+    World.elsewhere.publish([_task(activity: 'ENDED')]);
+    await World.settle(tester);
+
+    expect(run.task?.activity.name, 'ENDED', reason: 'the run reads the fleet that watches its machine now');
+  });
+
   // Harm: a grey Start again whose reason only a hover can find.
   testWidgets('a restart that cannot be asked says why in words', (tester) async {
     await _start(tester);
@@ -75,7 +108,7 @@ void main() {
     await World.settle(tester);
     final run = UnattendedRun(
       machine: World.machines.current,
-      fleet: World.machines.fleet,
+      machines: World.machines,
       project: 'checkout',
       named: 'check',
       operation: World.operations.latest!,

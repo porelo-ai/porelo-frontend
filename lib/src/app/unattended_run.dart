@@ -12,7 +12,7 @@ class UnattendedRun extends ChangeNotifier {
   /// Constructor retaining the start's target, independent of the frame's selection.
   UnattendedRun({
     required this.machine,
-    required this.fleet,
+    required this.machines,
     required this.project,
     required this.named,
     required this.operation,
@@ -22,8 +22,12 @@ class UnattendedRun extends ChangeNotifier {
   /// Where this work was started.
   final Machine machine;
 
-  /// The task list arriving from that machine's Watch.
-  final FleetModel fleet;
+  /// Where [machine] is watched: a reconnect watches it with another fleet, which the run follows.
+  final Machines machines;
+
+  /// The task list arriving from [machine]'s Watch, while it is watched; null while it is listed and not watched yet,
+  /// as while it reconnects.
+  FleetModel? get fleet => machines.watching(machine);
 
   /// The project name given to Start.
   final String project;
@@ -38,10 +42,10 @@ class UnattendedRun extends ChangeNotifier {
   final Operations operations;
 
   /// The most recent task report, or null until this machine lists it.
-  Task? get task => fleet.tasks.where((task) => task.project == project && task.task == named).firstOrNull;
+  Task? get task => fleet?.tasks.where((task) => task.project == project && task.task == named).firstOrNull;
 
   /// The project's current configuration on the run's own machine.
-  Project? get configuration => fleet.projects.where((each) => each.name == project).firstOrNull?.project;
+  Project? get configuration => fleet?.projects.where((each) => each.name == project).firstOrNull?.project;
 
   /// The last output line reported by Tail, without retaining the whole log.
   String? lastLine;
@@ -55,18 +59,34 @@ class UnattendedRun extends ChangeNotifier {
   String? _container;
   bool _following = false;
   bool _refreshed = false;
+  VoidCallback? _stopFollowing;
+  FleetModel? _heard;
 
-  /// Observes the run while its view is open.
+  /// Observes the run while its view is open, on whichever fleet watches its machine: one that replaced the fleet
+  /// it was started on reads the run again, its last line from the new one.
   void follow() {
     if (_following) return;
     _following = true;
-    fleet.addListener(_changed);
     operations.addListener(_changed);
+    _stopFollowing = machines.follow(machine, _watchedBy);
+  }
+
+  void _watchedBy(FleetModel? fleet) {
+    if (identical(fleet, _heard)) return;
+    _heard?.removeListener(_changed);
+    _heard = fleet;
+    fleet?.addListener(_changed);
+    // Another fleet, another Watch: the tail is taken again from it, and the report read again.
+    unawaited(_tail?.cancel());
+    _tail = null;
+    _container = null;
+    _refreshed = false;
     _changed();
   }
 
   void _changed() {
-    if (operation.running || operation.failed) return;
+    final fleet = this.fleet;
+    if (fleet == null || operation.running || operation.failed) return;
     if (!_refreshed) {
       _refreshed = true;
       unawaited(_refreshReport());
@@ -109,7 +129,7 @@ class UnattendedRun extends ChangeNotifier {
     if (!_following || _readingReport) return;
     _readingReport = true;
     try {
-      await fleet.refresh(quietly: true);
+      await fleet?.refresh(quietly: true);
     } on Object catch (error) {
       if (_following) {
         problem = '$error';
@@ -124,7 +144,10 @@ class UnattendedRun extends ChangeNotifier {
   void unfollow() {
     if (!_following) return;
     _following = false;
-    fleet.removeListener(_changed);
+    _stopFollowing?.call();
+    _stopFollowing = null;
+    _heard?.removeListener(_changed);
+    _heard = null;
     operations.removeListener(_changed);
     _refreshing?.cancel();
     _refreshing = null;

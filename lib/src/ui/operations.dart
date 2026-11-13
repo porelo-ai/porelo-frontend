@@ -276,7 +276,7 @@ class _RunState extends StatelessWidget {
   Widget build(BuildContext context) {
     final task = run.task;
     final age = howLongSince(DateTime.tryParse(task?.lastWrote ?? ''));
-    final connected = run.fleet.reachability == Reachability.connected;
+    final connected = run.fleet?.reachability == Reachability.connected;
     final state = switch (task?.activity.name) {
       'WORKING' => 'Working',
       'IDLE' => 'Resting',
