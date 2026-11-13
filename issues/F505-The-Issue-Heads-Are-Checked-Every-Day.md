@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F505",
   "title": "The Issue Heads Are Checked Every Day",
-  "state": "Backlog",
+  "state": "Review",
   "size": "XS",
   "priority": "Low",
   "rank": 82,
@@ -33,3 +33,13 @@ own workflow.
 ## Acceptance
 
 - The daily shared-rules run checks the issue heads and fails on a wrong one.
+
+## How it was built
+
+- The step *The issue heads* was already in the scheduled job of `.github/workflows/shared-rules.yml`: it runs
+  `issues check issues` from the porelo-release the build's parent pins, on the checked-out commit. No workflow change
+  was needed.
+- The step ran and passed in the latest scheduled run on main, whose commit includes it; it was read step by step from
+  the run's jobs.
+- It fails on a wrong head: on a copy of `issues/` with one head's size set to a value the schema does not list,
+  `issues check issues` named the file and the field and exited 1.

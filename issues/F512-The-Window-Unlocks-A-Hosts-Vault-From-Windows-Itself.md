@@ -69,6 +69,8 @@ Each runs as `ssh -F <card config> -T -- <card> <command>` in the login shell, u
 
 ## To be checked
 
+- It rests on Core's share vector, which is not on Core's main yet: it does not go into a push round before Core's
+  change does.
 - That the Windows OpenSSH agent's named pipe answers the agent protocol from Dart without an extra library: the pipe
   is opened with `CreateFileW` and read and written with `ReadFile` and `WriteFile` through `dart:ffi`, one exchange per
   request in an isolate of its own; it has run only against stand-ins, never on Windows.
@@ -88,7 +90,7 @@ Each runs as `ssh -F <card config> -T -- <card> <command>` in the login shell, u
 
 - The window has no place yet for the person's yes to clear a vault another key opened: `WindowsHostUnlocker` takes it
   as `askToClear`, and without it such a vault is kept and the card says that resetting needs the person's yes. A
-  command on the card that asks and then runs the unlock again with that yes is a follow-up of size S.
+  command on the card that asks and then runs the unlock again with that yes is [F545](README.md#f545).
 - Nothing in the window starts a rekey yet; `WindowsHostUnlocker.rekey` is there for the change of a card's key.
 - The exchange with the agent over its pipe has no bound: an agent that takes the pipe and never answers holds the
   unlock, and a cancel waits on it. A bounded read (overlapped I/O with a timeout, or `CancelSynchronousIo`) is a
