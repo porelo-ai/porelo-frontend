@@ -8,7 +8,9 @@ import 'idea_walk.dart';
 /// ended: kept in the walk's state from then on, since the planner names them no more once the person chose. Fails
 /// where none was kept, as a later step that expects them would otherwise pass over nothing.
 Future<List<({String id, String repository})>> theStoppedIssues() async {
-  if (Walk.stopped.isEmpty) fail('no issue whose reading stopped on blocking findings was kept from step 11');
+  if (Walk.stopped.isEmpty) {
+    fail('no issue whose reading stopped on blocking findings was kept by the step that reads the stopped reading');
+  }
   return Walk.stopped;
 }
 

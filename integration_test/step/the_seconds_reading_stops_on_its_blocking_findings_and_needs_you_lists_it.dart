@@ -11,7 +11,7 @@ Future<void> theSecondsReadingStopsOnItsBlockingFindingsAndNeedsYouListsIt(Widge
   () async {
     // The second issue repository holds the seed's fault, which its reader blocks on. The planner moves nothing on: the
     // issue stays in Reading, nobody at work, until the person chooses under Needs you.
-    final second = Walk.issues.firstWhere((each) => each.repository == Walk.issueRepositories[1]);
+    final second = theSecondIssue();
     await pumpUntil(
       tester,
       () => probeHolds(['attention', second.id, 'BLOCKING_FINDINGS']),
