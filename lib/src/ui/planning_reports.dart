@@ -418,6 +418,7 @@ class WindowTaskReports {
     }
     // Before the discussions: a discussion handed in is removed, and the ideas it proposed with it.
     await _handProposed();
+    await _removeWaitedDiscussions();
     for (final kept in settings.keptDiscussions) {
       final task = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
       if (task == null) continue;
@@ -723,6 +724,7 @@ class WindowTaskReports {
     // Its idea is the planner's now, so the ended discussion goes, as a person would remove it; one whose idea was not
     // saved stays with its result file, and one with ideas of its own not yet handed stays with them.
     if (_ideasWaiting(kept.machine, kept.container)) {
+      await settings.discussionStays(kept.machine, kept.container, stays: true);
       return _sayIdea(
         kept,
         'The discussion ${kept.container} was handed in as $story; it stays until the ideas it proposed are handed in.',
@@ -732,6 +734,22 @@ class WindowTaskReports {
       await removeOn(kept.machine, kept.container);
     } on Object catch (error) {
       _sayIdea(kept, 'The discussion ${kept.container} was handed in as $story, but could not be removed: $error');
+    }
+  }
+
+  /// Removes each ended discussion whose idea was saved and that stayed for ideas it proposed, once its machine lists it
+  /// with none of them waiting or held back: once, also across restarts, as a person would remove it.
+  Future<void> _removeWaitedDiscussions() async {
+    for (final kept in settings.keptDiscussions) {
+      if (!kept.stays) continue;
+      if (tasksOn(kept.machine)?.any((each) => each.name == kept.container) != true) continue;
+      if (_ideasWaiting(kept.machine, kept.container)) continue;
+      await settings.discussionStays(kept.machine, kept.container, stays: false);
+      try {
+        await removeOn(kept.machine, kept.container);
+      } on Object catch (error) {
+        _sayIdea(kept, 'The discussion ${kept.container} was handed in, but could not be removed: $error');
+      }
     }
   }
 

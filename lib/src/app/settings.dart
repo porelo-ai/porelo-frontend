@@ -131,6 +131,7 @@ class KeptDiscussion {
     required this.provider,
     required this.project,
     this.ended,
+    this.stays = false,
   });
 
   /// The machine's name, as the window shows it.
@@ -150,6 +151,9 @@ class KeptDiscussion {
 
   /// The end whose idea was handed in, or said not to be, or seen when the discussion started; null for none.
   final String? ended;
+
+  /// Whether its idea was saved and it stays only while ideas it proposed wait to be handed in: it goes once none does.
+  final bool stays;
 }
 
 /// A validated rental identity and optional signed-state setup progress.
@@ -1138,6 +1142,23 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
+  /// Notes whether the discussion in [container] on [machine], whose idea was saved, stays only for ideas it proposed
+  /// that wait to be handed in ([stays]), or no longer does.
+  Future<void> discussionStays(String machine, String container, {required bool stays}) async {
+    final kept = _discussions[(machine, container)];
+    if (kept == null || kept.stays == stays) return;
+    _discussions[(machine, container)] = KeptDiscussion(
+      machine: kept.machine,
+      container: kept.container,
+      offer: kept.offer,
+      provider: kept.provider,
+      project: kept.project,
+      ended: kept.ended,
+      stays: stays,
+    );
+    await _write();
+  }
+
   /// Drops the offer kept for the task in [container] on [machine] alone, once a later task holds that container's
   /// name: a discussion kept under the name since is that later task's.
   Future<void> forgetEarlierPlanningOffer(String machine, String container) async {
@@ -1252,6 +1273,7 @@ class Settings extends ChangeNotifier {
             provider: provider,
             project: project,
             ended: ended is String && _validEnd(ended) ? ended : null,
+            stays: value['stays'] == true,
           );
         }
       }
@@ -1347,6 +1369,7 @@ class Settings extends ChangeNotifier {
           'provider': kept.provider,
           'project': kept.project,
           'ended': ?kept.ended,
+          if (kept.stays) 'stays': true,
         },
     ],
   };

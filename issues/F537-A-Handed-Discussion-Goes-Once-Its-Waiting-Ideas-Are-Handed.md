@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F537",
   "title": "A Handed Discussion Goes Once Its Waiting Ideas Are Handed",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 106,
@@ -31,3 +31,14 @@ Found in the code reading of [F535](README.md#f535) (2026-11-13).
 - A discussion whose idea was saved and that stayed for its waiting ideas is removed on the first sweep after every
   idea it lists was handed in and none is held back, once, also after a restart of the window.
 - A discussion whose idea was refused, or that wrote none, stays as today.
+
+## How it was built
+
+- `KeptDiscussion.stays` in `lib/src/app/settings.dart`, kept with the discussion across restarts: set by
+  `discussionStays` when the discussion's idea was saved while ideas it proposed still waited or were held back.
+- `WindowTaskReports` (`lib/src/ui/planning_reports.dart`) sets it where it says the discussion stays, and each sweep,
+  after the proposed ideas are handed, removes every such discussion its machine lists with nothing waiting and none
+  held back. The mark is cleared before the removal, so it goes once; a removal the machine refuses is said once.
+- Only a saved idea sets the mark: a discussion whose idea was refused, or that wrote none, stays as before.
+- Tests in `test/ui/window_task_reports_test.dart`: a saved discussion goes once nothing of it waits, also after a
+  restart, and only once (seen red first); a refused one stays.

@@ -87,6 +87,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- An ended discussion whose idea was saved, and that stayed only while ideas it proposed waited, is removed from its machine on the first sweep after none of them waits or is held back, once, also after a restart of the window. One whose idea was refused or never written stays as before.
 - Once a task's idea is in the planner, or will not be sent there, the window takes it from the task, so Porelo lists the ideas it held back behind it; one handed in before is taken at the next start of the window.
 - Each repository on the page of the project *Default* says where it comes from and goes, the checkout's path or the remote's address, and its menu offers *Take it out of default*: it leaves *Default*, its mirror and anything waiting in it stay, and each deploy key the machine forgot is said. It is refused, naming the tasks, while a task of *Default* works on it.
 - A reader porelo-planner offers after a build is started naming the tasks whose work it reads, so Porelo hands it their landed branches, read only. Each task's end tells the planner where its work landed, as Porelo names it, and work that still waited at the gate when its task ended is told once it has landed, once, also across a restart of the window.

@@ -846,6 +846,60 @@ void main() {
       expect(removed, isEmpty, reason: 'two of its ideas were not listed yet');
     });
 
+    /// The ended discussion's row with [heldBack] ideas the listing left out, none listed.
+    void holdsBack(int heldBack) {
+      final index = machine.listed.indexWhere((task) => task.name == 'porelo-demo-discussion');
+      final row = machine.listed[index];
+      machine.listed[index] = Task.from({
+        'name': row.name,
+        'task': row.task,
+        'project': 'demo',
+        'running': false,
+        'run': row.run!,
+        'agentEnded': endAt('2026-11-12T01:00:00Z', result: ideaFile),
+        'ideas': <Object>[],
+        'ideasHeldBack': heldBack,
+      });
+    }
+
+    // Harm: a discussion whose idea was saved stays on its machine for good once the ideas it waited for are handed
+    // in, or goes twice.
+    test('whose idea was saved goes once nothing of it waits any more, also after a restart', () async {
+      final (reports, _, saved) = await discussed();
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      machine.end('porelo-demo-discussion', endAt('2026-11-12T01:00:00Z', result: ideaFile));
+      holdsBack(2);
+      await sweeps(reports);
+      expect(saved, ['demo ST900']);
+      expect(removed, isEmpty);
+
+      final again = window(kept: await loaded()).$2;
+      holdsBack(0);
+      await sweeps(again);
+      await sweeps(again);
+      await sweeps(window(kept: await loaded()).$2);
+
+      expect(removed, [('laptop', 'porelo-demo-discussion')]);
+      expect(handed, hasLength(1));
+    });
+
+    // Harm: a discussion whose idea the planner refused goes with its result file once its waiting ideas are handed.
+    test('whose idea was refused stays once nothing of it waits any more', () async {
+      final (reports, _, saved) = await discussed();
+      results['porelo-demo-discussion'] = TaskResult.from({...ideaFile, 'content': jsonEncode(idea)});
+      handAnswers.add(
+        const IdeaNotSaved('The idea does not follow the idea format.', faults: ['story.title: Too long.']),
+      );
+      machine.end('porelo-demo-discussion', endAt('2026-11-12T01:00:00Z', result: ideaFile));
+      holdsBack(2);
+      await sweeps(reports);
+      holdsBack(0);
+      await sweeps(reports);
+
+      expect(saved, isEmpty);
+      expect(removed, isEmpty);
+    });
+
     // Harm: an ended discussion stays on the machine after its idea was saved, or one whose idea was not saved goes,
     // and the person's agreed idea with it.
     test('removes the ended discussion once the planner saved its idea, and keeps one it did not', () async {
