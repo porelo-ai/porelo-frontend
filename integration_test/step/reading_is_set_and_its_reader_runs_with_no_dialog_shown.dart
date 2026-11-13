@@ -21,7 +21,13 @@ Future<void> readingIsSetAndItsReaderRunsWithNoDialogShown(
   for (final reader in readers) {
     final issue = await theIssueOf(theContainerOf(reader));
     if (issue == null) fail('asked ${theContainerOf(reader)} for the issue it reads; it works on none of the story');
-    await theIssueStandsIn(issue, Walk.issues.firstWhere((each) => each.id == issue).repository, 'Reading');
+    // A reader that ended already has been reported so: the planner moved its issue on to Review, often before the
+    // last reader starts. Its end is read after the planner's state, which follows it.
+    final state = await probeHolds(['issue-state', issue, 'Review']) && hasEnded(await theTask(theContainerOf(reader)))
+        ? 'Review'
+        : 'Reading';
+    if (state == 'Review') noteStep('   $issue: its reader ended before this read; it stands in Review');
+    await theIssueStandsIn(issue, Walk.issues.firstWhere((each) => each.id == issue).repository, state);
     // With the model the planner proposed, the walk's.
     final model = '${reader['model'] ?? ''}';
     if (!model.contains(Walk.model)) {
