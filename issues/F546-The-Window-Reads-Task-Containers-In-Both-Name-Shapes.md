@@ -16,10 +16,10 @@
 
 **Why this size.** S: four places in the window's code and two walk steps, each with a test of both shapes.
 
-Found from porelo's B246 (2026-11-13), which lands with Core's next round.
+Found from porelod's new naming of task containers.
 
 **How it stands.**
-- With B246, a new task of project porelo is named `porelo_<task>`, and every other project's task
+- With that naming, a new task of project porelo is named `porelo_<task>`, and every other project's task
   `porelo-<project or short>_<task>`. Tasks made before keep their names.
 - `RunningView.shortName` (`lib/src/ui/running_view.dart:593`) cuts `porelo-` alone, so a new task of project porelo
   shows as `porelo_<task>`.
@@ -37,7 +37,7 @@ Found from porelo's B246 (2026-11-13), which lands with Core's next round.
 - A new task's name is measured against the container name porelod will give it.
 - Where the window needs a container's task, it takes the task porelod names, else the name without its prefix in
   either shape. It never cuts a prefix it guessed from the project.
-- The walks name and match containers in both shapes, so a walk against a porelo from before B246 and one from after
+- The walks name and match containers in both shapes, so a walk against a porelo from before that naming and one from after
   both hold.
 
 ## Plan

@@ -16,8 +16,7 @@
 
 **Why this size.** S: two calls in the window move to one exported call of the planning package, plus its pin.
 
-Found from porelo-planner's PL113 (2026-11-13): every call to the planner is signed, and a bearer token is refused
-with 401.
+Found when porelo-planner began to sign every call: it refuses a bearer token with 401.
 
 **How it stands.**
 - `handIdea` (`lib/src/app/planner_ideas.dart:71`) and `tellPlannerLevel` (`lib/src/app/planner_log_level.dart:42`)
