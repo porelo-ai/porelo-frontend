@@ -748,8 +748,12 @@ cleanup() {
     if [ -n "$org_added" ]; then
         case $(in_the_organization) in
         yes)
-            as_the_person_on_vm "${in_vault:-}porelo org project remove --id '$name-org-remove' '$porelo_project'" </dev/null >/dev/null 2>&1 ||
+            if as_the_person_on_vm "${in_vault:-}porelo org project remove --id '$name-org-remove' '$porelo_project'" \
+                </dev/null >/dev/null 2>&1; then
+                echo "walk: $porelo_project is taken out of the organization" >&2
+            else
                 left+=("$porelo_project in the organization (porelo org project remove $porelo_project, as the test person on $vm)")
+            fi
             ;;
         no) ;;
         *) left+=("whether $porelo_project is in the organization could not be asked (porelo org project remove $porelo_project)") ;;
@@ -886,6 +890,16 @@ sys.stdout.write(re.sub(r"(?m)^mail:\n(?:[ \t].*\n?|\n)*", "", text))' "$work/ap
     }
 }
 
+# The commands that take a template's clone on the VM back to before a walk that seeds the template itself and is not
+# over yet (one of the scripts before the story's own repositories): from the tip back, a `Seed the walk` commit met
+# before a `Restore the tree before the walk` one is such a walk's, and its parent the template as it was before it.
+# shellcheck disable=SC2016 # expanded on the VM, not here
+before_a_walk() {
+    printf '%s' "b=\$(git -C $1 log --first-parent --format='%H %s' | awk '/ Restore the tree before the walk / {exit} / Seed the walk / {print \$1; exit}')
+            if [ -n \"\$b\" ]; then git -C $1 checkout -q --detach \"\$b^\"
+                echo \"walk: $2 is seeded by a walk not over yet; taken as before it, at \$(git -C $1 rev-parse HEAD)\" >&2; fi"
+}
+
 # The story's repository of the template named, made new in the organization and filled with the template's default
 # branch as it is; in the porelo project's copy every template's name is made the story's in one commit. Noted as made
 # at once, so every ending deletes it.
@@ -926,7 +940,8 @@ make_repository() {
         }
         as_the_person_on_vm "set -eo pipefail; d=~/$run/fill/$repository; t=~/$run/fill/$repository.template; rm -rf \$d \$t
             git clone -q --branch main 'git@github.com:$org/$repository.git' \$d
-            git clone -q --depth 1 --single-branch --branch '$branch' 'git@github.com:$org/$template.git' \$t
+            git clone -q --single-branch --branch '$branch' 'git@github.com:$org/$template.git' \$t
+            $(before_a_walk "\$t" "$template")
             git -C \$d rm -rq --ignore-unmatch -- .
             git -C \$t archive --format=tar HEAD | tar -x -C \$d" </dev/null >&2 || {
             echo "walk: $org/$template could not be put over $org/$repository on $vm" >&2
@@ -934,7 +949,8 @@ make_repository() {
         }
     else
         as_the_person_on_vm "set -e; d=~/$run/fill/$repository; rm -rf \$d
-            git clone -q --single-branch --branch '$branch' 'git@github.com:$org/$template.git' \$d" </dev/null >&2 || {
+            git clone -q --single-branch --branch '$branch' 'git@github.com:$org/$template.git' \$d
+            $(before_a_walk "\$d" "$template")" </dev/null >&2 || {
             echo "walk: $org/$template could not be cloned on $vm" >&2
             exit 1
         }
