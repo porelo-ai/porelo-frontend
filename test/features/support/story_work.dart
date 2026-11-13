@@ -242,10 +242,12 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
 Future<void> proveWork(WidgetTester tester, String proof) async {
   Finder cardIn(String state) =>
       find.descendant(of: workKey('planning-state $state'), matching: workKey('planning-card ST291'));
+  // A state may start folded or open, as the planner's preferences say: a tap that folded it away is taken back.
   Future<void> revealWork(String state) async {
-    if (find.descendant(of: cardIn(state), matching: find.textContaining('tasks')).evaluate().isEmpty) {
-      await workTap(tester, 'planning-fold-state $state');
-    }
+    bool shown() => find.descendant(of: cardIn(state), matching: find.textContaining('tasks')).evaluate().isNotEmpty;
+    if (shown()) return;
+    await workTap(tester, 'planning-fold-state $state');
+    if (!shown() && cardIn(state).evaluate().isEmpty) await workTap(tester, 'planning-fold-state $state');
   }
 
   String cardText() => planningText(tester, workKey('planning-card ST291'));
@@ -409,7 +411,8 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(tester.widget<OutlinedButton>(key).onPressed, isNull);
       expect(find.text('The board changed or is no longer live.'), findsOneWidget);
     case 'reported end visible':
-      expect(workKey('story-work-ended ST291'), findsOneWidget);
+      // One row per issue the ended task raised, each saying how it ended.
+      expect(workKey('story-work-ended ST291'), findsWidgets);
       expect(find.textContaining('Outcome: blocked - the key is missing.'), findsWidgets);
     case 'with you terminal':
       expect(workKey('running-name'), findsOneWidget);
