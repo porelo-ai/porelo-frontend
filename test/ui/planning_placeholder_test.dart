@@ -114,11 +114,51 @@ void main() {
 
     expect(planner.reaches, 1);
   });
+
+  // Harm: on Windows a person whose planner does not run has no way from the planning place to start it.
+  testWidgets('a planner the person may start is offered with one button that starts it', (tester) async {
+    final planner = _Unreached(offered: true);
+    addTearDown(planner.dispose);
+    await World.startBackend(World.work);
+    await World.startApp(tester, planning: (_) => EmbeddedPlanning(planner, startTask: mockStartTask));
+
+    World.shell.goTo(Section.planning);
+    await World.settle(tester);
+
+    expect(find.byKey(const Key('planning-start-planner')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('planning-start-planner')));
+    await World.settle(tester);
+
+    expect(planner.started, 1);
+  });
+
+  // Harm: a button that starts nothing stands beside a planner that cannot be started.
+  testWidgets('a planner not offered for a start shows no button', (tester) async {
+    final planner = _Unreached();
+    addTearDown(planner.dispose);
+    await World.startBackend(World.work);
+    await World.startApp(tester, planning: (_) => EmbeddedPlanning(planner, startTask: mockStartTask));
+
+    World.shell.goTo(Section.planning);
+    await World.settle(tester);
+
+    expect(find.byKey(const Key('planning-start-planner')), findsNothing);
+  });
 }
 
 /// A planner the window has not reached, which counts how often it is asked to try again.
-class _Unreached extends ChangeNotifier implements PlanningClient, PlanningReach {
+class _Unreached extends ChangeNotifier implements PlanningClient, PlanningReach, StartsWhenAsked {
+  _Unreached({this.offered = false});
+
+  final bool offered;
   int reaches = 0;
+  int started = 0;
+
+  @override
+  bool get startOffered => offered;
+
+  @override
+  Future<void> startNow() async => started++;
 
   @override
   String? get notReached => plannerNotInstalled;

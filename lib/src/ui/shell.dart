@@ -73,7 +73,7 @@ import 'central_release_view.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
-import '../app/planner.dart' show EndsWithTheWindow, NamesItsLog, PlanningReach, TakesTheLogLevel;
+import '../app/planner.dart' show EndsWithTheWindow, NamesItsLog, PlanningReach, StartsWhenAsked, TakesTheLogLevel;
 import 'discussion_start_dialog.dart';
 import 'planning_embedding.dart';
 
@@ -4269,7 +4269,13 @@ class _ShellState extends State<Shell> {
     (final planning?, final boards?) => ListenableBuilder(
       listenable: planning.client,
       builder: (context, _) => switch (planning.client) {
-        PlanningReach(notReached: final words?) => _planningLine(words),
+        PlanningReach(notReached: final words?) => _planningLine(
+          words,
+          start: switch (planning.client) {
+            final StartsWhenAsked planner when planner.startOffered => planner.startNow,
+            _ => null,
+          },
+        ),
         _ => PlanningScreen(
           boards: boards,
           host: _planningHost,
@@ -4294,14 +4300,28 @@ class _ShellState extends State<Shell> {
     _ => true,
   };
 
-  Widget _planningLine(String words) => Center(
+  /// One line that planning is not reached, with a button that starts the planner where the person may start it.
+  Widget _planningLine(String words, {Future<void> Function()? start}) => Center(
     child: Padding(
       padding: const EdgeInsets.all(Space.loose),
-      child: Text(
-        words,
-        key: const Key('planning-not-reached'),
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyMedium,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            words,
+            key: const Key('planning-not-reached'),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          if (start != null) ...[
+            const SizedBox(height: Space.loose),
+            FilledButton(
+              key: const Key('planning-start-planner'),
+              onPressed: () => unawaited(start()),
+              child: const Text('Start the planner'),
+            ),
+          ],
+        ],
       ),
     ),
   );

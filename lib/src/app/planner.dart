@@ -38,6 +38,9 @@ const plannerNotInstalledOnWindows =
     'Planning comes from porelo-planner, which is not installed on this computer. '
     'Install porelo-planner for Windows and open Porelo again.';
 
+/// What the planning place says on Windows where the planner is installed but does not run, beside its start.
+const plannerNotRunningOnWindows = 'porelo-planner does not run on this computer. Start it to plan here.';
+
 /// What the planning place says while the window looks for the planner or waits for the one it started.
 const plannerLookedFor = 'Looking for porelo-planner…';
 
@@ -113,11 +116,20 @@ abstract interface class PlanningReach implements Listenable {
   Future<void> reach();
 }
 
+/// A planner the window starts only when the person asks, as on Windows.
+abstract interface class StartsWhenAsked {
+  /// Whether the planning place offers to start the planner now.
+  bool get startOffered;
+
+  /// Starts the planner, as the person asked, and waits for its address.
+  Future<void> startNow();
+}
+
 /// This computer's planner as the window's one provider of planning: found by its address file, started where none
 /// runs, told each project's repository as the window knows it, and followed to a new address when the planner writes
 /// one, as after a restart on another port.
 class LocalPlanner extends ChangeNotifier
-    implements PlanningClient, PlanningReach, NamesItsLog, TakesTheLogLevel, EndsWithTheWindow {
+    implements PlanningClient, PlanningReach, StartsWhenAsked, NamesItsLog, TakesTheLogLevel, EndsWithTheWindow {
   /// Takes the projects the window knows and their repositories; [runtimeDirectory] is the one the planner writes its
   /// address under, `XDG_RUNTIME_DIR` when null and none on Windows, and [candidates] where the planner may be, in the
   /// order they are tried.
@@ -246,6 +258,23 @@ class LocalPlanner extends ChangeNotifier
   @override
   String? get notReached => _notReached;
 
+  /// On Windows the planner is started only on the person's ask, never by a look of the window's.
+  @override
+  bool get startOffered => _offered;
+  bool _offered = false;
+  bool _asked = false;
+
+  @override
+  Future<void> startNow() async {
+    if (!_offered) return;
+    _offered = false;
+    _asked = true;
+    _notReached = plannerLookedFor;
+    notifyListeners();
+    await _reaching;
+    await reach();
+  }
+
   /// The log file the planner's address file named when it was read last naming one: kept once that planner has gone,
   /// whose log tells why.
   @override
@@ -273,7 +302,19 @@ class LocalPlanner extends ChangeNotifier
     final programs = candidates.where(_onWindows ? _aFile : _runnable).toList();
     if (programs.isEmpty) return _say(_onWindows ? plannerNotInstalledOnWindows : plannerNotInstalled);
     if (_disposed) return;
-    if (await _startOneOf(programs) case final failure?) return _say('porelo-planner could not be started: $failure');
+    if (_onWindows) {
+      if (!_asked) {
+        _offered = true;
+        return _say(plannerNotRunningOnWindows);
+      }
+      // One ask, one start: a planner gone later is offered again.
+      _asked = false;
+    }
+    if (await _startOneOf(programs) case final failure?) {
+      // A start the person asked for that failed may be asked for again.
+      _offered = _onWindows;
+      return _say('porelo-planner could not be started: $failure');
+    }
     final waited = Stopwatch()..start();
     while (!_disposed) {
       await Future<void>.delayed(poll);

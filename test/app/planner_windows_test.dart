@@ -13,42 +13,65 @@ void main() {
   setUp(() => folder = Directory.systemTemp.createTempSync('planner-windows-'));
   tearDown(() => folder.deleteSync(recursive: true));
 
-  // Harm: the planning place on Windows says planning is not offered, although porelo-planner is installed there.
-  test(
-    'on Windows the planner is started once and its address read, with no runtime directory of the window',
-    () async {
-      final program = File('${folder.path}${Platform.pathSeparator}porelo-planner.exe')..writeAsStringSync('');
-      final starts = <(String, Map<String, String>)>[];
-      final opened = <String?>[];
-      final planner = LocalPlanner(
-        projects: () => const ['demo'],
-        repositories: (project) async => throw PlanningRefusal('NoRepository', const {}),
-        candidates: [program.path],
-        // A runtime directory is a Linux matter: on Windows the planner keeps its address in its own folder.
-        runtimeDirectory: r'C:\Users\someone\AppData\Local\Temp\planner-runtime',
-        start: (executable, environment) async {
-          starts.add((executable, environment));
-          return PlannerProcess();
-        },
-        open: (projects, {runtimeDirectory}) async {
-          opened.add(runtimeDirectory);
-          throw const PlanningRefusal('NoAddress', {});
-        },
-        wait: const Duration(milliseconds: 300),
-        poll: const Duration(milliseconds: 20),
-        onWindows: true,
-      );
-      addTearDown(planner.dispose);
+  // Harm: on Windows the window starts the planner by itself, which the person did not ask for, or it offers no way
+  // to start it, so planning stays out of reach until the next sign-in.
+  test('on Windows the planner is started only when the person asks, once, and its address read', () async {
+    final program = File('${folder.path}${Platform.pathSeparator}porelo-planner.exe')..writeAsStringSync('');
+    final starts = <(String, Map<String, String>)>[];
+    final opened = <String?>[];
+    final planner = LocalPlanner(
+      projects: () => const ['demo'],
+      repositories: (project) async => throw PlanningRefusal('NoRepository', const {}),
+      candidates: [program.path],
+      // A runtime directory is a Linux matter: on Windows the planner keeps its address in its own folder.
+      runtimeDirectory: r'C:\Users\someone\AppData\Local\Temp\planner-runtime',
+      start: (executable, environment) async {
+        starts.add((executable, environment));
+        return PlannerProcess();
+      },
+      open: (projects, {runtimeDirectory}) async {
+        opened.add(runtimeDirectory);
+        throw const PlanningRefusal('NoAddress', {});
+      },
+      wait: const Duration(milliseconds: 300),
+      poll: const Duration(milliseconds: 20),
+      onWindows: true,
+    );
+    addTearDown(planner.dispose);
 
-      await planner.reach();
-      await planner.reach();
+    await planner.reach();
+    await planner.reach();
 
-      expect(starts.map((each) => each.$1), [program.path], reason: 'started at most once');
-      expect(starts.single.$2, isEmpty, reason: 'no runtime directory is passed on Windows');
-      expect(opened, isNotEmpty, reason: 'its address is read');
-      expect(opened.toSet(), {null});
-    },
-  );
+    expect(starts, isEmpty, reason: 'nothing is started at a look');
+    expect(planner.notReached, plannerNotRunningOnWindows);
+    expect(planner.startOffered, isTrue);
+
+    await planner.startNow();
+    await planner.reach();
+
+    expect(starts.map((each) => each.$1), [program.path], reason: 'started once, on the ask');
+    expect(starts.single.$2, isEmpty, reason: 'no runtime directory is passed on Windows');
+    expect(opened, isNotEmpty, reason: 'its address is read');
+    expect(opened.toSet(), {null});
+    expect(planner.startOffered, isFalse, reason: 'a planner started is not offered for a start again');
+  });
+
+  // Harm: on Linux the planning place waits for a button nobody needs there.
+  test('elsewhere than Windows no start is offered', () async {
+    final planner = LocalPlanner(
+      projects: () => const ['demo'],
+      repositories: (project) async => throw PlanningRefusal('NoRepository', const {}),
+      candidates: const [],
+      start: (executable, environment) async => fail('nothing is installed to start'),
+      open: (projects, {runtimeDirectory}) async => throw const PlanningRefusal('NoAddress', {}),
+      onWindows: false,
+    );
+    addTearDown(planner.dispose);
+
+    await planner.reach();
+
+    expect(planner.startOffered, isFalse);
+  });
 
   // Harm: on Windows the planner is never found, or a relative folder of the path runs a program from wherever the
   // window was started.
@@ -76,6 +99,7 @@ void main() {
     await planner.reach();
 
     expect(planner.notReached, plannerNotInstalledOnWindows);
+    expect(planner.startOffered, isFalse, reason: 'nothing is there to start');
   });
 
   // Harm: on Windows the window takes the planner's address file for gone, since it looks for it where Linux keeps it,
