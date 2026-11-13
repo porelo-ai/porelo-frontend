@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F528",
   "title": "Attention Reads Only The Machines Being Watched",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 100,
@@ -46,3 +46,14 @@ the VM account's own machines (a rented host's card saved before the e2e machine
 
 - A change of the planning boards while a machine opens raises nothing and leaves attention as it was for the
   machines that answer; seen red first against today's lookup.
+
+## How it was built
+
+- `Attention` reads each machine through `Machines.watching`, which answers null for one listed and not watched yet,
+  and takes such a machine as not answering; its listeners follow only the fleets that are watched. Notifications,
+  where the person was and the planning read the machines the same way. `Machines.of` keeps its use for a caller
+  holding a machine; for one listed and not watched yet it hands the stand-in [F530](README.md#f530) added.
+- Tests in `test/app/listed_not_watched_test.dart`: a host card saved before another machine opens without an error
+  and the other machine still asks; a change of the planning boards while a machine is listed and not watched yet
+  raises nothing and leaves what the answering machine asks as it was. Both seen red against a lookup that throws
+  for a machine not watched (`Null check operator used on a null value`).

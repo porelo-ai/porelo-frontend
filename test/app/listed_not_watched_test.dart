@@ -123,6 +123,38 @@ void main() {
     );
   });
 
+  // Harm: a change of the planning boards while a machine was being opened threw in what needs a person, as it walked a
+  // machine listed and not watched yet, and what the machines that answer asked was left unsaid.
+  test('a change of the planning boards while a machine opens raises nothing and keeps what the others ask', () async {
+    final reported = _reported();
+    final window = await _reconnecting(staying: _asking());
+    final planner = _NoPlanner();
+    final boards = PlanningBoards(planner);
+    final attention = Attention(window.machines)..planning = boards;
+    addTearDown(() {
+      attention.dispose();
+      boards.dispose();
+      planner.dispose();
+    });
+    List<String> asked() => [for (final tile in attention.needing) '${tile.machine.name}/${tile.task?.name}'];
+    await pumpEventQueue();
+    final before = asked();
+    expect(before, ['apple/porelo-checkout-shell'], reason: 'the machine that answers asks before the other opens');
+
+    final disconnecting = window.machines.disconnect(window.going);
+    addTearDown(() async {
+      if (!window.tunnels.let.isCompleted) window.tunnels.let.complete();
+      await disconnecting;
+    });
+    await pumpEventQueue();
+    expect(window.machines.watching(window.going), isNull, reason: 'the machine is listed and not watched yet');
+    planner.changed();
+    await pumpEventQueue();
+
+    expect(reported.map((each) => each.exceptionAsString()), isEmpty, reason: 'nothing may throw while one opens');
+    expect(asked(), before, reason: 'what the machine that answers asks stays as it was');
+  });
+
   // Harm: a machine set to reconnect is listed and not watched while its forward comes down, and another machine
   // speaking then threw in every listener that walks the machines, among them the one raising its questions.
   test('another machine speaking while one reconnects raises nothing in what follows the machines', () async {
@@ -357,23 +389,29 @@ void main() {
 }
 
 /// A window watching a host and another machine, with the host's forward slow to come down.
-Future<({Machines machines, _SlowDrop tunnels, Machine going, Machine staying})> _reconnecting() async {
+Future<({Machines machines, _SlowDrop tunnels, Machine going, Machine staying})> _reconnecting({
+  FakeBackend? staying,
+}) async {
   const going = Machine(name: 'orchard', socketPath: '/tmp/orchard.sock', kind: 'host');
-  const staying = Machine(name: 'apple', socketPath: '/tmp/apple.sock');
+  const apple = Machine(name: 'apple', socketPath: '/tmp/apple.sock');
   final settings = Settings(MemorySettingsStore());
   await settings.load();
   final tunnels = _SlowDrop();
-  final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: tunnels);
+  final machines = Machines(
+    settings,
+    reach: (machine) => machine.name == 'apple' && staying != null ? staying : FakeBackend(const []),
+    tunnels: tunnels,
+  );
   addTearDown(() {
     machines.dispose();
     settings.dispose();
   });
   await machines.add(going);
-  await machines.add(staying);
+  await machines.add(apple);
   for (final machine in machines.all) {
     await machines.of(machine).untilAsked();
   }
-  return (machines: machines, tunnels: tunnels, going: going, staying: staying);
+  return (machines: machines, tunnels: tunnels, going: going, staying: apple);
 }
 
 /// The planner found on the path: a provider named as no watched machine is.
@@ -409,4 +447,43 @@ class _PathPlanner extends ChangeNotifier implements PlanningClient {
 class _Source extends Fake implements PlanningSource {
   @override
   String get label => 'planner';
+}
+
+/// A machine's backend, another node than the host's, whose one task waits for the person.
+FakeBackend _asking() => FakeBackend([
+  Task.from(<String, dynamic>{
+    'name': 'porelo-checkout-shell',
+    'project': 'checkout',
+    'running': true,
+    'mode': 'SHELL',
+    'activity': 'WAITING',
+    'waitingFor': 'api.example.test:443',
+    'since': '2026-09-07T14:59:00Z',
+  }),
+])..nodeId = 'node-b';
+
+/// A planning client with no planner, whose change the boards pass on to what listens to them.
+class _NoPlanner extends ChangeNotifier implements PlanningClient {
+  void changed() => notifyListeners();
+
+  @override
+  List<PlanningProvider> get providers => const [];
+
+  @override
+  String? get currentProvider => null;
+
+  @override
+  String? get chosenProject => null;
+
+  @override
+  Future<void> taskEvent(
+    String project,
+    String task,
+    PlanningTaskEvent event, {
+    required String offer,
+    required String container,
+    required String machine,
+    PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
+  }) async {}
 }
