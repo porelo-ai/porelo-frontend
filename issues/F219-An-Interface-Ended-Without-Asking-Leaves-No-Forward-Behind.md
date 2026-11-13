@@ -7,7 +7,7 @@
   "title": "An Interface Ended Without Asking Leaves No Forward Behind",
   "state": "Review",
   "size": "M",
-  "priority": "Medium",
+  "priority": "High",
   "rank": 9,
   "blockedBy": [],
   "covers": "The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start."
