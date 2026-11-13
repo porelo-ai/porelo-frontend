@@ -69,8 +69,8 @@ Each runs as `ssh -F <card config> -T -- <card> <command>` in the login shell, u
 
 ## To be checked
 
-- It rests on Core's share vector, which is not on Core's main yet: it does not go into a push round before Core's
-  change does.
+- The derivation and its vector are Core's, on Core's main since 096b43d74 (`doc/credentials.md`, "How a host share
+  is derived", and `HostVaultShareVectorTest`); the window's test holds the same bytes.
 - That the Windows OpenSSH agent's named pipe answers the agent protocol from Dart without an extra library: the pipe
   is opened with `CreateFileW` and read and written with `ReadFile` and `WriteFile` through `dart:ffi`, one exchange per
   request in an isolate of its own; it has run only against stand-ins, never on Windows.

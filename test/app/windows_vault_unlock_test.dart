@@ -11,7 +11,8 @@ import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/windows_vault_unlock.dart';
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh;
 
-/// Core's written vector for a host vault share: a key made for the vector alone, never a person's.
+/// Core's written vector for a host vault share, as `HostVaultShareVectorTest` pins it on Core's main since 096b43d74
+/// (doc/credentials.md, "How a host share is derived"): a key made for the vector alone, never a person's.
 const _seed = '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f';
 const _publicBlob =
     '0000000b7373682d656432353531390000002003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8';
