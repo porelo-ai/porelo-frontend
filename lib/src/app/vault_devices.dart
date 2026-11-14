@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 
 import 'device_key.dart';
 import 'fleet_backend.dart';
+import 'machines.dart' show Machine;
 
 /// The devices that open a machine's vault, and this device among them: Porelo's keyslots.
 ///
@@ -217,6 +218,10 @@ String stillOpens(List<Keyslot> remaining) {
   final listed = ways.length == 1 ? ways.single : '${ways.sublist(0, ways.length - 1).join(', ')} and ${ways.last}';
   return 'Still able to open it: $listed.';
 }
+
+/// Whether a person at this window sits at [machine], where its vault's passphrase is typed: this computer, or a WSL
+/// distribution on it, whatever socket that is reached by.
+bool sitsAtTheMachine(Machine machine) => machine.isThisComputer || machine.kind == 'wsl';
 
 /// What revoking [slot] costs, said before it is done, from [slots], every way into the vault as the machine listed
 /// them; `refused` where this window does not revoke it, the words then saying how to do it at the machine. [itself]

@@ -44,7 +44,10 @@ confirmation says only that the device will no longer open the vault.
 - **Whether a passphrase is set** is offered by porelo: `Keyslots` lists the passphrase as the slot with `recovery`
   true, and a vault made from a share alone has none. **Whether anyone still knows it** nothing can say, so the dialog
   says plainly that the window cannot tell. porelo needs nothing new for this issue.
-- On a machine other than this computer the last device is not revoked from the window: the dialog says what it
+- A WSL distribution counts as this computer, since the person sits at it (`sitsAtTheMachine`): its last device is
+  revoked from the window, with the cost said first; *a WSL distribution's last device is revoked at this computer,
+  with what it costs* in `test/app/vault_devices_test.dart` was red while only this computer's own daemon counted.
+- On a truly remote machine (neither this computer nor a WSL distribution) the last device is not revoked from the window: the dialog says what it
   would cost and how to do it at the machine (`porelo vault revoke <id>`), with *Close* and no *Revoke*. The only way
   into a vault with no passphrase is not revoked from the window at all, as porelo itself keeps it (`LAST_WAY_IN`).
 - Tests, each seen red with a deliberate break restored from a copy: `test/app/vault_devices_test.dart` *what revoking

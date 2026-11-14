@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/device_key.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/machines.dart' show Machine;
 import 'package:porelo_frontend/src/app/vault_devices.dart';
 
 /// A node with Porelo's keyslots, as proposed: a share it has seen opens its slot, nothing else.
@@ -262,6 +263,28 @@ void main() {
       expect(cost.refused, isTrue);
       expect(cost.words, contains('porelo vault revoke slot-1'));
       expect(cost.words, contains('lost for good'));
+    });
+
+    // Harm: on Windows, where this computer is a WSL distribution and the person sits at it, its last device cannot
+    // be revoked from the window at all.
+    test("a WSL distribution's last device is revoked at this computer, with what it costs", () {
+      const wsl = Machine(name: 'Ubuntu', socketPath: '', kind: 'wsl', distribution: 'Ubuntu');
+      final cost = revokeCost(
+        slot: phone,
+        slots: [passphrase, phone],
+        itself: false,
+        atTheMachine: sitsAtTheMachine(wsl),
+      );
+      expect(cost.refused, isFalse);
+      expect(cost.words, contains('only the passphrase opens it'));
+      expect(cost.words, contains('lost for good'));
+      const remote = Machine(
+        name: 'build',
+        socketPath: '/run/build.sock',
+        host: 'build.example.org',
+        remoteSocket: '/run/porelo.sock',
+      );
+      expect(sitsAtTheMachine(remote), isFalse, reason: 'a machine reached over ssh is elsewhere');
     });
 
     // Harm: the one way into a vault with no passphrase is revoked, and its entries are lost for good.

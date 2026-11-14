@@ -49,6 +49,7 @@ import '../app/start_work.dart';
 import '../app/templates.dart';
 import '../app/tunnel.dart';
 import '../app/vault.dart';
+import '../app/vault_devices.dart' show sitsAtTheMachine;
 import '../app/widening.dart';
 import '../app/window_log.dart' show LogLevel, windowLogFile;
 import '../app/work_held.dart';
@@ -4894,7 +4895,7 @@ class _ShellState extends State<Shell> {
       key: const Key('vault-view'),
       vault: tools.vault,
       head: head,
-      atTheMachine: machine.isThisComputer,
+      atTheMachine: sitsAtTheMachine(machine),
       actions: [
         if (primary != null)
           Tooltip(
