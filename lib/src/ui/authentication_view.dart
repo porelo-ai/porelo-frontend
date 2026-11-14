@@ -19,12 +19,12 @@ class AuthenticationView extends StatelessWidget {
     required this.authentication,
     required this.onImport,
     this.filter,
-    this.onTheHost = false,
+    this.reads = ImportReads.thisComputer,
     super.key,
   });
 
-  /// Whether the machine is a host rather than this computer: the import reads the agent's files where it runs.
-  final bool onTheHost;
+  /// Where the machine is, in the import's words: the agent's files are read where it runs.
+  final ImportReads reads;
 
   /// What the machine has.
   final Authentication authentication;
@@ -70,12 +70,10 @@ class AuthenticationView extends StatelessWidget {
                     provider: provider,
                     readable: authentication.readable,
                     onImport: () => onImport(provider.name),
-                    onTheHost: onTheHost,
-                    importSaid: authentication.importedFor == provider.name || authentication.importedFor == null
-                        ? authentication.importSaid
-                        : '',
+                    reads: reads,
+                    importSaid: authentication.importedFor == provider.name ? authentication.importSaid : '',
                     importFailed: authentication.importProblem != null,
-                    importing: authentication.busy && authentication.answer != null,
+                    importing: authentication.importing,
                   ),
             ],
           ),
@@ -118,13 +116,30 @@ class AuthenticationView extends StatelessWidget {
   }
 }
 
+/// Where an import reads the agent's own files, in its button's words.
+enum ImportReads {
+  /// This computer, where the window runs.
+  thisComputer('on this computer'),
+
+  /// A WSL distribution on this computer.
+  wsl('in WSL'),
+
+  /// A remote machine.
+  host('on the host');
+
+  const ImportReads(this.words);
+
+  /// The button's last words.
+  final String words;
+}
+
 /// One provider, with where its credential belongs.
 class _ProviderRow extends StatelessWidget {
   const _ProviderRow({
     required this.provider,
     required this.readable,
     required this.onImport,
-    required this.onTheHost,
+    required this.reads,
     required this.importSaid,
     required this.importFailed,
     required this.importing,
@@ -133,7 +148,7 @@ class _ProviderRow extends StatelessWidget {
   final Provider provider;
   final bool readable;
   final VoidCallback onImport;
-  final bool onTheHost;
+  final ImportReads reads;
 
   /// What the last import pressed here said, empty when none was.
   final String importSaid;
@@ -251,11 +266,7 @@ class _ProviderRow extends StatelessWidget {
               icon: const Icon(Icons.download_outlined, size: Sizes.rowIcon),
               // No secret crosses this: the daemon reads the agent's own config on its own disk,
               // and only a name comes back.
-              label: Text(
-                onTheHost
-                    ? 'Import what the agent already has on the host'
-                    : 'Import what the agent already has on this computer',
-              ),
+              label: Text('Import what the agent already has ${reads.words}'),
             ),
           ),
         ),

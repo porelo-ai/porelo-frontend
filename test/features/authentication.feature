@@ -75,7 +75,7 @@ Feature: Which providers a machine is authenticated against
         When I show what this machine can authenticate against
         And I open the provider {'A Provider'}
         And I import what the agent already has
-        Then it says {'The vault is shut, so nothing here can say whether it holds one'}
+        Then the provider {'a-provider'} says {'The vault is shut, so nothing here can say whether it holds one'}
 
     # `Login` is held open rather than built: getting a credential is the agent's own login on the
     # machine, and how that works is per-agent knowledge that would go stale here silently. What the

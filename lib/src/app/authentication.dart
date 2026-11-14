@@ -41,6 +41,10 @@ class Authentication extends ChangeNotifier {
     final mine = ++_asked;
     busy = true;
     problem = null;
+    // A fresh read is a fresh page: an earlier import's answer is not this one's.
+    imported = null;
+    importProblem = null;
+    importedFor = null;
     notifyListeners();
     try {
       final said = await backend.providers();
@@ -68,7 +72,8 @@ class Authentication extends ChangeNotifier {
   /// [agent] omitted means *the only one installed*, which is **not** the same as an empty string:
   /// an empty name matches nothing, and the two are kept apart on the daemon's side too.
   Future<void> importFor(FleetBackend backend, {String? agent}) async {
-    busy = true;
+    if (importing) return;
+    importing = true;
     imported = null;
     importProblem = null;
     importedFor = agent;
@@ -76,8 +81,17 @@ class Authentication extends ChangeNotifier {
     try {
       imported = await backend.importCredential(agent: agent);
       // What is on screen has to be what is true: a credential that arrived changes which
-      // providers are authenticated.
-      if (imported?.stored ?? false) answer = await backend.providers();
+      // providers are authenticated. A read begun before the import is no longer this one.
+      if (imported?.stored ?? false) {
+        final mine = ++_asked;
+        try {
+          final said = await backend.providers();
+          if (mine == _asked) answer = said;
+        } on Object catch (ex) {
+          // The import stands; only the list did not read again.
+          if (mine == _asked) problem = 'Imported, but the providers could not be read again: $ex';
+        }
+      }
       // A failed import is said where it was pressed; the providers it did not touch stay read.
     } on VarlinkException catch (refusal) {
       importProblem = 'The import was refused: ${refusal.simpleName}.';
@@ -86,10 +100,13 @@ class Authentication extends ChangeNotifier {
     } on FeatureNotSupported catch (ex) {
       importProblem = '$ex';
     } finally {
-      busy = false;
+      importing = false;
       notifyListeners();
     }
   }
+
+  /// Whether an import runs, apart from a read of the providers.
+  bool importing = false;
 
   /// The provider the last import was pressed for, null for the only agent installed.
   String? importedFor;
