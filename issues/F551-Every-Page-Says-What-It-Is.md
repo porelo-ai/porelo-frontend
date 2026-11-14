@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "M",
   "priority": "Highest",
-  "rank": 3,
+  "rank": 4,
   "blockedBy": [],
   "covers": "Every page the window shows carries the i beside its title that opens what the page is and what a person does there; today Planning, My cards & keys, a machine's page and its seven sections, a project's page and the pages opened over the frame lack it. A guard fails on a page shipped without one."
 }

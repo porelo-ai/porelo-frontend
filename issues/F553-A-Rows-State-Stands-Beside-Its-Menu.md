@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "XS",
   "priority": "Highest",
-  "rank": 3,
+  "rank": 5,
   "blockedBy": [],
   "covers": "In every list row drawn by LeafListRow, the state chip stands to the left of the row's ⋮ menu or buttons, on one line with them and centered in the row, as ItemListRow's rows already have it, instead of stacked above them in the row's top corner."
 }
