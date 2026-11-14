@@ -5,9 +5,9 @@ import '../support/remote.dart';
 /// The stub agent the scenarios use, pinned as the collection is: its version and the digest beside it there.
 const stubAgent = (
   // Its folder keeps the newest 20 versions: tool/stub_pin.sh, run by tool/e2e.sh, says when this one is to move.
-  version: '0.5.1~snapshot.497',
+  version: '0.5.1~snapshot.536',
   // The digest in that version's own porelo-agent-stub.sha256.
-  sha256: '121772a28dcc332f66dd14b314ca93d8d24115ba14b796aec6199a320583bc5b',
+  sha256: '0eaae49d1f8aca57cd85cbd2112ccc8b0e5fb380d7de3320168609e64a89cf8e',
 );
 
 /// Usage: the test machine has Porelo's stub agent
