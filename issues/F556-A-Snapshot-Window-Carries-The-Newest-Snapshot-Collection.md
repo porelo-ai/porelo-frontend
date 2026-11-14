@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F556",
   "title": "A Snapshot Window Carries The Newest Snapshot Collection",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Highest",
   "rank": 3,
