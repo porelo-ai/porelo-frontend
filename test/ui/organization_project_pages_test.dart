@@ -341,7 +341,7 @@ void main() {
   });
 
   // Harm: a checkout's local copy listed among the organization's projects, as the operator found.
-  testWidgets('the list says who is locked, lists no project of this computer alone, and leads to the machines', (
+  testWidgets('the list says who is locked, and a project listed as local is no row of the organization', (
     tester,
   ) async {
     final source = FixtureOrganization(organizationFor('mia'))
@@ -351,16 +351,9 @@ void main() {
       ];
     final organization = Organization(source);
     addTearDown(organization.dispose);
-    var others = 0;
-    await _settle(
-      tester,
-      OrganizationProjectsPage(organization: organization, onProject: (_) {}, onOthers: () => others++),
-    );
+    await _settle(tester, OrganizationProjectsPage(organization: organization, onProject: (_) {}));
     expect(find.text('locked'), findsOneWidget);
     expect(find.byKey(const ValueKey('my-project mine')), findsNothing);
-    await tester.tap(find.byKey(const Key('projects-of-machines')));
-    await tester.pumpAndSettle();
-    expect(others, 1);
   });
 
   group('the list of my projects', () {

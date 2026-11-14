@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:porelo_frontend/client.dart' show defaultProject;
 
 import '../app/commands.dart';
+import '../app/fleet_model.dart' show ProjectOnScreen;
 import '../app/host_progress.dart';
+import '../app/machines.dart';
 import '../app/organization_source.dart';
 import '../app/repository_address.dart';
 import '../app/run_here.dart' show WorkspaceRefused;
@@ -32,6 +35,17 @@ String? _listedRole(OrganizationView view, OrganizationProject project, ListedPr
   return listed?.role == ProjectView.adminRole ? null : listed?.role;
 }
 
+/// The machines' projects *My projects* lists beside the organization's: *Default* once on each machine, and each
+/// project a machine holds that is no project of the organization, local to that machine. An organization project a
+/// machine carries stands in its own row where the person holds a role in it, and otherwise only on that machine's
+/// page.
+List<({Machine machine, ProjectOnScreen project})> myMachineProjects(OrganizationView view, Machines machines) => [
+  for (final machine in listedMachines(machines))
+    for (final project in projectsOnMachine(machines, machine))
+      if (project.name == defaultProject || !view.projects.any((each) => each.name == project.name))
+        (machine: machine, project: project),
+];
+
 /// The projects a person is a project admin or a member of, each with the one host carrying it.
 class OrganizationProjectsPage extends StatefulWidget {
   /// Lists [organization]'s projects for the person reading.
@@ -43,7 +57,8 @@ class OrganizationProjectsPage extends StatefulWidget {
     this.connections,
     this.onGiveToken,
     this.tokenBusy,
-    this.onOthers,
+    this.machineRows,
+    this.machinesChanged,
     super.key,
   });
 
@@ -53,9 +68,12 @@ class OrganizationProjectsPage extends StatefulWidget {
   /// Why a machine cannot be given the token now, as while it is being given it; null where it can.
   final String? Function(String host)? tokenBusy;
 
-  /// Opens the projects of every machine this computer watches, also those no organization holds: *Default* and a
-  /// checkout's local copy stand only there.
-  final VoidCallback? onOthers;
+  /// The rows of the machines' own projects, below the organization's: *Default* on each machine and each project a
+  /// machine holds that is no project of the organization, as [myMachineProjects] names them.
+  final List<({String words, Widget child})> Function(OrganizationView view)? machineRows;
+
+  /// Tells when what the machines hold changed, so their rows are drawn again.
+  final Listenable? machinesChanged;
 
   /// The organization.
   final Organization organization;
@@ -175,7 +193,7 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([widget.organization, ?widget.connections]),
+    listenable: Listenable.merge([widget.organization, ?widget.connections, ?widget.machinesChanged]),
     builder: (context, _) {
       final view = widget.organization.view;
       final mine = view == null
@@ -187,6 +205,9 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
       for (final project in mine) {
         _askCentral(project);
       }
+      final machines = view == null
+          ? const <({String words, Widget child})>[]
+          : widget.machineRows?.call(view) ?? const [];
       return ListView(
         key: const Key('organization-projects-page'),
         padding: const EdgeInsets.all(Space.normal),
@@ -206,33 +227,24 @@ class _OrganizationProjectsPageState extends State<OrganizationProjectsPage> {
               onRetry: () => unawaited(widget.organization.refresh()),
               emptyWords: 'No organization has been read.',
             ),
-          // The organization's projects alone: Default and a checkout's local copy are no project of it.
+          // The organization's projects first, then each machine's Default and its local projects, said as local.
           if (view != null)
             FilteredListSection(
               title: 'My projects',
               titleInAppBar: true,
               leaf: true,
-              subtitle: counted(mine.length, 'project', 'projects'),
+              subtitle: counted(mine.length + machines.length, 'project', 'projects'),
               busy: widget.organization.busy,
               readAt: widget.organization.readAt,
               problem: widget.organization.problem,
               onRetry: () => unawaited(widget.organization.refresh()),
               storageId: 'my-projects',
-              rows: [for (final project in mine) (words: project.name, child: _row(view, project))],
+              rows: [for (final project in mine) (words: project.name, child: _row(view, project)), ...machines],
             ),
           if (view != null && mine.isEmpty)
             const Text(
               'You are in no project yet. Nobody joins on their own: a Project Admin adds you. Every project of the '
               'Porelo organization is listed under Organization.',
-            ),
-          if (widget.onOthers case final others?)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                key: const Key('projects-of-machines'),
-                onPressed: others,
-                child: const Text('All projects on your machines'),
-              ),
             ),
         ],
       );

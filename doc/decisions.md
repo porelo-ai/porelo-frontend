@@ -279,10 +279,12 @@ machines alone.
   *Default* among them. Where the project has work with a conversation on another machine, it says before the start
   that the two cannot talk.
 - ***My machines*** and ***My projects*** list them, each opening a page of its own with its tools.
-  Beside an organization, *My projects* lists the organization's projects the person holds a role in, and the rail
-  counts the same. *Default*, the project every machine has, and a project a start in a checkout copied onto a machine
-  stand under *All projects on your machines*, with a row and a page like any other: a repository is put into *Default*
-  from its card on its forge's page.
+  Beside an organization, *My projects* is one list: the organization's projects the person holds a role in, then
+  *Default*, the project every machine has, once per machine, and each project a machine holds that is no project of
+  the organization, such as one a start in a checkout copied there, marked as local to that machine. An organization
+  project a machine carries stands once, in its own row; one the person holds no role in stands only on that
+  machine's page. The rail counts exactly these rows. A repository is put into *Default* from its card on its forge's
+  page.
 - ***My forges*** lists every forge set up on this computer; a forge's page lists its repositories with
   a filter, each card saying on which watched machines it is worked on.
   Creating a Porelo organization lists its forge here, named by its repository's host, and asks for nothing: the token

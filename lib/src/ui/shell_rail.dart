@@ -9,9 +9,10 @@ import 'machine_tree.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 
-/// Counts exactly the projects the corresponding page lists.
+/// Counts exactly the projects the corresponding page lists: with an organization, the person's projects of it and
+/// [onMachines], the machines' rows *My projects* lists beside them; without one, every machine's projects.
 int projectsInRail(OrganizationView? view, {required int onMachines, bool fromOrganization = false}) =>
-    !fromOrganization ? onMachines : (view == null ? 0 : view.projects.where(view.isMine).length);
+    !fromOrganization ? onMachines : (view == null ? 0 : view.projects.where(view.isMine).length + onMachines);
 
 /// A machine entry with its last observed connection or preparation state.
 typedef RailMachine = ({Machine machine, String? state});

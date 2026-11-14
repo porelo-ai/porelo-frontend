@@ -113,8 +113,6 @@ void main() {
     World.fleet.selectProject(null);
     World.shell.goTo(Section.projects);
     await World.settle(tester);
-    await tester.tap(find.byKey(const Key('projects-of-machines')));
-    await World.settle(tester);
     await World.tapInView(tester, 'projects-menu ${World.machines.current.name}/checkout');
     expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('project.forge'))).enabled, isTrue);
     await World.tapInView(tester, 'project.forge');

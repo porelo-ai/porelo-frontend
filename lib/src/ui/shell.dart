@@ -2003,9 +2003,6 @@ class _ShellState extends State<Shell> {
   }
 
   /// The organization this computer reads, kept while the shell lives so that its last list outlives the page.
-  /// Whether *Projects* shows those of the watched machines rather than the organization's own.
-  bool _machineProjects = false;
-
   /// The host whose page is open under *Machines*, where this computer reads an organization.
   String? _organizationHost;
 
@@ -2029,6 +2026,24 @@ class _ShellState extends State<Shell> {
 
   /// The project whose page is open under *Projects*, where this computer reads an organization.
   String? _organizationProject;
+
+  /// The machines' rows of *My projects* beside the organization's, drawn and opened as on a list without one.
+  List<({String words, Widget child})> _myMachineRows(OrganizationView view) => [
+    for (final (:machine, :project) in myMachineProjects(view, widget.machines))
+      (
+        words: '${project.name == defaultProject ? 'Default' : project.label} ${machine.name}',
+        child: projectListRow(
+          machine: machine,
+          project: project,
+          machines: widget.machines,
+          onOpen: () => _openPageProject(machine, project.name),
+          commands: _pageProjectCommands(machine, project),
+          muted: widget.notifications.muted.contains(project.name),
+          waits: _waitWords(machine, project.name),
+          local: project.name != defaultProject,
+        ),
+      ),
+  ];
 
   /// A person's own projects, and one's page, read from the organization.
   Widget _organizationProjects(Organization organization) => _organizationProject == null
@@ -2057,7 +2072,12 @@ class _ShellState extends State<Shell> {
               widget.shell.goTo(Section.machines);
             }
           },
-          onOthers: () => setState(() => _machineProjects = true),
+          machineRows: _myMachineRows,
+          machinesChanged: Listenable.merge(<Listenable>[
+            _attention,
+            widget.notifications,
+            for (final machine in widget.machines.all) ?widget.machines.watching(machine),
+          ]),
         )
       : OrganizationProjectPage(
           key: ValueKey((_organizationProject, _organizationPageRefresh)),
@@ -4541,7 +4561,6 @@ class _ShellState extends State<Shell> {
       _organizationHost = null;
       _organizationHostFrom = null;
       _organizationProjectFrom = null;
-      _machineProjects = false;
       _projectFrom = null;
     });
     final machine = place.machine;
@@ -5586,15 +5605,15 @@ class _ShellState extends State<Shell> {
             listedMachines(widget.machines)
                 .where((row) => !rows.preparations.any((run) => run.name == row.name))
                 .length,
-        projects:
-            _organization != null && !_machineProjects && _organization.view == null ||
-                (_organization == null || _machineProjects) && !projectsRead
+        projects: _organization != null && _organization.view == null || _organization == null && !projectsRead
             ? null
             : projectsInRail(
                 _organization?.view,
-                fromOrganization: _organization != null && !_machineProjects,
-                onMachines: listedMachines(widget.machines)
-                    .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
+                fromOrganization: _organization != null,
+                onMachines: _organization?.view != null
+                    ? myMachineProjects(_organization!.view!, widget.machines).length
+                    : listedMachines(widget.machines)
+                          .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
               ),
         forges: !_forges.loaded || _forges.busy ? null : listedForges(_forges.allEntries, _heldConnections).length,
         width: width,
@@ -5613,7 +5632,6 @@ class _ShellState extends State<Shell> {
     _leaveDrawer();
     setState(() {
       _organizationProject = null;
-      _machineProjects = false;
       _organizationHost = null;
       _organizationHostFrom = null;
       _organizationProjectFrom = null;
@@ -5658,7 +5676,7 @@ class _ShellState extends State<Shell> {
 
   Widget _projectsPage() =>
       _opened() ??
-      (_organization == null || _machineProjects
+      (_organization == null
           ? null
           : _organizationProject != null
           ? _organizationProjects(_organization)
@@ -5671,10 +5689,6 @@ class _ShellState extends State<Shell> {
             for (final machine in widget.machines.all) ?widget.machines.watching(machine),
           ]),
           builder: (context, _) => ProjectsPage(
-            title: _organization == null ? 'My projects' : 'Projects on my machines',
-            path: _machineProjects
-                ? [(label: 'My projects', go: () => setState(() => _machineProjects = false))]
-                : const [],
             machines: widget.machines,
             muted: widget.notifications.muted,
             highlight: widget.shell.highlight,

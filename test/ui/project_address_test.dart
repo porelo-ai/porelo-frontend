@@ -57,8 +57,6 @@ void main() {
     World.fleet.selectProject(null);
     World.shell.goTo(Section.projects);
     await World.settle(tester);
-    await tester.tap(find.byKey(const Key('projects-of-machines')));
-    await World.settle(tester);
     for (var frame = 0; frame < 5; frame++) {
       await tester.pump(const Duration(seconds: 1));
     }

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F550",
   "title": "My Projects Is One List With Default",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "Highest",
   "rank": 6,

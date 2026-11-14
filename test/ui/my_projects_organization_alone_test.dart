@@ -1,54 +1,71 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 
 import '../features/support/world.dart';
-import '../features/support/tiles.dart' show leafPageTitle;
 import '../support/organization_fixtures.dart';
 
 void main() {
-  // Harm: the phone loses which set of projects an action belongs to.
-  testWidgets('Projects on my machines keeps its title on a phone', (tester) async {
-    await World.startBackend(World.work);
+  /// The rows *My projects* draws: the organization's, keyed by name, and each machine's, keyed by machine and name.
+  Finder rows() => find.descendant(
+    of: find.byKey(const Key('organization-projects-page')),
+    matching: find.byWidgetPredicate((widget) {
+      final key = widget.key;
+      return key is ValueKey<String> && (key.value.startsWith('my-project ') || key.value.startsWith('project '));
+    }),
+  );
+
+  // Harm: with an organization, Default and a project only a machine holds stand on a second page the person must
+  // find, the rail counts one list and the page another, and a local copy reads as the organization's.
+  testWidgets('My projects is one list: the organization\'s, Default on each machine and each local project', (
+    tester,
+  ) async {
+    await World.startBackend([...World.work, World.aTask('porelo-demo-shell', 'demo')]);
     await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('pat')));
     World.shell.goTo(Section.projects);
     await World.settle(tester);
-    await tester.tap(find.byKey(const Key('projects-of-machines')));
-    await World.settle(tester);
-    tester.view.physicalSize = const Size(390, 800);
-    addTearDown(tester.view.reset);
-    await World.settle(tester);
-    expect(leafPageTitle('Projects on my machines').hitTestable(), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    final machine = World.machines.current.name;
+
+    expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget, reason: 'the organization project, once');
+    expect(
+      find.byKey(ValueKey<String>('project $machine/demo')),
+      findsNothing,
+      reason: 'carried on a machine, the organization project stands in its own row, not a second time',
+    );
+    expect(find.byKey(ValueKey<String>('project $machine/$defaultProject')), findsOneWidget, reason: 'Default');
+    final local = find.byKey(ValueKey<String>('project $machine/checkout'));
+    expect(local, findsOneWidget, reason: 'a project only the machine holds');
+    expect(
+      find.descendant(of: local, matching: find.textContaining('local to $machine')),
+      findsOneWidget,
+      reason: 'marked as the machine\'s own, not the organization\'s',
+    );
+    expect(find.byKey(const Key('projects-of-machines')), findsNothing, reason: 'no second list to go to');
+
+    final shown = rows().evaluate().length;
+    expect(
+      find.descendant(of: find.byKey(const ValueKey<String>('rail projects')), matching: find.text('$shown')),
+      findsOneWidget,
+      reason: 'the rail counts exactly the $shown rows shown',
+    );
   });
 
-  // Harm: My projects lists what a start in a checkout copied and the project every machine has as if they were the
-  // organization's, as the operator found with two local copies, and the rail counts them too.
-  testWidgets('My projects lists the organization\'s projects alone, and the rest stands with every machine\'s', (
+  // Harm: an organization project the person holds no role in reads as one of theirs because a machine carries it.
+  testWidgets('an organization project without a role stays off My projects, though a machine carries it', (
     tester,
   ) async {
-    await World.startBackend(World.work);
-    final source = FixtureOrganization(organizationFor('pat'))
-      ..listed = const [ListedProject(name: 'units4j-project', source: 'local')];
-    await World.startApp(tester, organizationSource: source);
+    await World.startBackend([...World.work, World.aTask('porelo-other-shell', 'other')]);
+    await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('pat')));
     World.shell.goTo(Section.projects);
     await World.settle(tester);
-    expect(find.byKey(const Key('organization-projects-page')), findsOneWidget);
-    final row = ValueKey<String>('project ${World.machines.current.name}/$defaultProject');
-    expect(find.byKey(row), findsNothing, reason: 'Default is no project of the organization');
-    expect(find.byKey(const ValueKey('my-project units4j-project')), findsNothing, reason: 'nor is a local copy');
-    expect(find.text('only on this computer'), findsNothing);
+    final machine = World.machines.current.name;
     expect(
-      find.descendant(of: find.byKey(const ValueKey<String>('rail projects')), matching: find.text('1')),
+      find.byKey(ValueKey<String>('project $machine/$defaultProject')),
       findsOneWidget,
-      reason: 'the one of the organization, on the rail as on the page',
+      reason: 'the list is drawn',
     );
-    await tester.tap(find.byKey(const Key('projects-of-machines')));
-    await World.settle(tester);
-    expect(leafPageTitle('Projects on my machines'), findsOneWidget);
-    expect(find.byKey(row), findsOneWidget, reason: 'Default stands with every machine\'s projects');
-    expect(find.widgetWithText(TextButton, 'My projects'), findsOneWidget);
+    expect(find.byKey(const ValueKey('my-project other')), findsNothing);
+    expect(find.byKey(ValueKey<String>('project $machine/other')), findsNothing);
   });
 }

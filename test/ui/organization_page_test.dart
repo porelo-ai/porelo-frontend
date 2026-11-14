@@ -122,19 +122,16 @@ void main() {
     expect(find.text('aaron'), findsOneWidget);
   });
 
-  // Harm: a person cannot get from the organization to a project of theirs, or back to their list.
   // Harm: `default` and a project registered on this machine alone are out of reach once an organization is read.
-  testWidgets('with an organization, the projects outside it are a step away, and back', (tester) async {
+  testWidgets('with an organization, the projects outside it stand in the same list', (tester) async {
     await World.startBackend(World.work);
     await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('mia')));
     await tester.tap(find.byKey(const ValueKey('rail projects')));
     await World.settle(tester);
-    await tester.tap(find.byKey(const Key('projects-of-machines')));
-    await World.settle(tester);
-    expect(find.byKey(const ValueKey('my-project demo')), findsNothing);
-    await tester.tap(find.byKey(const Key('projects-of-organization')));
-    await World.settle(tester);
+    final machine = World.machines.current.name;
     expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
+    expect(find.byKey(ValueKey<String>('project $machine/default')), findsOneWidget);
+    expect(find.byKey(ValueKey<String>('project $machine/checkout')), findsOneWidget);
   });
 
   // Harm: in the foo test a project stood under My projects with its repository unmade and nothing said so:
@@ -894,8 +891,8 @@ void main() {
     // Harm: the rail says one number and the page it opens lists another.
     test('the rail counts what the My projects page lists', () {
       int count(OrganizationView? view) => projectsInRail(view, onMachines: 7, fromOrganization: true);
-      expect(count(organizationFor('olive')), 0, reason: 'They hold no role in either.');
-      expect(count(organizationFor('pat')), 1, reason: 'A role in one of two; Default and local ones are not counted.');
+      expect(count(organizationFor('olive')), 7, reason: 'A role in neither: only the machines\' own rows.');
+      expect(count(organizationFor('pat')), 8, reason: 'A role in one of two, beside the machines\' seven rows.');
       expect(
         count(
           organizationFor(
@@ -905,7 +902,7 @@ void main() {
             ],
           ),
         ),
-        1,
+        8,
         reason: 'One with no repository yet stands on the Organization page.',
       );
       expect(count(null), 0, reason: 'With nothing read the page has no rows.');

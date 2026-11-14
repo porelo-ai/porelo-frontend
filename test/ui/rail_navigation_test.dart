@@ -130,13 +130,6 @@ void main() {
       expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
       expect(find.byKey(const ValueKey('organization-project demo')), findsNothing);
 
-      await tap('projects-of-machines');
-      expect(find.byKey(const Key('projects-of-organization')), findsOneWidget);
-      if (leaveFirst) await tap('rail work');
-      await tap('rail projects');
-      expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);
-      expect(find.byKey(const Key('projects-of-organization')), findsNothing);
-
       await tap('rail organizations');
       await tap('rail organization ${Uri.encodeComponent(source.view.name)}');
       await tap('rail organization ${Uri.encodeComponent(source.view.name)} machines');
@@ -170,7 +163,6 @@ void main() {
         await tap('projects-menu ${machine.name}/checkout');
       } else {
         await tap('rail projects');
-        await tap('projects-of-machines');
         await tap('project ${machine.name}/checkout');
         await tap('project-menu');
       }

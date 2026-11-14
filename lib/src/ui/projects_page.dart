@@ -14,8 +14,6 @@ import 'page_explanation.dart';
 class ProjectsPage extends StatelessWidget {
   /// Creates the list without merging equal project names across machines.
   const ProjectsPage({
-    this.title = 'My projects',
-    this.path = const [],
     required this.machines,
     required this.muted,
     required this.onProject,
@@ -25,12 +23,6 @@ class ProjectsPage extends StatelessWidget {
     this.onShown,
     super.key,
   });
-
-  /// The ancestors of this list.
-  final List<LeafPathStep> path;
-
-  /// The list's title: another where this page stands beside the organization's *My projects*.
-  final String title;
 
   /// The watched machines and their daemon state.
   final Machines machines;
@@ -66,15 +58,13 @@ class ProjectsPage extends StatelessWidget {
         FilteredListSection(
           storageId: 'projects',
           leaf: true,
-          titleInAppBar: title == 'My projects',
+          titleInAppBar: true,
           read: machines.all.any((machine) => machines.watching(machine)?.listRead ?? false),
-          path: path,
-          pathKeys: const {'My projects': Key('projects-of-organization')},
           subtitle: machines.all.any((machine) => machines.watching(machine)?.listRead ?? false)
               ? '${counted(rows.length, 'project', 'projects')} on '
                     '${counted(listedMachines(machines).length, 'machine', 'machines')}'
               : 'not read',
-          title: title,
+          title: 'My projects',
           rows: [
             for (final row in rows)
               (
@@ -106,6 +96,7 @@ Widget projectListRow({
   required List<Command> commands,
   bool muted = false,
   String? waits,
+  bool local = false,
 }) {
   final isDefault = project.name == defaultProject;
   final identity = '${machine.name}/${project.name}';
@@ -129,7 +120,7 @@ Widget projectListRow({
         ? 'on the machine'
         : 'Not on this machine',
     subtitle: [
-      'on ${machine.name}',
+      if (local) 'local to ${machine.name}, no project of the organization' else 'on ${machine.name}',
       if (isDefault) 'always there',
       if (!connected) 'Not connected; last known state',
       if (tunnel != null) ?tunnel.words else if (machine.needsATunnel) 'Tunnel not reached' else 'No SSH tunnel needed',

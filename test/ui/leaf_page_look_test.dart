@@ -391,9 +391,6 @@ void main() {
 
     await toThePlace(tester, 'projects');
     expect(find.byKey(const Key('leaf-path')), findsNothing, reason: 'a top entry has no repeated path');
-    await tester.tap(find.byKey(const Key('projects-of-machines')));
-    await World.settle(tester);
-    await expectPath('My projects');
     await tapOnScreen(tester, cardFor('checkout'));
     await World.settle(tester);
     await expectPath('My projects');

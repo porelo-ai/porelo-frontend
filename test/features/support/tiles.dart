@@ -277,17 +277,16 @@ Future<void> toTheTile(WidgetTester tester, String work) async {
 /// The page of machines or of projects, whichever is shown.
 Finder _thePage() => find.byKey(const Key('machine-tree')).evaluate().isNotEmpty
     ? find.byKey(const Key('machine-tree'))
+    : find.byKey(const Key('organization-projects-page')).evaluate().isNotEmpty
+    ? find.byKey(const Key('organization-projects-page'))
     : find.byKey(const Key('projects-page'));
 
 /// Goes to the page of every project and the ways to set one up, where it is not shown already.
 Future<void> toTheProjects(WidgetTester tester, {bool timePasses = true}) async {
   if (find.byKey(const Key('projects-page')).evaluate().isNotEmpty) return;
+  if (find.byKey(const Key('organization-projects-page')).evaluate().isNotEmpty) return;
+  // Where an organization is read, the machines' projects stand in the same list as its own.
   await toThePlace(tester, 'projects', timePasses: timePasses);
-  // Where an organization is read, the machines' projects are a step away from its own.
-  if (find.byKey(const Key('projects-of-machines')).evaluate().isNotEmpty) {
-    await tester.tap(find.byKey(const Key('projects-of-machines')));
-    await World.settle(tester);
-  }
 }
 
 /// Looks at the page of projects, then goes back to where the window was, as
