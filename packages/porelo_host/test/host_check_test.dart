@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
 
@@ -671,7 +672,8 @@ void main() {
       test('nothing beside this command: 4, naming where it looked', () async {
         expect(await available(const [], executable: '${scratch.path}/porelo-host'), 4);
         expect('$output', contains('No collection is carried here'));
-        expect('$output', contains('${scratch.path}/${hostCollection.fileName}'));
+        // Named as porelo-host joins it, with this system's separator.
+        expect('$output', contains(path.join(scratch.path, hostCollection.fileName)));
       });
 
       // Harm: a collection no digest vouches for reads as one without a check, and nobody looks at what changed it.
