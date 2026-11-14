@@ -79,4 +79,24 @@ void main() {
     await _tap(tester, 'revoke-confirm');
     expect(revoked, ['slot-2']);
   });
+
+  // Harm: at the machine, the last device cannot be revoked at all, or is revoked without the cost said first.
+  testWidgets('the last device at the machine is revoked after the dialog says what it costs', (tester) async {
+    final revoked = await _show(tester, [passphrase, _slot('slot-1', 'ssh-agent')], atTheMachine: true);
+    await _tap(tester, 'revoke-slot-1');
+    expect(find.textContaining('lost for good'), findsOneWidget);
+    expect(find.textContaining('this window cannot tell'), findsOneWidget);
+    await _tap(tester, 'revoke-confirm');
+    expect(revoked, ['slot-1']);
+  });
+
+  // Harm: the only way into a vault with no passphrase is revoked from the window, and its entries are lost for good.
+  testWidgets('the only way into a vault with no passphrase is not revoked, even at the machine', (tester) async {
+    final revoked = await _show(tester, [_slot('slot-1', 'ssh-agent')], atTheMachine: true);
+    await _tap(tester, 'revoke-slot-1');
+    expect(find.byKey(const Key('revoke-confirm')), findsNothing);
+    expect(find.textContaining('it has no passphrase'), findsOneWidget);
+    await _tap(tester, 'revoke-keep');
+    expect(revoked, isEmpty);
+  });
 }

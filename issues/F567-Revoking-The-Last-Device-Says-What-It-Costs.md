@@ -58,3 +58,12 @@ confirmation says only that the device will no longer open the vault.
   passphrase*. With the old sentence for every device, the three last-device unit tests, the window-elsewhere test and
   the last-device scenario went red; with every device counted the last, the not-the-last unit test, widget test and
   scenario went red.
+- More guards, each seen red with a deliberate break: the not-the-last unit test also holds its first sentence;
+  *this device, the last, says it forgets its key and what the passphrase does afterwards*; and in
+  `test/ui/vault_revoke_test.dart` *the last device at the machine is revoked after the dialog says what it costs* and
+  *the only way into a vault with no passphrase is not revoked, even at the machine*. The last-device scenario's fake
+  lists the recovery passphrase (`keyslotsHeld` starts with it), so it shows the cost and not the refusal.
+- The cost is judged from the ways in as last listed when the button is pressed; a device enrolled or revoked
+  elsewhere since is not seen, and porelo answers `LAST_WAY_IN` only where no way in, the passphrase included, would
+  remain. Question for Agent Core: should porelo refuse revoking the last device of a vault that has a passphrase
+  unless the call says the person confirmed it?

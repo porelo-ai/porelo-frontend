@@ -302,7 +302,17 @@ void main() {
         final cost = revokeCost(slot: phone, slots: [passphrase, phone, laptop], itself: false, atTheMachine: here);
         expect(cost.refused, isFalse, reason: 'at the machine: $here');
         expect(cost.words, isNot(contains('passphrase')), reason: 'at the machine: $here');
+        expect(cost.words, startsWith('"slot-1" will no longer open the vault.'), reason: 'at the machine: $here');
       }
+    });
+
+    // Harm: this device, the last one, is revoked at the machine without being told it forgets its key here as well as
+    // what only the passphrase does afterwards.
+    test('this device, the last, says it forgets its key and what the passphrase does afterwards', () {
+      final cost = revokeCost(slot: laptop, slots: [passphrase, laptop], itself: true, atTheMachine: true);
+      expect(cost.refused, isFalse);
+      expect(cost.words, startsWith('This device will no longer open the vault, and forgets its key.'));
+      expect(cost.words, contains('only the passphrase opens it'));
     });
   });
 }
