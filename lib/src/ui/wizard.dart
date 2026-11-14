@@ -63,11 +63,12 @@ class WizardActionStep {
     required this.panel,
     required this.run,
     required this.state,
-    this.goesOnWhenLeft = false,
+    this.goesOnWhenLeft,
   });
 
-  /// Whether its work goes on by design once the wizard is left, with [words] or its panel saying where to find it.
-  final bool goesOnWhenLeft;
+  /// Whether its work now runs on by design once the wizard is left, with [words] or its panel saying where to find
+  /// it; asked at the moment of leaving, as work refused or not started yet goes on nowhere.
+  final ValueGetter<bool>? goesOnWhenLeft;
 
   /// The short name in the step indicator.
   final String title;
@@ -215,7 +216,8 @@ class _WizardState extends State<Wizard> {
 
   /// Whether everything started goes on by design once the wizard is left, so leaving drops nothing.
   bool get _leavesFreely =>
-      _startedActions.isNotEmpty && _startedActions.every((index) => widget.actionSteps[index].goesOnWhenLeft);
+      _startedActions.isNotEmpty &&
+      _startedActions.every((index) => widget.actionSteps[index].goesOnWhenLeft?.call() ?? false);
 
   bool get _given =>
       _startedActions.isNotEmpty ||

@@ -36,11 +36,15 @@ void main() {
   bool following(WidgetTester tester) =>
       tester.widget<FilterChip>(find.byKey(const Key('following-output.following'))).selected;
 
-  // Harm: a run that has said nothing yet shows a black, empty pane, and reads as stuck or broken for minutes.
-  testWidgets('a run that has said nothing yet says it waits for its first line, until one comes', (tester) async {
+  // Harm: a run that has said nothing yet shows a black, empty pane, and reads as stuck or broken for minutes; or the
+  // waiting line hides what an earlier attempt said, or stays once the run is told to have said a line.
+  testWidgets('it says it waits for the first line exactly while told so, below what stands already', (tester) async {
     await show(tester, '', waiting: true);
     expect(find.text('Waiting for the first line'), findsOneWidget);
-    await show(tester, 'Current attempt\n12:00:01 Take the server as given');
+    await show(tester, 'Current attempt', waiting: true);
+    expect(find.text('Waiting for the first line'), findsOneWidget, reason: 'a heading alone is no line of the run');
+    expect(find.textContaining('Current attempt'), findsOneWidget, reason: 'what stands is not hidden');
+    await show(tester, 'Current attempt\n12:00:01 Take the server as given', waiting: false);
     expect(find.text('Waiting for the first line'), findsNothing, reason: 'once a line came, the line stands alone');
     expect(find.textContaining('Take the server as given'), findsOneWidget);
   });

@@ -574,6 +574,8 @@ class ServerSetup extends ChangeNotifier {
     notifyListeners();
     try {
       final machineFile = await access.machineFile(_name);
+      // Put away while it read: whoever left asked to leave before anything started, so nothing starts.
+      if (_disposed) return;
       if (!_pasted) {
         PreparationHostKey? now;
         try {
@@ -581,6 +583,7 @@ class ServerSetup extends ChangeNotifier {
         } on WorkspaceRefused {
           // Not answering now says nothing of the key; the login holds to the one compared.
         }
+        if (_disposed) return;
         if (now != null && now.key != compared.key) {
           _dropKey();
           // Said on the key's page, where the wizard goes back to.
@@ -598,6 +601,7 @@ class ServerSetup extends ChangeNotifier {
         _prepareProblem = _keyProblem;
         return;
       }
+      if (_disposed) return;
       final record = HostUpRecord.fromStored(
         HostUpRecord(
           hostName: _name,
@@ -614,7 +618,9 @@ class ServerSetup extends ChangeNotifier {
       final run = _run = runs.start(project: _name, record: record, session: session, organizationReadJustNow: true);
       run.session.addListener(notifyListeners);
       notifyListeners();
+      // The run is HostRuns' own and goes on after the wizard was left; this setup may be put away meanwhile.
       await run.finished;
+      if (_disposed) return;
       if (!run.ready) {
         _prepareProblem = run.problem ?? 'Preparing ended without the machine ready. Its protocol below says where.';
       }
@@ -630,8 +636,17 @@ class ServerSetup extends ChangeNotifier {
     }
   }
 
+  bool _disposed = false;
+
+  /// Says nothing once put away: a preparation left running ends after the wizard that showed it.
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   @override
   void dispose() {
+    _disposed = true;
     _run?.session.removeListener(notifyListeners);
     final pin = _pin;
     if (pin != null) unawaited(pin.dispose());

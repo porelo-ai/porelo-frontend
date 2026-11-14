@@ -63,8 +63,15 @@ preparation ran:
   `waitingForFirstLine`, from `HostPreparation.waitsForFirstLine`), in the wizard and in the row's protocol.
 - **No Back while a step's action runs**: the wizard hides Back while the shown action step runs; it comes back once
   the action waits or has answered.
-- **Leave without a warning** for an action step marked `goesOnWhenLeft`: Prepare, whose line says it goes on and
-  that its row opens the protocol again. Other actions, among them the token step, keep the question.
+- **Leave without a warning** while an action step's `goesOnWhenLeft` answers true at the moment of leaving: Prepare
+  answers so only while its run in `HostRuns` runs, and its line says it goes on and that its row opens the protocol
+  again. Before the run started, once it was refused or ended, and for other actions, among them the token step,
+  Leave keeps the question.
+- `ServerSetup` stops quietly once put away, as the window does when the wizard returns: a preparation left before it
+  started starts nothing (no machine file handed on, no old key taken out, no run), and one left while it runs goes on
+  in `HostRuns` and ends without notifying the setup.
+- From the press on, before the run exists (the organization read and the key fetched again), the protocol pane
+  already says *Waiting for the first line*.
 - **The organization row's menu** offers *Open the machine protocol* alone while its preparation runs; everything else
   comes back once it has ended or failed. The *Machines* page's preparation row was left as it was: its *Try again*
   and *Take Porelo off this machine…* stand grey there with the reason that the setup command still runs.

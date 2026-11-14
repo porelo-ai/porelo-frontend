@@ -68,7 +68,7 @@ void main() {
                         action.value = WizardActionState.running;
                       },
                       state: () => action.value,
-                      goesOnWhenLeft: goesOn,
+                      goesOnWhenLeft: () => goesOn && action.value == WizardActionState.running,
                     ),
                   ],
                 ),
@@ -233,5 +233,15 @@ void main() {
     await tap(tester, 'wizard-leave');
     expect(find.byKey(const Key('wizard-confirm-leave')), findsNothing);
     expect(find.byType(Wizard), findsNothing);
+  });
+
+  // Harm: an action marked to go on that was refused goes on nowhere, and Leave drops every answer without asking.
+  testWidgets('an action that would go on asks before leave once it was refused', (tester) async {
+    await open(tester, goesOn: true);
+    await startTheAction(tester);
+    action.value = WizardActionState.refused;
+    await tester.pump();
+    await tap(tester, 'wizard-leave');
+    expect(find.byKey(const Key('wizard-confirm-leave')), findsOneWidget);
   });
 }
