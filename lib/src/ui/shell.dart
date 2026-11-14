@@ -4966,8 +4966,9 @@ class _ShellState extends State<Shell> {
         List<ImportableCredential>? importable;
         try {
           importable = await on.importableCredentials();
-        } on FeatureNotSupported {
-          // An older Porelo: the agents' own findings stand in.
+        } on Object {
+          // An older Porelo, or one whose listing failed: the agents' own findings stand in, and the vault's entries
+          // still show.
           importable = null;
         }
         return sourcesFor(provider, vault: vault, agents: agents.agents, importable: importable);

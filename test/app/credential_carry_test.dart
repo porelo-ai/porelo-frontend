@@ -307,4 +307,21 @@ void main() {
     expect(agents.single.facts, 'agent sign-in · oauth');
     expect(agents.single.whyNot, isNull);
   });
+
+  // Harm: one agent shows twice, so two rows share one key and the carry cannot say which is meant.
+  test("an agent porelo lists twice for a provider is one source, with both kinds", () {
+    final sources = sourcesFor(
+      _provider,
+      vault: null,
+      agents: const <Agent>[],
+      importable: const <ImportableCredential>[
+        ImportableCredential(agent: 'claude', provider: 'anthropic', kind: 'oauth'),
+        ImportableCredential(agent: 'claude', provider: 'anthropic', kind: 'api-key'),
+        ImportableCredential(agent: 'pi', provider: '', kind: 'api-key'),
+      ],
+    ).whereType<AgentSignInSource>().toList();
+    expect(sources.map((s) => s.id), <String>['agent claude']);
+    expect(sources.single.facts, 'agent sign-in · oauth, api-key');
+    expect(sources.single.label, "claude's own sign-in");
+  });
 }

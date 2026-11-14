@@ -133,11 +133,9 @@ List<CarrySource> sourcesFor(
           VaultEntrySource(name: entry.name, type: entry.type, characters: entry.characters, whyNot: vaultShut),
     // What porelo lists the agents holding is the answer; what each agent found of itself is only the older guess.
     if (importable != null)
-      for (final row in importable)
-        if (row.provider == provider.name)
-          AgentSignInSource(agent: row.agent, agentLabel: _labelOf(row.agent, agents), kind: row.kind)
-        else
-          ...const <CarrySource>[]
+      // One row per agent: a seal names the agent and the provider only, so two kinds of one agent are one source.
+      for (final MapEntry(key: agent, value: kinds) in _kindsByAgent(importable, provider.name).entries)
+        AgentSignInSource(agent: agent, agentLabel: _labelOf(agent, agents), kind: kinds.join(', '))
     else
       for (final agent in agents)
         if (agent.allowedDomains.contains(provider.upstream) || agent.foundProvider == provider.name)
@@ -147,6 +145,16 @@ List<CarrySource> sourcesFor(
             whyNot: _agentWhyNot(agent, provider),
           ),
   ];
+}
+
+Map<String, List<String>> _kindsByAgent(List<ImportableCredential> rows, String provider) {
+  final kinds = <String, List<String>>{};
+  for (final row in rows) {
+    if (row.provider != provider) continue;
+    final held = kinds.putIfAbsent(row.agent, () => <String>[]);
+    if (row.kind.isNotEmpty && !held.contains(row.kind)) held.add(row.kind);
+  }
+  return kinds;
 }
 
 String _labelOf(String agent, List<Agent> agents) {
