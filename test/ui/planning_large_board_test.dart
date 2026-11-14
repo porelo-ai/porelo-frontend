@@ -88,6 +88,10 @@ void main() {
       World.planning.boards['checkout'] = large;
       World.planning.push('checkout', large);
       await World.settle(tester);
+      // The large board is visited once untimed too, so both are timed on a return, warm alike.
+      await _openAndFold(tester);
+      World.shell.goTo(Section.work);
+      await World.settle(tester);
       final again = await _openAndFold(tester);
       expect(find.byKey(const Key('planning-card ST1000')), findsOneWidget, reason: 'the large board is shown');
 

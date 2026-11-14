@@ -332,6 +332,8 @@ class Shell extends StatefulWidget {
 }
 
 class _ShellState extends State<Shell> {
+  final _planningWordsKey = GlobalKey(debugLabel: 'explanation planning');
+
   /// What is on the machine being acted on while it is watched; null while it is listed and not watched yet, as while
   /// it reconnects, which every reader draws or answers as not answering. Switching machine changes everything drawn
   /// from it.
@@ -4542,13 +4544,10 @@ class _ShellState extends State<Shell> {
     ],
   );
 
-  /// Planning's first-time words, standing under its head.
-  Widget _planningWords() => PageExplanation(
-    key: const ValueKey<String>('explanation planning'),
-    id: 'planning',
-    settings: widget.settings,
-    parts: pageWords['planning']!,
-  );
+  /// Planning's first-time words, standing under its head. The screen draws them in a different place on the board, a
+  /// detail page and its fallback, so one global key carries them across, opened and seen once.
+  Widget _planningWords() =>
+      PageExplanation(key: _planningWordsKey, id: 'planning', settings: widget.settings, parts: pageWords['planning']!);
 
   Widget _planningReason(String words, {Future<void> Function()? start}) => Center(
     child: Padding(

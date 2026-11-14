@@ -88,10 +88,23 @@ void main() {
   // Harm: a page's first-time words stand above its title, so the page reads from its middle.
   testWidgets('planning\'s first-time words stand under the screen\'s head', (tester) async {
     await _onTheBoard(tester);
-    final words = find.byKey(const ValueKey<String>('explanation planning'));
+    // The words standing open, not the empty place a closed explanation keeps.
+    final words = find.byKey(const ValueKey<String>('explanation-fold planning'));
     expect(find.descendant(of: find.byType(PlanningScreen), matching: words), findsOneWidget);
     final head = find.descendant(of: find.byType(PlanningScreen), matching: find.text('Planning')).first;
     expect(tester.getTopLeft(words).dy, greaterThanOrEqualTo(tester.getBottomLeft(head).dy));
+
+    // Opening a story moves the words under its breadcrumb; they stay open, as nobody has closed them yet.
+    await _find(tester, 'Open story ST291');
+    final moved = find.descendant(of: planningElement('detail'), matching: words);
+    expect(moved, findsOneWidget);
+    final crumb = planningElement('crumb 0');
+    expect(tester.getTopLeft(moved).dy, greaterThanOrEqualTo(tester.getBottomLeft(crumb).dy));
+
+    // And closing them there closes them.
+    await tester.tap(moved);
+    await World.settle(tester);
+    expect(words, findsNothing);
   });
 
   // Harm: an issue found from elsewhere skips its story on the way back.
