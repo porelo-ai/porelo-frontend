@@ -26,6 +26,7 @@ class ServerSetup extends ChangeNotifier {
     required this.runs,
     required this.settings,
     this.hostCheck,
+    this.noCheckWhy,
     this.runKeyCommand,
     this.knownWithAnother,
     this.forgetOldKey,
@@ -50,6 +51,9 @@ class ServerSetup extends ChangeNotifier {
 
   /// The carried collection's check, or null where it holds none.
   final HostCheckRun? hostCheck;
+
+  /// Why [hostCheck] is null, as porelo-host said it: no collection, an unreadable one, another digest or no check.
+  final String? noCheckWhy;
 
   /// Runs `ssh-keyscan` and `ssh-keygen`; this computer's by default.
   final RunHere? runKeyCommand;

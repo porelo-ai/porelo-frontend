@@ -98,7 +98,8 @@ say "Building porelo-host $version"
 collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
 read -r _ collection_digest collection_file <<<"$collection"
 printf '%s  %s\n' "$collection_digest" "build/collection/$collection_file" | sha256sum -c -
-cp -- "build/collection/$collection_file" "$bundle/$collection_file"
+# nfpm takes each mode from disk, and the window reads the collection as any account: readable by all.
+install -m 0644 -- "build/collection/$collection_file" "$bundle/$collection_file"
 dart pub get --directory=packages/porelo_host >/dev/null
 dart compile exe packages/porelo_host/bin/porelo_host.dart -Dporelo_host.version="$version" -o "$bundle/porelo-host"
 test "$("$bundle/porelo-host" --version)" = "$version" || {

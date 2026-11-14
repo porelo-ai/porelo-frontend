@@ -58,4 +58,7 @@ actual=$(sha256sum -- "$stage/$file")
 actual=${actual%% *}
 [ "$actual" = "$expected" ] || fail "$file: expected SHA-256 $expected; got $actual"
 (cd -- "$stage" && printf '%s  %s\n' "$expected" "$file" | sha256sum -c -)
+# A download lands in a mktemp file, mode 0600; the package installs it as it stands, and the window reads it as any
+# account, so it is made readable by all before it is handed on.
+chmod 0644 -- "$stage/$file"
 mv -- "$stage/$file" "$out/$file"

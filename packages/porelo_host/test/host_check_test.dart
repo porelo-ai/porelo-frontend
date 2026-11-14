@@ -658,21 +658,44 @@ void main() {
         expect('$output$errors', isEmpty);
       });
 
-      test('holds none: 4, printing nothing', () async {
+      // Harm: a collection without a check is said as one, so the person knows preparing runs unchecked.
+      test('holds none: 4, saying so in one line', () async {
         await collection.writeAsBytes(_collection({'galaxy.yml': 'name: host\n'}));
         digest = sha256.convert(await collection.readAsBytes()).toString();
         expect(await available(['--collection', collection.path, '--collection-sha256', digest]), 4);
-        expect('$output$errors', isEmpty);
+        expect('$output', 'The collection carried here holds no check, so preparing runs without one.\n');
+        expect('$errors', isEmpty);
       });
 
-      test('nothing beside this command: 4', () async {
+      // Harm: a missing collection reads as one that merely holds no check, and the broken install goes unseen.
+      test('nothing beside this command: 4, naming where it looked', () async {
         expect(await available(const [], executable: '${scratch.path}/porelo-host'), 4);
+        expect('$output', contains('No collection is carried here'));
+        expect('$output', contains('${scratch.path}/${hostCollection.fileName}'));
       });
 
-      test('the pinned name beside this command with another digest: 4', () async {
+      // Harm: a collection no digest vouches for reads as one without a check, and nobody looks at what changed it.
+      test('the pinned name beside this command with another digest: 4, saying it is not the pinned one', () async {
         await collection.copy('${scratch.path}/${hostCollection.fileName}');
         expect(await available(const [], executable: '${scratch.path}/porelo-host'), 4);
+        expect('$output', contains('is not the one this porelo-host was built with'));
+        expect('$output', isNot(contains('holds no check')));
       });
+
+      // Harm: a package that installs the collection for root alone reads as one without a check, as it did.
+      test('a collection this account cannot read: 4, saying it cannot be read', () async {
+        await collection.writeAsBytes(_collection(_withCheck));
+        digest = sha256.convert(await collection.readAsBytes()).toString();
+        await Process.run('chmod', ['000', collection.path]);
+        addTearDown(() => Process.run('chmod', ['600', collection.path]));
+        expect(await available(['--collection', collection.path, '--collection-sha256', digest]), 4);
+        expect('$output', contains('cannot be read'));
+        expect('$output', contains(collection.path));
+        expect('$output', isNot(contains('holds no check')));
+      }, skip: Platform.isWindows || _runsAsRoot() ? 'root reads it anyway, and Windows has no chmod' : false);
     });
   });
 }
+
+/// Whether this test runs as root, who reads a file whatever its mode.
+bool _runsAsRoot() => !Platform.isWindows && (Process.runSync('id', ['-u']).stdout as String).trim() == '0';

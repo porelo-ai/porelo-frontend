@@ -17,15 +17,27 @@ class HostCheckRun {
 
   String get _program => executable ?? poreloHost();
 
-  /// Answers this run where the carried collection holds a check; otherwise, or with an older command, null.
-  Future<HostCheckRun?> ifCarried() async {
+  /// This run where the carried collection holds a check; otherwise null, with in its why what porelo-host said is in the
+  /// way: no collection, one this account cannot read, another digest, or one without a check.
+  Future<({HostCheckRun? run, String? why})> carried() async {
+    final Ran ran;
     try {
-      return (await _run(_program, const ['check', '--available'])).code == 0 ? this : null;
+      ran = await _run(_program, const ['check', '--available']);
     } on ProcessException {
-      return null;
-    } on WorkspaceRefused {
-      return null;
+      return (run: null, why: 'porelo-host could not be run here, so preparing runs without a check.');
+    } on WorkspaceRefused catch (refused) {
+      return (run: null, why: refused.words);
     }
+    if (ran.code == 0) return (run: this, why: null);
+    final said = ran.out.trim();
+    if (ran.code == 4) {
+      return (
+        run: null,
+        why: said.isEmpty ? 'The collection carried here holds no check, so preparing runs without one.' : said,
+      );
+    }
+    final err = ran.err.trim();
+    return (run: null, why: 'porelo-host could not say whether a check is carried${err.isEmpty ? '' : ': $err'}.');
   }
 
   /// What the machine at [address] answers; anything but the check's own answer reads as no answer, never as a pass.

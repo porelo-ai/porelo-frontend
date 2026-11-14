@@ -279,9 +279,20 @@ String _tarName(Uint8List header) {
   return prefix.isEmpty ? text(0, 100) : '$prefix/${text(0, 100)}';
 }
 
-/// The check in the collection carried beside this command or named by [collection], taken only by its digest; null
-/// when there is none, the digest differs, or it holds no check.
-Future<HostCheckFiles?> readCarriedHostCheck({
+/// The check the collection carried here holds, or in one sentence why there is none to use.
+class CarriedHostCheck {
+  const CarriedHostCheck._(this.files, this.why);
+
+  /// The check, taken by its digest; null where [why] says what is in the way.
+  final HostCheckFiles? files;
+
+  /// Why there is no check: no collection, one this account cannot read, another digest, or none inside it.
+  final String? why;
+}
+
+/// What the collection carried beside this command, or named by [collection], holds of the check, taken only by its
+/// digest: the check, or which of a missing, unreadable or other collection, or one without a check, stands instead.
+Future<CarriedHostCheck> readCarriedHostCheck({
   String? collection,
   String? collectionSha256,
   String? resolvedExecutable,
@@ -290,14 +301,32 @@ Future<HostCheckFiles?> readCarriedHostCheck({
   final source =
       collection ?? path.join(File(resolvedExecutable ?? Platform.resolvedExecutable).parent.path, release.fileName);
   final expected = collection == null ? release.sha256 : collectionSha256 ?? '';
-  try {
-    if (FileSystemEntity.typeSync(source, followLinks: false) != FileSystemEntityType.file) return null;
-    final bytes = await File(source).readAsBytes();
-    if (sha256.convert(bytes).toString() != expected.toLowerCase()) return null;
-    return readHostCheckFiles(bytes);
-  } on FileSystemException {
-    return null;
+  if (FileSystemEntity.typeSync(source, followLinks: false) != FileSystemEntityType.file) {
+    return CarriedHostCheck._(null, 'No collection is carried here: $source is not a file.');
   }
+  final List<int> bytes;
+  try {
+    bytes = await File(source).readAsBytes();
+  } on FileSystemException catch (error) {
+    final said = error.osError?.message;
+    return CarriedHostCheck._(
+      null,
+      'The collection carried here cannot be read by this account: $source${said == null ? '' : ' ($said)'}.',
+    );
+  }
+  if (sha256.convert(bytes).toString() != expected.toLowerCase()) {
+    return CarriedHostCheck._(
+      null,
+      collection == null
+          ? 'The collection at $source is not the one this porelo-host was built with: its digest differs.'
+          : 'The collection at $source does not have the digest given.',
+    );
+  }
+  final files = readHostCheckFiles(bytes);
+  return CarriedHostCheck._(
+    files,
+    files == null ? 'The collection carried here holds no check, so preparing runs without one.' : null,
+  );
 }
 
 /// The check's choices out of what the window and `up` hold.

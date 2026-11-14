@@ -366,7 +366,10 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
 
   Widget _check(BuildContext context) {
     if (_setup.hostCheck == null) {
-      return const Text('The collection carried here holds no check, so preparing runs without one.');
+      return Text(
+        key: const Key('host-check-none'),
+        _setup.noCheckWhy ?? 'The collection carried here holds no check, so preparing runs without one.',
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -129,6 +129,30 @@ void main() {
     expect(script, contains('refusing to ship an rpm with no dependencies'));
   });
 
+  // Harm: the installed collection is root's alone, the window's porelo-host cannot read it, and the setup runs
+  // without its check while saying the collection holds none. A download lands in a mktemp file, mode 0600, and a
+  // plain cp keeps that mode up to the package.
+  test('the carried collection is fetched and bundled readable by every account', () async {
+    final scratch = await Directory.systemTemp.createTemp('collection-mode-');
+    addTearDown(() => scratch.delete(recursive: true));
+    final source = await Directory('${scratch.path}/source').create();
+    final asset = File('${source.path}/porelo-host-0.6.0.tar.gz');
+    await asset.writeAsBytes(const [1, 2, 3]);
+    await Process.run('chmod', ['600', asset.path]);
+    const digest = '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81';
+    await File('${source.path}/SHA256SUMS').writeAsString('$digest  porelo-host-0.6.0.tar.gz\n');
+    final out = '${scratch.path}/out';
+    final ran = await Process.run(
+      'bash',
+      ['tool/fetch_collection.sh', '0.6.0', digest, out],
+      environment: {'PORELO_COLLECTION_SOURCE': source.path},
+    );
+    expect(ran.exitCode, 0, reason: '${ran.stderr}');
+    expect(File('$out/porelo-host-0.6.0.tar.gz').statSync().mode & 0x1ff, 0x1a4, reason: 'mode 0644');
+    final script = File('tool/package.sh').readAsStringSync();
+    expect(script, contains(r'install -m 0644 -- "build/collection/$collection_file" "$bundle/$collection_file"'));
+  });
+
   group('the build that publishes them', () {
     final workflow = File('.github/workflows/build.yml').readAsStringSync();
 

@@ -6784,14 +6784,15 @@ class _ShellState extends State<Shell> {
   /// One server's one page, reached from either list: where a person stands, what they do there, and its managing.
   /// Opens *Set up a machine*, with the check where the collection carried here holds one.
   Future<void> _openPrepare({String? machineName}) async {
-    final hostCheck = await HostCheckRun().ifCarried();
+    final carried = await HostCheckRun().carried();
     if (!mounted) return;
     final keys = SshHostKeys();
     final setup = ServerSetup(
       access: _hostRuns.hostAccess,
       runs: _hostRuns,
       settings: widget.settings,
-      hostCheck: hostCheck,
+      hostCheck: carried.run,
+      noCheckWhy: carried.why,
       knownWithAnother: keys.knownWithAnother,
       forgetOldKey: keys.forget,
       // The card key is in the agent, never in a file here: ssh is told to offer that key alone.

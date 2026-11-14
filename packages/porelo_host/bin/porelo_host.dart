@@ -30,7 +30,7 @@ porelo-host --collection-info
   check   reads whether a given machine can carry what is chosen, by the carried collection's own check, as root over
           ssh with only --public-key from the local SSH agent; it changes nothing on the machine. One JSON object on
           standard output. Exit: 0 passed, 1 has findings, 2 the check gave no answer. --available exits 0 when the
-          carried collection holds a check and 4 when not, printing nothing.
+          carried collection holds a check, and 4 when not, printing why in one line.
   find    names the server rented for the project now, as one JSON line with its id, address and
           whether it is ready, or exits 69 when none is; it changes nothing
   key     checks and keeps Scaleway's secret key or keeps a forge token, or forgets it;
@@ -338,7 +338,10 @@ Future<int> _check(
     collectionSha256: options['collection-sha256'],
     resolvedExecutable: resolvedExecutable,
   );
-  if (availableOnly) return carried == null ? hostCheckNotCarried : Exit.done;
+  if (availableOnly) {
+    if (carried.why case final why?) output.writeln(why);
+    return carried.files == null ? hostCheckNotCarried : Exit.done;
+  }
   for (final flag in const ['forge', 'kvm']) {
     if (options[flag] != null && !const ['true', 'false'].contains(options[flag])) {
       return wrong('--$flag needs true or false');
@@ -355,8 +358,9 @@ Future<int> _check(
     return answer.exitCode;
   }
 
-  if (carried == null) {
-    return answered(const HostCheckAnswer.notAnswered('The collection carried here holds no check.'));
+  final files = carried.files;
+  if (files == null) {
+    return answered(HostCheckAnswer.notAnswered(carried.why ?? 'The collection carried here holds no check.'));
   }
   final HostPreparationSettings choices;
   final address = options['given']!;
@@ -393,7 +397,7 @@ Future<int> _check(
     await ssh.trust(address, hostKey);
     return answered(
       await askHostCheck(
-        carried,
+        files,
         choices: hostCheckChoices(choices, forge: options['forge'] != 'false', kvm: options['kvm']),
         send: hostCheckSender(remote ?? ssh, address),
       ),
