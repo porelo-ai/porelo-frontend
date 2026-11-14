@@ -914,6 +914,9 @@ abstract class HostConnections extends ChangeNotifier {
   Future<CentralState> central(String host, String project) async => const CentralState();
 
   final _heard = <String, HostProgress>{};
+
+  /// Which machine of each host's name said what [_heard] keeps: another one's word is none of the one named now.
+  final _heardOf = <String, Object?>{};
   final _askedOnce = <String>{};
 
   /// When each host was last heard to wait for its first token, and which machine of that name it was then.
@@ -1025,7 +1028,7 @@ abstract class HostConnections extends ChangeNotifier {
 
   /// What [host] last said of how far it has come, while this computer is connected to it; null where it was not
   /// asked. Asking it is [progress] or [refresh]; this asks nothing.
-  HostProgress? heard(String host) => connected(host) ? _heard[host] : null;
+  HostProgress? heard(String host) => connected(host) && _heardOf[host] == machineOf(host) ? _heard[host] : null;
 
   /// Keeps [progress] as what [host] said last, for every page that shows it, and answers it.
   @protected
@@ -1035,6 +1038,7 @@ abstract class HostConnections extends ChangeNotifier {
     // Asked before the connection went or the role was taken, it stands for nobody now.
     if (!connected(host) || _notTheirs.contains(host)) return progress;
     _heard[host] = progress;
+    _heardOf[host] = machineOf(host);
     _keepTokenWait(host, waits: progress.waitsForToken);
     notifyListeners();
     return progress;
@@ -1081,6 +1085,11 @@ abstract class HostConnections extends ChangeNotifier {
         _askedOnce.remove(host.name);
         _heard.remove(host.name);
         continue;
+      }
+      // What another machine of this name said is no answer: the one named now is asked.
+      if (_heard.containsKey(host.name) && _heardOf[host.name] != machineOf(host.name)) {
+        _heard.remove(host.name);
+        _askedOnce.remove(host.name);
       }
       if (!_askedOnce.add(host.name)) continue;
       unawaited(ask(host.name).then<void>((_) {}, onError: (Object _) {}));

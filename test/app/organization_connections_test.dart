@@ -892,9 +892,27 @@ void main() {
       ..hostProgress = const HostProgress();
     final taking = made.tokenTaken('build');
     hold.complete();
-    await before;
+    expect((await before).wantsToken, isTrue, reason: 'what it said before the token');
     await taking;
     expect(made.asked, ['progress build', 'progress build']);
+  });
+
+  // Harm: the machine moved to another address and this computer connected to it, and what the old machine said is
+  // shown as the new one's, which is never asked.
+  test("what a machine said is no word of the machine moved to another address since", () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    await made.connect('build');
+    await made.progress('build');
+    expect(made.heard('build'), isNotNull);
+    await reads(
+      made,
+      _mia(
+        host: hostOfMia(address: '203.0.113.99', hostKey: _otherHostKey),
+      ),
+    );
+    await made.connect('build');
+    expect(made.connected('build'), isTrue, reason: 'connected to the new machine');
+    expect(made.heard('build'), isNull);
   });
 
   // Harm: right after Prepare the machine has not yet made the person's account, as its first follow runs within five
@@ -1580,7 +1598,8 @@ class _Unprotected extends HostFileWriter {
   Future<void> protectDirectory(Directory directory) async {}
 }
 
-/// Connections whose reads of how far a machine has come wait for [hold], as it was when they were asked.
+/// Connections whose reads of how far a machine has come wait for [hold], as it was when they were asked, and then
+/// answer what the machine said when they were asked.
 class _HeldReads extends FixtureConnections {
   _HeldReads(super.hosts);
 
@@ -1588,7 +1607,11 @@ class _HeldReads extends FixtureConnections {
 
   @override
   Future<HostProgress> progress(String host) async {
+    final said = hostProgress;
+    asked.add('progress $host');
     await hold?.future;
-    return super.progress(host);
+    // A machine answers over ssh, never within the call that asked it.
+    await Future<void>.value();
+    return keepHeard(host, said);
   }
 }

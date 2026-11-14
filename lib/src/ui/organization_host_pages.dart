@@ -613,6 +613,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final first = _waitsForItsToken(widget.host);
     final before = widget.connections?.heard(widget.host);
     final takenBefore = widget.connections?.tokenTakenRead(widget.host).count;
+    final machine = _machineNow;
     // The page is busy while the token is given, as for any other ask of the machine.
     setState(() {
       _working++;
@@ -628,20 +629,30 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final connections = widget.connections;
     if (!mounted || connections == null) return words;
     // A press that gave no token asks the machine nothing of its own: the page reads it as it would have meanwhile, as
-    // one the token's step connected. A given token has the machine asked once already, where it was given: its answer
-    // or its refusal is taken, not asked again, and the connection that may come up after reads nothing more. A
-    // machine not connected to is read once its connection comes up.
+    // one the token's step connected, before it says why. A given token has the machine asked once already, where it
+    // was given: its answer or its refusal is taken, not asked again, and the connection that may come up after reads
+    // nothing more; a refusal stands only for the same machine and its Machine Admin, and a machine moved meanwhile is
+    // asked anew. A machine not connected to is read once its connection comes up.
     String? refusal;
+    final heard = connections.heard(widget.host);
+    final heardSince = heard != null && !identical(heard, before);
     if (words != null) {
-      _askProgress();
+      if (_isAdminHere && connections.connected(widget.host)) {
+        if (heardSince) {
+          await _read(() async => heard, byAButton: true);
+        } else if (!_askedProgress) {
+          _askedProgress = true;
+          await _read(() => connections.ask(widget.host), byAButton: true);
+        }
+      }
     } else if (connections.connected(widget.host)) {
       _askedProgress = true;
-      final heard = connections.heard(widget.host);
       final taken = connections.tokenTakenRead(widget.host);
-      if (heard != null && !identical(heard, before)) {
+      if (taken.count != takenBefore && machine == _machineNow) {
+        refusal = _isAdminHere ? taken.refused : null;
+        if (refusal == null && heardSince) await _read(() async => heard, byAButton: true);
+      } else if (heardSince) {
         refusal = await _read(() async => heard, byAButton: true);
-      } else if (taken.count != takenBefore) {
-        refusal = taken.refused;
       } else {
         refusal = await _read(() => connections.ask(widget.host), byAButton: true);
       }

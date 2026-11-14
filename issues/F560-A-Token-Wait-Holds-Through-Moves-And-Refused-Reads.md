@@ -53,6 +53,15 @@ Each gets a test with its harm, red first, in `test/ui/organization_host_pages_t
   meanwhile; a refusal after the role was taken not said; the new machine read after a move; unit tests for a
   turn-away of a machine moved while raised, a read of a moved machine neither joined nor kept (red with either guard
   taken out), a wait's end asking again after a refused read, and a project's token asking anew.
+- **Read a fifth time.** The token step's refusal is taken only for the machine the press began with and while the
+  person is still its Machine Admin, and before an answer that landed meanwhile from a read begun earlier; a machine
+  moved while its token was given is asked anew. A press that gave no token reads the machine before it says why, so
+  the words stand once the read is in. What a machine said is kept with the machine that said it (`_heardOf`): `heard`
+  answers nothing of another machine of that name, and `askOnce` asks the one named now. Tests, each red before: the
+  role test and the no-token test, whose stand-ins now call `tokenTaken` and assert the words; a machine moved while
+  its token was given; a refusal after a project's token though a read from before landed (its stand-in gives every
+  read an answer of its own, as ssh does); a unit test for what a machine moved since said. `_HeldReads` answers what
+  the machine said when asked. The `askOnce` part has no test of its own.
 - **Left.** A read begun before the token was taken, of the same machine, still keeps its answer when it lands after
   the wait ended. A dialog closed without a token still answers as a given one does.
 

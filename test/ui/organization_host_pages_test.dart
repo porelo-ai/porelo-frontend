@@ -1709,6 +1709,7 @@ void main() {
       );
       await pressOrganizationAction(tester, 'giveToken');
       expect(reads(connections), ['progress build']);
+      expect(find.text('No GitHub token is kept on this computer.'), findsOneWidget, reason: 'why, after the read');
     });
 
     // Harm: the Machine Admin role was taken while the read after the token was on its way, and its refusal is said
@@ -1719,7 +1720,15 @@ void main() {
         tester,
         'hana',
         connections: connections,
-        onGiveToken: (_, {atOnce = false}) async => null,
+        onGiveToken: (host, {atOnce = false}) async {
+          // As the token's step does once the machine took it; it says nothing of a read refused after.
+          try {
+            await connections.tokenTaken(host);
+          } on OrganizationRefused {
+            // Said by the page, where it stands.
+          }
+          return null;
+        },
       );
       final hold = connections.hold = Completer<void>();
       await pressOrganizationAction(tester, 'giveToken', settle: () => tester.pump());
@@ -1759,6 +1768,81 @@ void main() {
       hold.complete();
       await tester.pumpAndSettle();
       expect(reads(connections), ['progress build', 'progress build'], reason: 'the old machine, then the new one');
+    });
+
+    // Harm: the machine moved while its token was given; the new machine is never read, and the old one's refusal is
+    // said of it.
+    testWidgets('a machine moved while its token was given is read anew, not refused for the old one', (tester) async {
+      final connections = _Moving(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          connections.refuseNext = const OrganizationRefused('build could not say how far it has come.');
+          // As the token's step does once the machine took it; it says nothing of a read refused after.
+          try {
+            await connections.tokenTaken(host);
+          } on OrganizationRefused {
+            // Said by the page, where it stands.
+          }
+          // Meanwhile the organization names it at another address, which this computer is connected to.
+          connections.machine = 'at 203.0.113.99';
+          final organization = tester.widget<OrganizationHostPage>(find.byType(OrganizationHostPage)).organization;
+          (organization.source as FixtureOrganization).view = organizationFor(
+            'hana',
+            host: OrganizationHost(
+              name: 'build',
+              address: '203.0.113.99',
+              port: buildHost.port,
+              hostKey: buildHost.hostKey,
+              admins: const ['hana'],
+              projects: const ['demo'],
+            ),
+          );
+          await organization.refresh();
+          return null;
+        },
+      );
+      connections.asked.clear();
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(reads(connections), ['progress build', 'progress build'], reason: 'the old machine, then the new one');
+      expect(find.text('build could not say how far it has come.'), findsNothing);
+    });
+
+    // Harm: a read begun before a project's token was given lands after it, and hides why the read after the token
+    // was refused.
+    testWidgets("a read refused after a project's token is said, though a read from before landed", (tester) async {
+      final connections = _Held(['build'])
+        ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+      late Future<HostProgress> fromBefore;
+      final earlier = Completer<void>();
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          connections
+            ..hold = null
+            ..refuseNext = const OrganizationRefused('build could not say how far it has come.');
+          // As the token's step does once the machine took it; it says nothing of a read refused after.
+          try {
+            await connections.tokenTaken(host);
+          } on OrganizationRefused {
+            // Said by the page.
+          }
+          // The read from before the token lands now, an answer of its own as every read over ssh is.
+          connections.hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+          earlier.complete();
+          await fromBefore;
+          return null;
+        },
+      );
+      connections.hold = earlier;
+      fromBefore = connections.ask('build');
+      await pressOrganizationAction(tester, 'giveToken', settle: () => tester.pump());
+      await tester.pumpAndSettle();
+      expect(find.text('build could not say how far it has come.'), findsOneWidget);
     });
 
     // Harm: a person cannot see what is on the machine for a wall of the same sentence.
