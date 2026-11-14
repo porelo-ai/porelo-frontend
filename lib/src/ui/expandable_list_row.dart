@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../app/commands.dart';
 import '../app/task_certifying.dart';
@@ -492,94 +495,55 @@ class LeafListRow extends StatelessWidget {
     );
   }
 
-  /// The state on one line with the operations, left of them: a menu keeps its size and the state takes the rest of
-  /// [side]; buttons that wrap keep at least their share of [side] and the state takes at most the rest.
-  Widget _stateBeside(Widget? actions, double side) {
-    final chip = StateChip(state, toneWords: toneWords);
-    final buttons = actions is Wrap;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (buttons)
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: side * (1 - Sizes.rowActionsShare)),
-            child: chip,
-          )
-        else
-          Flexible(child: chip),
-        if (actions != null) ...[
-          const SizedBox(width: Space.small),
-          if (buttons) Flexible(child: actions) else actions,
-        ],
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final beside = WindowSize.chipBeside(ListCardWidth.of(context) ?? constraints.maxWidth);
       if (chipFirst) return _chipFirst(context, beside: beside);
       final actions = trailing;
+      final chip = StateChip(state, toneWords: toneWords);
+      final words = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Tooltip(
+            message: title,
+            child: Text(
+              title,
+              key: titleKey,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          if (subtitleMaxLines case final lines?)
+            DefaultTextStyle.merge(maxLines: lines, overflow: TextOverflow.ellipsis, child: subtitle)
+          else
+            subtitle,
+          if (!beside) chip,
+        ],
+      );
+      if (beside) {
+        return InkWell(
+          onTap: onTap,
+          child: _StateBesideOrUnder(children: [leading, words, chip, ?_actionsAtTheRight()]),
+        );
+      }
       return InkWell(
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Padding(
-                    padding: const EdgeInsets.all(Space.small),
-                    child: Row(
-                      children: [
-                        leading,
-                        const SizedBox(width: Space.small),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Tooltip(
-                                message: title,
-                                child: Text(
-                                  title,
-                                  key: titleKey,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.titleSmall,
-                                ),
-                              ),
-                              if (subtitleMaxLines case final lines?)
-                                DefaultTextStyle.merge(
-                                  maxLines: lines,
-                                  overflow: TextOverflow.ellipsis,
-                                  child: subtitle,
-                                )
-                              else
-                                subtitle,
-                              if (!beside) StateChip(state, toneWords: toneWords),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (beside)
-                  Flexible(
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(end: Space.small),
-                      child: Align(
-                        alignment: AlignmentDirectional.centerEnd,
-                        heightFactor: 1,
-                        child: LayoutBuilder(builder: (context, side) => _stateBeside(actions, side.maxWidth)),
-                      ),
-                    ),
-                  ),
-              ],
+            Padding(
+              padding: const EdgeInsets.all(Space.small),
+              child: Row(
+                children: [
+                  leading,
+                  const SizedBox(width: Space.small),
+                  Expanded(child: words),
+                ],
+              ),
             ),
-            if (!beside && actions != null)
+            if (actions != null)
               Padding(
                 padding: const EdgeInsets.all(Space.small),
                 child: actions is Wrap
@@ -591,4 +555,128 @@ class LeafListRow extends StatelessWidget {
       );
     },
   );
+}
+
+/// A row's mark, words, state and operations: the state and the operations stand at its right, on one line and
+/// centered in its height, with the width they need, while they take no more than [Sizes.rowActionsShare] of it; with
+/// more, the state stands under the words and the operations under both, at the right, so neither is cut.
+class _StateBesideOrUnder extends MultiChildRenderObjectWidget {
+  /// Takes the mark, the words, the state and, when the row has any, its operations, in this order.
+  const _StateBesideOrUnder({required super.children});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderStateBesideOrUnder();
+}
+
+class _Slot extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderStateBesideOrUnder extends RenderBox
+    with ContainerRenderObjectMixin<RenderBox, _Slot>, RenderBoxContainerDefaultsMixin<RenderBox, _Slot> {
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _Slot) child.parentData = _Slot();
+  }
+
+  RenderBox get _leading => firstChild!;
+  RenderBox get _words => childAfter(_leading)!;
+  RenderBox get _chip => childAfter(_words)!;
+  RenderBox? get _actions => childAfter(_chip);
+
+  /// The operations' width on one line; none, or a menu that offers nothing, takes no room and no gap.
+  double get _actionsWidth => _actions?.getMaxIntrinsicWidth(double.infinity) ?? 0;
+
+  /// The state and the operations on one line.
+  double get _sideWidth {
+    final actions = _actionsWidth;
+    return _chip.getMaxIntrinsicWidth(double.infinity) + (actions > 0 ? Space.small + actions : 0);
+  }
+
+  /// Lays the children out, or only measures them, for [constraints]; places them when [place] is set.
+  Size _arrange(BoxConstraints constraints, ChildLayouter layoutChild, {required bool place}) {
+    final width = constraints.maxWidth.isFinite ? constraints.maxWidth : getMaxIntrinsicWidth(double.infinity);
+    final loose = BoxConstraints(maxWidth: width);
+    final leading = layoutChild(_leading, loose);
+    final textStart = Space.small + leading.width + Space.small;
+    final sideWidth = _sideWidth;
+    final beside = sideWidth <= width * Sizes.rowActionsShare;
+    final room = math.max(0.0, width - textStart - Space.small - (beside ? sideWidth + Space.small : 0));
+    final words = layoutChild(_words, BoxConstraints.tightFor(width: room));
+    final chip = layoutChild(_chip, BoxConstraints(maxWidth: beside ? width : room));
+    final actions = _actions == null
+        ? Size.zero
+        : layoutChild(_actions!, BoxConstraints(maxWidth: math.max(0.0, width - 2 * Space.small)));
+    final gap = actions.width > 0 ? Space.small : 0.0;
+    if (beside) {
+      final height = [
+        leading.height + 2 * Space.small,
+        words.height + 2 * Space.small,
+        chip.height,
+        actions.height,
+      ].reduce(math.max);
+      if (place) {
+        _put(_leading, Space.small, (height - leading.height) / 2);
+        _put(_words, textStart, (height - words.height) / 2);
+        final actionsStart = width - Space.small - actions.width;
+        _put(_chip, actionsStart - gap - chip.width, (height - chip.height) / 2);
+        if (_actions case final box?) _put(box, actionsStart, (height - actions.height) / 2);
+      }
+      return constraints.constrain(Size(width, height));
+    }
+    final block = math.max(leading.height, words.height + chip.height);
+    final actionsTop = Space.small + block + Space.small;
+    final height = actionsTop + (actions.width > 0 ? actions.height + Space.small : 0);
+    if (place) {
+      _put(_leading, Space.small, Space.small + (block - leading.height) / 2);
+      final wordsTop = Space.small + (block - words.height - chip.height) / 2;
+      _put(_words, textStart, wordsTop);
+      _put(_chip, textStart, wordsTop + words.height);
+      if (_actions case final box?) _put(box, width - Space.small - actions.width, actionsTop);
+    }
+    return constraints.constrain(Size(width, height));
+  }
+
+  void _put(RenderBox child, double dx, double dy) => (child.parentData! as _Slot).offset = Offset(dx, dy);
+
+  /// A child's size at [constraints] from its intrinsic dimensions, for this box's own intrinsic heights.
+  static Size _intrinsic(RenderBox child, BoxConstraints constraints) {
+    final width = constraints.constrainWidth(child.getMaxIntrinsicWidth(double.infinity));
+    return Size(width, constraints.constrainHeight(child.getMaxIntrinsicHeight(width)));
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) {
+    final text = math.max(_words.getMinIntrinsicWidth(double.infinity), _chip.getMinIntrinsicWidth(double.infinity));
+    final line = _leading.getMinIntrinsicWidth(double.infinity) + Space.small + text;
+    return 2 * Space.small + math.max(line, _actions?.getMinIntrinsicWidth(double.infinity) ?? 0);
+  }
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      2 * Space.small +
+      _leading.getMaxIntrinsicWidth(double.infinity) +
+      Space.small +
+      _words.getMaxIntrinsicWidth(double.infinity) +
+      Space.small +
+      _sideWidth;
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      _arrange(BoxConstraints(maxWidth: width), _intrinsic, place: false).height;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => computeMinIntrinsicHeight(width);
+
+  @override
+  Size computeDryLayout(covariant BoxConstraints constraints) =>
+      _arrange(constraints, ChildLayoutHelper.dryLayoutChild, place: false);
+
+  @override
+  void performLayout() => size = _arrange(constraints, ChildLayoutHelper.layoutChild, place: true);
+
+  @override
+  void paint(PaintingContext context, Offset offset) => defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }

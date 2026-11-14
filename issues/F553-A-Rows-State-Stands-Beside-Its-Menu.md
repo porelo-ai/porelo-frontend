@@ -14,7 +14,7 @@
 }
 ```
 
-**Why this size.** One widget's layout in one file; no contract, no test (a layout reads wrong, it does no harm).
+**Why this size.** One widget's layout in one file; no contract, one widget test.
 
 **What must be true.** On a project's page, a repository's *review required* chip stands left of its ⋮ menu, on one
 line with it and centered in the row's height, as on *My projects* and a machine's rows; so does every other row
@@ -31,12 +31,18 @@ drawn the same way.
   readiness probes (`host_readiness_view.dart`), a machine's agents and their errors (`agents_view.dart`), its
   connections (`connections_view.dart`) and destinations (`destinations_view.dart`). The machines' and the machines'
   projects rows are `ItemListRow` and already stand right.
-- **The change.** That right side becomes a `Row` (`mainAxisSize: min`, centered on the cross axis): the chip, a
-  `Space.small` gap, then `trailing`; the outer row centers it in the row's height. A row with no `trailing` keeps the
-  chip alone at the right. Narrow cards keep today's layout (chip under the words, actions below). Spacing from
-  `tokens.dart` only.
-- No test: the layout does no harm when wrong. The window is looked at in the debug build at 1280 and 390 wide on a
-  project's page and a machine's *Connections*, and the existing tests of those pages stay green.
+- **The change.** On a wide card the row is laid out by a render box of its own: the chip, a `Space.small` gap, then
+  `trailing`, at the row's right, centered in its height, each with the width it needs on one line, and the words
+  take the rest. A `Row` sharing the row's quarter cut the chip and broke buttons letter by letter, so the right side
+  takes its intrinsic width instead. Where chip and operations need more than `Sizes.rowActionsShare` of the row, the
+  chip stands under the words and the operations under both, at the right, never squeezed. Operations that offer
+  nothing (an empty `Wrap`, a menu with no entries) leave no gap. Narrow cards keep today's layout (chip under the
+  words, actions below). Spacing from `tokens.dart` only.
+- **Test** (widget, `test/ui/leaf_row_state_beside_test.dart`). Harm: a state or a button's name cut so it cannot be
+  read or found. At cards 480, 620 and 1280 wide, with a menu, a connect button and a menu, two buttons and nothing
+  offered: the chip's words whole, each button on one line, no overflow, and beside the words the chip left of the
+  first operation on its line. The window is looked at in the debug build at 1280 and 390 wide on a project's page
+  and a machine's *Connections*.
 
 ## Acceptance
 

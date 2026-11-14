@@ -19,7 +19,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- On a wide window, a row's state stands left of its ⋮ menu or buttons, on one line with them and centered in the row, instead of above them in its top corner: a repository's *review required* on a project's page, *My projects*, a host's readiness, a machine's agents, credentials and destinations.
+- On a wide window, a row's state stands left of its ⋮ menu or buttons, on one line with them and centered in the row, instead of above them in its top corner: a repository's *review required* on a project's page, *My projects*, a host's readiness, a machine's agents, credentials and destinations. State and buttons take the width they need there, never cut; where they would leave the row's name too little room, the state stands under the name and the buttons under both.
 - With an organization, *My projects* is one list: beside the organization's projects stand *Default* once per machine and each project a machine holds that is no project of the organization, marked as local to that machine, and the side bar counts exactly these rows. The separate *All projects on your machines* page is gone.
 - A snapshot window carries porelo-host's newest snapshot collection, named by the snapshot's published pointer and taken only by its digest, and its porelo-host names that collection; a release keeps carrying the porelo-host release it pins and refuses a snapshot one.
 - The planning board has no *Show Finished and Rejected* filter any more: the closed stories stand in *Done*, which starts folded, and unfolding it shows them whole. *Retry planning* is gone too; the one *Reload planning*, on the board and on a story's or issue's page, also opens a stream that is down again.
