@@ -138,12 +138,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f553"></a>[F553](F553-A-Rows-State-Stands-Beside-Its-Menu.md) | XS | - | In every list row drawn by LeafListRow, the state chip stands to the left of the row's ⋮ menu or buttons, on one line with them and centered in the row, as ItemListRow's rows already have it, instead of stacked above them in the row's top corner. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
@@ -154,6 +148,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f554"></a>[F554](F554-A-Host-Without-Porelo-Host-Is-Said-So.md) | XS | - | A host whose /usr/sbin/porelo-host is missing, as after a setup that stopped before installing it, is said so on its page in the window's words, with how to go on, instead of the last line env printed there (uutils env's "use -[v]S to pass options in shebang lines"). |
 | <a id="f555"></a>[F555](F555-A-Machine-Says-It-Waits-For-Your-Token.md) | S | - | After Set up a machine stops at the preparation, the machine's own page says the machine waits for the person's forge token and offers Give it your token there, instead of leaving the person to wait for an admission that never comes. |
 | <a id="f550"></a>[F550](F550-My-Projects-Is-One-List-With-Default.md) | M | - | Beside an organization, My projects lists every project the person works in, each machine's Default and its local projects included, each marked for what it is, and the link All projects on your machines goes; the rail counts the same rows. |
+| <a id="f553"></a>[F553](F553-A-Rows-State-Stands-Beside-Its-Menu.md) | XS | - | In every list row drawn by LeafListRow, the state chip stands to the left of the row's ⋮ menu or buttons, on one line with them and centered in the row, as ItemListRow's rows already have it, instead of stacked above them in the row's top corner. |
 | <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f473"></a>[F473](F473-The-Window-Calls-The-Host-Programs-It-Has-Now.md) | S | - | Every call the window makes on a host names a program the host has now: root's org status, org refresh and person purge by /usr/sbin/porelo-host, and a project's central state from the person's own daemon there, so no machine page fails on a removed program. |
 | <a id="f557"></a>[F557](F557-A-Snapshot-Window-Sets-Up-WSL-With-Snapshots.md) | XS | - | Story ST50, a machine and a host reached from Windows: a snapshot window sets Porelo up in a WSL distribution from Porelo's snapshots repository, and a release window from its releases repository. |

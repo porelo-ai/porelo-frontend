@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F553",
   "title": "A Row's State Stands Beside Its Menu",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "Highest",
   "rank": 8,

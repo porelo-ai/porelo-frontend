@@ -492,6 +492,29 @@ class LeafListRow extends StatelessWidget {
     );
   }
 
+  /// The state on one line with the operations, left of them: a menu keeps its size and the state takes the rest of
+  /// [side]; buttons that wrap keep at least their share of [side] and the state takes at most the rest.
+  Widget _stateBeside(Widget? actions, double side) {
+    final chip = StateChip(state, toneWords: toneWords);
+    final buttons = actions is Wrap;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (buttons)
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: side * (1 - Sizes.rowActionsShare)),
+            child: chip,
+          )
+        else
+          Flexible(child: chip),
+        if (actions != null) ...[
+          const SizedBox(width: Space.small),
+          if (buttons) Flexible(child: actions) else actions,
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
@@ -545,12 +568,13 @@ class LeafListRow extends StatelessWidget {
                 ),
                 if (beside)
                   Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        StateChip(state, toneWords: toneWords),
-                        ?actions,
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(end: Space.small),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        heightFactor: 1,
+                        child: LayoutBuilder(builder: (context, side) => _stateBeside(actions, side.maxWidth)),
+                      ),
                     ),
                   ),
               ],
