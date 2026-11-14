@@ -11,10 +11,12 @@ import 'e2e.dart';
 /// arrive and the run would say nothing and exit 0. The agent `tool/e2e.sh` raised holds the key.
 ///
 /// A run on the test machine itself (`localhost`, as the walk in `tool/walk_idea.sh` runs) needs no
-/// ssh: the account has no key for itself and knows no host key for `localhost`, so it runs here.
+/// ssh: the account has no key for itself and knows no host key for `localhost`, so it runs here, on
+/// the account's own session bus, as an ssh login would: the window's private bus of `dbus-run-session`
+/// has no `systemd1`, and podman cannot place a build's container without it.
 Future<String> onTheTestMachine(String script) async {
   final ssh = E2e.host == 'localhost'
-      ? await Process.start('bash', <String>['-s'])
+      ? await Process.start('bash', <String>['-s'], environment: _theAccountsOwnBus())
       : await Process.start('ssh', <String>['-o', 'BatchMode=yes', E2e.host, 'bash -s']);
   ssh.stdin.write(script);
   await ssh.stdin.close();
@@ -27,6 +29,12 @@ Future<String> onTheTestMachine(String script) async {
   final code = await ssh.exitCode;
   if (code != 0) throw StateError('on the test machine, exit $code: $err');
   return out.trim();
+}
+
+Map<String, String> _theAccountsOwnBus() {
+  final runtime = Platform.environment['XDG_RUNTIME_DIR'];
+  if (runtime == null || runtime.isEmpty) throw StateError('on the test machine, XDG_RUNTIME_DIR is not set');
+  return <String, String>{'DBUS_SESSION_BUS_ADDRESS': 'unix:path=$runtime/bus'};
 }
 
 /// A shell function for a script on the test machine: `unpack_porelo <package> <dir>` unpacks the
