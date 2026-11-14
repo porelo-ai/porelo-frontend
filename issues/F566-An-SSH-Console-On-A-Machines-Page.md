@@ -33,7 +33,13 @@ without a key file, a password prompt in the window, or trusting a key the machi
 - A machine reached through a tunnel: on Linux the console goes through the card's own ssh config and its control
   master, as every other command to that machine does. On Windows it opens its own connection by the same config.
   When the machine is not reachable, the section says why, in the words its page already uses, and starts nothing.
-- Nothing is needed of Agent Machines: the account and its key are the ones the window logs in with now.
+- **User or root.** A person who is the machine's root admin (an Organization or Machine Admin with root access) sees
+  a switch between their own account and root.
+  - As root, the console logs in as root with the key that person has for root on that machine, from the agent, as
+    for their own login. There is never a stored password, and never a sudo workaround unless the host offers one.
+  - Others see no switch.
+  - How the window knows who may log in as root is to be settled with Agent Machines: either the host card's admins
+    and root keys, as porelo-host records them, or a new record there.
 
 ## Acceptance
 
