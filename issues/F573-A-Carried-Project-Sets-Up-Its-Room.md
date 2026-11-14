@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F573",
   "title": "A Carried Project Sets Up Its Room",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 18,
@@ -31,3 +31,18 @@ The window's half of Agent Core's B773 "A Carried Project Opens Its Room Before 
 ## Acceptance
 
 - Guards for set up and opened, and for refused, each red first. The project row tests green.
+
+## Built
+
+Against Agent Core's B773 (core-b773, 9625c9253). The method is `SetUpMessages(project)`, as porelo names it, not
+`SetUpConversation`.
+
+- The client has `setUpMessages`, offered by `PoreloBackend` through a separate `SetsUpRooms`.
+- `room_setup.dart` turns every answer into a sentence: ready (the room opens), not ready (with porelo's detail),
+  `ConversationRefused` (with the transport's words), and a Porelo without the call.
+- On a carried project whose room is not ready, the project page's room button reads *Set up the room, taking the
+  project here*, with `messages.detail` as its tooltip. Pressing it, or the menu's room entry, sets the room up. On
+  ready, the projects are read again and the room opens. Otherwise the words are said and no room opens.
+- A project that is not carried keeps its room button as before.
+- Guards: `test/app/room_setup_test.dart` (4, red under a deliberate break) and two in `test/ui/carried_project_test.dart`
+  (red on the code before this change).

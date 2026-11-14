@@ -30,6 +30,7 @@ import '../app/attention.dart';
 import '../app/commands.dart';
 import '../app/credential_carry.dart';
 import '../app/fleet_backend.dart';
+import '../app/room_setup.dart';
 import '../app/fleet_model.dart';
 import '../app/host_token.dart';
 import '../app/run_here.dart';
@@ -1658,8 +1659,22 @@ class _ShellState extends State<Shell> {
   Future<void> _showTheMessages({ProjectOnScreen? of}) async {
     final fleet = _fleet;
     if (fleet == null) return _notWatchedYet();
-    final project = of ?? fleet.selectedProject;
-    if (project == null) return;
+    final asked = of ?? fleet.selectedProject;
+    if (asked == null) return;
+    var project = asked;
+    // A carried project's room is set up first, which takes the project here; it opens once it can carry messages.
+    if (project.project.carried && project.project.messages?.ready == false) {
+      final machine = fleet.backend;
+      final said = machine is SetsUpRooms
+          ? await setUpRoom(machine as SetsUpRooms, project.name)
+          : const RoomSetUp(ready: false, words: "This machine's Porelo cannot set up a room before the first task.");
+      if (!mounted) return;
+      if (!said.ready) return fleet.say(said.words);
+      await fleet.refresh(quietly: true);
+      if (!mounted) return;
+      final name = project.name;
+      project = fleet.projects.where((each) => each.name == name).firstOrNull ?? project;
+    }
     await showProjectMessages(
       context,
       backend: fleet.backend,

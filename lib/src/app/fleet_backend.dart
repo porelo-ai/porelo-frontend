@@ -689,8 +689,16 @@ abstract interface class CarriesCredentials {
   });
 }
 
+/// A machine that sets a project's room up before its first task, taking a carried project here first.
+///
+/// Apart from [FleetBackend] so a stand-in that cannot says so by not being one.
+abstract interface class SetsUpRooms {
+  /// Sets [project]'s room up; null when the project has no conversation.
+  Future<ProjectMessages?> setUpMessages(String project);
+}
+
 /// A real Porelo daemon, local or forwarded.
-class PoreloBackend implements FleetBackend, CarriesCredentials {
+class PoreloBackend implements FleetBackend, CarriesCredentials, SetsUpRooms {
   /// Constructor taking where the daemon is.
   PoreloBackend(this.backend, {this.certify = certifyHere, this.asksToCertify = true});
 
@@ -1091,6 +1099,9 @@ class PoreloBackend implements FleetBackend, CarriesCredentials {
   @override
   Future<Imported> importCredential({String? agent, String? configDirectory}) =>
       _opened().importCredential(agent: agent, configDirectory: configDirectory);
+
+  @override
+  Future<ProjectMessages?> setUpMessages(String project) => _opened().setUpMessages(project);
 
   @override
   Future<CredentialReceiver> credentialReceiver() => _opened().credentialReceiver();

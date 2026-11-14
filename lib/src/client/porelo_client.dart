@@ -1409,6 +1409,11 @@ class PoreloClient {
     return peers is List ? peers.whereType<Map<String, dynamic>>().map(TalkPeer.from).toList() : const <TalkPeer>[];
   }
 
+  /// Sets [project]'s room up on this machine, taking a project it carries for this person first; null when the
+  /// project has no conversation.
+  Future<ProjectMessages?> setUpMessages(String project) async =>
+      ProjectMessages.of((await _call('SetUpMessages', <String, dynamic>{'project': project}))['messages']);
+
   /// Lets [person] into [project]'s conversation with an account made for them, or gives it a new
   /// password with [reset]. **Answered once**: the login is in this reply and nowhere else.
   Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false}) async => MessagesJoined.from(

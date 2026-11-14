@@ -79,6 +79,9 @@ class ProjectDetailsPage extends StatelessWidget {
   /// What the page is and what a person does there, under its `i`.
   final List<({String title, String words})> explanation;
 
+  /// Whether the project's room is a carried project's, not set up yet: pressing it sets it up, taking the project.
+  bool get _roomToSetUp => project.project.carried && project.project.messages?.ready == false;
+
   @override
   Widget build(BuildContext context) {
     final isDefault = project.name == defaultProject;
@@ -111,12 +114,15 @@ class ProjectDetailsPage extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: Tooltip(
-              message: room.unavailable ?? '${room.label} of ${project.label}',
+              message:
+                  room.unavailable ??
+                  (_roomToSetUp ? project.project.messages!.detail : '${room.label} of ${project.label}'),
               child: TextButton.icon(
                 key: const Key('project-room'),
                 onPressed: room.available ? room.run : null,
                 icon: const Icon(Icons.forum_outlined),
-                label: const Text('Open the project’s room'),
+                // Setting a carried project's room up takes the project here, as its first start would: said first.
+                label: Text(_roomToSetUp ? 'Set up the room, taking the project here' : 'Open the project’s room'),
               ),
             ),
           ),

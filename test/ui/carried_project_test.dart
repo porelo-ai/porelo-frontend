@@ -109,4 +109,47 @@ void main() {
       expect(find.textContaining('environment not prepared'), findsNothing);
     });
   });
+  group("a carried project's room before its first task", () {
+    Project carriedWithRoom() => Project.from(<String, dynamic>{
+      'name': 'foo',
+      'carried': true,
+      'messages': <String, dynamic>{
+        'transport': 'matrix',
+        'conversation': '!foo:host',
+        'reaches': <String>[],
+        'ready': false,
+        'detail': 'set up when you set it up or the first task starts',
+      },
+    });
+
+    // Harm: the room button is offered as if the room were there, and pressing it opens nothing a person can use,
+    // or it takes the project without saying so.
+    testWidgets('its button says it sets the room up and takes the project, and then opens the room', (tester) async {
+      await _onTheMachine(tester, carriedWithRoom());
+      final button = find.byKey(const Key('project-room'));
+      expect(
+        find.descendant(of: button, matching: find.text('Set up the room, taking the project here')),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is Tooltip && widget.message == 'set up when you set it up or the first task starts',
+        ),
+        findsOneWidget,
+      );
+      await World.tapInView(tester, 'project-room');
+      expect(World.backend.roomsSetUp, <String>['foo']);
+      expect(World.backend.taken, <String>['foo']);
+      expect(find.byKey(const Key('messages-dialog')), findsOneWidget);
+    });
+
+    // Harm: a refused set-up leaves the person guessing, or opens a room that is not there.
+    testWidgets("a refused set-up says the machine's words and opens no room", (tester) async {
+      await _onTheMachine(tester, carriedWithRoom());
+      World.backend.roomRefused = 'the forge refused the take';
+      await World.tapInView(tester, 'project-room');
+      expect(find.textContaining('the forge refused the take'), findsWidgets);
+      expect(find.byKey(const Key('messages-dialog')), findsNothing);
+    });
+  });
 }

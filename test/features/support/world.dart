@@ -95,7 +95,7 @@ class EveryProjectLocal implements OrganizationSource {
   Future<void> apply(OrganizationWrite write) async {}
 }
 
-class FakeBackend implements FleetBackend {
+class FakeBackend implements FleetBackend, SetsUpRooms {
   /// Constructor taking what the machine has on it.
   FakeBackend(this._tasks);
 
@@ -354,6 +354,41 @@ class FakeBackend implements FleetBackend {
 
   /// The projects a person's act took here, in order.
   final List<String> taken = <String>[];
+
+  /// The projects whose room was set up, in order.
+  final List<String> roomsSetUp = <String>[];
+
+  /// Whether the next `SetUpMessages` is refused with the transport's words. Set by the scenario.
+  String? roomRefused;
+
+  @override
+  Future<ProjectMessages?> setUpMessages(String project) async {
+    roomsSetUp.add(project);
+    if (roomRefused case final words?) {
+      throw VarlinkException('org.fuin.porelo.Tasks1.ConversationRefused', <String, dynamic>{
+        'message': words,
+        'code': 69,
+      });
+    }
+    // As porelo does: the project is taken first, then its room answers ready.
+    await takeProject(project);
+    theProjectsItHas = <Project>[
+      for (final each in theProjectsItHas)
+        if (each.name == project) _withReadyRoom(each) else each,
+    ];
+    return theProjectsItHas.firstWhere((each) => each.name == project).messages;
+  }
+
+  static Project _withReadyRoom(Project project) => Project.from(<String, dynamic>{
+    'name': project.name,
+    'file': project.file,
+    'messages': <String, dynamic>{
+      'transport': project.messages?.transport ?? 'matrix',
+      'conversation': project.messages?.conversation ?? '',
+      'reaches': project.messages?.reaches ?? const <String>[],
+      'ready': true,
+    },
+  });
 
   /// What the next `TakeProject` answers in place of taking.
   TakenProject? takeAnswers;
