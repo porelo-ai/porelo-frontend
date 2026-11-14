@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/explanations.dart';
 import '../support/world.dart';
 
 /// Usage: I open the waiting push
@@ -10,4 +11,5 @@ Future<void> iOpenTheWaitingPush(
 ]) async {
   await tester.tap(find.text(subject));
   await World.settle(tester);
+  await closeTheExplanations(tester);
 }
