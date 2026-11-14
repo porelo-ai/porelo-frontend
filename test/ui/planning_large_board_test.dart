@@ -68,37 +68,34 @@ void main() {
   // as long to open as the small one (1613 against 338 ms) and 3.0 to 4.1 times as long to fold and unfold a lane
   // (624 against 211 ms). With only four cards built per lane, as a board that builds what is in view would, it took
   // 1.8 to 2.1 and 1.1 to 2.4 times as long; the bounds stand between.
-  testWidgets(
-    'a board of 360 stories opens and folds a lane about as fast as a small one',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1600, 1000));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await aBackendWithPlanningDetails(tester);
-      await World.startApp(tester);
-      // The first visit also pays for what any first build pays, such as compiling the screen's code.
-      await _openAndFold(tester);
-      World.shell.goTo(Section.work);
-      await World.settle(tester);
-      final small = await _openAndFold(tester);
+  testWidgets('a board of 360 stories opens and folds a lane about as fast as a small one', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await aBackendWithPlanningDetails(tester);
+    await World.startApp(tester);
+    // The first visit also pays for what any first build pays, such as compiling the screen's code.
+    await _openAndFold(tester);
+    World.shell.goTo(Section.work);
+    await World.settle(tester);
+    final small = await _openAndFold(tester);
 
-      World.shell.goTo(Section.work);
-      await World.settle(tester);
-      final large = _largeBoard();
-      World.planning.boards['checkout'] = large;
-      World.planning.push('checkout', large);
-      await World.settle(tester);
-      // The large board is visited once untimed too, so both are timed on a return, warm alike.
-      await _openAndFold(tester);
-      World.shell.goTo(Section.work);
-      await World.settle(tester);
-      final again = await _openAndFold(tester);
-      expect(find.byKey(const Key('planning-card ST1000')), findsOneWidget, reason: 'the large board is shown');
+    World.shell.goTo(Section.work);
+    await World.settle(tester);
+    final large = _largeBoard();
+    World.planning.boards['checkout'] = large;
+    World.planning.push('checkout', large);
+    await World.settle(tester);
+    // The large board is visited once untimed too, so both are timed on a return, warm alike.
+    await _openAndFold(tester);
+    World.shell.goTo(Section.work);
+    await World.settle(tester);
+    final again = await _openAndFold(tester);
+    expect(find.byKey(const Key('planning-card ST1000')), findsOneWidget, reason: 'the large board is shown');
 
-      final said =
-          'small board: open ${small.open} ms, fold ${small.fold} ms; '
-          'large board: open ${again.open} ms, fold ${again.fold} ms';
-      expect(again.open, lessThan(small.open * 3), reason: said);
-      expect(again.fold, lessThan(small.fold * 2.75), reason: said);
-    },
-  );
+    final said =
+        'small board: open ${small.open} ms, fold ${small.fold} ms; '
+        'large board: open ${again.open} ms, fold ${again.fold} ms';
+    expect(again.open, lessThan(small.open * 3), reason: said);
+    expect(again.fold, lessThan(small.fold * 2.75), reason: said);
+  });
 }
