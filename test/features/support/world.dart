@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'carrying.dart';
 import 'legacy_forge_key.dart';
 export 'legacy_forge_key.dart';
 
@@ -3248,6 +3249,9 @@ class World {
   /// Another machine, for the scenarios about reaching several.
   static late FakeBackend elsewhere;
 
+  /// This computer's own Porelo, which a carry to a host reads its sources from and seals on.
+  static late CarryingFakeBackend here;
+
   /// What is open and where the keyboard is.
   static late ShellModel shell;
 
@@ -3682,6 +3686,8 @@ class World {
     await notifications.load();
     elsewhere = FakeBackend(<Task>[_task('porelo-shared-shell', 'shared')])..nodeId = 'node-b';
     addTearDown(elsewhere.stop);
+    here = CarryingFakeBackend(const <Task>[])..nodeId = 'node-here';
+    addTearDown(here.stop);
 
     // One machine to begin with, and a second only when a scenario asks. Reaching several is
     // only the machine scenarios, and every scenario that does not care must not pay for it.
@@ -3738,6 +3744,7 @@ class World {
         hostConnections: hostConnections,
         hostAccess: composedHostAccess,
         pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
+        thisComputer: () => here,
         backups: backups,
         narrowing: narrowing,
         held: held,
@@ -3810,6 +3817,7 @@ class World {
         connections: connections,
         forges: forges,
         pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
+        thisComputer: () => here,
         backups: backups,
         narrowing: narrowing,
         held: held,
@@ -3845,6 +3853,7 @@ class World {
         connections: connections,
         forges: forges,
         pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
+        thisComputer: () => here,
         backups: backups,
         narrowing: narrowing,
         held: held,

@@ -219,6 +219,7 @@ class Shell extends StatefulWidget {
     this.hostAccess,
     this.identity,
     this.pickAFile = pickWithTheDesktop,
+    this.thisComputer = thisComputersPorelo,
     required this.backups,
     required this.narrowing,
     required this.held,
@@ -321,6 +322,9 @@ class Shell extends StatefulWidget {
 
   /// Asks the desktop for a file of this computer. Replaced in tests, which have no desktop.
   final PickAFile pickAFile;
+
+  /// This computer's own Porelo, not yet opened, for a carry to a host. Replaced in tests, which have no socket.
+  final CarryingBackend Function() thisComputer;
 
   /// What has been backed up of the project being looked at.
   final Backups backups;
@@ -4965,9 +4969,9 @@ class _ShellState extends State<Shell> {
     final receiver = watched as CarriesCredentials;
     // This computer's own daemon, asked afresh over its own socket: a watched entry found by name could be a host
     // of that name, and one still connecting has nothing open to ask.
-    final here = thisComputersPorelo();
+    final here = widget.thisComputer();
     var opened = false;
-    Future<PoreloBackend> ready() async {
+    Future<CarryingBackend> ready() async {
       if (!opened) {
         await here.open();
         opened = true;
