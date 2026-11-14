@@ -118,7 +118,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | - | A task's terminal in the interface behaves as in a plain terminal. |
 | <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | M | [F78](README.md#f78) | Per waiting push the open finding and thread counts and each check's completeness, anything but complete never shown as clean; comments read and written in IntelliJ. |
 | <a id="f437"></a>[F437](F437-Join-Leave-And-Accept-A-Card-In-The-Window.md) | M | - | Join an organization by a card proposal, an owner accepting it on the person's row, and leaving an organization, from the window. |
-| <a id="f560"></a>[F560](F560-A-Token-Wait-Holds-Through-Moves-And-Refused-Reads.md) | S | [F558](README.md#f558) | The races a third reading found in the token wait a machine's page says: a refused read after the token was given, a project's token joining a read begun before it, a page left unread after a press that gave no token, a refusal said after the role went, and an old machine's answer kept for a moved one. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working, from the AT_REST activity the machine serves for it. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | XL | - | Connect and Prepare from a Windows desktop: loopback ports the window holds itself, each connection carried over its own ssh, the daemon through the relay, no master. |
 | <a id="f507"></a>[F507](F507-The-Windows-Windows-Scripts-Package-Another-App.md) | M | - | The Windows packing and install check take the app's name, version, files, manifest and start as parameters, so another repository's Windows build calls them at a pinned commit; the window's own packages stay as they are, and neither script leaves a signing key or the app's files behind. |
@@ -137,6 +136,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f560"></a>[F560](F560-A-Token-Wait-Holds-Through-Moves-And-Refused-Reads.md) | S | [F558](README.md#f558) | The races a third reading found in the token wait a machine's page says: a refused read after the token was given, a project's token joining a read begun before it, a page left unread after a press that gave no token, a refusal said after the role went, and an old machine's answer kept for a moved one. |
 
 ## Review
 
