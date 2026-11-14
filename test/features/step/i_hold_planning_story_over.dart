@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/planning_details.dart';
 import '../support/planning.dart';
 import '../support/world.dart';
 
 /// Usage: I hold planning story {id} over {state}
 Future<void> iHoldPlanningStoryOver(WidgetTester tester, String id, String state) async {
   final source = planningElement('card $id');
-  final target = planningElement('state $state');
-  final heading = find.descendant(of: target, matching: find.text(state));
+  // The state's heading is where a card is dropped; the state's whole group is a sliver without a box.
+  final target = planningElement('drop $state');
   // Removing a card or target from the board makes these fail before the gesture.
+  await revealPlanning(tester, target);
+  await revealPlanning(tester, source);
   expect(source, findsOneWidget);
   expect(target, findsOneWidget);
+  // Until a card is held over it, the heading names its state.
+  expect(find.descendant(of: target, matching: find.text(state)), findsOneWidget);
   await Scrollable.ensureVisible(
-    heading.evaluate().single,
+    target.evaluate().single,
     alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
   );
   await Scrollable.ensureVisible(

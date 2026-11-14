@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,8 +49,94 @@ Future<void> startPlanningDetails(WidgetTester tester) async {
   });
 }
 
+/// The scrolling column of each phase on the board, left to right.
+final _phaseScrolls = find.byWidgetPredicate(
+  (widget) =>
+      widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith('planning-phase-scroll '),
+);
+
+/// The scroll of one phase's column, given the column's own keyed widget.
+ScrollableState _phaseScrollable(WidgetTester tester, Finder phase) =>
+    tester.state<ScrollableState>(find.descendant(of: phase, matching: find.byType(Scrollable), matchRoot: true).first);
+
+/// The scroll of the phase that holds [finder], built or not in its view.
+ScrollableState planningPhaseHolding(WidgetTester tester, Finder finder) {
+  final phase = find.ancestor(of: finder, matching: _phaseScrolls);
+  expect(phase, findsOneWidget);
+  return _phaseScrollable(tester, phase);
+}
+
+/// The scroll of the phase whose column is keyed [id].
+ScrollableState planningPhaseScroll(WidgetTester tester, String id) =>
+    _phaseScrollable(tester, planningElement('phase-scroll $id'));
+
+/// Walks the board's phases (or the one [only]) from top to foot, half a view at a time, and asks [look] at each stop.
+///
+/// Each phase builds only the cards in its view, so this is how a check sees a whole phase. The walk stops where [look]
+/// answers true and leaves that phase there; every other phase gets its offset back.
+Future<bool> walkPlanning(WidgetTester tester, bool Function() look, {ScrollableState? only}) async {
+  final scrolls = only != null
+      ? [only]
+      : [for (final phase in _phaseScrolls.evaluate().toList()) _phaseScrollable(tester, find.byWidget(phase.widget))];
+  for (final scroll in scrolls) {
+    final position = scroll.position;
+    final start = position.pixels;
+    position.jumpTo(0);
+    await tester.pump();
+    while (true) {
+      if (look()) return true;
+      if (position.pixels >= position.maxScrollExtent) break;
+      position.jumpTo((position.pixels + position.viewportDimension / 2).clamp(0, position.maxScrollExtent).toDouble());
+      await tester.pump();
+    }
+    position.jumpTo(start.clamp(0, position.maxScrollExtent).toDouble());
+    await tester.pump();
+  }
+  return false;
+}
+
+/// Brings [finder] into its phase's view: a phase builds only the cards in its view.
+///
+/// A box whose middle lies outside its phase's view is scrolled to the view's top, or to its middle when it is taller
+/// than the view; [alignment] gives another place and always scrolls. The column's length is an estimate until its
+/// last cards are built, so one `Scrollable.ensureVisible` can stop short: the test scrolls the phase itself.
+Future<void> revealPlanning(WidgetTester tester, Finder finder, {double? alignment}) async {
+  if (finder.evaluate().isEmpty) await walkPlanning(tester, () => finder.evaluate().isNotEmpty);
+  final found = finder.evaluate();
+  if (found.length != 1 || found.single.renderObject is! RenderBox) return;
+  final phase = find.ancestor(of: finder, matching: _phaseScrolls);
+  if (phase.evaluate().isEmpty) return;
+  final scroll = _phaseScrollable(tester, phase);
+  final view = tester.getRect(find.byWidget(scroll.widget));
+  final rect = tester.getRect(finder);
+  if (alignment == null) {
+    if (rect.center.dy >= view.top && rect.center.dy <= view.bottom) return;
+    alignment = rect.height > view.height ? 0.5 : 0;
+  }
+  final position = scroll.position;
+  // The column's length is an estimate until the cards near its end are built, so the scroll is taken again.
+  for (var tries = 0; tries < 5; tries++) {
+    final rect = tester.getRect(finder);
+    final to = (position.pixels + rect.top - view.top - (view.height - rect.height) * alignment)
+        .clamp(0, position.maxScrollExtent)
+        .toDouble();
+    if ((to - position.pixels).abs() < 0.5) break;
+    position.jumpTo(to);
+    await tester.pump();
+  }
+}
+
+/// Expects [finder] to find nothing anywhere on the board, its phases walked through.
+Future<void> expectPlanningNowhere(WidgetTester tester, Finder finder) async {
+  await walkPlanning(tester, () {
+    expect(finder, findsNothing);
+    return false;
+  });
+}
+
 /// Opens an actual keyed action, scrolling it into view first.
 Future<void> tapPlanning(WidgetTester tester, Finder finder) async {
+  await revealPlanning(tester, finder);
   expect(finder, findsOneWidget);
   if (finder.hitTestable().evaluate().isEmpty) await tester.ensureVisible(finder);
   expect(finder.hitTestable(), findsOneWidget);
@@ -113,18 +200,26 @@ void expectPlanningFindings(WidgetTester tester) {
 List<double> _offsets(WidgetTester tester) {
   final board = planningElement('board-scroll');
   expect(board, findsOneWidget);
-  final states = tester
-      .stateList<ScrollableState>(find.descendant(of: board, matching: find.byType(Scrollable)))
-      .toList();
-  expect(states, hasLength(2));
-  return states.map((state) => state.position.pixels).toList();
+  // The board scrolls sideways, and each phase scrolls on its own: the position is all of them, left to right.
+  final sideways = tester.state<ScrollableState>(
+    find.descendant(of: board, matching: find.byType(Scrollable), matchRoot: true).first,
+  );
+  expect(sideways.position.axis, Axis.horizontal);
+  final phases = [
+    for (final phase in _phaseScrolls.evaluate().toList()) _phaseScrollable(tester, find.byWidget(phase.widget)),
+  ];
+  expect(phases, isNotEmpty);
+  for (final phase in phases) {
+    expect(phase.position.axis, Axis.vertical);
+  }
+  return [sideways.position.pixels, for (final phase in phases) phase.position.pixels];
 }
 
 /// Remembers actual scroll positions and the folded board controls.
 Future<void> rememberPlanningBoard(WidgetTester tester) async {
   _boardOffsets = _offsets(tester);
   expect(_boardOffsets!.first, greaterThan(0));
-  expect(_boardOffsets!.last, greaterThan(0));
+  expect(_boardOffsets!.skip(1).where((offset) => offset > 0), isNotEmpty);
   _folded = tester
       .widgetList<IconButton>(
         find.byWidgetPredicate((widget) => widget is IconButton && (widget.tooltip?.startsWith('Unfold ') ?? false)),
@@ -202,23 +297,25 @@ void malformedPlanningFindings() => _issue()['findings'] = [false];
 
 /// Scrolls a populated board while keeping the intended card reachable.
 Future<void> scrollPlanningBoard(WidgetTester tester) async {
-  // Centred first: the card shows its issues, so a card brought only to the edge leaves the view with the drag.
-  await Scrollable.ensureVisible(tester.element(planningElement('story ST291')), alignment: 0.5);
+  final story = planningElement('story ST291');
+  await revealPlanning(tester, story);
+  await tester.ensureVisible(story);
   await World.settle(tester);
-  await tester.drag(planningElement('board-scroll'), const Offset(0, -60));
+  // Centred next: the card shows its issues, so a card brought only to the edge leaves the view with the scroll.
+  await revealPlanning(tester, story, alignment: 0.5);
   await World.settle(tester);
-  final horizontal = find.descendant(
-    of: planningElement('board-scroll'),
-    matching: find.byWidgetPredicate(
-      (widget) => widget is SingleChildScrollView && widget.scrollDirection == Axis.horizontal,
-    ),
-  );
-  expect(horizontal, findsOneWidget);
-  await tester.drag(horizontal, const Offset(-70, 0));
+  final phase = planningPhaseHolding(tester, story);
+  // A wheel over the card scrolls the board as a person does; a drag that starts on a card would pick the card up
+  // instead. Both scroll back, as the card brought into view may stand at the end of either.
+  final pointer = TestPointer(1, PointerDeviceKind.mouse);
+  await tester.sendEventToBinding(pointer.hover(tester.getCenter(story)));
+  await tester.sendEventToBinding(pointer.scroll(const Offset(0, -60)));
+  await World.settle(tester);
+  await tester.sendEventToBinding(pointer.scroll(const Offset(-70, 0)));
   await World.settle(tester);
   expect(_offsets(tester).first, greaterThan(0));
-  expect(_offsets(tester).last, greaterThan(0));
-  expect(planningElement('story ST291').hitTestable(), findsOneWidget);
+  expect(phase.position.pixels, greaterThan(0));
+  expect(story.hitTestable(), findsOneWidget);
 }
 
 /// A section assertion cannot match a summary or another page.

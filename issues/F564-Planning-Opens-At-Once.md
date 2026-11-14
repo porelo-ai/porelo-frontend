@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F564",
   "title": "Planning Opens At Once",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 8,
@@ -106,3 +106,22 @@ and folds a lane, then pushes the large board, leaves, returns and folds again, 
 is measured against the small board of the same run, so a busy host slows both alike. Red with the pinned screen
 (large board: 4.7–5.1 times as long to open, 3.0–4.3 times to fold); with the screen changed to build four cards per
 lane, 1.8–2.1 and 1.1–2.4 times. It is skipped until porelo-planner's change is pinned.
+
+With the screen's change pinned (porelo-planner `8dce2dc`), the guard runs unskipped and passes. Each phase now scrolls
+on its own and builds only the cards in its view, so the planning steps find a card by scrolling its phase, not by
+looking it up on a board that has built everything:
+
+- `revealPlanning` walks the phases until a card is built and scrolls its phase to it. A single `ensureVisible` can stop
+  short there, as a column's length is an estimate until its last cards are built, so the steps scroll the phase
+  themselves.
+- What a step reads across a whole phase (the sort of *Implementing*, the marks of a folded *Build*, that only the
+  searched story remains, that a card or text is nowhere) is gathered while the phase is walked from top to foot, so it
+  still covers every card, not only those in view.
+- A state is now a group of slivers without a box: the order of working states is read from their headings'
+  places in the column, a card is dropped on the heading (`planning-drop`), and a state's presence and its drop hint
+  are read from the built group even out of view.
+- The board's position is the sideways scroll and each phase's own; going back to the board keeps all of them. The
+  board is scrolled with the wheel, as a drag that starts on a card picks the card up.
+
+Seen red with the fixture broken on purpose: one more *Highest* story in *Build* fails the sort, the folded marks and
+the hidden low-priority story; *Review* made a working state ahead of *Implementing* fails the working-states order.

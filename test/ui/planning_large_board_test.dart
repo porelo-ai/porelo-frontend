@@ -70,7 +70,6 @@ void main() {
   // 1.8 to 2.1 and 1.1 to 2.4 times as long; the bounds stand between.
   testWidgets(
     'a board of 360 stories opens and folds a lane about as fast as a small one',
-    skip: true, // The board is the planning screen's own (porelo-planner): it must build only the cards in view.
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1600, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));

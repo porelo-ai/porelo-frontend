@@ -19,6 +19,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Planning builds only the cards in view, so a board of hundreds of stories opens and folds without holding the window.
 - *Planning*'s first-time words stand under the board's head and a story's or an issue's breadcrumb, not above them, and the page shown when no board is read keeps its *i*.
 - A page in *Planning* has one title: the board's head and a story's or an issue's breadcrumb carry the page's *i*, with no second *Planning* head above them. Planning also takes porelo-planner's newest screen: a story whose state was given offers to follow its issues again, an issue's page is laid out anew, and a sub-issue's page names its parent.
 - Every page has its *i* beside its title, which opens what the page is and what you do there, standing open the first time: now also *Planning*, *My cards & keys*, a machine's page and each of its sections (also for a machine an organization's card names), a project's page and an organization's project, a forge's page, and the pages opened over the window (a piece of work, operations and one operation, the gate and a review, egress, backups and a log), each page with one *i* only. *Organizations* keeps its explanation apart from one organization's page.
