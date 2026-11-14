@@ -287,6 +287,21 @@ void main() {
     });
   });
 
+  // Harm: a packaged window, built in release mode, does not know it is a snapshot and sets machines up from
+  // releases; or its version differs from its packages' and the About dialog names neither truly.
+  test('every build of the window stamps it with its packages\' version', () {
+    final package = File('tool/package.sh').readAsStringSync();
+    expect(package, contains('flutter build linux --release --dart-define=PORELO_VERSION="\$version"'));
+    for (final name in ['build.yml', 'windows.yml']) {
+      final workflow = File('.github/workflows/$name').readAsStringSync();
+      final builds = RegExp(r'flutter build windows[^\n]*').allMatches(workflow).map((each) => each[0]).toList();
+      expect(builds, ['flutter build windows --release "--dart-define=PORELO_VERSION=\$version"'], reason: name);
+      expect(workflow, contains('echo "PORELO_WINDOW_VERSION=\$version" >> "\$GITHUB_ENV"'), reason: name);
+    }
+    final prepare = File('tool/windows-prepare.ps1').readAsStringSync();
+    expect(prepare, contains(r'$env:PORELO_WINDOW_VERSION -ne $version'), reason: 'windows-prepare.ps1 checks it');
+  });
+
   group('the build that publishes them', () {
     final workflow = File('.github/workflows/build.yml').readAsStringSync();
 

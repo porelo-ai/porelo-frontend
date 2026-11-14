@@ -458,7 +458,7 @@ class _ShellState extends State<Shell> {
   final _waitsForAFailedStart = <String, VoidCallback>{};
 
   /// This build's version, stamped by the package build; a build from source says so.
-  static const _version = String.fromEnvironment('PORELO_VERSION', defaultValue: 'built from source');
+  static const _version = windowVersion;
 
   @override
   void initState() {

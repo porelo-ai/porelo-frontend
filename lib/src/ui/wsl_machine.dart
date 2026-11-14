@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app/machines.dart';
+import '../app/product.dart';
 import '../app/wsl.dart';
 import '../app/wsl_setup.dart';
 import 'choice_field.dart';
@@ -17,8 +18,8 @@ import 'terminal_look.dart';
 /// **Nothing runs as root but lines a person read and said yes to**, and a distribution is started
 /// only by the restart for systemd, after a question of its own whose answer is no until changed.
 class WslSteps extends StatefulWidget {
-  /// Constructor taking what a ready machine does and, for a test, WSL, the setup and the record.
-  const WslSteps({required this.onReady, this.wsl, this.setupFor, this.record, super.key});
+  /// Constructor taking what a ready machine does and, for a test, WSL, the setup, the record and the channel.
+  const WslSteps({required this.onReady, this.wsl, this.setupFor, this.record, this.snapshots, super.key});
 
   /// Told the machine to watch once every check passed, or null while not.
   final ValueChanged<Machine?> onReady;
@@ -31,6 +32,9 @@ class WslSteps extends StatefulWidget {
 
   /// Records a line that ran in a distribution, and what it answered.
   final void Function(String distribution, String line, String said)? record;
+
+  /// Whether Porelo is installed from `snapshots` rather than `releases`; the window's own channel when null.
+  final bool? snapshots;
 
   @override
   State<WslSteps> createState() => _WslStepsState();
@@ -221,7 +225,10 @@ class _WslStepsState extends State<WslSteps> {
 
   /// The offer to set Porelo up: the agents to choose, then every line shown, run only after a yes.
   List<Widget> _offer(BuildContext context, WslSetup setup) {
-    final lines = setup.setupLines(_user.isEmpty ? '<user>' : _user);
+    final lines = setup.setupLines(
+      _user.isEmpty ? '<user>' : _user,
+      snapshots: widget.snapshots ?? windowTakesSnapshots(),
+    );
     return <Widget>[
       const SizedBox(height: Space.normal),
       Text('Set Porelo up in ${setup.distribution}?', style: Theme.of(context).textTheme.labelLarge),

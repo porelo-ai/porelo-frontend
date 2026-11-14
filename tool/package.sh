@@ -86,7 +86,7 @@ if [ "${RELEASE:-0}" != 1 ]; then
 fi
 
 say "Building the release bundle"
-flutter build linux --release
+flutter build linux --release --dart-define=PORELO_VERSION="$version"
 
 test -x "$bundle/porelo_frontend" || {
     echo "no bundle at $bundle" >&2

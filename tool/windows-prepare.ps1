@@ -56,6 +56,10 @@ if (-not (Test-Path -PathType Leaf $collectionPath)) { throw "Missing carried co
 $actual = (Get-FileHash -Algorithm SHA256 $collectionPath).Hash.ToLowerInvariant()
 if ($actual -ne $collection[1]) { throw "Collection SHA-256: expected $($collection[1]); got $actual" }
 
+# The window is stamped with its version by the build before this script; it must be the packages' version.
+if ($env:PORELO_WINDOW_VERSION -and $env:PORELO_WINDOW_VERSION -ne $version) {
+  throw "The window was built as $env:PORELO_WINDOW_VERSION, its packages are $version"
+}
 if ($env:GITHUB_ENV) {
   "PORELO_WINDOWS_VERSION=$version" >> $env:GITHUB_ENV
   "PORELO_WINDOWS_RUN=$run" >> $env:GITHUB_ENV

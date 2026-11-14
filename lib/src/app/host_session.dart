@@ -5,15 +5,16 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart';
 
+import 'product.dart';
 import 'settings.dart';
 import 'task_certifying.dart';
 import 'host_protocol.dart';
 
-/// Uses the chosen, digest-checked collection when supplied. A window run from source asks for `snapshots`,
-/// whatever channel the installed `porelo-host` was built for.
-List<String> hostArguments(HostUpRecord record, String project, {bool release = kReleaseMode}) => [
+/// Uses the chosen, digest-checked collection when supplied. A window that takes snapshots asks for `snapshots`,
+/// whatever channel the installed `porelo-host` was built for; a release window leaves it to that porelo-host.
+List<String> hostArguments(HostUpRecord record, String project, {bool? snapshots}) => [
   ...record.arguments(project),
-  if (!release) ...['--distribution', 'snapshots'],
+  if (snapshots ?? windowTakesSnapshots()) ...['--distribution', 'snapshots'],
   if (record.collection.isNotEmpty && record.collectionSha256.isNotEmpty) ...[
     '--collection',
     record.collection,

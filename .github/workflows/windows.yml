@@ -60,9 +60,20 @@ jobs:
               timeout-minutes: 45
               run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
 
+            # Stamped with the version windows-prepare.ps1 gives the packages, which refuses another: a snapshot is a
+            # release build too, and only its version tells the window to set machines up from snapshots.
             - name: Build
               timeout-minutes: 20
-              run: flutter build windows --release
+              shell: bash
+              run: |
+                  set -eu
+                  base=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | tr -d '\r' | sed 's/[[:space:]]*$//; s/-SNAPSHOT$//')
+                  case "$GITHUB_REF" in
+                      refs/tags/v*) version="$base" ;;
+                      *) version="$base~snapshot.${GITHUB_RUN_NUMBER:-0}" ;;
+                  esac
+                  echo "PORELO_WINDOW_VERSION=$version" >> "$GITHUB_ENV"
+                  flutter build windows --release "--dart-define=PORELO_VERSION=$version"
 
             # The key files of this user before any key of the trial: the same list must stand at its end.
             - name: List the key files before

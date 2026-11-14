@@ -63,6 +63,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Setting Porelo up in a WSL distribution takes Porelo from the window's own channel: the `snapshots` package repository from an installed snapshot or a build from source, and the `releases` repository from a release. The packages now stamp the window with its version, which tells the two apart and which the About dialog shows instead of *built from source*.
 - A machine's page says that the machine waits for your forge token, and offers *Give it my … token…* there, whenever the window last heard so - from *Set up a machine*, a *Connect* or an earlier read - also while the window is not connected to it or its own read of the machine failed, with the time it was heard; before, the page only said to connect, and the person waited for an admission that never came.
 - A machine whose setup stopped before installing porelo-host now says so on its page, with *Set up this machine…* to go on, instead of the last line `env` printed there, which on Ubuntu 26.04 read *use -[v]S to pass options in shebang lines*.
 - The packages install the carried host collection readable by every account, not by root alone, so *Set up a machine* runs its check again; where the check cannot be offered, the setup now says which of a missing collection, one this account cannot read, one with another digest or one without a check stands in the way, instead of saying of each that it holds no check.

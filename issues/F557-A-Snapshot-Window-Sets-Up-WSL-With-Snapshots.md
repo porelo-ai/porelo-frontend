@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F557",
   "title": "A Snapshot Window Sets Up WSL With Snapshots",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 9,

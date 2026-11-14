@@ -378,9 +378,20 @@ jobs:
               run: dart test --exclude-tags linux --reporter expanded
 
             # The planning package's own tests, against its own stand-in of a planning service.
+            # Stamped with the version windows-prepare.ps1 gives the packages, which refuses another: a snapshot is a
+            # release build too, and only its version tells the window to set machines up from snapshots.
             - name: Build
               timeout-minutes: 20
-              run: flutter build windows --release
+              shell: bash
+              run: |
+                  set -eu
+                  base=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | tr -d '\r' | sed 's/[[:space:]]*$//; s/-SNAPSHOT$//')
+                  case "$GITHUB_REF" in
+                      refs/tags/v*) version="$base" ;;
+                      *) version="$base~snapshot.${GITHUB_RUN_NUMBER:-0}" ;;
+                  esac
+                  echo "PORELO_WINDOW_VERSION=$version" >> "$GITHUB_ENV"
+                  flutter build windows --release "--dart-define=PORELO_VERSION=$version"
 
             # Chosen by the channel as in the Linux job, a tag `v*` being a release as windows-prepare.ps1 reads it; kept in
             # the cache by its SHA-256 and checked against it after a hit.

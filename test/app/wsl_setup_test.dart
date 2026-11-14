@@ -1,6 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/wsl.dart';
 import 'package:porelo_frontend/src/app/wsl_setup.dart';
+import 'package:porelo_frontend/src/ui/wsl_machine.dart';
+
+import '../features/support/world.dart';
 
 /// The checks before a WSL distribution is connected to, in order, stopping at the first that
 /// fails; and the offer to set Porelo up, shown line by line and run only after a yes, the key checked
@@ -10,7 +14,7 @@ void main() {
   const ubuntu = 'PRETTY_NAME="Ubuntu 26.04 LTS"\nID=ubuntu\nVERSION_ID="26.04"\n';
 
   /// A distribution called Ubuntu that runs as WSL2, answering [answers] by command.
-  ({WslSetup setup, List<String> ran}) distribution({
+  ({Wsl wsl, WslSetup setup, List<String> ran}) distribution({
     String os = ubuntu,
     String systemd = 'running',
     bool porelo = true,
@@ -52,7 +56,7 @@ void main() {
         };
       },
     );
-    return (setup: setup, ran: ran);
+    return (wsl: wsl, setup: setup, ran: ran);
   }
 
   test('a supported running distribution with Porelo answering passes every check', () async {
@@ -254,4 +258,74 @@ void main() {
     expect(windowsBuild('"Windows 10 Pro" 10.0 (Build 19045)'), 19045);
     expect(windowsBuild('Linux 7.0.0'), isNull);
   });
+
+  // Harm: a snapshot window sets WSL up with release Porelo, which lacks what the snapshot window expects.
+  testWidgets(
+    'a snapshot window offers and runs the snapshots repository in WSL, and a release window the releases repository',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const fedora = 'PRETTY_NAME="Fedora Linux 44"\nID=fedora\nVERSION_ID=44\n';
+      for (final (release, debWanted, debOther, rpmWanted, rpmOther) in <(bool, String, String, String, String)>[
+        (
+          false,
+          '$poreloDebRepository snapshots main',
+          '$poreloDebRepository releases main',
+          'baseurl=$poreloRpmRepository/snapshots',
+          'baseurl=$poreloRpmRepository/releases',
+        ),
+        (
+          true,
+          '$poreloDebRepository releases main',
+          '$poreloDebRepository snapshots main',
+          'baseurl=$poreloRpmRepository/releases',
+          'baseurl=$poreloRpmRepository/snapshots',
+        ),
+      ]) {
+        for (final (os, wanted, other) in <(String, String, String)>[
+          (ubuntu, debWanted, debOther),
+          (fedora, rpmWanted, rpmOther),
+        ]) {
+          final it = distribution(os: os, porelo: false);
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: WslSteps(onReady: (_) {}, wsl: it.wsl, setupFor: (_) => it.setup, snapshots: !release),
+                ),
+              ),
+            ),
+          );
+          await World.settle(tester);
+          await tester.tap(find.byKey(const Key('wsl-distribution')));
+          await World.settle(tester);
+          await tester.tap(find.byKey(const Key('wsl-Ubuntu')).last);
+          await World.settle(tester);
+          await tester.tap(find.byKey(const Key('wsl-check')));
+          await World.settle(tester);
+
+          final shown =
+              tester
+                  .widget<SelectableText>(
+                    find.descendant(of: find.byKey(const Key('wsl-lines')), matching: find.byType(SelectableText)),
+                  )
+                  .data ??
+              '';
+          expect(shown, contains(wanted), reason: 'release=$release offered lines');
+          expect(shown, isNot(contains(other)), reason: 'release=$release offered lines');
+
+          await tester.ensureVisible(find.byKey(const Key('wsl-run-setup')));
+          await World.settle(tester);
+          await tester.tap(find.byKey(const Key('wsl-run-setup')));
+          await World.settle(tester);
+
+          expect(it.ran.join('\n'), contains(wanted), reason: 'release=$release run lines');
+          expect(it.ran.join('\n'), isNot(contains(other)), reason: 'release=$release run lines');
+          await tester.pumpWidget(const SizedBox.shrink());
+          it.setup.dispose();
+        }
+      }
+    },
+  );
 }
