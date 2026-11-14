@@ -1614,19 +1614,19 @@ void main() {
       expect(find.text('No GitHub token is kept on this computer.'), findsOneWidget);
     });
 
-    // Harm: after the token the connection comes up and the page reads the machine a second time, and the first read's
-    // refusal is then said over the answer of the second.
+    // Harm: after the token the page asks a machine it is not connected to, which refuses it, and once the connection
+    // comes up it never reads the machine.
     testWidgets('a token given where the page was not connected reads the machine once, connected after', (
       tester,
     ) async {
-      final connections = FixtureConnections()..hearTokenWait('build', waits: true);
+      final connections = _Strict()..hearTokenWait('build', waits: true);
       await page(
         tester,
         'hana',
         connections: connections,
         onGiveToken: (host, {atOnce = false}) async {
-          connections.hearTokenWait(host, waits: false);
-          connections.refuseNext = const OrganizationRefused('build could not say how far it has come.');
+          // As the token's step does once the machine took it.
+          await connections.tokenTaken(host);
           return null;
         },
       );
@@ -1663,6 +1663,102 @@ void main() {
       hold.complete();
       await tester.pumpAndSettle();
       expect(_action('giveToken'), findsNothing);
+    });
+
+    // Harm: the read after the token is refused, the page logs in as root a second time, and a second read that
+    // passes hides why the first could not say how the machine stands.
+    testWidgets("a read refused after the token was taken is said, and the machine is not asked again", (tester) async {
+      final connections = _Unreadable(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          connections.unreadable = true;
+          // As the token's step does once the machine took it; it says nothing of a read refused after.
+          try {
+            await connections.tokenTaken(host);
+          } on OrganizationRefused {
+            // Said by the page.
+          }
+          connections.unreadable = false;
+          return null;
+        },
+      );
+      asksOnce(tester, connections);
+      await tester.pumpAndSettle();
+      connections.asked.clear();
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(reads(connections), ['progress build']);
+      expect(find.text('build could not say how far it has come.'), findsOneWidget);
+    });
+
+    // Harm: the token's step connected the machine, no token was given, and the page never reads the machine it is
+    // now connected to.
+    testWidgets('a press that gave no token reads the machine the step connected meanwhile', (tester) async {
+      final connections = FixtureConnections()..hearTokenWait('build', waits: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          // As the token's step does: it connects first.
+          await connections.connect(host);
+          return 'No GitHub token is kept on this computer.';
+        },
+      );
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(reads(connections), ['progress build']);
+    });
+
+    // Harm: the Machine Admin role was taken while the read after the token was on its way, and its refusal is said
+    // at the page's head to someone who may no longer read the machine.
+    testWidgets('a read refused after the role was taken meanwhile is not said', (tester) async {
+      final connections = _Held(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      final made = await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (_, {atOnce = false}) async => null,
+      );
+      final hold = connections.hold = Completer<void>();
+      await pressOrganizationAction(tester, 'giveToken', settle: () => tester.pump());
+      made.source.view = organizationFor(
+        'hana',
+        host: const OrganizationHost(name: 'build', admins: ['mia'], projects: ['demo']),
+      );
+      await tester.widget<OrganizationHostPage>(find.byType(OrganizationHostPage)).organization.refresh();
+      await tester.pump();
+      connections.refuseNext = const OrganizationRefused('build could not say how far it has come.');
+      hold.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('build could not say how far it has come.'), findsNothing);
+    });
+
+    // Harm: the machine moved while the page's read of the old one was on its way, and the new one is never read.
+    testWidgets('a machine moved while its read was on its way is read anew', (tester) async {
+      final connections = _HeldMoving(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      final hold = connections.hold = Completer<void>();
+      final made = await page(tester, 'hana', connections: connections);
+      connections
+        ..hold = null
+        ..machine = 'at 203.0.113.99';
+      made.source.view = organizationFor(
+        'hana',
+        host: OrganizationHost(
+          name: 'build',
+          address: '203.0.113.99',
+          port: buildHost.port,
+          hostKey: buildHost.hostKey,
+          admins: const ['hana'],
+          projects: const ['demo'],
+        ),
+      );
+      await tester.widget<OrganizationHostPage>(find.byType(OrganizationHostPage)).organization.refresh();
+      await tester.pumpAndSettle();
+      hold.complete();
+      await tester.pumpAndSettle();
+      expect(reads(connections), ['progress build', 'progress build'], reason: 'the old machine, then the new one');
     });
 
     // Harm: a person cannot see what is on the machine for a wall of the same sentence.
@@ -1963,6 +2059,20 @@ class _HeldMoving extends _Held {
 
   @override
   Object? machineOf(String host) => machine;
+}
+
+/// Connections that refuse a read of a machine not connected to, as Porelo's own do.
+class _Strict extends FixtureConnections {
+  _Strict();
+
+  @override
+  Future<HostProgress> progress(String host) async {
+    if (connected(host)) return super.progress(host);
+    asked.add('progress $host, not connected');
+    // A machine answers over ssh, never within the call that asked it.
+    await Future<void>.value();
+    throw OrganizationRefused('Connect to $host first.');
+  }
 }
 
 class _DownConnections extends FixtureConnections {

@@ -526,12 +526,13 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     if (machine != _machineSeen) {
       final before = _machineSeen;
       _machineSeen = machine;
+      // The machine named now is asked anew, though a read of the one before is still on its way.
+      if (before != null) _askedProgress = false;
       if (before != null && _progress != null) {
         setState(() {
           _progress = null;
           _heardSeen = null;
         });
-        _askedProgress = false;
       }
     }
     // The wait ended other than by a read, as once the token was taken: what this page read of it is no longer so, and
@@ -602,7 +603,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       }
       if (stands && !byAButton) _refusal = refusal;
     });
-    return refusal;
+    // A refusal that no longer stands is said nowhere, beside a button neither.
+    return stands ? refusal : null;
   }
 
   /// Gives the host the token, then reads it again; answers why it was not given, or why the reading failed. Asked
@@ -610,6 +612,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   Future<String?> _giveToken({bool byTheButton = true}) async {
     final first = _waitsForItsToken(widget.host);
     final before = widget.connections?.heard(widget.host);
+    final takenBefore = widget.connections?.tokenTakenRead(widget.host).count;
     // The page is busy while the token is given, as for any other ask of the machine.
     setState(() {
       _working++;
@@ -624,15 +627,24 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     }
     final connections = widget.connections;
     if (!mounted || connections == null) return words;
-    // A press that gave no token asks the machine nothing. A given token has the machine asked once already, where it
-    // was given: its answer is taken, not asked again, and the connection that may come up after reads nothing more.
+    // A press that gave no token asks the machine nothing of its own: the page reads it as it would have meanwhile, as
+    // one the token's step connected. A given token has the machine asked once already, where it was given: its answer
+    // or its refusal is taken, not asked again, and the connection that may come up after reads nothing more. A
+    // machine not connected to is read once its connection comes up.
     String? refusal;
-    if (words == null) {
+    if (words != null) {
+      _askProgress();
+    } else if (connections.connected(widget.host)) {
       _askedProgress = true;
       final heard = connections.heard(widget.host);
-      refusal = heard != null && !identical(heard, before)
-          ? await _read(() async => heard, byAButton: true)
-          : await _read(() => connections.ask(widget.host), byAButton: true);
+      final taken = connections.tokenTakenRead(widget.host);
+      if (heard != null && !identical(heard, before)) {
+        refusal = await _read(() async => heard, byAButton: true);
+      } else if (taken.count != takenBefore) {
+        refusal = taken.refused;
+      } else {
+        refusal = await _read(() => connections.ask(widget.host), byAButton: true);
+      }
     }
     // The host has made the account it could not make before: now the connection itself can come up. A read refused
     // before it is still said, though the connection comes up.

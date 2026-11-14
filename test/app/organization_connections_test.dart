@@ -805,6 +805,98 @@ void main() {
     expect(made.tokenWaitHeard('build'), isNull);
   });
 
+  // Harm: the machine moved while its connection was raised, before it was asked why it turned the person away, and
+  // the old machine's wait is said of the new one.
+  test("a turn-away of a machine moved while it was raised is not the moved machine's wait", () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    final raised = holdStart = Completer<void>();
+    final connecting = made.connect('build');
+    await pumpEventQueue();
+    await reads(
+      made,
+      _mia(
+        host: hostOfMia(address: '203.0.113.99', hostKey: _otherHostKey),
+      ),
+    );
+    raised.complete();
+    try {
+      await connecting;
+    } on OrganizationRefused {
+      // Turned away with no wait of the new machine's to say.
+    }
+    expect(refreshed, isNotEmpty, reason: 'the old machine was asked');
+    expect(made.tokenWaitHeard('build'), isNull);
+  });
+
+  // Harm: a read of the old machine still on its way is joined by a read of the machine moved to another address, and
+  // the old machine's wait is shown as the new one's.
+  test("a read of a machine moved since is neither joined nor kept as the moved machine's word", () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    await made.connect('build');
+    hostSays = '{"organization": "waiting-for-token"}';
+    final answer = holdAnswer = Completer<void>();
+    final old = made.ask('build');
+    while (refreshed.isEmpty) {
+      await pumpEventQueue();
+    }
+    await reads(
+      made,
+      _mia(
+        host: hostOfMia(address: '203.0.113.99', hostKey: _otherHostKey),
+      ),
+    );
+    await made.connect('build');
+    expect(made.connected('build'), isTrue, reason: 'connected to the new machine');
+    holdAnswer = null;
+    hostSays = '{}';
+    await made.ask('build');
+    expect(refreshed, hasLength(2), reason: 'the new machine asked itself');
+    hostSays = '{"organization": "waiting-for-token"}';
+    answer.complete();
+    await old;
+    expect(made.heard('build')?.waitsForToken, isFalse);
+    expect(made.tokenWaitHeard('build'), isNull);
+  });
+
+  // Harm: a wait that ends without a read of it, as a Connect's, leaves a machine whose read was refused unasked for
+  // good, so its row says nothing of how it stands.
+  test('a wait that ends has the machine asked again, though its read was refused', () async {
+    final made = FixtureConnections(['build'])
+      ..waiting.add('build')
+      ..refuseNext = const OrganizationRefused('build could not say how far it has come.');
+    addTearDown(made.dispose);
+    final view = organizationFor('hana');
+    // As the window does: each machine its Machine Admin may ask is asked once, on every change.
+    void askOnce() => made.askOnce(view);
+    made.addListener(askOnce);
+    askOnce();
+    await pumpEventQueue();
+    made.asked.clear();
+    made.hearTokenWait('build', waits: false);
+    await pumpEventQueue();
+    expect(made.asked, ['progress build']);
+  });
+
+  // Harm: the token's step joins a read begun before the token was given, and what the machine said before is kept as
+  // what it says now.
+  test("a project's token taken has the machine asked anew, not joined to a read begun before", () async {
+    final made = _HeldReads(['build'])
+      ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+    addTearDown(made.dispose);
+    final hold = made.hold = Completer<void>();
+    final before = made.ask('build');
+    made
+      ..hold = null
+      ..hostProgress = const HostProgress();
+    final taking = made.tokenTaken('build');
+    hold.complete();
+    await before;
+    await taking;
+    expect(made.asked, ['progress build', 'progress build']);
+  });
+
   // Harm: right after Prepare the machine has not yet made the person's account, as its first follow runs within five
   // minutes; its turn-away then read as a refusal in red, and the connection was taken down instead of waited for.
   test('a machine just prepared that turns one away is waited for, kept, and not refused', () async {
@@ -1486,4 +1578,17 @@ void main() {
 class _Unprotected extends HostFileWriter {
   @override
   Future<void> protectDirectory(Directory directory) async {}
+}
+
+/// Connections whose reads of how far a machine has come wait for [hold], as it was when they were asked.
+class _HeldReads extends FixtureConnections {
+  _HeldReads(super.hosts);
+
+  Completer<void>? hold;
+
+  @override
+  Future<HostProgress> progress(String host) async {
+    await hold?.future;
+    return super.progress(host);
+  }
 }

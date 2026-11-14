@@ -137,12 +137,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f560"></a>[F560](F560-A-Token-Wait-Holds-Through-Moves-And-Refused-Reads.md) | S | [F558](README.md#f558) | The races a third reading found in the token wait a machine's page says: a refused read after the token was given, a project's token joining a read begun before it, a page left unread after a press that gave no token, a refusal said after the role went, and an old machine's answer kept for a moved one. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
@@ -179,6 +173,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f453"></a>[F453](F453-A-Machines-Project-Page-Lists-What-It-Carries-First.md) | S | - | A machine's project page lists the carried repositories first and folds the rest with their count; no raw host word; forge names shown as such; zero tasks said as 0. |
 | <a id="f458"></a>[F458](F458-The-Task-Terminal-Grows-With-The-Window.md) | XS | - | The agent's screen grows with the window. |
 | <a id="f460"></a>[F460](F460-The-Hosts-Finished-Work-Brought-To-Central-From-The-Window.md) | M | - | *Bring it to central…* brings a host's finished `main` to the central forge from the project's page, refusals in the backend's words. |
+| <a id="f560"></a>[F560](F560-A-Token-Wait-Holds-Through-Moves-And-Refused-Reads.md) | S | [F558](README.md#f558) | The races a third reading found in the token wait a machine's page says: a refused read after the token was given, a project's token joining a read begun before it, a page left unread after a press that gave no token, a refusal said after the role went, and an old machine's answer kept for a moved one. |
 | <a id="f438"></a>[F438](F438-Rows-And-Running-Steps-After-The-Third-Move.md) | M | - | A row keeps its chip and buttons inside, running steps say they run, a machine not yet admitting says it waits, growing output follows its last line. |
 | <a id="f461"></a>[F461](F461-Every-Screen-Of-The-Window-Read-For-Look-And-Sense.md) | M | - | Every screen captured headless at three sizes, light and dark, full and empty, read by another model against a visual and a logical checklist; every finding listed with its screen and size, nothing fixed yet. |
 | <a id="f464"></a>[F464](F464-My-Machines-Keeps-A-Machine-Being-Prepared.md) | S | - | *My machines* keeps a machine being prepared in its list and count, the drop caught live first. |

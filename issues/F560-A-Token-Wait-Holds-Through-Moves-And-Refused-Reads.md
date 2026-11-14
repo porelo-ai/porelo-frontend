@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F560",
   "title": "A Token Wait Holds Through Moves And Refused Reads",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 11,
@@ -39,6 +39,22 @@ A third reading of [F558](README.md#f558)'s code found these, left for after its
 
 Each gets a test with its harm, red first, in `test/ui/organization_host_pages_test.dart` or
 `test/app/organization_connections_test.dart`, with the window's `askOnce` attached as the shell attaches it.
+
+- **Built.** Every case was real. `tokenTaken` keeps how often it ran and why its read was refused
+  (`tokenTakenRead`): a page that gave the token takes that refusal instead of asking again, and reads a machine it
+  is not connected to only once the connection comes up. `tokenTaken` drops an ask begun before it, a project's
+  token too, and every end of a wait has the machine asked once again. A press that gave no token has the page read
+  the machine as it would have meanwhile. `_read` answers no refusal that no longer stands. An ask joins only an ask
+  of the same machine (`machineOf`); a read of `CardHostConnections` keeps nothing of a machine moved while it was
+  asked, and `_waitsForToken` compares against the card it asked. A move has the page ask the new machine though its
+  read of the old one is still out. Tests, each red before: a refused read after the token said and not asked again;
+  a read once connected after the token, with reads refused while not connected (the earlier test of that name, whose
+  stand-in read before connecting, is rewritten so); a press that gave no token reading the machine connected
+  meanwhile; a refusal after the role was taken not said; the new machine read after a move; unit tests for a
+  turn-away of a machine moved while raised, a read of a moved machine neither joined nor kept (red with either guard
+  taken out), a wait's end asking again after a refused read, and a project's token asking anew.
+- **Left.** A read begun before the token was taken, of the same machine, still keeps its answer when it lands after
+  the wait ended. A dialog closed without a token still answers as a given one does.
 
 ## Acceptance
 

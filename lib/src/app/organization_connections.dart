@@ -161,8 +161,11 @@ class CardHostConnections extends HostConnections {
     return view != null && entry != null && view.holdsRoles && entry.admins.contains(view.me);
   }
 
-  /// What the machine now says of the token is what stands, whoever gave it and from where.
-  HostProgress _heard(String host, HostProgress progress) {
+  /// What the machine now says of the token is what stands, whoever gave it and from where, while [asked] is still the
+  /// machine the organization names.
+  HostProgress _heard(String host, HostProgress progress, {required Object? asked}) {
+    // A machine moved while it was asked: its word is none of the machine named now.
+    if (machineOf(host) != asked) return progress;
     if (!progress.waitsForToken) _waiting.remove(host);
     // Root's word is no word to someone whose role was taken while it was asked.
     if (!_administers(host)) return progress;
@@ -341,7 +344,9 @@ class CardHostConnections extends HostConnections {
   /// [still] no longer holds says nothing.
   Future<bool> _waitsForToken(Machine machine, String host, {bool Function()? still}) async {
     if (!_administers(host)) return false;
-    final asked = machineOf(host);
+    // The machine its card names, which is the one asked, not whichever the organization may name by now.
+    final card = machine.hostCard;
+    final asked = card == null ? null : (address: card.address, port: card.sshPort, hostKey: card.hostKey);
     try {
       final waits = (await _progress.status(machine.sshConfig, host)).waitsForToken;
       // Root's word is no word to someone whose role was taken while it was asked, nor of a machine moved since.
@@ -411,10 +416,16 @@ class CardHostConnections extends HostConnections {
   }
 
   @override
-  Future<HostProgress> refresh(String host) async => _heard(host, await _progress.refresh(_config(host), host));
+  Future<HostProgress> refresh(String host) async {
+    final asked = machineOf(host);
+    return _heard(host, await _progress.refresh(_config(host), host), asked: asked);
+  }
 
   @override
-  Future<HostProgress> progress(String host) async => _heard(host, await _progress.status(_config(host), host));
+  Future<HostProgress> progress(String host) async {
+    final asked = machineOf(host);
+    return _heard(host, await _progress.status(_config(host), host), asked: asked);
+  }
 
   /// Whether each host offers the start of its read of the organization, as asked once per connection: the reason it
   /// does not, or null where it does.

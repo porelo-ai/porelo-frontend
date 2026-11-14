@@ -952,23 +952,39 @@ abstract class HostConnections extends ChangeNotifier {
   /// What the token's step does once [host] took a token: the wait it waited for is no longer the last word of it,
   /// whether or not it can be read now, and a machine connected to is asked what it says now, joining every other ask
   /// begun since rather than logging in as root beside it.
+  /// An ask begun before the token is no answer to it, a project's token too. A refusal of this ask is kept for
+  /// [tokenTakenRead] and thrown.
   Future<void> tokenTaken(String host) async {
+    _asking.remove(host);
     hearTokenWait(host, waits: false);
-    if (connected(host)) await ask(host);
+    String? refused;
+    try {
+      if (connected(host)) await ask(host);
+    } on OrganizationRefused catch (refusal) {
+      refused = refusal.words;
+      rethrow;
+    } finally {
+      _tokensTaken[host] = (count: tokenTakenRead(host).count + 1, refused: refused);
+    }
   }
+
+  final _tokensTaken = <String, ({int count, String? refused})>{};
+
+  /// How often [tokenTaken] ran for [host], and why its last read was refused, or null where it was not: a page that
+  /// gave the token takes that, rather than asking the machine again as root.
+  ({int count, String? refused}) tokenTakenRead(String host) => _tokensTaken[host] ?? (count: 0, refused: null);
 
   /// Ends every word of [host]'s wait for its first token; answers whether there was one.
   bool _endTokenWait(String host) {
     final kept = _tokenWaits.remove(host) != null;
     final read = _heard[host]?.waitsForToken ?? false;
-    if (read) {
-      // What it said is no longer so, and it is asked again once.
-      _heard.remove(host);
-      _askedOnce.remove(host);
-    }
+    // What it said is no longer so.
+    if (read) _heard.remove(host);
     final ended = dropTokenWait(host) | kept | read;
     if (ended) {
       _tokenWaitEnds[host] = tokenWaitEnds(host) + 1;
+      // Asked again once, also where its last read was refused.
+      _askedOnce.remove(host);
       // An ask begun before is no answer to what the machine says now: the next ask starts anew, and others join it.
       _asking.remove(host);
     }
@@ -990,19 +1006,21 @@ abstract class HostConnections extends ChangeNotifier {
   /// The hosts the last [askOnce] found not this person's to administer.
   final _notTheirs = <String>{};
 
-  /// The ask of each host on its way, which a second ask joins.
-  final _asking = <String, Future<HostProgress>>{};
+  /// The ask of each host on its way and the machine it asks, which a second ask of that machine joins.
+  final _asking = <String, ({Object? machine, Future<HostProgress> asking})>{};
 
-  /// Asks [host] how far it has come, as [progress] does, joining an ask already on its way rather than logging in as
-  /// root a second time.
+  /// Asks [host] how far it has come, as [progress] does, joining an ask of the same machine already on its way rather
+  /// than logging in as root a second time; one of a machine moved since is no answer for this one.
   Future<HostProgress> ask(String host) {
-    if (_asking[host] case final asking?) return asking;
+    final machine = machineOf(host);
+    if (_asking[host] case (machine: final asked, :final asking) when asked == machine) return asking;
     late final Future<HostProgress> asking;
     asking = progress(host).whenComplete(() {
       // In a block: a callback answering this very future would wait for itself. An ask begun since stays.
-      if (identical(_asking[host], asking)) _asking.remove(host);
+      if (identical(_asking[host]?.asking, asking)) _asking.remove(host);
     });
-    return _asking[host] = asking;
+    _asking[host] = (machine: machine, asking: asking);
+    return asking;
   }
 
   /// What [host] last said of how far it has come, while this computer is connected to it; null where it was not
