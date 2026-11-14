@@ -21,7 +21,6 @@ class SshConsoleView extends StatelessWidget {
     required this.head,
     required this.open,
     required this.settings,
-    this.unavailable,
     super.key,
   });
 
@@ -31,14 +30,11 @@ class SshConsoleView extends StatelessWidget {
   /// The leaf's path, notices and filter, as every section of a machine has them.
   final LeafHead head;
 
-  /// Opens the terminal.
+  /// Opens the terminal; its reason, where it cannot now, is said under its button.
   final Command open;
 
   /// Where the explanation's fold is kept.
   final Settings settings;
-
-  /// Why it cannot be opened now, in the words the machine's page uses; null where it can.
-  final String? unavailable;
 
   static final _id = machineSectionPageId(MachineSection.console);
 

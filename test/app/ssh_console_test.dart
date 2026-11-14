@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/ssh_console.dart';
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh;
@@ -40,16 +41,110 @@ void main() {
     expect(sshConsoleOffered(const Machine(name: 'forwarded', socketPath: '/tmp/forwarded.sock')), isFalse);
   });
 
-  // Harm: the console logs in by a key file, asks a password in the window, or trusts a key the machine was not
-  // pinned with, where the window's own commands to that machine would not.
-  test("the console runs ssh with the machine's own options, a terminal and its host, and nothing else", () {
-    for (final machine in [_card, _byAddress]) {
-      final command = sshConsoleCommand(machine);
-      expect(command, ['ssh', ...machine.loginSshOptions, '-t', machine.host]);
-      expect(command, isNot(contains('-i')), reason: 'the key comes from the agent, never a file');
-      expect(command.join(' '), isNot(contains('Password')), reason: 'no password reaches ssh from here');
+  group('on Linux', () {
+    late Desk before;
+    setUp(() {
+      before = desk;
+      desk = Desk.of('linux', const {});
+    });
+    tearDown(() => desk = before);
+
+    // Harm: the console logs in by a key file, asks a password in the window, trusts a key the machine was not
+    // pinned with, or opens a connection of its own beside the card's master.
+    test("a card's console runs ssh by the card's config through its master, a terminal and its host alone", () {
+      expect(sshConsoleCommand(_card), [
+        'ssh',
+        '-F',
+        '/tmp/orchard.config',
+        '-o',
+        'ControlMaster=no',
+        '-o',
+        'ProxyCommand=false',
+        '-t',
+        'orchard',
+      ]);
+    });
+
+    // Harm: a machine added by its address gets options of the window's own that its other commands do not take.
+    test("a machine added by its address runs plain ssh to its account, as the window's other commands to it", () {
+      expect(sshConsoleCommand(_byAddress), ['ssh', '-t', 'alice@vm.example.org']);
+    });
+  });
+
+  // Harm: on Windows the console runs another ssh than the system's OpenSSH, or waits on a control master Windows'
+  // OpenSSH does not hold.
+  test("on Windows a card's console runs the system's OpenSSH by the card's config, with a connection of its own", () {
+    final before = desk;
+    desk = Desk.of('windows', const {'SystemRoot': r'D:\Windows'});
+    addTearDown(() => desk = before);
+    expect(sshConsoleCommand(_card), [
+      r'D:\Windows\System32\OpenSSH\ssh.exe',
+      '-F',
+      '/tmp/orchard.config',
+      '-t',
+      'orchard',
+    ]);
+  });
+
+  // Harm: an entry the window cannot reach opens a console by a key file, an unverified host or no config at all.
+  group('an entry the window cannot reach opens no console', () {
+    final card = _card.hostCard!;
+    for (final (what, machine) in [
+      (
+        'an obsolete host entry with a key file',
+        const Machine(
+          name: 'old',
+          socketPath: '/tmp/old.sock',
+          host: 'old.example.org',
+          remoteSocket: '/run/porelo/porelod.sock',
+          kind: 'host',
+          identity: '/keys/old',
+        ),
+      ),
+      (
+        "a card's entry whose host is not the card's",
+        Machine(
+          name: 'orchard',
+          socketPath: '/tmp/orchard.sock',
+          host: 'elsewhere.example.org',
+          remoteSocket: card.daemonSocket,
+          kind: 'host',
+          hostCard: card,
+          sshConfig: '/tmp/orchard.config',
+        ),
+      ),
+      ("a card's entry without its config", Machine.fromHostCard(card, socketPath: '/tmp/orchard.sock', sshConfig: '')),
+      (
+        'a host entry naming no project',
+        const Machine(
+          name: 'bare',
+          socketPath: '/tmp/bare.sock',
+          host: 'bare.example.org',
+          remoteSocket: '/run/porelo/porelod.sock',
+          kind: 'host',
+        ),
+      ),
+    ]) {
+      test(what, () {
+        expect(machine.whyNotReachableHere, isNotNull, reason: 'the page says the same words');
+        expect(() => sshConsoleCommand(machine), throwsStateError);
+        expect(sshConsoleRefusal(machine), isNotNull, reason: 'the page greys its button with these words');
+      });
     }
-    expect(sshConsoleCommand(_card), containsAllInOrder(['-F', '/tmp/orchard.config']));
+
+    // Harm: a configuration that cannot be built escapes as another error than the one the console's caller says.
+    test('a host project whose config cannot be built', () {
+      const machine = Machine(
+        name: 'odd',
+        socketPath: '/tmp/odd.sock',
+        host: 'odd.example.org',
+        remoteSocket: '/run/porelo/porelod.sock',
+        kind: 'host',
+        hostProject: 'not a name',
+      );
+      expect(() => sshConsoleCommand(machine), throwsStateError);
+      expect(sshConsoleRefusal(machine), contains('SSH configuration could not be found'));
+    });
   });
 
   // Harm: a host that reads as an option makes ssh run what it names.

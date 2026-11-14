@@ -4758,8 +4758,8 @@ class _ShellState extends State<Shell> {
                 open: openSshConsoleCommand(
                   machine: machine.name,
                   open: () => unawaited(_openSshConsole(machine)),
-                  // In the words the page's head already says, and nothing is started.
-                  unavailable: machine.whyNotReachableHere ?? (answering ? null : '${machine.name} does not answer.'),
+                  // In the words the page and the console's own refusal use, and nothing is started.
+                  unavailable: sshConsoleRefusal(machine) ?? (answering ? null : '${machine.name} does not answer.'),
                 ),
               ),
               _ => _explainedLeaf(explanationId, _machineToolPage(machine, fleet, section, tools, head)),

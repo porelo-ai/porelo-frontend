@@ -57,10 +57,13 @@ without a key file, a password prompt in the window, or trusting a key the machi
   computer's pseudoterminal (ConPTY on Windows, by `openHere`), in the terminal view the window's other terminals
   use, in a dialog over the page. No remote command follows the host, so the account's login shell starts. The
   options are the machine's own and no others: for a card's machine its ssh config, through the card's control
-  master on Linux and a connection of its own by the same config on Windows; no key file and no password option. A
-  host that starts with a dash opens nothing.
-- Where the machine is not reachable here, or does not answer, the button stands grey with the page's own words
-  (`whyNotReachableHere`, or *<machine> does not answer.*) and nothing is started.
+  master on Linux and a connection of its own by the same config on Windows (the system's OpenSSH); no key file and
+  no password option. `sshConsoleCommand` itself refuses, with a `StateError` the page says, every entry the window
+  cannot reach (`whyNotReachableHere`: an obsolete entry with a key file, a card's entry whose host is not the
+  card's or that lacks its config, a host entry naming no project), a config that cannot be built, any `-i`, and a
+  host that starts with a dash; the button stands grey with that refusal's words (`sshConsoleRefusal`).
+- Where the machine does not answer, the button stands grey with the page's own words (*<machine> does not
+  answer.*) and nothing is started.
 - A machine added by its address (no card) has no pin of its own: its console takes its options as every other
   command to it does, which are none, so ssh reads the person's own config and known_hosts and asks before it trusts
   an unknown host key, in the terminal.
