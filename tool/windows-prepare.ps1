@@ -18,8 +18,8 @@ $ErrorActionPreference = 'Stop'
 
 $base = ((Select-String -Path pubspec.yaml -Pattern '^version:').Line -replace 'version:\s*', '').Trim() -replace '-SNAPSHOT$', ''
 $run = if ($env:GITHUB_RUN_NUMBER) { $env:GITHUB_RUN_NUMBER } else { '0' }
-$release = $env:GITHUB_REF -like 'refs/tags/v*'
-if ($release) { $version = $base } else { $version = "$base~snapshot.$run" }
+$isRelease = $env:GITHUB_REF -like 'refs/tags/v*'
+if ($isRelease) { $version = $base } else { $version = "$base~snapshot.$run" }
 
 $given = @($env:PORELO_HOST_COLLECTION_VERSION, $env:PORELO_HOST_COLLECTION_SHA256, $env:PORELO_HOST_COLLECTION_FILE)
 $collectionDefines = @()
@@ -47,7 +47,7 @@ if ($LASTEXITCODE -ne 0 -or $collection.Count -ne 3) { throw 'Cannot read the ca
 if ($collectionDefines.Count -gt 0 -and ($collection -join ' ') -ne "$($given[0]) $($given[1]) $($given[2])") {
   throw "porelo-host names the collection $($collection -join ' '), not $($given -join ' ')"
 }
-if ($release -and $collection[0] -notmatch '^\d+\.\d+\.\d+$') {
+if ($isRelease -and $collection[0] -notmatch '^\d+\.\d+\.\d+$') {
   throw "A release carries a released collection, not $($collection[0])"
 }
 Write-Host "porelo-host carries the collection $($collection[0]), SHA-256 $($collection[1])"
