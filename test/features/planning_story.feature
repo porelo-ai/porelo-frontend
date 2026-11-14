@@ -250,12 +250,13 @@ Feature: Open stories and issues from planning
         And I open planning issue {'B541'}
         Then the planning task {'missing-task'} is disabled with {'does not know task missing-task'}
 
-    # Harm: removing a provider disposes a board while its detail still listens.
+    # Harm: removing a provider disposes a board while its detail still listens, or leaves the page without its i.
     Scenario: Removing a provider closes its detail safely
         Given another machine offers the same project planning
         When I open planning story {'ST291'}
         And I remove the planning provider
         Then the unavailable planning source is shown
+        And the planning page has its i
         And planning has no asynchronous error
 
     # Harm: partial sections claim that no report exists while showing entries from it.

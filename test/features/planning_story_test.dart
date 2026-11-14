@@ -56,6 +56,7 @@ import './step/the_planning_story_has_unknown_work.dart';
 import './step/the_planning_task_is_disabled_with.dart';
 import './step/i_remove_the_planning_provider.dart';
 import './step/the_unavailable_planning_source_is_shown.dart';
+import './step/the_planning_page_has_its_i.dart';
 import './step/the_planning_issue_has_partial_sections.dart';
 import './step/the_planning_replacement_part_is_refused.dart';
 import './step/i_reload_planning.dart';
@@ -340,6 +341,7 @@ void main() {
       await iOpenPlanningStory(tester, 'ST291');
       await iRemoveThePlanningProvider(tester);
       await theUnavailablePlanningSourceIsShown(tester);
+      await thePlanningPageHasItsI(tester);
       await planningHasNoAsynchronousError(tester);
     });
     testWidgets('''Partial acceptance and sub-agent reports are labeled incomplete''', (tester) async {

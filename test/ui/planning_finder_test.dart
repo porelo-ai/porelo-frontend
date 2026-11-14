@@ -85,6 +85,15 @@ void main() {
     expectOneTitle(planningElement('detail'), board: false);
   });
 
+  // Harm: a page's first-time words stand above its title, so the page reads from its middle.
+  testWidgets('planning\'s first-time words stand under the screen\'s head', (tester) async {
+    await _onTheBoard(tester);
+    final words = find.byKey(const ValueKey<String>('explanation planning'));
+    expect(find.descendant(of: find.byType(PlanningScreen), matching: words), findsOneWidget);
+    final head = find.descendant(of: find.byType(PlanningScreen), matching: find.text('Planning')).first;
+    expect(tester.getTopLeft(words).dy, greaterThanOrEqualTo(tester.getBottomLeft(head).dy));
+  });
+
   // Harm: an issue found from elsewhere skips its story on the way back.
   testWidgets('the finder opens an issue from Work, and the back key leads to its story, then the board', (
     tester,

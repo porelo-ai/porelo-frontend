@@ -52,3 +52,7 @@ breadcrumb, beside the *i*.
   draws its fallback crumb without `pageButton`, so that page has no *i*. This is asked of porelo-planner.
 - **The first-time words above the title.** The window can place its first-time words only above the whole screen, so
   they stand above the screen's *Planning* head, not under it. A `pageNote` slot is asked of porelo-planner.
+
+Both are answered by porelo-planner `afadf42`, taken in the next commit: Planning's first-time words go to
+`pageNote`, under the screen's head and a detail page's breadcrumb, and the fallback page carries the *i*. A guard holds
+each, red on this commit's state.

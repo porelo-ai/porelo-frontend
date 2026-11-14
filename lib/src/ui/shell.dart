@@ -4353,12 +4353,14 @@ class _ShellState extends State<Shell> {
                           child: switch (widget.shell.section) {
                             Section.work => _workArea(),
                             Section.attention => _needsYou(),
-                            // The screen draws Planning's head and a detail page's breadcrumb, with the i beside it.
+                            // The screen draws Planning's head and a detail page's breadcrumb, with the i beside it
+                            // and the first-time words under it.
                             Section.planning => _explained(
                               'planning',
                               Section.planning.label,
                               pageWords['planning']!,
                               _planningPage(),
+                              wordsInPage: true,
                             ),
                             Section.cards => _explained(
                               'cards',
@@ -4515,6 +4517,7 @@ class _ShellState extends State<Shell> {
           ),
           agents: _planningAgents!,
           pageButton: PageExplanationButton(id: 'planning', settings: widget.settings),
+          pageNote: _planningWords(),
         ),
       },
     ),
@@ -4534,11 +4537,20 @@ class _ShellState extends State<Shell> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       PageHead(title: Section.planning.label, id: 'planning', settings: widget.settings),
-      Expanded(child: _planningWords(words, start: start)),
+      _planningWords(),
+      Expanded(child: _planningReason(words, start: start)),
     ],
   );
 
-  Widget _planningWords(String words, {Future<void> Function()? start}) => Center(
+  /// Planning's first-time words, standing under its head.
+  Widget _planningWords() => PageExplanation(
+    key: const ValueKey<String>('explanation planning'),
+    id: 'planning',
+    settings: widget.settings,
+    parts: pageWords['planning']!,
+  );
+
+  Widget _planningReason(String words, {Future<void> Function()? start}) => Center(
     child: Padding(
       padding: const EdgeInsets.all(Space.loose),
       child: Column(
@@ -5718,6 +5730,7 @@ class _ShellState extends State<Shell> {
     List<({String title, String words})> parts,
     Widget page, {
     bool ownHead = false,
+    bool wordsInPage = false,
   }) => PageExplanationScope(
     title: title,
     id: id,
@@ -5727,7 +5740,7 @@ class _ShellState extends State<Shell> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         if (ownHead) PageHead(title: title, id: id, settings: widget.settings),
-        if (id != 'forges' && id != 'projects' && id != 'needs-you')
+        if (!wordsInPage && id != 'forges' && id != 'projects' && id != 'needs-you')
           PageExplanation(key: ValueKey<String>('explanation $id'), id: id, settings: widget.settings, parts: parts),
         Expanded(child: page),
       ],
