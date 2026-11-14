@@ -166,7 +166,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     daemon.method('ImportCredential', _importCredential);
     daemon.method(
       'CredentialReceiver',
-      (_) => <String, dynamic>{'key': 'bW9jay1rZXk=', 'until': '2099-01-01T00:00:00Z'},
+      (_) => <String, dynamic>{'outcome': 'READY', 'key': 'bW9jay1rZXk=', 'until': '2099-01-01T00:00:00Z'},
     );
     daemon.method('SealCredential', _sealCredential);
     // A stand-in has nothing to open: what arrives is taken as stored.

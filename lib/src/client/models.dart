@@ -3590,6 +3590,9 @@ class Providers {
 
 /// A host's one-use key to seal a credential to, held for a few minutes.
 class CredentialReceiver {
+  /// `READY`, or `VAULT_LOCKED` when the host's vault is shut and could take nothing.
+  final String outcome;
+
   /// The X25519 public half, base64. The private half never leaves the host's daemon.
   final String key;
 
@@ -3597,11 +3600,14 @@ class CredentialReceiver {
   final String until;
 
   /// Constructor taking both.
-  const CredentialReceiver({required this.key, required this.until});
+  const CredentialReceiver({required this.key, required this.until, this.outcome = 'READY'});
+
+  /// Whether the host waits for a credential.
+  bool get isReady => outcome == 'READY';
 
   /// Reads one from a reply.
   factory CredentialReceiver.from(Map<String, dynamic> map) =>
-      CredentialReceiver(key: _string(map, 'key'), until: _string(map, 'until'));
+      CredentialReceiver(outcome: _string(map, 'outcome'), key: _string(map, 'key'), until: _string(map, 'until'));
 }
 
 /// One credential sealed here to a host's key.

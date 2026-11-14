@@ -150,6 +150,16 @@ Future<CarryOutcome> carry({
   bool replace = false,
 }) async {
   final receiver = await host.credentialReceiver();
+  // Nothing is taken from this computer for a host that could not store it.
+  if (!receiver.isReady) {
+    return CarryOutcome(
+      stored: false,
+      exists: false,
+      words: receiver.outcome == 'VAULT_LOCKED'
+          ? "The host's vault is shut, so it could not take it. It is opened at the host."
+          : 'The host is not ready to take it: ${receiver.outcome}.',
+    );
+  }
   final sealed = switch (source) {
     VaultEntrySource(:final name) => await here.sealCredential(key: receiver.key, name: name),
     AgentSignInSource(:final agent) => await here.sealCredential(key: receiver.key, agent: agent, provider: provider),

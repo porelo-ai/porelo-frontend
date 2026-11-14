@@ -20,12 +20,13 @@ class _End implements CarriesCredentials {
     detail: '',
   );
   List<String> receives = <String>['STORED'];
+  String receiverOutcome = 'READY';
 
   @override
   Future<CredentialReceiver> credentialReceiver() async {
     receivers++;
     calls.add('$name receiver');
-    return CredentialReceiver(key: 'key$receivers', until: '2026-11-14T16:30:00Z');
+    return CredentialReceiver(outcome: receiverOutcome, key: 'key$receivers', until: '2026-11-14T16:30:00Z');
   }
 
   @override
@@ -248,5 +249,18 @@ void main() {
       said.words,
       "This computer's vault is shut, so nothing could be taken from it. Open it here first. Run porelo vault unlock.",
     );
+  });
+
+  // Harm: this computer's credential is sealed for a host whose shut vault cannot take it.
+  test("a host's shut vault takes nothing, and nothing is sealed here", () async {
+    host.receiverOutcome = 'VAULT_LOCKED';
+    final said = await carry(
+      here: here,
+      host: host,
+      source: const VaultEntrySource(name: 'anthropic', type: 'api-key', characters: 51),
+      provider: 'anthropic',
+    );
+    expect(calls, <String>['host receiver']);
+    expect(said.words, contains("The host's vault is shut"));
   });
 }
