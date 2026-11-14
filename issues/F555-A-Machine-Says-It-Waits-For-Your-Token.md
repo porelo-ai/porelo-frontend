@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F555",
   "title": "A Machine Says It Waits For Your Token",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Highest",
   "rank": 5,
