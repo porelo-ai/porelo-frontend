@@ -69,6 +69,9 @@ class HostFixture implements OrganizationSource {
   /// What `up` was handed, by file path: a widget test's clock never ends real file work, so it keeps no real file.
   final machineFiles = <String, String>{};
 
+  /// How often the organization was read: each read is a `porelo org`, which may wait on the forge.
+  int reads = 0;
+
   Future<HostAccess> access(Settings settings, {HostAdminProof? proof, bool realFiles = false}) async {
     final scratch = Directory.systemTemp.createTempSync('porelo-host-setup-');
     addTearDown(() => scratch.deleteSync(recursive: true));
@@ -94,6 +97,7 @@ class HostFixture implements OrganizationSource {
 
   @override
   Future<OrganizationView> read() async {
+    reads++;
     if (readRefusal case final words?) throw OrganizationRefused(words);
     return OrganizationView(
       name: 'acme',

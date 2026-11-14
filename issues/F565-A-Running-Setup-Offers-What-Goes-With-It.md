@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F565",
   "title": "A Running Setup Offers What Goes With It",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "Highest",
   "rank": 9,
@@ -46,3 +46,30 @@ preparation ran:
 
 - A guard per point, each red first; the wizard, machine row and following-output tests green; the whole
   test/features before hand-over, as the wizard and the row are on many paths.
+
+## Built
+
+- **Where the protocol waited.** Not in the window's buffering: `HostSession` reads porelo-host's standard output line
+  by line and notifies at once, and the wizard and the row's dialog rebuild on that. The wait was the window's own,
+  before porelo-host started at all: the wizard (and *Add a machine*) read the organization to write the machine
+  file, and `HostRuns` then read it twice more (`check`, then `machineFile`, which checks again) before `up`. Measured
+  in `host_runs_test.dart` with a counting stand-in: two reads between the start and `up`'s process, beside the
+  caller's one. Each read is a `porelo org` and, when its answer is stale, a `porelo org --refresh` that may take up
+  to 60 seconds, so the empty pane of over a minute fits two such reads; the time itself was not measured on a real
+  forge. A start whose caller has just read the organization (`HostRuns.start(organizationReadJustNow: true)`, both
+  callers) now starts `up` without reading it again, the admin still required on that read; a setup taken up again
+  reads it once, by writing the machine file, instead of twice.
+- Until this start's first line comes, the protocol says *Waiting for the first line* (`FollowingOutput`'s
+  `waitingForFirstLine`, from `HostPreparation.waitsForFirstLine`), in the wizard and in the row's protocol.
+- **No Back while a step's action runs**: the wizard hides Back while the shown action step runs; it comes back once
+  the action waits or has answered.
+- **Leave without a warning** for an action step marked `goesOnWhenLeft`: Prepare, whose line says it goes on and
+  that its row opens the protocol again. Other actions, among them the token step, keep the question.
+- **The organization row's menu** offers *Open the machine protocol* alone while its preparation runs; everything else
+  comes back once it has ended or failed. The *Machines* page's preparation row was left as it was: its *Try again*
+  and *Take Porelo off this machine…* stand grey there with the reason that the setup command still runs.
+- **To be filed with Agent Machines:** porelo-host has no clean stop of a running `up`, so no stop entry is offered;
+  a stop needs one there, with what a half-set-up server is left as.
+- Seen while reading: between `ssh` done and `copy` started, porelo-host runs the carried collection's check with no
+  step line of its own, so the last line stands still for as long as that check runs.
+

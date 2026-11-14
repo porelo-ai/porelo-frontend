@@ -9,7 +9,7 @@ import 'package:porelo_frontend/src/ui/following_output.dart';
 void main() {
   String lines(int count) => [for (var line = 0; line < count; line++) 'Step number $line'].join('\n');
 
-  Future<void> show(WidgetTester tester, String text) async {
+  Future<void> show(WidgetTester tester, String text, {bool waiting = false}) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -18,7 +18,7 @@ void main() {
         home: Scaffold(
           body: Padding(
             padding: const EdgeInsets.all(24),
-            child: FollowingOutput(text: text),
+            child: FollowingOutput(text: text, waitingForFirstLine: waiting),
           ),
         ),
       ),
@@ -35,6 +35,15 @@ void main() {
 
   bool following(WidgetTester tester) =>
       tester.widget<FilterChip>(find.byKey(const Key('following-output.following'))).selected;
+
+  // Harm: a run that has said nothing yet shows a black, empty pane, and reads as stuck or broken for minutes.
+  testWidgets('a run that has said nothing yet says it waits for its first line, until one comes', (tester) async {
+    await show(tester, '', waiting: true);
+    expect(find.text('Waiting for the first line'), findsOneWidget);
+    await show(tester, 'Current attempt\n12:00:01 Take the server as given');
+    expect(find.text('Waiting for the first line'), findsNothing, reason: 'once a line came, the line stands alone');
+    expect(find.textContaining('Take the server as given'), findsOneWidget);
+  });
 
   testWidgets('the last line stays at the bottom while the person has not scrolled up', (tester) async {
     await show(tester, lines(5));

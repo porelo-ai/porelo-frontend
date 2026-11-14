@@ -138,6 +138,15 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
     });
   }
 
+  /// While a preparation runs, its protocol alone, as the row's button: a removal or a change of its address would race
+  /// the setup on the server. porelo-host has no clean stop of a running `up`, so none is offered.
+  List<Command> get _menu => switch (widget.preparation) {
+    final run? when run.running => [
+      if (widget.onProtocol case final open?) hostProtocolCommand(project: run.project, open: () => open(run)),
+    ],
+    _ => widget.commands,
+  };
+
   @override
   Widget build(BuildContext context) {
     final host = widget.host;
@@ -245,8 +254,8 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
                   onPressed: why != null || _connecting ? null : () => unawaited(_connect()),
                   child: const Text('Connect'),
                 ),
-              if (widget.commands.isNotEmpty)
-                CommandMenu(commands: widget.commands, tooltip: 'What can be done with ${host.name}'),
+              if (_menu case final commands when commands.isNotEmpty)
+                CommandMenu(commands: commands, tooltip: 'What can be done with ${host.name}'),
             ],
           ),
           onTap: widget.onOpen,

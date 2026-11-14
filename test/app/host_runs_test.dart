@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +15,15 @@ import '../support/host_process.dart';
 import '../support/host_rental.dart';
 import '../support/host_organization.dart';
 import '../support/signed_host.dart';
+
+/// A setup whose `up` is handed the organization's machine file.
+const _withMachineFile = HostUpRecord(
+  scalewayProject: 'provider',
+  host: 'orchard',
+  hostName: 'orchard',
+  publicKey: '/keys/person.pub',
+  machineFile: '/kept/orchard.yml',
+);
 
 void main() {
   late Settings settings;
@@ -159,6 +169,77 @@ void main() {
           ..end(65);
       },
     );
+  });
+
+  // Harm: the protocol stays empty while the organization, read for this start a moment ago, is read twice more
+  // before the machine's command starts; each read may wait up to a minute on the forge.
+  test('a start the caller has just read the organization for starts up without reading it again', () async {
+    final fixture = HostFixture();
+    final access = await fixture.access(settings);
+    final owner = HostRuns(machines, hostAccess: access);
+    addTearDown(owner.dispose);
+    await access.machineFile('orchard');
+    final before = fixture.reads;
+    int? readsAtUp;
+    final session = HostSession(
+      executable: 'fake',
+      arguments: const [],
+      start: (_, _) async {
+        readsAtUp = fixture.reads - before;
+        return HostProcess()..end(65);
+      },
+    );
+    final run = owner.start(
+      project: 'orchard',
+      record: _withMachineFile,
+      session: session,
+      settings: settings,
+      organizationReadJustNow: true,
+    );
+    await run.finished;
+    expect(readsAtUp, 0, reason: 'the read the caller made a moment ago stands for this start');
+  });
+
+  // Harm: a protocol whose command has not said its first line yet stays black and empty, and reads as stuck.
+  test('a start waits for its first line until the command says one', () async {
+    final process = HostProcess();
+    final started = Completer<Process>();
+    final run = runs.start(
+      project: 'orchard',
+      record: signedSetup,
+      session: HostSession(executable: 'fake', arguments: const [], start: (_, _) => started.future),
+    );
+    expect(run.waitsForFirstLine, isTrue, reason: 'nothing was said while the window reads and writes before up');
+    await Future<void>.delayed(Duration.zero);
+    started.complete(process);
+    await Future<void>.delayed(Duration.zero);
+    expect(run.waitsForFirstLine, isTrue, reason: 'a started command that said nothing has no line yet');
+    process.line(const Step('rent', StepState.started, text: 'Take the server as given'));
+    await Future<void>.delayed(Duration.zero);
+    expect(run.waitsForFirstLine, isFalse);
+    process.end(65);
+    await run.finished;
+    expect(run.waitsForFirstLine, isFalse, reason: 'an ended run waits for nothing');
+  });
+
+  // Harm: a setup taken up again waits on two reads of the organization where one proves the same.
+  test('a setup taken up again reads the organization once before up', () async {
+    final fixture = HostFixture();
+    final access = await fixture.access(settings);
+    final owner = HostRuns(machines, hostAccess: access);
+    addTearDown(owner.dispose);
+    final before = fixture.reads;
+    int? readsAtUp;
+    final session = HostSession(
+      executable: 'fake',
+      arguments: const [],
+      start: (_, _) async {
+        readsAtUp = fixture.reads - before;
+        return HostProcess()..end(65);
+      },
+    );
+    await owner.start(project: 'orchard', record: _withMachineFile, session: session, settings: settings).finished;
+    expect(readsAtUp, 1, reason: 'writing the machine file reads the organization, and that read is the check');
   });
 
   // Harm: a person's own machine, named to prepare it, has its setup torn down because a step stopped.

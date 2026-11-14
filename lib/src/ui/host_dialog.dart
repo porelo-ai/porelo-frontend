@@ -558,7 +558,7 @@ class _HostDialogState extends State<HostDialog> {
       );
     }
     final session = HostSession(executable: poreloHost(), arguments: hostArguments(record, name), start: widget.start);
-    _started = runs.start(project: name, record: record, session: session);
+    _started = runs.start(project: name, record: record, session: session, organizationReadJustNow: true);
     setState(() {});
     await _started!.finished;
     if (mounted) setState(() => _problem = _started!.problem);
@@ -1037,7 +1037,7 @@ class _HostDialogState extends State<HostDialog> {
                             'this dialog; its machine row opens the protocol again.',
                           ),
                         ),
-                      FollowingOutput(text: run.session.protocolText),
+                      FollowingOutput(text: run.session.protocolText, waitingForFirstLine: run.waitsForFirstLine),
                     ],
                   ),
                 ),

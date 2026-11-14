@@ -411,7 +411,7 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
             'opens the protocol again.',
           ),
         if (_setup.prepareProblem case final problem?) Text(problem, key: const Key('setup-prepare-problem')),
-        if (run != null) FollowingOutput(text: run.session.protocolText),
+        if (run != null) FollowingOutput(text: run.session.protocolText, waitingForFirstLine: run.waitsForFirstLine),
         if (_setup.prepared)
           const Text('The machine is ready, and its address, SSH host key and ports stand on its card.'),
       ],
@@ -496,6 +496,8 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
           panel: _prepare,
           run: _setup.prepare,
           state: () => _prepareState,
+          // Preparing runs on in this computer's setup owner, and the machine's row opens its protocol again.
+          goesOnWhenLeft: true,
         ),
         if (widget.token != null)
           WizardActionStep(

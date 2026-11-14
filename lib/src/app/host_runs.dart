@@ -91,6 +91,16 @@ class HostPreparation {
   /// The current attempt, including its confirmed machine addition.
   Future<void> finished = Future.value();
 
+  /// Whether this run goes on and its command has said no line yet.
+  bool get waitsForFirstLine {
+    if (!_upActive && session.state != HostRunState.running) return false;
+    // Until up adds this start's attempt, the last one shown is an earlier start's.
+    final attempts = session.attempts;
+    return attempts.length <= _attemptsBefore || attempts.last.entries.isEmpty;
+  }
+
+  int _attemptsBefore = 0;
+
   /// Whether the command has stopped for the person.
   bool get waiting => session.state == HostRunState.waiting;
 
@@ -283,11 +293,15 @@ class HostRuns extends ChangeNotifier {
   }
 
   /// Takes ownership before starting, so no command depends on the setup view's lifetime.
+  ///
+  /// [organizationReadJustNow] says the caller has just read the organization and written the machine file for this
+  /// start, so `up` starts without reading it again; the admin is still required on that read.
   HostPreparation start({
     required String project,
     required HostSession session,
     required HostUpRecord record,
     Settings? settings,
+    bool organizationReadJustNow = false,
   }) {
     if (hostAccess == null) throw const HostAccessRefused('The verified Machine Admins are unavailable.');
     hostAccess!.requireAdmin(record.hostName);
@@ -306,7 +320,7 @@ class HostRuns extends ChangeNotifier {
     );
     _runs[project] = run;
     _listen(run);
-    run.finished = _up(run, newPreparation: true);
+    run.finished = _up(run, newPreparation: true, organizationRead: organizationReadJustNow);
     _changed();
     return run;
   }
@@ -325,9 +339,10 @@ class HostRuns extends ChangeNotifier {
     return run.finished = _up(run);
   }
 
-  Future<void> _up(HostPreparation run, {bool newPreparation = false}) async {
+  Future<void> _up(HostPreparation run, {bool newPreparation = false, bool organizationRead = false}) async {
     final probe = run._probe;
     run._upActive = true;
+    run._attemptsBefore = run.session.attempts.length;
     run._poll?.cancel();
     run.problem = null;
     _changed();
@@ -339,11 +354,16 @@ class HostRuns extends ChangeNotifier {
         return;
       }
       if (run.problem != null) return;
-      if (run.record.hostName.isNotEmpty) {
+      // Each read may wait up to a minute on the forge while the protocol shows nothing, so a read made for this very
+      // start stands, and writing the machine file is the check where there is one.
+      if (run.record.hostName.isNotEmpty && !organizationRead) {
         if (hostAccess == null) throw const HostAccessRefused('The verified Machine Admins are unavailable.');
-        await hostAccess!.check(run.record.hostName);
-        // A run taken up again must not hand on the pin of its first start.
-        if (run.record.machineFile.isNotEmpty) await hostAccess!.machineFile(run.record.hostName);
+        if (run.record.machineFile.isNotEmpty) {
+          // A run taken up again must not hand on the pin of its first start.
+          await hostAccess!.machineFile(run.record.hostName);
+        } else {
+          await hostAccess!.check(run.record.hostName);
+        }
       }
       final settings = run.settings;
       if (settings != null && !run.ready) {

@@ -75,6 +75,9 @@ class _Walk {
     (state: RootLoginState.open, words: 'Root logs in with your Machine Admin card key.'),
   ];
   var started = 0;
+
+  /// Holds porelo-host's start until the test lets it go, as a command that has not said its first line.
+  Completer<Process>? hostHeld;
   late ServerSetup setup;
 }
 
@@ -109,6 +112,7 @@ Future<_Walk> _open(WidgetTester tester, {bool shown = false}) async {
         ComparedKeyPin.at(Directory('/nonexistent-pin'), File('/nonexistent-pin/known_hosts')),
     startHost: (_, _) async {
       walk.started++;
+      if (walk.hostHeld case final held?) return held.future;
       throw const ProcessException('porelo-host', [], 'nothing is prepared here');
     },
   );
@@ -358,6 +362,34 @@ void main() {
     expect(walk.setup.key, isNull, reason: 'the old comparison no longer holds');
     expect(find.textContaining('changed since you compared it'), findsWidgets, reason: 'the key page says why');
     expect(walk.forgotten, isEmpty, reason: 'nothing of the old key is taken out for a start that did not happen');
+  });
+
+  // Harm: on the Prepare step Back races a setup that goes on, Leave warns about the way it is meant to go on, and its
+  // protocol stays black until the command's first line.
+  testWidgets('a running preparation offers no Back, leaves without asking, and waits for its first line', (
+    tester,
+  ) async {
+    final walk = await _open(tester, shown: true);
+    walk.hostHeld = Completer<Process>();
+    await _toTheKey(tester);
+    await _tap(tester, find.byKey(const Key('setup-fetch-key')));
+    await _tap(tester, find.byKey(const Key('setup-compared')));
+    await _tap(tester, _next);
+    await _tap(tester, _next);
+    await _tap(tester, find.byKey(const Key('setup-try-root')));
+    await _tap(tester, find.byKey(const Key('setup-try-root')));
+    await _tap(tester, _next);
+    await _tap(tester, find.byKey(const Key('host-check-run')));
+    await _tap(tester, _next);
+    await _tap(tester, find.byKey(const Key('wizard-start')));
+    expect(walk.started, 1);
+    expect(find.textContaining('— Prepare'), findsOneWidget);
+    expect(find.text('Waiting for the first line'), findsOneWidget);
+    expect(find.byKey(const Key('wizard-back')), findsNothing);
+    await _tap(tester, find.byKey(const Key('wizard-leave')));
+    expect(find.byKey(const Key('wizard-confirm-leave')), findsNothing, reason: 'its line says it goes on, and where');
+    expect(find.byType(ServerSetupWizard), findsNothing);
+    expect(walk.setup.preparing, isTrue, reason: 'leaving does not stop the preparation');
   });
 
   // Harm: going back and changing the address keeps the old server's key and root login as proven.

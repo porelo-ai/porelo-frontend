@@ -611,7 +611,7 @@ class ServerSetup extends ChangeNotifier {
       );
       if (record == null) throw const FormatException('The machine, its address and its key could not be kept.');
       final session = HostSession(executable: poreloHost(), arguments: hostArguments(record, _name), start: startHost);
-      final run = _run = runs.start(project: _name, record: record, session: session);
+      final run = _run = runs.start(project: _name, record: record, session: session, organizationReadJustNow: true);
       run.session.addListener(notifyListeners);
       notifyListeners();
       await run.finished;

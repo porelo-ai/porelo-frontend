@@ -10,6 +10,7 @@ import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
+import 'package:porelo_frontend/src/ui/command_menu.dart';
 import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
 import 'package:porelo_frontend/src/ui/organization_dialogs.dart';
 import 'package:porelo_frontend/src/ui/organization_page.dart';
@@ -223,6 +224,66 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byKey(const ValueKey('organization.prepare/spare')), findsNothing);
+    });
+
+    // Harm: while a machine is prepared, its row offers to remove it or take Porelo off it, racing the setup on it.
+    testWidgets('one in preparation offers its protocol alone in its menu until the preparation has ended', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1400, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final organization = Organization(FixtureOrganization(organizationFor('olive')));
+      addTearDown(organization.dispose);
+      final run = HostPreparation(
+        project: 'spare',
+        session: HostSession(executable: 'unused', arguments: const [])..state = HostRunState.running,
+        record: const HostUpRecord(
+          scalewayProject: '',
+          hostName: 'spare',
+          givenAddress: '192.0.2.41',
+          publicKey: '/keys/person.pub',
+        ),
+      );
+      HostPreparation? opened;
+      Future<void> show() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: OrganizationPage(
+                organization: organization,
+                onHost: (_) {},
+                onPrepare: (_) {},
+                preparing: (host) => host == 'spare' ? run : null,
+                onProtocol: (each) => opened = each,
+                takeOff: (host) => Command(
+                  id: 'organization.takeOff/${host.name}',
+                  label: 'Take Porelo off this machine…',
+                  group: host.name,
+                  home: Home.machineRow,
+                  run: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      CommandMenu row() => tester.widget<CommandMenu>(
+        find.byWidgetPredicate((widget) => widget is CommandMenu && widget.tooltip == 'What can be done with spare'),
+      );
+      List<String> menu() => [
+        for (final command in row().commands)
+          if (command.visible) command.label,
+      ];
+      await show();
+      expect(menu(), ['Open the machine protocol']);
+      row().commands.single.run();
+      expect(opened, same(run));
+      run.session.state = HostRunState.refused;
+      await show();
+      expect(menu(), containsAll(['Take Porelo off this machine…', 'Remove the machine…']));
     });
 
     testWidgets('anyone else reads who it waits for, with nothing to press', (tester) async {

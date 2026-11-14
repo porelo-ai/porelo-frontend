@@ -10,10 +10,13 @@ import 'tokens.dart';
 /// *Following* on, follows again.
 class FollowingOutput extends StatefulWidget {
   /// Constructor taking the output as it stands now.
-  const FollowingOutput({required this.text, super.key});
+  const FollowingOutput({required this.text, this.waitingForFirstLine = false, super.key});
 
   /// Everything written so far.
   final String text;
+
+  /// Whether the run goes on and has said no line yet.
+  final bool waitingForFirstLine;
 
   @override
   State<FollowingOutput> createState() => _FollowingOutputState();
@@ -117,7 +120,20 @@ class _FollowingOutputState extends State<FollowingOutput> {
               child: SingleChildScrollView(
                 controller: _scroll,
                 padding: const EdgeInsets.all(Space.small),
-                child: SelectableText(_shown, style: TerminalLook.textOf(context), onSelectionChanged: _selected),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_shown.isNotEmpty)
+                      SelectableText(_shown, style: TerminalLook.textOf(context), onSelectionChanged: _selected),
+                    // A pane that stays black reads as stuck; this says the run goes on and has said nothing yet.
+                    if (widget.waitingForFirstLine)
+                      Text(
+                        'Waiting for the first line',
+                        key: const Key('following-output.waiting'),
+                        style: TerminalLook.textOf(context),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

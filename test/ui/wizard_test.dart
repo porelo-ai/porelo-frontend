@@ -27,7 +27,7 @@ void main() {
     await World.settle(tester);
   }
 
-  Future<void> open(WidgetTester tester) async {
+  Future<void> open(WidgetTester tester, {bool goesOn = false}) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -68,6 +68,7 @@ void main() {
                         action.value = WizardActionState.running;
                       },
                       state: () => action.value,
+                      goesOnWhenLeft: goesOn,
                     ),
                   ],
                 ),
@@ -170,41 +171,67 @@ void main() {
     expect(find.text('External answer: running'), findsOneWidget);
   });
 
-  for (final navigation in ['back', 'leave']) {
-    // Harm: a running external action is forgotten while it can still rent or change a machine.
-    testWidgets('a running action asks before $navigation and cannot finish early', (tester) async {
-      await open(tester);
-      await tester.enterText(find.byKey(const Key('first')), 'one');
-      await tester.pump();
-      await tap(tester, 'wizard-next');
-      await tester.enterText(find.byKey(const Key('second')), 'two');
-      await tester.pump();
-      await tap(tester, 'wizard-next');
-      expect(starts, 0);
-      await tap(tester, 'wizard-start');
-      expect(starts, 1);
-      expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
-      await tap(tester, 'wizard-$navigation');
-      expect(find.byKey(Key('wizard-confirm-$navigation')), findsOneWidget);
-      expect(find.text('External answer: running'), findsOneWidget);
-      await tap(tester, 'wizard-stay');
-      if (navigation == 'back') {
-        await tap(tester, 'wizard-back');
-        await tap(tester, 'wizard-confirm-back');
-        expect(find.byKey(const Key('wizard-start')), findsOneWidget);
-        await tap(tester, 'wizard-start');
-        expect(starts, 1, reason: 'returning to a running action must not start it twice');
-      }
-      action.value = WizardActionState.waiting;
-      await tester.pump();
-      expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
-      action.value = WizardActionState.refused;
-      await tester.pump();
-      expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
-      action.value = WizardActionState.done;
-      await tester.pump();
-      await tap(tester, 'wizard-next');
-      expect(find.byType(Wizard), findsNothing);
-    });
+  Future<void> startTheAction(WidgetTester tester) async {
+    await tester.enterText(find.byKey(const Key('first')), 'one');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('second')), 'two');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    expect(starts, 0);
+    await tap(tester, 'wizard-start');
+    expect(starts, 1);
   }
+
+  // Harm: a running external action is forgotten while it can still rent or change a machine.
+  testWidgets('a running action asks before leave and cannot finish early', (tester) async {
+    await open(tester);
+    await startTheAction(tester);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+    await tap(tester, 'wizard-leave');
+    expect(find.byKey(const Key('wizard-confirm-leave')), findsOneWidget);
+    expect(find.text('External answer: running'), findsOneWidget);
+    await tap(tester, 'wizard-stay');
+    action.value = WizardActionState.waiting;
+    await tester.pump();
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+    action.value = WizardActionState.refused;
+    await tester.pump();
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+    action.value = WizardActionState.done;
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    expect(find.byType(Wizard), findsNothing);
+  });
+
+  // Harm: Back beside a running action offers a way that means nothing there and races the work, which goes on.
+  testWidgets('a running action offers no Back, and Back comes again once it has answered', (tester) async {
+    await open(tester);
+    await startTheAction(tester);
+    expect(find.byKey(const Key('wizard-back')), findsNothing);
+    expect(find.byKey(const Key('wizard-leave')), findsOneWidget);
+    action.value = WizardActionState.waiting;
+    await tester.pump();
+    await tap(tester, 'wizard-back');
+    await tap(tester, 'wizard-confirm-back');
+    expect(find.byKey(const Key('wizard-start')), findsOneWidget);
+    await tap(tester, 'wizard-start');
+    expect(starts, 1, reason: 'returning to an action still under way must not start it twice');
+    action.value = WizardActionState.refused;
+    await tester.pump();
+    expect(
+      find.byKey(const Key('wizard-back')),
+      findsOneWidget,
+      reason: 'a refused action is corrected on a step before',
+    );
+  });
+
+  // Harm: a person is warned about the very way the work is meant to go on, and stays to watch a run of minutes.
+  testWidgets('an action that goes on by design leaves without asking', (tester) async {
+    await open(tester, goesOn: true);
+    await startTheAction(tester);
+    await tap(tester, 'wizard-leave');
+    expect(find.byKey(const Key('wizard-confirm-leave')), findsNothing);
+    expect(find.byType(Wizard), findsNothing);
+  });
 }

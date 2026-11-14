@@ -63,7 +63,11 @@ class WizardActionStep {
     required this.panel,
     required this.run,
     required this.state,
+    this.goesOnWhenLeft = false,
   });
+
+  /// Whether its work goes on by design once the wizard is left, with [words] or its panel saying where to find it.
+  final bool goesOnWhenLeft;
 
   /// The short name in the step indicator.
   final String title;
@@ -203,6 +207,16 @@ class _WizardState extends State<Wizard> {
         },
       );
 
+  /// Whether the step shown is an action at work: going back has no meaning there, as the action goes on.
+  bool get _actionRuns {
+    final step = _actionStep;
+    return step != null && (_executing || step.state() == WizardActionState.running);
+  }
+
+  /// Whether everything started goes on by design once the wizard is left, so leaving drops nothing.
+  bool get _leavesFreely =>
+      _startedActions.isNotEmpty && _startedActions.every((index) => widget.actionSteps[index].goesOnWhenLeft);
+
   bool get _given =>
       _startedActions.isNotEmpty ||
       !listEquals(_initial.expand((lines) => lines).toList(), [for (final step in widget.steps) ...step.summary()]);
@@ -291,13 +305,13 @@ class _WizardState extends State<Wizard> {
   }
 
   Future<void> _back() async {
-    if (_index == 0 || _checking) return;
+    if (_index == 0 || _checking || _actionRuns) return;
     if (_busy && !await _confirm('back')) return;
     if (mounted) _go(_index - 1);
   }
 
   Future<void> _leave() async {
-    if ((_given || _busy) && !await _confirm('leave')) return;
+    if ((_given || _busy) && !_leavesFreely && !await _confirm('leave')) return;
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -441,7 +455,7 @@ class _WizardState extends State<Wizard> {
                   children: [
                     if (widget.actions case final actions?) actions(context, _run),
                     TextButton(key: const Key('wizard-leave'), onPressed: _leave, child: const Text('Leave')),
-                    if (_index > 0)
+                    if (_index > 0 && !_actionRuns)
                       TextButton(key: const Key('wizard-back'), onPressed: _back, child: const Text('Back')),
                     FilledButton(
                       key: review ? widget.actionKey : const Key('wizard-next'),
