@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F549",
   "title": "Planning Tests Follow The Board Without Its Closed Filter",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Highest",
   "rank": 1,

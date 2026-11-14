@@ -110,7 +110,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f549"></a>[F549](F549-Planning-Tests-Follow-The-Board-Without-Its-Closed-Filter.md) | S | - | The window's planning feature tests stop using the board's Finished-and-Rejected filter and its separate Retry button, which porelo-planner's planning package drops for one Reload planning button; built against the planner commit that drops them. |
 | <a id="f550"></a>[F550](F550-My-Projects-Is-One-List-With-Default.md) | M | - | Beside an organization, My projects lists every project the person works in, each machine's Default and its local projects included, each marked for what it is, and the link All projects on your machines goes; the rail counts the same rows. |
 | <a id="f551"></a>[F551](F551-Every-Page-Says-What-It-Is.md) | M | - | Every page the window shows carries the i beside its title that opens what the page is and what a person does there; today Planning, My cards & keys, a machine's page and its seven sections, a project's page and the pages opened over the frame lack it. A guard fails on a page shipped without one. |
 | <a id="f523"></a>[F523](F523-Work-Moving-On-By-Itself-Played-Through-On-The-VM.md) | M | - | Story ST314, the planner moves work on from state to state by itself, played once on the test VM in the window as a person would, for ST347's gathered story run: DONE work set to Reading with its reader started unasked, an OK reading set to Review, a blocking one stopped under Needs you and reworked once the person chooses Rework, a failed task kept with a warning. |
@@ -139,6 +138,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f549"></a>[F549](F549-Planning-Tests-Follow-The-Board-Without-Its-Closed-Filter.md) | S | - | The window's planning feature tests stop using the board's Finished-and-Rejected filter and its separate Retry button, which porelo-planner's planning package drops for one Reload planning button; built against the planner commit that drops them. |
 | <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | - | Forwarding to a chosen branch measured against GitHub. |
 | <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | - | A task's terminal in the interface behaves as in a plain terminal. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | XL | - | Connect and Prepare from a Windows desktop: loopback ports the window holds itself, each connection carried over its own ssh, the daemon through the relay, no master. |
