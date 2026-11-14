@@ -74,7 +74,8 @@
 # DIR of --porelo, where given, holds porelo and porelod, a SHA256SUMS naming both and a COMMIT naming what they were
 # built from: for the run they stand in the person's ~/.local/bin on the VM, the ones there kept beside them as
 # *.walk-kept and put back on every ending, porelod restarted each time; the report names the commit. DIR of --planner
-# holds porelo-planner, planner-probe.sh and SHA256SUMS naming both; nothing unchecked is copied. The test person's key
+# holds porelo-planner, planner-probe.sh, the planner-sign.sh a signing probe sources where it has one, and SHA256SUMS
+# naming each; nothing unchecked is copied. The test person's key
 # never enters the VM: SSH_AUTH_SOCK must name an agent holding it (a throwaway one, never the operator's), forwarded
 # for the run alone. WALK_FORGE_TOKEN names a program that prints the test identity's token for the forge, allowed to
 # make and delete ORG's repositories: it goes on standard input alone into a vault of the run's own on the VM, and to
@@ -254,11 +255,18 @@ in_the_login_shell() {
     printf 'exec bash -lc %q' "$*"
 }
 
-# The planner and its probe as given, each against the digest SHA256SUMS names, both named there.
+# What of the planner's folder goes to the VM: the planner, its probe and, where the folder holds it, the signing the
+# probe sources beside itself (a planner that signs every call ships it).
+planner_files() {
+    printf '%s\n' porelo-planner planner-probe.sh
+    [ ! -f "$planner/planner-sign.sh" ] || printf '%s\n' planner-sign.sh
+}
+
+# The planner and its probe as given, each against the digest SHA256SUMS names, each named there.
 planner_checked() {
     [ -n "$planner" ] || return 0
     local file
-    for file in porelo-planner planner-probe.sh; do
+    for file in $(planner_files); do
         [ -f "$planner/$file" ] || {
             echo "walk: $planner holds no $file" >&2
             return 1
@@ -1081,9 +1089,10 @@ trap cleanup EXIT
 echo "walk: $commit to $vm:~/$run as $name"
 git -C "$here" archive --format=tar HEAD | on_vm "mkdir -p ~/$run/bin && tar -x -C ~/$run"
 if [ "$mode" = run ] && [ -n "$planner" ]; then
-    tar -C "$planner" -c porelo-planner planner-probe.sh SHA256SUMS | on_vm "tar -x -C ~/$run/bin"
+    # shellcheck disable=SC2046 # the names are fixed words without spaces
+    tar -C "$planner" -c $(planner_files) SHA256SUMS | on_vm "tar -x -C ~/$run/bin"
     # Checked again where it runs: what arrived is what was checked here.
-    on_vm "cd ~/$run/bin && sha256sum --strict --quiet -c SHA256SUMS && chmod 755 porelo-planner planner-probe.sh" </dev/null || {
+    on_vm "cd ~/$run/bin && sha256sum --strict --quiet -c SHA256SUMS && chmod 755 $(planner_files | tr '\n' ' ')" </dev/null || {
         echo "walk: the planner copied to $vm is not what SHA256SUMS names" >&2
         exit 1
     }
