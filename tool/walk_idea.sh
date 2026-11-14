@@ -723,10 +723,13 @@ cleanup() {
     if [ -n "$planned" ]; then
         # The planner keeps a project's runs in its own state, by story: a later run's story of the same name would
         # take over this run's ended work. Put back once the run's planner is gone, which ends within its stop.
-        on_vm "set -e; for _ in \$(seq 50); do
-                gone=yes; for p in /proc/[0-9]*; do [ \"\$(readlink \$p/exe 2>/dev/null)\" != \$HOME/$run/bin/porelo-planner ] || gone=''; done
-                [ -z \"\$gone\" ] || break; sleep 0.2; done
-            [ -n \"\$gone\" ]
+        # One that outlives its stop is killed, so its state is still put back; one that outlives that is named.
+        on_vm "set -e; for round in \$(seq 60); do
+                gone=''; for p in /proc/[0-9]*; do [ \"\$(readlink \$p/exe 2>/dev/null)\" != \$HOME/$run/bin/porelo-planner ] || gone=\"\$gone \${p#/proc/}\"; done
+                [ -n \"\$gone\" ] || break
+                [ \"\$round\" != 50 ] || kill -KILL \$gone 2>/dev/null || true
+                sleep 0.2; done
+            [ -z \"\$gone\" ] || { echo \"walk: the run's planner still runs as\$gone\" >&2; exit 1; }
             [ -z '$own_planner' ] || exit 0
             mkdir -p ~/.local/state/porelo-planner; cd ~/.local/state/porelo-planner; rm -rf -- '$project'
             if [ -f ~/$run.planner-state.tar ]; then tar -xf ~/$run.planner-state.tar; fi
