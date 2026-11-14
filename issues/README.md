@@ -110,7 +110,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f554"></a>[F554](F554-A-Host-Without-Porelo-Host-Is-Said-So.md) | XS | - | A host whose /usr/sbin/porelo-host is missing, as after a setup that stopped before installing it, is said so on its page in the window's words, with how to go on, instead of the last line env printed there (uutils env's "use -[v]S to pass options in shebang lines"). |
 | <a id="f555"></a>[F555](F555-A-Machine-Says-It-Waits-For-Your-Token.md) | S | - | After Set up a machine stops at the preparation, the machine's own page says the machine waits for the person's forge token and offers Give it your token there, instead of leaving the person to wait for an admission that never comes. |
 | <a id="f550"></a>[F550](F550-My-Projects-Is-One-List-With-Default.md) | M | - | Beside an organization, My projects lists every project the person works in, each machine's Default and its local projects included, each marked for what it is, and the link All projects on your machines goes; the rail counts the same rows. |
 | <a id="f551"></a>[F551](F551-Every-Page-Says-What-It-Is.md) | M | - | Every page the window shows carries the i beside its title that opens what the page is and what a person does there; today Planning, My cards & keys, a machine's page and its seven sections, a project's page and the pages opened over the frame lack it. A guard fails on a page shipped without one. |
@@ -140,6 +139,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f554"></a>[F554](F554-A-Host-Without-Porelo-Host-Is-Said-So.md) | XS | - | A host whose /usr/sbin/porelo-host is missing, as after a setup that stopped before installing it, is said so on its page in the window's words, with how to go on, instead of the last line env printed there (uutils env's "use -[v]S to pass options in shebang lines"). |
 
 ## Review
 
