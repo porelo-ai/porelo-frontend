@@ -128,6 +128,11 @@ jobs:
             - name: Check that nothing names a machine provider
               run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-providers .
 
+            # The planning screen is a git pin with no channel to follow: a pin behind porelo-planner's main is said on
+            # every build, and fails nothing.
+            - name: Say whether the planning screen's pin is porelo-planner's main
+              run: tool/planner_pin.sh
+
             # A direct push to main never meets the pull request's check, so the push's own range is read here, by the
             # porelo-release the pinned JDK's classpath holds. A tag checks the commit it names. A new branch or a branch
             # pushed over has no start this checkout holds, so its range starts at main; main itself cannot be pushed over.
