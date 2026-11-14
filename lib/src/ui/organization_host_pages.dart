@@ -407,6 +407,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// The machine the organization named this page's host when the page last looked, as its address, port and host key.
   ({String? address, int? port, String? hostKey})? _machineSeen;
 
+  /// The machine the organization names this page's host now, as [_machineSeen] says it.
+  ({String? address, int? port, String? hostKey})? get _machineNow {
+    final entry = widget.organization.view?.hosts.where((host) => host.name == widget.host).firstOrNull;
+    return entry == null ? null : (address: entry.address, port: entry.port, hostKey: entry.hostKey);
+  }
+
   /// What the machine said last, wherever it was asked, as this page last took it.
   HostProgress? _heardSeen;
   DateTime? _answeredAt;
@@ -502,8 +508,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final connections = widget.connections;
     // Another machine under this name, as one moved or taken out and added again: what the one before said is not
     // its word.
-    final entry = widget.organization.view?.hosts.where((host) => host.name == widget.host).firstOrNull;
-    final machine = entry == null ? null : (address: entry.address, port: entry.port, hostKey: entry.hostKey);
+    final machine = _machineNow;
     if (machine != _machineSeen) {
       final before = _machineSeen;
       _machineSeen = machine;
@@ -516,7 +521,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       }
     }
     // The wait ended other than by a read, as once the token was taken: what this page read of it is no longer so, and
-    // the machine is read again where it can be, by the press where this page gives the token.
+    // the machine is read again where it can be, as a read refused before is.
     final ends = connections?.tokenWaitEnds(widget.host) ?? 0;
     if (ends != _waitEndsSeen) {
       _waitEndsSeen = ends;
@@ -525,8 +530,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           _progress = null;
           _heardSeen = null;
         });
-        _askedProgress = _givingToken;
       }
+      _askedProgress = false;
     }
     if (connections == null || !connections.connected(widget.host) || !_isAdminHere) {
       _askedProgress = false;
@@ -549,6 +554,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       }
       return;
     }
+    // While this page gives the token, its press reads the machine after, taking what the token's step heard.
+    if (_givingToken) return;
     _askedProgress = true;
     unawaited(_read(() => connections.ask(widget.host)));
   }
@@ -557,6 +564,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// is answered to it, to stand beside it, and the page's head keeps none.
   Future<String?> _read(Future<HostProgress> Function() ask, {bool byAButton = false}) async {
     final read = ++_progressReads;
+    final machine = _machineNow;
     setState(() {
       _working++;
       _refusal = null;
@@ -569,22 +577,23 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       refusal = refused.words;
     }
     if (!mounted) return refusal;
-    // An earlier status answer must not replace the result of a later fetch.
-    final latest = read == _progressReads;
+    // An earlier status answer must not replace the result of a later fetch. Asked before the Machine Admin role was
+    // taken, or of a machine moved since, it is no word to this person now.
+    final stands = read == _progressReads && _isAdminHere && machine == _machineNow;
     setState(() {
       _working--;
-      // Asked before the Machine Admin role was taken, it is no word to this person now.
-      if (latest && progress != null && _isAdminHere) {
+      if (stands && progress != null) {
         _progress = progress;
         _answeredAt = DateTime.now();
       }
-      if (latest && !byAButton) _refusal = refusal;
+      if (stands && !byAButton) _refusal = refusal;
     });
     return refusal;
   }
 
-  /// Gives the host the token, then reads it again; answers why it was not given, or why the reading failed.
-  Future<String?> _giveToken() async {
+  /// Gives the host the token, then reads it again; answers why it was not given, or why the reading failed. Asked
+  /// from a project's row rather than [AskingButton], the answer stands at the page's head.
+  Future<String?> _giveToken({bool byTheButton = true}) async {
     final first = _waitsForItsToken(widget.host);
     final before = widget.connections?.heard(widget.host);
     // The page is busy while the token is given, as for any other ask of the machine.
@@ -601,11 +610,16 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     }
     final connections = widget.connections;
     if (!mounted || connections == null) return words;
-    // A given token has the machine asked once already, where it was given: its answer is taken, not asked again.
-    final heard = connections.heard(widget.host);
-    final refusal = heard != null && !identical(heard, before)
-        ? await _read(() async => heard, byAButton: true)
-        : await _read(() => connections.ask(widget.host), byAButton: true);
+    // A press that gave no token asks the machine nothing. A given token has the machine asked once already, where it
+    // was given: its answer is taken, not asked again, and the connection that may come up after reads nothing more.
+    String? refusal;
+    if (words == null) {
+      _askedProgress = true;
+      final heard = connections.heard(widget.host);
+      refusal = heard != null && !identical(heard, before)
+          ? await _read(() async => heard, byAButton: true)
+          : await _read(() => connections.ask(widget.host), byAButton: true);
+    }
     // The host has made the account it could not make before: now the connection itself can come up. A read refused
     // before it is still said, though the connection comes up.
     final answer = mounted && first && !_waitsForItsToken(widget.host)
@@ -615,7 +629,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     // then stands at the page's head, not nowhere.
     final connected = connections.connected(widget.host);
     final buttonStays = (connected && (_progress?.wantsToken ?? false)) || _waitsForItsToken(widget.host);
-    if (mounted && answer != null && !buttonStays) setState(() => _refusal = answer);
+    if (mounted && answer != null && (!buttonStays || !byTheButton)) setState(() => _refusal = answer);
     return answer;
   }
 
@@ -966,7 +980,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       host: host.name,
       project: name,
       forge: organizationForgeName(view),
-      give: widget.onGiveToken == null ? null : (_) => unawaited(_giveToken()),
+      give: widget.onGiveToken == null ? null : (_) => unawaited(_giveToken(byTheButton: false)),
       busy: () => _acting ? 'Waiting for the machine…' : null,
       hidden: !view.holdsRoles || !host.admins.contains(view.me),
     );

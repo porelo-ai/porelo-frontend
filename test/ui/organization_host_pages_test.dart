@@ -9,6 +9,7 @@ import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/organization_host_pages.dart';
 import 'package:porelo_frontend/src/ui/placing_project_dialog.dart' show GiveHostToken;
 import 'package:porelo_frontend/src/ui/organization_page.dart';
+import 'package:porelo_frontend/src/ui/command_menu.dart';
 import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
 
 import '../support/organization_fixtures.dart';
@@ -1500,6 +1501,170 @@ void main() {
       expect(find.text('No GitHub token is kept on this computer.'), findsOneWidget);
     });
 
+    /// Asks each machine once on every change of [connections], as the window does for every machine its Machine Admin
+    /// may ask.
+    void asksOnce(WidgetTester tester, FixtureConnections connections) {
+      final organization = tester.widget<OrganizationHostPage>(find.byType(OrganizationHostPage)).organization;
+      void askOnce() => connections.askOnce(organization.view!);
+      connections.addListener(askOnce);
+      addTearDown(() => connections.removeListener(askOnce));
+      askOnce();
+    }
+
+    Iterable<String> reads(FixtureConnections connections) =>
+        connections.asked.where((each) => each.startsWith('progress'));
+
+    // Harm: once the machine took the token, the window's own ask of each machine and the token's step each log in as
+    // root, two logins its host counts.
+    testWidgets("a token given from the page has the machine asked once, with the window's asks listening", (
+      tester,
+    ) async {
+      final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          connections.hostProgress = const HostProgress();
+          await connections.tokenTaken(host);
+          return null;
+        },
+      );
+      asksOnce(tester, connections);
+      await tester.pumpAndSettle();
+      connections.asked.clear();
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(reads(connections), ['progress build']);
+      expect(_action('giveToken'), findsNothing, reason: 'it no longer waits');
+    });
+
+    // Harm: a token given from the machine's row while its page is open has the page, the window and the token's step
+    // each log in as root.
+    testWidgets('a token given elsewhere has the machine asked once while its page is open', (tester) async {
+      final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      await page(tester, 'hana', connections: connections);
+      asksOnce(tester, connections);
+      await tester.pumpAndSettle();
+      connections.asked.clear();
+      connections.hostProgress = const HostProgress();
+      await connections.tokenTaken('build');
+      await tester.pumpAndSettle();
+      expect(reads(connections), ['progress build']);
+      expect(_action('giveToken'), findsNothing);
+    });
+
+    // Harm: the token's step connects first, and the page logs in as root beside it while the token's dialog is open.
+    testWidgets('a token given where the page was not connected has the machine asked once', (tester) async {
+      final connections = FixtureConnections()..hearTokenWait('build', waits: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          // As the token's step does: it connects first.
+          await connections.connect(host);
+          await connections.tokenTaken(host);
+          return null;
+        },
+      );
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(reads(connections), ['progress build']);
+    });
+
+    // Harm: why a project's token was not given, asked from the project's row, is said nowhere.
+    testWidgets("why a project's token was not given from its row is said", (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (_, {atOnce = false}) async => 'No GitHub token is kept on this computer.',
+      );
+      final menus = tester.widgetList<CommandMenu>(find.byType(CommandMenu));
+      menus.expand((menu) => menu.commands).singleWhere((command) => command.id == 'giveToken/build/demo').run();
+      await tester.pumpAndSettle();
+      expect(find.text('No GitHub token is kept on this computer.'), findsOneWidget);
+    });
+
+    // Harm: the page could not read the machine, its wait then ends elsewhere, and the page never reads it again.
+    testWidgets('a wait that ends elsewhere has the page read the machine it could not read before', (tester) async {
+      final connections = FixtureConnections(['build'])
+        ..waiting.add('build')
+        ..refuseNext = const OrganizationRefused('build could not say how far it has come.');
+      await page(tester, 'hana', connections: connections);
+      connections.asked.clear();
+      connections.hearTokenWait('build', waits: false);
+      await tester.pumpAndSettle();
+      expect(reads(connections), ['progress build']);
+    });
+
+    // Harm: a press that gave no token logs in as root all the same.
+    testWidgets('a press that gives no token asks the machine nothing', (tester) async {
+      final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (_, {atOnce = false}) async => 'No GitHub token is kept on this computer.',
+      );
+      connections.asked.clear();
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(reads(connections), isEmpty);
+      expect(find.text('No GitHub token is kept on this computer.'), findsOneWidget);
+    });
+
+    // Harm: after the token the connection comes up and the page reads the machine a second time, and the first read's
+    // refusal is then said over the answer of the second.
+    testWidgets('a token given where the page was not connected reads the machine once, connected after', (
+      tester,
+    ) async {
+      final connections = FixtureConnections()..hearTokenWait('build', waits: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          connections.hearTokenWait(host, waits: false);
+          connections.refuseNext = const OrganizationRefused('build could not say how far it has come.');
+          return null;
+        },
+      );
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(connections.asked, contains('connect build'));
+      expect(reads(connections), ['progress build']);
+    });
+
+    // Harm: a read on its way when the machine moved to another address shows the old machine's wait as the new one's.
+    testWidgets("a read answered after the machine moved is not the moved machine's word", (tester) async {
+      final connections = _HeldMoving(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      final hold = connections.hold = Completer<void>();
+      final made = await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (_, {atOnce = false}) async => null,
+      );
+      await connections.disconnect('build');
+      connections.machine = 'at 203.0.113.99';
+      made.source.view = organizationFor(
+        'hana',
+        host: OrganizationHost(
+          name: 'build',
+          address: '203.0.113.99',
+          port: buildHost.port,
+          hostKey: buildHost.hostKey,
+          admins: const ['hana'],
+          projects: const ['demo'],
+        ),
+      );
+      await tester.widget<OrganizationHostPage>(find.byType(OrganizationHostPage)).organization.refresh();
+      await tester.pumpAndSettle();
+      hold.complete();
+      await tester.pumpAndSettle();
+      expect(_action('giveToken'), findsNothing);
+    });
+
     // Harm: a person cannot see what is on the machine for a wall of the same sentence.
     testWidgets('a project names its repositories on the machine first, and counts the rest once', (tester) async {
       const why = 'no central address, so this host cannot take it; name one in the project file for a task here';
@@ -1788,6 +1953,16 @@ class _Held extends FixtureConnections {
     await hold?.future;
     return super.progress(host);
   }
+}
+
+/// Held reads of a machine that says which machine it is, as [_Moving] does.
+class _HeldMoving extends _Held {
+  _HeldMoving(super.hosts);
+
+  Object? machine = 'at 203.0.113.7';
+
+  @override
+  Object? machineOf(String host) => machine;
 }
 
 class _DownConnections extends FixtureConnections {

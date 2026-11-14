@@ -750,6 +750,61 @@ void main() {
     expect(made.tokenWaitHeard('build'), isNull);
   });
 
+  // Harm: a machine whose read was refused, taken out and added again under its name, is never asked again, and its
+  // wait for the token goes unsaid.
+  test('a machine added again after it was taken out is asked again, though its last read was refused', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    await made.connect('build');
+    hostEnds = (code: 127, err: 'env: /usr/sbin/porelo-host: No such file or directory');
+    made.askOnce(_mia(host: _hostOfMia));
+    await pumpEventQueue();
+    expect(refreshed, hasLength(1));
+    hostEnds = (code: 0, err: '');
+    final gone = _mia(host: hostOfMia(name: 'gone'));
+    await reads(made, gone);
+    made.askOnce(gone);
+    final back = _mia(host: _hostOfMia);
+    await reads(made, back);
+    made.askOnce(back);
+    await pumpEventQueue();
+    expect(refreshed, hasLength(2));
+  });
+
+  // Harm: a Machine Admin who connects is not heard on the machine's page until the window asks every machine again.
+  test("a Machine Admin's read is kept once connected, before every machine is asked again", () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    made.askOnce(_mia(host: _hostOfMia));
+    await made.connect('build');
+    await made.progress('build');
+    expect(made.heard('build'), isNotNull);
+  });
+
+  // Harm: a machine moved to another address while the old one was asked why it turned the person away is said to wait
+  // for a token because the old one did.
+  test("a turn-away answered after the machine moved is not the moved machine's wait", () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    final answer = holdAnswer = Completer<void>();
+    final connecting = made.connect('build');
+    while (refreshed.isEmpty) {
+      await pumpEventQueue();
+    }
+    await reads(
+      made,
+      _mia(
+        host: hostOfMia(address: '203.0.113.99', hostKey: _otherHostKey),
+      ),
+    );
+    answer.complete();
+    try {
+      await connecting;
+    } on OrganizationRefused {
+      // Turned away with no wait of the new machine's to say.
+    }
+    expect(made.tokenWaitHeard('build'), isNull);
+  });
+
   // Harm: right after Prepare the machine has not yet made the person's account, as its first follow runs within five
   // minutes; its turn-away then read as a refusal in red, and the connection was taken down instead of waited for.
   test('a machine just prepared that turns one away is waited for, kept, and not refused', () async {

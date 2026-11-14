@@ -6308,12 +6308,7 @@ class _ShellState extends State<Shell> {
       ),
       connect: () => _connectHost(host),
       give: (answer) => _giveTokenFrom(host, answer),
-      heard: () async {
-        final connections = _hostConnections;
-        // It took the token: what it waited for is no longer the last word of it, whether or not it can be read now.
-        connections?.hearTokenWait(host, waits: false);
-        if (connections != null && connections.connected(host)) await connections.progress(host);
-      },
+      heard: () async => _hostConnections?.tokenTaken(host),
     );
   }
 

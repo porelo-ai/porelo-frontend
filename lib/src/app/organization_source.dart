@@ -949,6 +949,14 @@ abstract class HostConnections extends ChangeNotifier {
     }
   }
 
+  /// What the token's step does once [host] took a token: the wait it waited for is no longer the last word of it,
+  /// whether or not it can be read now, and a machine connected to is asked what it says now, joining every other ask
+  /// begun since rather than logging in as root beside it.
+  Future<void> tokenTaken(String host) async {
+    hearTokenWait(host, waits: false);
+    if (connected(host)) await ask(host);
+  }
+
   /// Ends every word of [host]'s wait for its first token; answers whether there was one.
   bool _endTokenWait(String host) {
     final kept = _tokenWaits.remove(host) != null;
@@ -959,7 +967,11 @@ abstract class HostConnections extends ChangeNotifier {
       _askedOnce.remove(host);
     }
     final ended = dropTokenWait(host) | kept | read;
-    if (ended) _tokenWaitEnds[host] = tokenWaitEnds(host) + 1;
+    if (ended) {
+      _tokenWaitEnds[host] = tokenWaitEnds(host) + 1;
+      // An ask begun before is no answer to what the machine says now: the next ask starts anew, and others join it.
+      _asking.remove(host);
+    }
     return ended;
   }
 
@@ -975,7 +987,7 @@ abstract class HostConnections extends ChangeNotifier {
     }
   }
 
-  /// The hosts the last [askOnce] found this person may not ask: gone, or not theirs to administer.
+  /// The hosts the last [askOnce] found not this person's to administer.
   final _notTheirs = <String>{};
 
   /// The ask of each host on its way, which a second ask joins.
@@ -983,10 +995,15 @@ abstract class HostConnections extends ChangeNotifier {
 
   /// Asks [host] how far it has come, as [progress] does, joining an ask already on its way rather than logging in as
   /// root a second time.
-  Future<HostProgress> ask(String host) => _asking[host] ??= progress(host).whenComplete(() {
-    // In a block: a callback answering this very future would wait for itself.
-    _asking.remove(host);
-  });
+  Future<HostProgress> ask(String host) {
+    if (_asking[host] case final asking?) return asking;
+    late final Future<HostProgress> asking;
+    asking = progress(host).whenComplete(() {
+      // In a block: a callback answering this very future would wait for itself. An ask begun since stays.
+      if (identical(_asking[host], asking)) _asking.remove(host);
+    });
+    return _asking[host] = asking;
+  }
 
   /// What [host] last said of how far it has come, while this computer is connected to it; null where it was not
   /// asked. Asking it is [progress] or [refresh]; this asks nothing.
@@ -1021,7 +1038,7 @@ abstract class HostConnections extends ChangeNotifier {
     // A machine the organization no longer names: its wait and what it said are no word of one added under its name
     // later, at the same address or not.
     final named = {for (final host in view.hosts) host.name};
-    for (final gone in {..._tokenWaits.keys, ..._heard.keys}.difference(named)) {
+    for (final gone in {..._tokenWaits.keys, ..._heard.keys, ..._askedOnce}.difference(named)) {
       _tokenWaits.remove(gone);
       dropTokenWait(gone);
       _heard.remove(gone);
@@ -1034,15 +1051,19 @@ abstract class HostConnections extends ChangeNotifier {
         _tokenWaits.remove(host.name);
         dropTokenWait(host.name);
       }
+      // Not theirs to ask, a read on its way is kept for nobody; one not connected yet is kept once connected.
+      if (administers) {
+        _notTheirs.remove(host.name);
+      } else {
+        _notTheirs.add(host.name);
+      }
       final mayAsk = administers && connected(host.name);
       if (!mayAsk) {
         // Gone or no longer theirs to ask: what it said before stands for nobody now.
         _askedOnce.remove(host.name);
         _heard.remove(host.name);
-        _notTheirs.add(host.name);
         continue;
       }
-      _notTheirs.remove(host.name);
       if (!_askedOnce.add(host.name)) continue;
       unawaited(ask(host.name).then<void>((_) {}, onError: (Object _) {}));
     }

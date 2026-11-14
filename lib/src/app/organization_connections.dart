@@ -341,10 +341,11 @@ class CardHostConnections extends HostConnections {
   /// [still] no longer holds says nothing.
   Future<bool> _waitsForToken(Machine machine, String host, {bool Function()? still}) async {
     if (!_administers(host)) return false;
+    final asked = machineOf(host);
     try {
       final waits = (await _progress.status(machine.sshConfig, host)).waitsForToken;
-      // Root's word is no word to someone whose role was taken while it was asked.
-      if (!_administers(host) || !(still?.call() ?? true)) return false;
+      // Root's word is no word to someone whose role was taken while it was asked, nor of a machine moved since.
+      if (!_administers(host) || !(still?.call() ?? true) || machineOf(host) != asked) return false;
       // The last word of the token for the machine's page, kept while this computer is not connected.
       hearTokenWait(host, waits: waits);
       return waits;

@@ -53,9 +53,24 @@ Each gets a test with its harm, red first, in `test/ui/organization_host_pages_t
   project token was given once the connection went; unit tests for a host taken out and added again (its read too,
   red with that drop taken out), an untrusted card asked nothing as root, a read answered after the role was taken,
   and a turn-away answered after the connection came up.
-- **Left.** A token given from the machine's row while its page is open still has the page's own read beside the
-  step's: joining them through `ask` could take an answer begun before the token was taken. A page read on its way
-  while the machine moves to another address still shows the old machine's answer when it comes after the move.
+- **Read a third time.** The token's step now reads through `HostConnections.tokenTaken`, which joins every ask
+  begun since the wait ended (`ask`); an ask begun before it is no longer joined, as a wait's end lets the next ask
+  start anew. So a token taken logs in as root once, with the window's `askOnce` listening and the page open, given
+  from the page or the row, connected first or not. While the page gives the token it starts no read of its own; a
+  press that gave no token asks nothing; the press's own read marks the machine asked, so the connection after it
+  reads nothing more. A wait that ends has the page read again, also after a refused read. Why a project's token was
+  not given from its row stands at the page's head. `askOnce` drops the asked-once mark of a host the organization no
+  longer names, also after a refused read; only the role, not a missing connection, keeps a read from being kept. A
+  turn-away read and a page read keep nothing of a machine moved while they were on their way, and a page read's
+  refusal is not said to someone no longer its Machine Admin. Tests, each red before: one login with `askOnce`
+  listening, given from the page, from elsewhere, and where the page was not connected; the row's answer; a read
+  after a wait ended elsewhere; no login for no token; one read when connected after; a page read answered after the
+  move; unit tests for a host added again after a refused read, a read kept once connected before `askOnce`, and a
+  turn-away answered after the move.
+- **Left.** A dialog closed without a token answers as a given one does, so the press still reads the machine then.
+  A read on its way from before the token was taken still keeps its answer when it lands after the wait ended. A host
+  taken out and added again at the same address, port and host key is the same machine to this window, so a read on
+  its way across that is kept.
 
 ## Acceptance
 
