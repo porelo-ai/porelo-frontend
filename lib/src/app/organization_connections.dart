@@ -59,7 +59,8 @@ class CardHostConnections extends HostConnections {
       if (_waiting.contains(card.name) || _running.containsKey(card.name)) continue;
       if (!_askedWhenTurnedAway.add(card.name)) continue;
       unawaited(
-        _waitsForToken(machine, card.name).then((waits) {
+        // A connection that came up or went while it was asked has its answer from before: it says nothing now.
+        _waitsForToken(machine, card.name, still: () => _askedWhenTurnedAway.contains(card.name)).then((waits) {
           if (!waits || _disposed || _waiting.contains(card.name)) return;
           _waiting.add(card.name);
           notifyListeners();
@@ -157,12 +158,14 @@ class CardHostConnections extends HostConnections {
   bool _administers(String host) {
     final view = organization.view;
     final entry = view?.hosts.where((each) => each.name == host).firstOrNull;
-    return view != null && entry != null && entry.admins.contains(view.me);
+    return view != null && entry != null && view.holdsRoles && entry.admins.contains(view.me);
   }
 
   /// What the machine now says of the token is what stands, whoever gave it and from where.
   HostProgress _heard(String host, HostProgress progress) {
     if (!progress.waitsForToken) _waiting.remove(host);
+    // Root's word is no word to someone whose role was taken while it was asked.
+    if (!_administers(host)) return progress;
     // Kept for every page that shows it, which hears of it so.
     return keepHeard(host, progress);
   }
@@ -334,13 +337,14 @@ class CardHostConnections extends HostConnections {
     return true;
   }
 
-  /// Whether [host] says, to its host admin as root, that it waits for its first token.
-  Future<bool> _waitsForToken(Machine machine, String host) async {
+  /// Whether [host] says, to its host admin as root, that it waits for its first token; an answer that comes once
+  /// [still] no longer holds says nothing.
+  Future<bool> _waitsForToken(Machine machine, String host, {bool Function()? still}) async {
     if (!_administers(host)) return false;
     try {
       final waits = (await _progress.status(machine.sshConfig, host)).waitsForToken;
       // Root's word is no word to someone whose role was taken while it was asked.
-      if (!_administers(host)) return false;
+      if (!_administers(host) || !(still?.call() ?? true)) return false;
       // The last word of the token for the machine's page, kept while this computer is not connected.
       hearTokenWait(host, waits: waits);
       return waits;

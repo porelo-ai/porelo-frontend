@@ -1018,6 +1018,15 @@ abstract class HostConnections extends ChangeNotifier {
   /// and came back, or [again], as by a refresh; a refusal is no answer and leaves [heard] as it was.
   void askOnce(OrganizationView view, {bool again = false}) {
     if (again) _askedOnce.clear();
+    // A machine the organization no longer names: its wait and what it said are no word of one added under its name
+    // later, at the same address or not.
+    final named = {for (final host in view.hosts) host.name};
+    for (final gone in {..._tokenWaits.keys, ..._heard.keys}.difference(named)) {
+      _tokenWaits.remove(gone);
+      dropTokenWait(gone);
+      _heard.remove(gone);
+      _askedOnce.remove(gone);
+    }
     for (final host in view.hosts) {
       final administers = view.holdsRoles && host.admins.contains(view.me);
       // Heard as its Machine Admin, a wait is no word for someone who no longer is one; a lost connection keeps it.

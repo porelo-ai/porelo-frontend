@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F558",
   "title": "A Token Wait Stays True Through Races",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 10,
@@ -39,6 +39,23 @@ A second reading of [F555](README.md#f555)'s code found these, left for after it
 
 Each gets a test with its harm, red first, in `test/ui/organization_host_pages_test.dart` or
 `test/app/organization_connections_test.dart`.
+
+- **Built.** Every case was real. The page drops its own read when the organization names another machine under its
+  name (address, port, host key); `askOnce` drops the kept wait, the read and the asked-once mark of every host the
+  organization no longer names. `_read` keeps no answer for someone no longer the Machine Admin, and
+  `_waitsForItsToken` says no wait to anyone else; `_administers` asks `holdsRoles`, and `_heard` keeps no answer
+  that came after the role was taken. The turn-away's status read says nothing once the connection came up or went
+  while it was asked. While the page itself gives the token it starts no read of its own when the wait ends: its press
+  takes what the token's step heard. A read refused after the token was given is answered though the connection then
+  comes up, and the button stays only where it is shown (`connected` for a project's wait). Tests, each red on the
+  code before: a page read of a machine moved since; a wait said to someone not its Machine Admin; a read answered
+  after the role was taken; one root login for a token given from the page; a refused read after the token; why no
+  project token was given once the connection went; unit tests for a host taken out and added again (its read too,
+  red with that drop taken out), an untrusted card asked nothing as root, a read answered after the role was taken,
+  and a turn-away answered after the connection came up.
+- **Left.** A token given from the machine's row while its page is open still has the page's own read beside the
+  step's: joining them through `ask` could take an answer begun before the token was taken. A page read on its way
+  while the machine moves to another address still shows the old machine's answer when it comes after the move.
 
 ## Acceptance
 

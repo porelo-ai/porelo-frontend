@@ -672,6 +672,84 @@ void main() {
     expect(made.tokenWaitHeard('build'), isNull);
   });
 
+  // Harm: a machine taken out of the organization and added again under its name at the same address is said to wait
+  // for the token the one before waited for, and what that one said is shown as its own.
+  test('a wait and a read are no word of a machine added again after it was taken out', () async {
+    final made = await waitingForItsToken();
+    final gone = _mia(host: hostOfMia(name: 'gone'));
+    await reads(made, gone);
+    made.askOnce(gone);
+    await reads(made, _mia(host: _hostOfMia));
+    expect(made.tokenWaitHeard('build'), isNull);
+    expect(made.connected('build'), isTrue, reason: 'its connection stands for the machine of the same address');
+    expect(made.heard('build'), isNull);
+  });
+
+  // Harm: someone whose card the organization no longer trusts is still asked for as root, and told the machine waits
+  // for their token.
+  test('a card no longer trusted holds no Machine Admin role, and nothing is asked as root for it', () async {
+    final made = await connections(
+      organizationFor(
+        'mia',
+        host: _hostOfMia,
+        persons: [
+          OrganizationPerson(login: 'mia', standing: CardStanding.revoked, key: HostFiles.signingFingerprint(_key)),
+        ],
+      ),
+    );
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    try {
+      await made.connect('build');
+    } on OrganizationRefused {
+      // Turned away with no wait of theirs to say.
+    }
+    expect(refreshed, isEmpty, reason: 'nothing asked as root');
+    expect(made.tokenWaitHeard('build'), isNull);
+  });
+
+  // Harm: root's answer to a read on its way when the Machine Admin role was taken is kept as that person's, for every
+  // page that shows it.
+  test('a read answered after the role was taken meanwhile is not kept', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    await made.connect('build');
+    hostSays = '{"organization": "waiting-for-token"}';
+    final answer = holdAnswer = Completer<void>();
+    final reading = made.progress('build');
+    while (refreshed.isEmpty) {
+      await pumpEventQueue();
+    }
+    await reads(made, _mia(host: hostOfMia(admins: const ['hana'])));
+    answer.complete();
+    await reading;
+    expect(made.heard('build'), isNull);
+    expect(made.tokenWaitHeard('build'), isNull);
+  });
+
+  // Harm: a connection raised again by itself came up while the machine was asked why it turned the person away, and
+  // the late answer says the machine waits for a token it has taken.
+  test('a turn-away answered after the connection came up meanwhile keeps no wait', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    await made.connect('build');
+    final machine = machines.all.singleWhere((each) => each.name == 'build');
+    masters.last.kill();
+    await pumpEventQueue();
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    final answer = holdAnswer = Completer<void>();
+    await machines.tunnels.raiseAgainIfItDropped(machine);
+    while (refreshed.isEmpty) {
+      await pumpEventQueue();
+    }
+    turnedAway = false;
+    await machines.tunnels.raiseAgainIfItDropped(machine);
+    await pumpEventQueue();
+    expect(made.up('build'), isTrue);
+    answer.complete();
+    await pumpEventQueue();
+    expect(made.tokenWaitHeard('build'), isNull);
+  });
+
   // Harm: right after Prepare the machine has not yet made the person's account, as its first follow runs within five
   // minutes; its turn-away then read as a refusal in red, and the connection was taken down instead of waited for.
   test('a machine just prepared that turns one away is waited for, kept, and not refused', () async {

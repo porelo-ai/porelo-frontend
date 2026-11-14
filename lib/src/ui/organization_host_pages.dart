@@ -400,6 +400,13 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// The ends of the machine's wait for its token this page has taken in.
   late int _waitEndsSeen = widget.connections?.tokenWaitEnds(widget.host) ?? 0;
 
+  /// Whether this page gives the machine its token now: its press reads the machine after, so the page asks nothing of
+  /// its own meanwhile.
+  bool _givingToken = false;
+
+  /// The machine the organization named this page's host when the page last looked, as its address, port and host key.
+  ({String? address, int? port, String? hostKey})? _machineSeen;
+
   /// What the machine said last, wherever it was asked, as this page last took it.
   HostProgress? _heardSeen;
   DateTime? _answeredAt;
@@ -493,8 +500,23 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// taken too.
   void _askProgress() {
     final connections = widget.connections;
+    // Another machine under this name, as one moved or taken out and added again: what the one before said is not
+    // its word.
+    final entry = widget.organization.view?.hosts.where((host) => host.name == widget.host).firstOrNull;
+    final machine = entry == null ? null : (address: entry.address, port: entry.port, hostKey: entry.hostKey);
+    if (machine != _machineSeen) {
+      final before = _machineSeen;
+      _machineSeen = machine;
+      if (before != null && _progress != null) {
+        setState(() {
+          _progress = null;
+          _heardSeen = null;
+        });
+        _askedProgress = false;
+      }
+    }
     // The wait ended other than by a read, as once the token was taken: what this page read of it is no longer so, and
-    // the machine is read again where it can be.
+    // the machine is read again where it can be, by the press where this page gives the token.
     final ends = connections?.tokenWaitEnds(widget.host) ?? 0;
     if (ends != _waitEndsSeen) {
       _waitEndsSeen = ends;
@@ -503,7 +525,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           _progress = null;
           _heardSeen = null;
         });
-        _askedProgress = false;
+        _askedProgress = _givingToken;
       }
     }
     if (connections == null || !connections.connected(widget.host) || !_isAdminHere) {
@@ -551,7 +573,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final latest = read == _progressReads;
     setState(() {
       _working--;
-      if (latest && progress != null) {
+      // Asked before the Machine Admin role was taken, it is no word to this person now.
+      if (latest && progress != null && _isAdminHere) {
         _progress = progress;
         _answeredAt = DateTime.now();
       }
@@ -565,11 +588,15 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final first = _waitsForItsToken(widget.host);
     final before = widget.connections?.heard(widget.host);
     // The page is busy while the token is given, as for any other ask of the machine.
-    setState(() => _working++);
+    setState(() {
+      _working++;
+      _givingToken = true;
+    });
     final String? words;
     try {
       words = await widget.onGiveToken?.call(widget.host);
     } finally {
+      _givingToken = false;
       if (mounted) setState(() => _working--);
     }
     final connections = widget.connections;
@@ -579,12 +606,15 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final refusal = heard != null && !identical(heard, before)
         ? await _read(() async => heard, byAButton: true)
         : await _read(() => connections.ask(widget.host), byAButton: true);
-    // The host has made the account it could not make before: now the connection itself can come up.
+    // The host has made the account it could not make before: now the connection itself can come up. A read refused
+    // before it is still said, though the connection comes up.
     final answer = mounted && first && !_waitsForItsToken(widget.host)
-        ? words ?? await _act(() => connections.connect(widget.host), byAButton: true)
+        ? words ?? await _act(() => connections.connect(widget.host), byAButton: true) ?? refusal
         : words ?? refusal;
-    // The button goes once the machine wants no token: its answer then stands at the page's head, not nowhere.
-    final buttonStays = (_progress?.wantsToken ?? false) || _waitsForItsToken(widget.host);
+    // The button goes once the machine wants no token, or the connection a project's token needs went: its answer
+    // then stands at the page's head, not nowhere.
+    final connected = connections.connected(widget.host);
+    final buttonStays = (connected && (_progress?.wantsToken ?? false)) || _waitsForItsToken(widget.host);
     if (mounted && answer != null && !buttonStays) setState(() => _refusal = answer);
     return answer;
   }
@@ -688,7 +718,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final connections = widget.connections;
     if (host == null || connections == null) return const StateChip('not read');
     final waits = _waitsForItsToken(host.name);
-    if (!connections.connected(host.name) && !(waits && _isAdminHere)) return const StateChip('Not connected');
+    if (!connections.connected(host.name) && !waits) return const StateChip('Not connected');
     if (waits) return const StateChip('Waiting for its token', toneWords: 'waiting');
     if (!connections.up(host.name)) return const StateChip('Connection down', toneWords: 'not connected');
     return const StateChip('Connected');
@@ -706,6 +736,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// last *Connect*, or a wait heard elsewhere, as by the setup that prepared it. Kept while not connected; a wait
   /// ended since, as by the token taken, has cleared the page's read of it.
   bool _waitsForItsToken(String host) {
+    // A wait is said to its Machine Admin alone, who can give it the token.
+    if (!_isAdminHere) return false;
     final connections = widget.connections;
     final progress = _progress;
     if (progress?.waitsForToken ?? false) return true;

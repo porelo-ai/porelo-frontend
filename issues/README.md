@@ -138,12 +138,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f558"></a>[F558](F558-A-Token-Wait-Stays-True-Through-Races.md) | S | [F555](README.md#f555) | The token wait a machine's page says stays true where reads, connections and roles change while a read is on its way: no old machine's wait on a re-addressed or re-added host, no wait for someone no longer its Machine Admin, no second root login when the token is given, and every refusal said where it is asked. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
@@ -158,6 +152,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f473"></a>[F473](F473-The-Window-Calls-The-Host-Programs-It-Has-Now.md) | S | - | Every call the window makes on a host names a program the host has now: root's org status, org refresh and person purge by /usr/sbin/porelo-host, and a project's central state from the person's own daemon there, so no machine page fails on a removed program. |
 | <a id="f557"></a>[F557](F557-A-Snapshot-Window-Sets-Up-WSL-With-Snapshots.md) | XS | - | Story ST50, a machine and a host reached from Windows: a snapshot window sets Porelo up in a WSL distribution from Porelo's snapshots repository, and a release window from its releases repository. |
+| <a id="f558"></a>[F558](F558-A-Token-Wait-Stays-True-Through-Races.md) | S | [F555](README.md#f555) | The token wait a machine's page says stays true where reads, connections and roles change while a read is on its way: no old machine's wait on a re-addressed or re-added host, no wait for someone no longer its Machine Admin, no second root login when the token is given, and every refusal said where it is asked. |
 | <a id="f509"></a>[F509](F509-A-Hosts-Browser-Address-Reaches-Only-Its-Own-Forward.md) | S | - | The forge and homeserver addresses the window gives a browser for a host's card reach only the card's own forward, on IPv6 loopback as on IPv4, never another local program that listens there. |
 | <a id="f508"></a>[F508](F508-A-Tasks-Clipboard-Write-Asks-First.md) | M | - | A task's write to this computer's clipboard through OSC 52 is never silent: every write is held and asked about in its own terminal's view, with a preview of what would be written. |
 | <a id="f513"></a>[F513](F513-The-Window-Removes-Only-Its-Own-Sockets.md) | M | - | The window removes a socket path only when it holds proof that the object there is the socket its own ssh or its own instance made and nobody listens on it; never another program's live socket and never a file. |
