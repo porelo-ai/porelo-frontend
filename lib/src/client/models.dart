@@ -3600,6 +3600,28 @@ class Providers {
       Providers(providers: _list(map, 'providers').map(Provider.from).toList(), readable: map['readable'] == true);
 }
 
+/// One sign-in an installed agent holds on this machine, by name only.
+class ImportableCredential {
+  /// The agent, as `Agents` names it.
+  final String agent;
+
+  /// The provider it is for, as `Providers` names it; empty for an agent that is not brokered.
+  final String provider;
+
+  /// Its kind, empty for none.
+  final String kind;
+
+  /// Constructor taking every field.
+  const ImportableCredential({required this.agent, required this.provider, required this.kind});
+
+  /// Reads one from a reply.
+  factory ImportableCredential.from(Map<String, dynamic> map) => ImportableCredential(
+    agent: _string(map, 'agent'),
+    provider: _string(map, 'provider'),
+    kind: _string(map, 'kind'),
+  );
+}
+
 /// A host's one-use key to seal a credential to, held for a few minutes.
 class CredentialReceiver {
   /// `READY`, or `VAULT_LOCKED` when the host's vault is shut and could take nothing.

@@ -1093,6 +1093,14 @@ class PoreloClient {
   Future<Imported> importCredential({String? agent, String? configDirectory}) async =>
       Imported.from(await _call('ImportCredential', {'agent': ?agent, 'configDirectory': ?configDirectory}));
 
+  /// The sign-ins this machine's installed agents hold, by name only. Not cheap: each agent is asked per provider.
+  Future<List<ImportableCredential>> importableCredentials() async {
+    final rows = (await _call('ImportableCredentials', const <String, dynamic>{}))['rows'];
+    return rows is List
+        ? rows.whereType<Map<String, dynamic>>().map(ImportableCredential.from).toList()
+        : const <ImportableCredential>[];
+  }
+
   /// A one-use key on this host to seal a credential to.
   Future<CredentialReceiver> credentialReceiver() async =>
       CredentialReceiver.from(await _call('CredentialReceiver', const <String, dynamic>{}));

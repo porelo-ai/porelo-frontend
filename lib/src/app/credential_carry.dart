@@ -51,6 +51,7 @@ class AgentSignInSource extends CarrySource {
   const AgentSignInSource({
     required this.agent,
     required this.agentLabel,
+    this.kind = '',
     this.account = '',
     this.age = '',
     super.whyNot,
@@ -62,6 +63,9 @@ class AgentSignInSource extends CarrySource {
   /// Its name for a person.
   final String agentLabel;
 
+  /// Its kind, as porelo lists it; empty when not known.
+  final String kind;
+
   /// The account it is signed in as, empty when not known.
   final String account;
 
@@ -72,7 +76,12 @@ class AgentSignInSource extends CarrySource {
   String get label => "$agentLabel's own sign-in";
 
   @override
-  String get facts => <String>['agent sign-in', if (account.isNotEmpty) account, if (age.isNotEmpty) age].join(' · ');
+  String get facts => <String>[
+    'agent sign-in',
+    if (kind.isNotEmpty) kind,
+    if (account.isNotEmpty) account,
+    if (age.isNotEmpty) age,
+  ].join(' · ');
 
   @override
   String get id => 'agent $agent';
@@ -99,9 +108,15 @@ class CarryOutcome {
 /// Which of this computer's vault entries and local agents' sign-ins can go to a host for [provider].
 ///
 /// Vault entries of the provider's own name or type are offered; others are not this provider's. An agent is offered
-/// when it reaches the provider's upstream or was found signed in to it, greyed when it found itself signed out or
-/// signed in elsewhere. Where it cannot say, carrying finds out.
-List<CarrySource> sourcesFor(Provider provider, {required VaultState? vault, required List<Agent> agents}) {
+/// for each sign-in porelo lists the installed agents holding for it ([importable], from `ImportableCredentials`).
+/// From a Porelo without that list, an agent is offered when it reaches the provider's upstream or was found signed in
+/// to it, greyed when it found itself signed out or signed in elsewhere, and where it cannot say, carrying finds out.
+List<CarrySource> sourcesFor(
+  Provider provider, {
+  required VaultState? vault,
+  required List<Agent> agents,
+  List<ImportableCredential>? importable,
+}) {
   final vaultShut = vault == null
       ? "This computer's vault could not be read."
       : vault.readable
@@ -116,14 +131,27 @@ List<CarrySource> sourcesFor(Provider provider, {required VaultState? vault, req
         if (entry.name == provider.credentialName ||
             (provider.credentialType.isNotEmpty && entry.type == provider.credentialType))
           VaultEntrySource(name: entry.name, type: entry.type, characters: entry.characters, whyNot: vaultShut),
-    for (final agent in agents)
-      if (agent.allowedDomains.contains(provider.upstream) || agent.foundProvider == provider.name)
-        AgentSignInSource(
-          agent: agent.name,
-          agentLabel: agent.label.isEmpty ? agent.name : agent.label,
-          whyNot: _agentWhyNot(agent, provider),
-        ),
+    // What porelo lists the agents holding is the answer; what each agent found of itself is only the older guess.
+    if (importable != null)
+      for (final row in importable)
+        if (row.provider == provider.name)
+          AgentSignInSource(agent: row.agent, agentLabel: _labelOf(row.agent, agents), kind: row.kind)
+        else
+          ...const <CarrySource>[]
+    else
+      for (final agent in agents)
+        if (agent.allowedDomains.contains(provider.upstream) || agent.foundProvider == provider.name)
+          AgentSignInSource(
+            agent: agent.name,
+            agentLabel: agent.label.isEmpty ? agent.name : agent.label,
+            whyNot: _agentWhyNot(agent, provider),
+          ),
   ];
+}
+
+String _labelOf(String agent, List<Agent> agents) {
+  final known = agents.where((each) => each.name == agent).firstOrNull;
+  return known == null || known.label.isEmpty ? agent : known.label;
 }
 
 /// Why [agent]'s own sign-in cannot go for [provider], as far as what it found of itself says; null when it can, or

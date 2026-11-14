@@ -668,6 +668,9 @@ abstract class FleetBackend {
 ///
 /// Apart from [FleetBackend] so a stand-in that cannot carry says so by not being one.
 abstract interface class CarriesCredentials {
+  /// The sign-ins this machine's installed agents hold, by name only.
+  Future<List<ImportableCredential>> importableCredentials();
+
   /// A one-use key on this machine to seal a credential to.
   Future<CredentialReceiver> credentialReceiver();
 
@@ -1102,6 +1105,9 @@ class PoreloBackend implements FleetBackend, CarriesCredentials, SetsUpRooms {
 
   @override
   Future<ProjectMessages?> setUpMessages(String project) => _opened().setUpMessages(project);
+
+  @override
+  Future<List<ImportableCredential>> importableCredentials() => _opened().importableCredentials();
 
   @override
   Future<CredentialReceiver> credentialReceiver() => _opened().credentialReceiver();

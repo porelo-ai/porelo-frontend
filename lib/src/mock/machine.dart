@@ -169,6 +169,14 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
       (_) => <String, dynamic>{'outcome': 'READY', 'key': 'bW9jay1rZXk=', 'until': '2099-01-01T00:00:00Z'},
     );
     daemon.method('SealCredential', _sealCredential);
+    daemon.method(
+      'ImportableCredentials',
+      (_) => <String, dynamic>{
+        'rows': <Map<String, dynamic>>[
+          <String, dynamic>{'agent': 'an-agent', 'provider': 'a-provider', 'kind': 'api-key'},
+        ],
+      },
+    );
     // A stand-in has nothing to open: what arrives is taken as stored.
     daemon.method('ReceiveCredential', (_) => <String, dynamic>{'outcome': 'STORED', 'detail': ''});
     // Which node this is. Random per mock instance, so two mocks are two nodes and one mock

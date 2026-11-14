@@ -23,6 +23,9 @@ class _End implements CarriesCredentials {
   String receiverOutcome = 'READY';
 
   @override
+  Future<List<ImportableCredential>> importableCredentials() async => const <ImportableCredential>[];
+
+  @override
   Future<CredentialReceiver> credentialReceiver() async {
     receivers++;
     calls.add('$name receiver');
@@ -274,5 +277,34 @@ void main() {
       provider: 'anthropic',
     );
     expect(said.words, 'That entry is too large to carry to a host.');
+  });
+
+  // Harm: a sign-in porelo lists for the provider is missing, another provider's is offered, or a guess from the
+  // agent's own finding wins over porelo's list.
+  test("porelo's list of held sign-ins is the agent source when it answers", () {
+    final sources = sourcesFor(
+      _provider,
+      vault: null,
+      agents: const <Agent>[
+        Agent(
+          name: 'claude',
+          label: 'Claude Code',
+          binary: 'claude',
+          version: '',
+          from: '',
+          found: 'NOT_SIGNED_IN',
+          allowedDomains: <String>['api.anthropic.com'],
+        ),
+      ],
+      importable: const <ImportableCredential>[
+        ImportableCredential(agent: 'claude', provider: 'anthropic', kind: 'oauth'),
+        ImportableCredential(agent: 'codex', provider: 'openai', kind: 'api-key'),
+      ],
+    );
+    final agents = sources.whereType<AgentSignInSource>().toList();
+    expect(agents.map((s) => s.id), <String>['agent claude']);
+    expect(agents.single.label, "Claude Code's own sign-in");
+    expect(agents.single.facts, 'agent sign-in · oauth');
+    expect(agents.single.whyNot, isNull);
   });
 }

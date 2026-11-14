@@ -61,3 +61,6 @@ with the mock daemon answering it until porelo's main has it.
 
 Left as [F575](README.md#f575): a feature scenario across two stand-in machines (the feature world has one backend), and the live
 check against B774/B775 once they are on porelo's main.
+
+With B775: the agent sources are porelo's `ImportableCredentials` rows for the provider, each with its kind. Where a
+Porelo does not know that call, the agents' own findings stand in as before.

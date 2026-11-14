@@ -4963,7 +4963,14 @@ class _ShellState extends State<Shell> {
         final on = await ready();
         final vault = await on.credentials();
         final agents = await on.agentsOn();
-        return sourcesFor(provider, vault: vault, agents: agents.agents);
+        List<ImportableCredential>? importable;
+        try {
+          importable = await on.importableCredentials();
+        } on FeatureNotSupported {
+          // An older Porelo: the agents' own findings stand in.
+          importable = null;
+        }
+        return sourcesFor(provider, vault: vault, agents: agents.agents, importable: importable);
       },
       carry: (source, {required replace}) async {
         return carry(here: await ready(), host: receiver, source: source, provider: provider.name, replace: replace);
