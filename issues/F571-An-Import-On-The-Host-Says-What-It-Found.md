@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F571",
   "title": "An Import On The Host Says What It Found",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 16,
@@ -34,3 +34,13 @@ find nothing.
 ## Acceptance
 
 - Guards for found, found nothing and refused, each red first. The authentication view tests green.
+
+## Built
+
+The import did answer, but out of sight: its words stood below the whole *Providers* card, far below the opened row
+and its button, and a refused import set the page's own problem, so the providers it had read showed as not read.
+Now the answer stands under the button that was pressed (`import-says <provider>`): what was stored, that nothing was
+there to import with the next step, that the vault is shut, or the refusal in the error colour. The providers stay
+read. The button names where it reads: *Import what the agent already has on the host* on a remote machine, *… on
+this computer* on this one, and it waits while an import runs. The authentication scenarios hold each, at the button
+and in view; three were red on the old code.

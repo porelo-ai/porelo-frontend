@@ -4946,6 +4946,7 @@ class _ShellState extends State<Shell> {
             child: AuthenticationView(
               authentication: tools.authentication,
               filter: head.filter,
+              onTheHost: !machine.isThisComputer,
               onImport: (agent) => unawaited(_importProvider(machine, tools, agent)),
             ),
           ),

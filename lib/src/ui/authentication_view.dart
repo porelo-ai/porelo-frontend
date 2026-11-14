@@ -15,7 +15,16 @@ import 'tokens.dart';
 /// can see the socket at all — so what is shown is the command, ready to copy.
 class AuthenticationView extends StatelessWidget {
   /// Constructor taking what the machine said and what can be done.
-  const AuthenticationView({required this.authentication, required this.onImport, this.filter, super.key});
+  const AuthenticationView({
+    required this.authentication,
+    required this.onImport,
+    this.filter,
+    this.onTheHost = false,
+    super.key,
+  });
+
+  /// Whether the machine is a host rather than this computer: the import reads the agent's files where it runs.
+  final bool onTheHost;
 
   /// What the machine has.
   final Authentication authentication;
@@ -61,6 +70,12 @@ class AuthenticationView extends StatelessWidget {
                     provider: provider,
                     readable: authentication.readable,
                     onImport: () => onImport(provider.name),
+                    onTheHost: onTheHost,
+                    importSaid: authentication.importedFor == provider.name || authentication.importedFor == null
+                        ? authentication.importSaid
+                        : '',
+                    importFailed: authentication.importProblem != null,
+                    importing: authentication.busy && authentication.answer != null,
                   ),
             ],
           ),
@@ -72,13 +87,6 @@ class AuthenticationView extends StatelessWidget {
                 key: const Key('providers-problem'),
                 style: TextStyle(color: scheme.error),
               ),
-            ),
-          if (authentication.imported != null)
-            Padding(
-              padding: const EdgeInsets.only(top: Space.small),
-              // Never the value — the length is how somebody sees it worked without the
-              // confirmation becoming the place the secret appears.
-              child: Text(authentication.importWords, key: const Key('import-says')),
             ),
           if (authentication.busy && authentication.answer == null)
             const Padding(
@@ -112,11 +120,25 @@ class AuthenticationView extends StatelessWidget {
 
 /// One provider, with where its credential belongs.
 class _ProviderRow extends StatelessWidget {
-  const _ProviderRow({required this.provider, required this.readable, required this.onImport});
+  const _ProviderRow({
+    required this.provider,
+    required this.readable,
+    required this.onImport,
+    required this.onTheHost,
+    required this.importSaid,
+    required this.importFailed,
+    required this.importing,
+  });
 
   final Provider provider;
   final bool readable;
   final VoidCallback onImport;
+  final bool onTheHost;
+
+  /// What the last import pressed here said, empty when none was.
+  final String importSaid;
+  final bool importFailed;
+  final bool importing;
 
   @override
   Widget build(BuildContext context) {
@@ -225,14 +247,29 @@ class _ProviderRow extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
               key: const Key('import-credential'),
-              onPressed: onImport,
+              onPressed: importing ? null : onImport,
               icon: const Icon(Icons.download_outlined, size: Sizes.rowIcon),
               // No secret crosses this: the daemon reads the agent's own config on its own disk,
               // and only a name comes back.
-              label: const Text('Import what the agent already has there'),
+              label: Text(
+                onTheHost
+                    ? 'Import what the agent already has on the host'
+                    : 'Import what the agent already has on this computer',
+              ),
             ),
           ),
         ),
+        if (importSaid.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.normal),
+            // Never the value — the length is how somebody sees it worked without the
+            // confirmation becoming the place the secret appears.
+            child: Text(
+              importSaid,
+              key: Key('import-says ${provider.name}'),
+              style: importFailed ? TextStyle(color: scheme.error) : null,
+            ),
+          ),
       ],
     );
   }

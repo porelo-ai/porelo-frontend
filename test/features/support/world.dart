@@ -1825,9 +1825,13 @@ class FakeBackend implements FleetBackend {
   /// Which agents were asked to be imported.
   final List<String?> imports = <String?>[];
 
+  /// Whether the next import is refused. Set by the scenario.
+  bool importRefused = false;
+
   @override
   Future<Imported> importCredential({String? agent, String? configDirectory}) async {
     imports.add(agent);
+    if (importRefused) throw const VarlinkException('org.fuin.porelo.Tasks1.Failed');
     // Stored, the machine reads the agent signed in from then on.
     if (theImportAnswers.stored && agent != null && signInOf.containsKey(agent)) {
       signInOf[agent] = AgentSignIn(agent: agent, state: 'SIGNED_IN');

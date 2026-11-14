@@ -69,25 +69,36 @@ class Authentication extends ChangeNotifier {
   /// an empty name matches nothing, and the two are kept apart on the daemon's side too.
   Future<void> importFor(FleetBackend backend, {String? agent}) async {
     busy = true;
-    problem = null;
     imported = null;
+    importProblem = null;
+    importedFor = agent;
     notifyListeners();
     try {
       imported = await backend.importCredential(agent: agent);
       // What is on screen has to be what is true: a credential that arrived changes which
       // providers are authenticated.
       if (imported?.stored ?? false) answer = await backend.providers();
+      // A failed import is said where it was pressed; the providers it did not touch stay read.
     } on VarlinkException catch (refusal) {
-      problem = 'Refused: ${refusal.simpleName}.';
+      importProblem = 'The import was refused: ${refusal.simpleName}.';
     } on VarlinkDisconnected catch (ex) {
-      problem = 'Lost contact with the machine: ${ex.message}';
+      importProblem = 'Lost contact with the machine during the import: ${ex.message}';
     } on FeatureNotSupported catch (ex) {
-      problem = '$ex';
+      importProblem = '$ex';
     } finally {
       busy = false;
       notifyListeners();
     }
   }
+
+  /// The provider the last import was pressed for, null for the only agent installed.
+  String? importedFor;
+
+  /// Why the last import failed, said beside its button; null when it answered.
+  String? importProblem;
+
+  /// What the last import said, in one line: its answer or why it failed, empty before one.
+  String get importSaid => importProblem ?? importWords;
 
   /// What the last import did, in one line.
   ///
@@ -115,6 +126,7 @@ class Authentication extends ChangeNotifier {
   /// Puts the result of an import away.
   void letItBe() {
     imported = null;
+    importProblem = null;
     notifyListeners();
   }
 }

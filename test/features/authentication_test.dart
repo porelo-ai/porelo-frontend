@@ -12,9 +12,13 @@ import './step/it_says.dart';
 import './step/i_open_the_provider.dart';
 import './step/the_command_to_store_one_is.dart';
 import './step/the_store_cannot_be_read.dart';
+import './step/the_import_button_says.dart';
 import './step/i_import_what_the_agent_already_has.dart';
+import './step/the_provider_says.dart';
 import './step/no_secret_crossed_the_socket.dart';
 import './step/importing_will_find_nothing.dart';
+import './step/importing_will_be_refused.dart';
+import './step/it_does_not_say.dart';
 import './step/importing_will_find_the_store_shut.dart';
 
 void main() {
@@ -65,8 +69,9 @@ void main() {
       await bddSetUp(tester);
       await iShowWhatThisMachineCanAuthenticateAgainst(tester);
       await iOpenTheProvider(tester, 'A Provider');
+      await theImportButtonSays(tester, 'already has on this computer');
       await iImportWhatTheAgentAlreadyHas(tester);
-      await itSays(tester, 'Stored as an-agent: 51 characters');
+      await theProviderSays(tester, 'a-provider', 'Stored as an-agent: 51 characters');
       await noSecretCrossedTheSocket(tester);
     });
     testWidgets('''nothing to import is a sentence with a next step, never a failure''', (tester) async {
@@ -75,8 +80,17 @@ void main() {
       await iShowWhatThisMachineCanAuthenticateAgainst(tester);
       await iOpenTheProvider(tester, 'A Provider');
       await iImportWhatTheAgentAlreadyHas(tester);
-      await itSays(tester, 'nobody has logged in with it on that machine yet');
-      await itSays(tester, 'Logging in there is the next step');
+      await theProviderSays(tester, 'a-provider', 'nobody has logged in with it on that machine yet');
+      await theProviderSays(tester, 'a-provider', 'Logging in there is the next step');
+    });
+    testWidgets('''a refused import is said at its button, and the providers stay read''', (tester) async {
+      await bddSetUp(tester);
+      await importingWillBeRefused(tester);
+      await iShowWhatThisMachineCanAuthenticateAgainst(tester);
+      await iOpenTheProvider(tester, 'A Provider');
+      await iImportWhatTheAgentAlreadyHas(tester);
+      await theProviderSays(tester, 'a-provider', 'The import was refused');
+      await itDoesNotSay(tester, 'providers not read');
     });
     testWidgets('''a shut store is not drawn as a missing credential''', (tester) async {
       await bddSetUp(tester);

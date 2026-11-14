@@ -47,8 +47,9 @@ Feature: Which providers a machine is authenticated against
     Scenario: what an agent already holds there is imported without a secret crossing
         When I show what this machine can authenticate against
         And I open the provider {'A Provider'}
-        And I import what the agent already has
-        Then it says {'Stored as an-agent: 51 characters'}
+        Then the import button says {'already has on this computer'}
+        When I import what the agent already has
+        Then the provider {'a-provider'} says {'Stored as an-agent: 51 characters'}
         And no secret crossed the socket
 
     # Ordinary, not a fault: the agent is installed and nobody has logged in with it there yet.
@@ -57,8 +58,17 @@ Feature: Which providers a machine is authenticated against
         When I show what this machine can authenticate against
         And I open the provider {'A Provider'}
         And I import what the agent already has
-        Then it says {'nobody has logged in with it on that machine yet'}
-        And it says {'Logging in there is the next step'}
+        Then the provider {'a-provider'} says {'nobody has logged in with it on that machine yet'}
+        And the provider {'a-provider'} says {'Logging in there is the next step'}
+
+    # Harm: a refused import is said nowhere, or hides the providers that were read.
+    Scenario: a refused import is said at its button, and the providers stay read
+        Given importing will be refused
+        When I show what this machine can authenticate against
+        And I open the provider {'A Provider'}
+        And I import what the agent already has
+        Then the provider {'a-provider'} says {'The import was refused'}
+        And it does not say {'providers not read'}
 
     Scenario: a shut store is not drawn as a missing credential
         Given importing will find the store shut
