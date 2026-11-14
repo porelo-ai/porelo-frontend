@@ -6,29 +6,27 @@ without one gets re-argued every time somebody new reads it.
 
 ## Flutter
 
-- **Language:** Dart 3.13, Flutter 3.47 stable. Pinned in `pubspec.yaml` once the app exists;
-  until then these are what the decisions below were taken against.
-- **UI:** Flutter, one codebase for desktop and tablet. **Linux desktop is the only target that
-  works today** — the backend is a unix socket, so a client has to be able to open one, and a
-  phone cannot without a tunnel it has no way to raise. Phone is not designed out; it is simply
-  not reachable until there is a way for a device without a shell to get
-  a socket, and the layouts do not assume it never will.
+- **Language:** Dart 3.13, Flutter 3.47 stable, pinned in `pubspec.yaml`.
+- **UI:** Flutter, one codebase for desktop and tablet. **Linux and Windows desktop are the targets
+  that work today** — the backend is a unix socket, so a client has to be able to open one or relay
+  to it (Windows reaches it through WSL and ssh, below), and a phone cannot without a tunnel it has
+  no way to raise. Phone is not designed out; it is simply not reachable until there is a way for a
+  device without a shell to get a socket, and the layouts do not assume it never will.
 - **Contract:** the Porelo backend and its API contract — the varlink interface
   `org.fuin.porelo.Tasks1`, over one unix socket. **No REST, no HTTP, no shared code with the
   backend at all**: the only thing crossing the boundary is the IDL, which the daemon serves
   from itself. See [Backend API](Backend-API.md) before writing a call.
 - **Client:** hand-written, in one package, against the contract. There is no varlink code
   generator for Dart and the protocol is small enough — a socket, JSON objects, a NUL between
-  them — that generating it would be more machinery than it saves. Whether that stays true once
-  every method has a typed request and reply is the open question below.
+  them — that generating it would be more machinery than it saves.
 - **Auth:** **none, and that is the design.** The socket is owner-only, so the filesystem decides
   who may connect and there is nothing to log in to. A remote backend is an SSH forward, so its
   authentication is SSH's. A design that needs a token, a session or a login screen means
   something has gone wrong upstream of it.
 - **Build:** **Maven drives Flutter here.** A `pom.xml` in this repository calls `flutter` through
   `exec-maven-plugin` — `pub get` in `generate-sources`, analyze and the tests in theirs,
-  `flutter build` in `package` — with a profile keyed on `env.FLUTTER_ROOT`, so a machine without
-  Flutter still builds.
+  `flutter build` in `package`. Flutter is needed to build; the `e2e` and `leased` profiles add the
+  runs against a real machine.
 
   **What it costs is a JDK.** The interface builds, tests and releases on its own, and needs a JDK
   to do it, for one reason: an end-to-end test that drives this interface against a real machine
@@ -43,13 +41,13 @@ without one gets re-argued every time somebody new reads it.
   finding. It is `dart analyze`, not `flutter analyze`, which rewrites `analysis_options.yaml` with
   an exclude block that silences findings instead of fixing them.
 
-## The terminal, and the only dependency there is
+## The terminal, and its dependency
 
 A session inside running work needs two things this codebase did not have: something that
 understands escape sequences, and a pseudoterminal. They were decided separately and the answers
 are different.
 
-- **`xterm` from pub.dev draws it, and it is the first runtime dependency here.** Everything else
+- **`xterm` from pub.dev draws it, and it was the first runtime dependency here.** The protocol code
   is hand-written against a contract — the varlink client included, because that protocol is a
   socket, JSON and a NUL. A VT emulator is where that argument stops holding: cursor motion, an
   alternate screen, scroll regions, colour, wide characters and reflow are not a small protocol,
@@ -125,8 +123,9 @@ checked, they cannot drift or silently vanish.
 - `dart run build_runner build && dart format test/features integration_test` after adding or
   editing a feature: the generator writes its own layout, which the format check refuses. Its
   `--delete-conflicting-outputs` flag has been removed and is silently ignored.
-- `avoid_print` is disabled per-file in `tool/contract.dart`: it is a command-line tool and
-  printing is its output. That is the only lint exception, and it is stated in the file.
+- `avoid_print` is disabled per-file in the command-line tools under `tool/` (`contract.dart`,
+  `mock_daemon.dart`, `test_report.dart`): printing is their output. Two lines in `lib/` carry an
+  `ignore` of their own. Every exception stands at the line it excuses.
 
 ### A move rehearsed in the window
 
@@ -179,19 +178,19 @@ daemon cannot be made to produce on demand, and those are the hard requirements:
 - A stream cut mid-flight, for the requirement that tunnel loss reads as disconnection and never
   as an empty fleet.
 - `HOLDS_WORK` on demand, without contriving a task that genuinely holds unpushed commits.
-- A four-minute image build, and a clearance prompt with a live deadline.
+- A clearance prompt with a live deadline.
 
 It also means the test suite needs no podman, no containers and no Linux host with a runtime —
 so it runs on any hosted runner.
 
-- **Scenarios are named for the situation, not the requirement** — `task-holds-unpushed-work`,
-  not `f09-case-2`. A finished requirement is deleted; the situation and the test guarding it
+- **Scenarios are named for the situation, not the requirement** — `holds-work`, not
+  `f09-case-2`. A finished requirement is deleted; the situation and the test guarding it
   outlive it.
 - **Events are driven by the test, never by wall clock.** Otherwise stream tests are flaky, and
   flaky tests get deleted.
-- **Drift is caught by one CI job with a real daemon**: install the `porelo` package, start
-  `porelod`, compare the mock's method and field set against `GetInterfaceDescription`. The mock
-  proves the client handles what it is sent; that job proves the contract is what we think it is.
+- **Drift is caught against a real daemon**: `test/client/live_daemon_test.dart` runs this client
+  against a running `porelod` and is skipped where none is; no CI job starts one yet. The mock
+  proves the client handles what it is sent; that test proves the contract is what we think it is.
   Neither substitutes for the other, and a drifted mock is worse than no mock.
 - **Watch the socket path length.** Unix paths are limited to about 108 bytes on Linux and
   temporary directories in test harnesses get long enough to hit it.
@@ -447,9 +446,10 @@ distribution.
   enable-linger` and `porelo setup`, each shown before it runs. Root inside the distribution
   (`wsl.exe -u root`) is used only for exactly the lines the person said yes to, and recorded in the
   operations record. The repository's key is checked against a fingerprint the interface carries.
-- **A machine over ssh is reached from the Linux build only, so far:** `dart:io` opens no unix socket
-  on Windows, so the forward does not work there. A socket entry carried over from Linux is said to
-  name a path Windows cannot open.
+- **A machine over ssh is reached through a byte relay on Windows:** `dart:io` opens no unix socket
+  on Windows, so the ssh forward of the Linux build does not work there and the window relays the
+  socket's bytes over ssh instead. A socket entry carried over from Linux is said to name a path
+  Windows cannot open.
 - **A host's vault is opened by the window itself:** Core's `porelo host unlock` does not run on Windows, so
   `lib/src/app/windows_vault_unlock.dart` does its steps over the card's own `ssh -F <card config>`. `ssh-keyscan` of the
   card's address and port must offer the pinned Ed25519 key; the Windows OpenSSH agent (`\\.\pipe\openssh-ssh-agent`,

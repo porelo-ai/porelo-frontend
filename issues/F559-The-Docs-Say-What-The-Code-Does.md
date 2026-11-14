@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F559",
   "title": "The Docs Say What The Code Does",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "Highest",
   "rank": 9,
@@ -34,3 +34,22 @@ read.
 
 - The count of claims checked, confirmed, fixed and filed as bugs is given with the push; one commit, documents tests,
   check-commits, check-citations and local traces green.
+
+## Built
+
+The reading checked about 330 concrete claims and reported 24 findings; each was checked in the code here, and a
+Gemini reading of the change checked the new sentences.
+
+- **Confirmed and fixed, 18.** In `doc/design.md`: Windows as a working target and its ssh relay, the build's
+  profiles, the dependencies beside `xterm`, the lint exceptions, the pin, the drift check (a skipped live-daemon test,
+  no CI job), the mock's scenario name and states, and a reference to a question no longer there. In `doc/index.md`:
+  the app's name in the Start menu and among the desktop's applications. The CLI rule in `doc/Contract-Gaps.md` (the
+  `--json` answer where there is one, the words shown as said where there is none). In the CHANGELOG: three labels
+  renamed since, and two entries for a package requirement and an action that no longer exist.
+- **Not borne out, 3.** The host refresh in `doc/Backend-API.md` is porelo-host's `org refresh`, as written (now named
+  in full); a story's *Start again…* comes from the planning screen with its ellipsis; *Start work in default* is the
+  start dialog's own title.
+- **Left as written, 3.** CHANGELOG entries for startup roles, the page of all projects on your machines and some 20
+  labels of the project menu, registry and server setup. Each is the history of a change that a later entry of the
+  same section says is gone.
+- **Filed as bugs, 0.** No document was right where the code was wrong.

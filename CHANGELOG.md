@@ -247,9 +247,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   on standard input, ask for a missing token in the existing dialog, and offer vault opening first. Unknown forge SSH
   keys can be compared and trusted in the window. Machine preparation fetches a host key for explicit comparison and
   offers only the card's selected agent key over SSH, avoiding the server's authentication attempt limit.
-- *Prepare a machine…* follows the organization: an Organization Admin or a Machine Admin sees it, as does a person with no
+- *Set up a machine…* follows the organization: an Organization Admin or a Machine Admin sees it, as does a person with no
   organization yet, and `--roles` is gone. The dialog no longer asks the collection, which the build knows.
-- *Create another organization…* stands beside *Choose another organization…*, and says the first stays on its forge.
+- *Create another Porelo organization…* stands beside *Choose another Porelo organization…*, and says the first stays on its forge.
 - Interface wording uses machines and named admin roles, distinguishes taking Porelo off from returning a saved rental, and explains SSH connections in plain words.
 - Project rows offer a direct connection to their machine and say where to work; the machines link includes all projects.
 - Machine setup explains which forge token it needs, its one-time use, required repository rights, and that it is not kept.
@@ -602,7 +602,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   interface says so once, in one sentence. Secrets in the system store and a person's secrets file are not touched.
 - The organization's page says when what it shows is the last state read, and what the store warns of. *Add me* asks
   for the login, name and email of the card.
-- A computer reading no organization offers *Choose the organization…*, *Create the organization…*, which fills an empty
+- A computer reading no organization offers *Choose the Porelo organization…*, *Create the Porelo organization…*, which fills an empty
   repository the person made on their forge, and *Make my card…*, which creating one needs. A host's service can be
   taken off its card by emptying its port.
 - A connected host admin reads on the host's page what the host itself says: how far each project has come, why one
@@ -816,7 +816,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- *Open it on <host>* moves from a project's page to its row under *Projects*, the one place that names a project's host.
 - *Remove this project* is offered only for a project on this computer. Removing a member or revoking a card says when
   it takes effect on a host: within five minutes, or at once on its *Refresh*.
 
@@ -832,8 +831,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Taking a project off a prepared server opens the admin's terminal and pipes the central forge token from the
   secrets file to the host to protect the repositories' central copies; a missing entry refuses before SSH starts.
 
-- The Linux packages require KeePassXC (`keepassxc-minimal` or `keepassxc`) and `wireguard-tools`, the programs the
-  interface runs for a person's secrets file and for a server's VPN.
 
 - Server setup checks the project's verified commit against the public key for signing commits on
   The drive, before anything is rented: a key that did not sign it is refused with both keys'

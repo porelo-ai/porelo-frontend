@@ -8,8 +8,11 @@ it looks finished.
 
 ## The rule that makes these real gaps
 
-- **The interface never parses the `porelo` CLI.** One that did would be a second implementation of
-  every refusal the product makes, and those refusals are the product.
+- **The interface never parses the `porelo` CLI's words.** Where it reads an answer from `porelo`,
+  it reads the `--json` answer; where a command gives none (`task certify`, `host follow`,
+  `--version`), it goes by the exit code and shows the words as they were said. One that parsed the
+  words would be a second implementation of every refusal the product makes, and those refusals
+  are the product.
 - **The interface never reads or writes the backend's files.** Over a forwarded socket there is no
   filesystem on that machine at all, so the API is the only way in.
 

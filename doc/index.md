@@ -76,7 +76,7 @@ A newer version is a new folder: unpack it beside the old one, or over it.
 #### Installation (MSIX)
 
 `porelo-frontend-<version>-windows-x64.msix`, installed as an app, in the Start menu as "Porelo
-interface", and updated by installing a newer one over it. It is signed by `CN=porelo.ai` with a
+Control Tower", and updated by installing a newer one over it. It is signed by `CN=porelo.ai` with a
 certificate of the project's own, whose public half lies beside it as `porelo-msix.cer`. Windows
 installs the MSIX only once that certificate is trusted on the machine: once, as an administrator.
 Before trusting it, check that it is the project's: its thumbprint is
@@ -108,7 +108,7 @@ is only as trustworthy as the ZIP or the MSIX it came in, which is why the check
 
 ## First steps
 
-1. **Start it**: *Porelo* among the desktop's applications. It shows this computer's Porelo, if one is
+1. **Start it**: *Porelo Control Tower* among the desktop's applications. It shows this computer's Porelo, if one is
    installed, and every machine added before.
 2. **Add a machine** with *Watch another machine…* in the title bar: one whose socket is forwarded
    already, one reached over ssh, where the interface raises the forward itself, or **a new machine

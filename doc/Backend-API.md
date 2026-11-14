@@ -28,7 +28,7 @@ of truth that nothing keeps honest.
 No method says where a project comes from: `porelo project list --json` answers each project's `source`
 (`organization`, `local` or `built-in`), `role`, `locked`, `host` and `opened`, and `porelo project show
 PROJECT --json` its `address`. *Refresh* reads again; a host's effect is
-`org refresh`, on the host's page. These answers are kept in `Organization`, read only when a person's
+`porelo-host org refresh` on the host, from the host's page. These answers are kept in `Organization`, read only when a person's
 view needs one, one at a time, and for five minutes or until *Refresh*. A project with no readable
 address matches no forge, and says so.
 
