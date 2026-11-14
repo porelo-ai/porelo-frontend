@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/credential_carry.dart';
+import 'tokens.dart';
 
 /// Lets a person carry one of this computer's credentials for [provider] to the host [hostName].
 ///
@@ -80,7 +81,7 @@ class _CarryCredentialDialogState extends State<CarryCredentialDialog> {
     return AlertDialog(
       title: Text('Import ${widget.provider.label} from this computer'),
       content: SizedBox(
-        width: 520,
+        width: Sizes.dialogMedium,
         child: FutureBuilder<List<CarrySource>>(
           future: _sources,
           builder: (context, snapshot) {
@@ -109,7 +110,7 @@ class _CarryCredentialDialogState extends State<CarryCredentialDialog> {
                   _kind(context, "Local agents' own sign-ins", agents, 'No local agent reaches this provider.'),
                   if (said != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.only(top: Space.normal),
                       child: Text(
                         said.words,
                         key: const Key('carry-says'),
@@ -118,7 +119,7 @@ class _CarryCredentialDialogState extends State<CarryCredentialDialog> {
                     ),
                   if (_failed != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.only(top: Space.normal),
                       child: Text(
                         _failed!,
                         key: const Key('carry-says'),
@@ -149,7 +150,7 @@ class _CarryCredentialDialogState extends State<CarryCredentialDialog> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          padding: const EdgeInsets.only(top: Space.normal, bottom: Space.tight),
           child: Text(heading, style: theme.textTheme.labelLarge),
         ),
         if (sources.isEmpty) Text(none, style: theme.textTheme.bodySmall),
