@@ -106,6 +106,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A remote host's provider row offers *Import from this computer…*. A small dialog lists this computer's vault entries and the local agents' own sign-ins for that provider, never their values. Those that cannot go are greyed with the reason. The one picked is carried to the host's vault, sealed to the host's one-use key, so the window passes only ciphertext.
 - An ended discussion whose idea was saved, and that stayed only while ideas it proposed waited, is removed from its machine on the first sweep after none of them waits or is held back, once, also after a restart of the window. One whose idea was refused or never written stays as before.
 - Once a task's idea is in the planner, or will not be sent there, the window takes it from the task, so Porelo lists the ideas it held back behind it; one handed in before is taken at the next start of the window.
 - On Windows, connecting a host's card opens its vault as on Linux, without Porelo installed on this computer: the window checks the host's key against the card's pin, has the card's Ed25519 key in the Windows ssh agent (as KeePassXC adds it) sign for the vault, derives the vault's share from that signature as Porelo does, and sends it to the host's `porelo vault` on standard input alone. A vault that does not exist yet is made; one opened by another key is kept.

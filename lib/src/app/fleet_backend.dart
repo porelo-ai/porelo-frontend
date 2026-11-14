@@ -663,8 +663,34 @@ abstract class FleetBackend {
   Future<String> confirmFirstStartOf(String repository, String hash);
 }
 
+/// A machine that can carry a credential to another, porelo to porelo: the value is sealed to the receiving host's
+/// key and only ciphertext passes through the window.
+///
+/// Apart from [FleetBackend] so a stand-in that cannot carry says so by not being one.
+abstract interface class CarriesCredentials {
+  /// A one-use key on this machine to seal a credential to.
+  Future<CredentialReceiver> credentialReceiver();
+
+  /// Seals one credential of this machine to [key].
+  Future<SealedCredential> sealCredential({
+    required String key,
+    String? name,
+    String? agent,
+    String? provider,
+    String? configDirectory,
+  });
+
+  /// Opens what was sealed to this machine's key and stores it.
+  Future<ReceivedCredential> receiveCredential({
+    required String sealed,
+    required String name,
+    required String kind,
+    required bool replace,
+  });
+}
+
 /// A real Porelo daemon, local or forwarded.
-class PoreloBackend implements FleetBackend {
+class PoreloBackend implements FleetBackend, CarriesCredentials {
   /// Constructor taking where the daemon is.
   PoreloBackend(this.backend, {this.certify = certifyHere, this.asksToCertify = true});
 
@@ -1065,6 +1091,32 @@ class PoreloBackend implements FleetBackend {
   @override
   Future<Imported> importCredential({String? agent, String? configDirectory}) =>
       _opened().importCredential(agent: agent, configDirectory: configDirectory);
+
+  @override
+  Future<CredentialReceiver> credentialReceiver() => _opened().credentialReceiver();
+
+  @override
+  Future<SealedCredential> sealCredential({
+    required String key,
+    String? name,
+    String? agent,
+    String? provider,
+    String? configDirectory,
+  }) => _opened().sealCredential(
+    key: key,
+    name: name,
+    agent: agent,
+    provider: provider,
+    configDirectory: configDirectory,
+  );
+
+  @override
+  Future<ReceivedCredential> receiveCredential({
+    required String sealed,
+    required String name,
+    required String kind,
+    required bool replace,
+  }) => _opened().receiveCredential(sealed: sealed, name: name, kind: kind, replace: replace);
 
   @override
   Future<String> node() => _opened().node();

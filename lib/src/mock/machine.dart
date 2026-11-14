@@ -164,6 +164,13 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     daemon.method('Doctor', _doctor);
     daemon.method('Providers', _providers);
     daemon.method('ImportCredential', _importCredential);
+    daemon.method(
+      'CredentialReceiver',
+      (_) => <String, dynamic>{'key': 'bW9jay1rZXk=', 'until': '2099-01-01T00:00:00Z'},
+    );
+    daemon.method('SealCredential', _sealCredential);
+    // A stand-in has nothing to open: what arrives is taken as stored.
+    daemon.method('ReceiveCredential', (_) => <String, dynamic>{'outcome': 'STORED', 'detail': ''});
     // Which node this is. Random per mock instance, so two mocks are two nodes and one mock
     // reached twice is one — which is the thing a client has to be able to tell.
     daemon.method('Node', (_) => <String, dynamic>{'id': _nodeId});
@@ -1371,6 +1378,12 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     ],
     'readable': true,
   };
+
+  /// Seals a credential of this stand-in to a host's key: a placeholder, there is no value here to seal.
+  Map<String, dynamic> _sealCredential(Map<String, dynamic> parameters) {
+    final name = parameters['name'] as String? ?? parameters['provider'] as String? ?? '';
+    return <String, dynamic>{'outcome': 'SEALED', 'sealed': 'bW9jaw==', 'name': name, 'kind': 'api-key', 'detail': ''};
+  }
 
   /// Imports a credential an agent already holds here.
   Map<String, dynamic> _importCredential(Map<String, dynamic> parameters) {

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F572",
   "title": "A Credential Carried From This Computer To A Host",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 17,
@@ -36,3 +36,28 @@ per agent adapter.
 ## Acceptance
 
 - A guard for the dialog's two kinds and a greyed source; one that the carrying call names the source and never a value; a feature scenario against stand-ins. Each red first.
+
+## Built
+
+Against Agent Core's posted wire shape for B774/B775 (`CredentialReceiver`, `SealCredential`, `ReceiveCredential`),
+with the mock daemon answering it until porelo's main has it.
+
+- The client has the three calls. `PoreloBackend` offers them through a separate `CarriesCredentials`, so a stand-in
+  that cannot carry shows no button.
+- `credential_carry.dart` holds the flow as plain logic over that interface. The host makes a one-use key, this
+  computer seals to it, and the host opens it under the name and kind sealed. The window holds only the ciphertext,
+  for the one call that hands it on. A kept entry (`EXISTS`) is replaced on asking with a fresh key and a fresh seal,
+  since the host's key is spent after one receipt. Every outcome has words for a person, and none carries the value
+  or the ciphertext.
+- The sources are this computer's vault entries of the provider's name or type, and every local agent that reaches
+  the provider's upstream or was found signed in to it. An entry is greyed, with its reason, when this computer's
+  vault is shut, when the agent found itself signed out, or when it is signed in to another provider. Until B775's
+  listing comes, an agent that cannot say is offered and carrying finds out.
+- A remote host's provider row offers *Import from this computer…*. This computer's own page and a WSL page do not.
+  The dialog shows both kinds side by side, carries the one picked, says what happened, and offers *Replace it on the
+  host* for a kept entry. Afterwards the host's providers are read again.
+- Guards, each seen red under a deliberate break: `test/app/credential_carry_test.dart` (6),
+  `test/ui/carry_credential_dialog_test.dart` (3), and the host row in `test/ui/import_words_test.dart`.
+
+Left as [F575](README.md#f575): a feature scenario across two stand-in machines (the feature world has one backend), and the live
+check against B774/B775 once they are on porelo's main.

@@ -3588,6 +3588,82 @@ class Providers {
       Providers(providers: _list(map, 'providers').map(Provider.from).toList(), readable: map['readable'] == true);
 }
 
+/// A host's one-use key to seal a credential to, held for a few minutes.
+class CredentialReceiver {
+  /// The X25519 public half, base64. The private half never leaves the host's daemon.
+  final String key;
+
+  /// Until when the host holds it, ISO-8601 UTC.
+  final String until;
+
+  /// Constructor taking both.
+  const CredentialReceiver({required this.key, required this.until});
+
+  /// Reads one from a reply.
+  factory CredentialReceiver.from(Map<String, dynamic> map) =>
+      CredentialReceiver(key: _string(map, 'key'), until: _string(map, 'until'));
+}
+
+/// One credential sealed here to a host's key.
+class SealedCredential {
+  /// `SEALED`, `NO_SUCH_ENTRY`, `VAULT_LOCKED`, `BAD_KEY`, `NO_SUCH_AGENT`, `NO_CONFIG_DIRECTORY`,
+  /// `NOTHING_TO_IMPORT`, `WRONG_PROVIDER` or `FAILED`.
+  final String outcome;
+
+  /// The ciphertext, only the host can open it. Carried once to the host, never kept or shown.
+  final String sealed;
+
+  /// The vault key it goes under on the host.
+  final String name;
+
+  /// The entry's type, empty when it has none.
+  final String kind;
+
+  /// One sentence for a person.
+  final String detail;
+
+  /// Constructor taking every field.
+  const SealedCredential({
+    required this.outcome,
+    required this.sealed,
+    required this.name,
+    required this.kind,
+    required this.detail,
+  });
+
+  /// Whether there is something to carry.
+  bool get isSealed => outcome == 'SEALED';
+
+  /// Reads one from a reply.
+  factory SealedCredential.from(Map<String, dynamic> map) => SealedCredential(
+    outcome: _string(map, 'outcome'),
+    sealed: _string(map, 'sealed'),
+    name: _string(map, 'name'),
+    kind: _string(map, 'kind'),
+    detail: _string(map, 'detail'),
+  );
+
+  // Never the ciphertext, wherever this ends up printed.
+  @override
+  String toString() => 'SealedCredential($outcome, $name)';
+}
+
+/// What a host did with a credential carried to it.
+class ReceivedCredential {
+  /// `STORED`, `EXISTS`, `VAULT_LOCKED`, `NO_RECEIVER` or `REFUSED`.
+  final String outcome;
+
+  /// One sentence for a person.
+  final String detail;
+
+  /// Constructor taking both.
+  const ReceivedCredential({required this.outcome, required this.detail});
+
+  /// Reads one from a reply.
+  factory ReceivedCredential.from(Map<String, dynamic> map) =>
+      ReceivedCredential(outcome: _string(map, 'outcome'), detail: _string(map, 'detail'));
+}
+
 /// What importing an agent's own credential did.
 class Imported {
   /// `IMPORTED`, `NO_SUCH_AGENT`, `NO_CONFIG_DIRECTORY`, `NOTHING_TO_IMPORT`, `VAULT_LOCKED` or

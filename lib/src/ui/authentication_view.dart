@@ -20,8 +20,13 @@ class AuthenticationView extends StatelessWidget {
     required this.onImport,
     this.filter,
     this.reads = ImportReads.thisComputer,
+    this.onCarry,
     super.key,
   });
+
+  /// Carries one of this computer's credentials for a provider to this host; null where nothing can be carried here,
+  /// as on this computer's own page.
+  final void Function(Provider provider)? onCarry;
 
   /// Where the machine is, in the import's words: the agent's files are read where it runs.
   final ImportReads reads;
@@ -71,6 +76,7 @@ class AuthenticationView extends StatelessWidget {
                     readable: authentication.readable,
                     onImport: () => onImport(provider.name),
                     reads: reads,
+                    onCarry: onCarry == null ? null : () => onCarry!(provider),
                     importSaid: authentication.importedFor == provider.name ? authentication.importSaid : '',
                     importFailed: authentication.importProblem != null,
                     importing: authentication.importing,
@@ -140,6 +146,7 @@ class _ProviderRow extends StatelessWidget {
     required this.readable,
     required this.onImport,
     required this.reads,
+    required this.onCarry,
     required this.importSaid,
     required this.importFailed,
     required this.importing,
@@ -149,6 +156,7 @@ class _ProviderRow extends StatelessWidget {
   final bool readable;
   final VoidCallback onImport;
   final ImportReads reads;
+  final VoidCallback? onCarry;
 
   /// What the last import pressed here said, empty when none was.
   final String importSaid;
@@ -270,6 +278,20 @@ class _ProviderRow extends StatelessWidget {
             ),
           ),
         ),
+        if (onCarry != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.normal),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                key: Key('carry-credential ${provider.name}'),
+                onPressed: onCarry,
+                icon: const Icon(Icons.upload_outlined, size: Sizes.rowIcon),
+                // The value goes sealed, porelo to porelo; the window carries ciphertext only.
+                label: const Text('Import from this computer…'),
+              ),
+            ),
+          ),
         if (importSaid.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.normal),

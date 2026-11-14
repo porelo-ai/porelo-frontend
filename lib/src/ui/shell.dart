@@ -28,6 +28,7 @@ import '../app/login_forward.dart';
 import '../app/granting.dart';
 import '../app/attention.dart';
 import '../app/commands.dart';
+import '../app/credential_carry.dart';
 import '../app/fleet_backend.dart';
 import '../app/fleet_model.dart';
 import '../app/host_token.dart';
@@ -110,6 +111,7 @@ import 'command_menu.dart';
 import 'clearance_mode_view.dart';
 import 'egress_view.dart';
 import 'agents_view.dart';
+import 'carry_credential_dialog.dart';
 import 'authentication_view.dart';
 import 'backups_view.dart';
 import 'emergency_stop_view.dart';
@@ -4879,6 +4881,50 @@ class _ShellState extends State<Shell> {
     if (there != null && there.mounted) unawaited(Scrollable.ensureVisible(there));
   }
 
+  /// Carries one of this computer's credentials for [provider] to [machine]'s vault, porelo to porelo.
+  Future<void> _carryCredential(Machine machine, MachineTools tools, Provider provider) async {
+    final watched = widget.machines.watching(machine)?.backend;
+    if (watched == null || watched is! CarriesCredentials) return _notWatchedYet(machine);
+    final FleetBackend host = watched;
+    final receiver = watched as CarriesCredentials;
+    // This computer's own daemon, watched or asked afresh.
+    final here = widget.machines.watching(Machine.local())?.backend ?? Machines.overSocket(Machine.local());
+    var opened = widget.machines.watching(Machine.local())?.backend != null;
+    Future<FleetBackend> ready() async {
+      if (!opened) {
+        await here.open();
+        opened = true;
+      }
+      return here;
+    }
+
+    await showCarryCredential(
+      context,
+      provider: provider,
+      hostName: machine.name,
+      sources: () async {
+        final on = await ready();
+        final vault = await on.credentials();
+        final agents = await on.agentsOn();
+        return sourcesFor(provider, vault: vault, agents: agents.agents);
+      },
+      carry: (source, {required replace}) async {
+        final on = await ready();
+        if (on is! CarriesCredentials) throw StateError("this computer's porelo cannot carry credentials");
+        return carry(
+          here: on as CarriesCredentials,
+          host: receiver,
+          source: source,
+          provider: provider.name,
+          replace: replace,
+        );
+      },
+    );
+    if (!mounted || !_stillWatching(machine, tools)) return;
+    // What the host holds now decides which providers it reads as authenticated.
+    await tools.run(() => tools.authentication.look(host));
+  }
+
   Future<void> _importProvider(Machine machine, MachineTools tools, String? agent) async {
     if (!_stillWatching(machine, tools)) return;
     final backend = widget.machines.watching(machine)?.backend;
@@ -4952,6 +4998,9 @@ class _ShellState extends State<Shell> {
                   ? ImportReads.wsl
                   : ImportReads.host,
               onImport: (agent) => unawaited(_importProvider(machine, tools, agent)),
+              onCarry: machine.isThisComputer || machine.kind == 'wsl' || backend is! CarriesCredentials
+                  ? null
+                  : (provider) => unawaited(_carryCredential(machine, tools, provider)),
             ),
           ),
         );

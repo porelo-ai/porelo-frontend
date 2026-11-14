@@ -15,12 +15,17 @@ const _provider = Provider(
   storeCommand: '',
 );
 
-Future<void> _show(WidgetTester tester, Authentication model, ImportReads reads) async {
+Future<void> _show(
+  WidgetTester tester,
+  Authentication model,
+  ImportReads reads, {
+  void Function(Provider provider)? onCarry,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
         body: SingleChildScrollView(
-          child: AuthenticationView(authentication: model, onImport: (_) {}, reads: reads),
+          child: AuthenticationView(authentication: model, onImport: (_) {}, reads: reads, onCarry: onCarry),
         ),
       ),
     ),
@@ -42,4 +47,19 @@ void main() {
       expect(find.text(words), findsOneWidget);
     });
   }
+
+  // Harm: a host's provider row offers no way to bring this computer's credential, or this computer's own page
+  // offers carrying to itself.
+  testWidgets("a host's provider row offers importing from this computer", (tester) async {
+    final carried = <String>[];
+    final model = Authentication()..answer = const Providers(providers: <Provider>[_provider], readable: true);
+    await _show(tester, model, ImportReads.host, onCarry: (provider) => carried.add(provider.name));
+    await tester.tap(find.text('Import from this computer…'));
+    expect(carried, <String>['anthropic']);
+
+    await tester.pumpWidget(const SizedBox());
+    await _show(tester, model, ImportReads.thisComputer);
+    expect(find.text('Import what the agent already has on this computer'), findsOneWidget, reason: 'the row is open');
+    expect(find.text('Import from this computer…'), findsNothing);
+  });
 }

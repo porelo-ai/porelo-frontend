@@ -1093,6 +1093,37 @@ class PoreloClient {
   Future<Imported> importCredential({String? agent, String? configDirectory}) async =>
       Imported.from(await _call('ImportCredential', {'agent': ?agent, 'configDirectory': ?configDirectory}));
 
+  /// A one-use key on this host to seal a credential to.
+  Future<CredentialReceiver> credentialReceiver() async =>
+      CredentialReceiver.from(await _call('CredentialReceiver', const <String, dynamic>{}));
+
+  /// Seals one credential of this machine to a host's [key]: a vault entry by [name], or an agent's own sign-in.
+  Future<SealedCredential> sealCredential({
+    required String key,
+    String? name,
+    String? agent,
+    String? provider,
+    String? configDirectory,
+  }) async => SealedCredential.from(
+    await _call('SealCredential', {
+      'key': key,
+      'name': ?name,
+      'agent': ?agent,
+      'provider': ?provider,
+      'configDirectory': ?configDirectory,
+    }),
+  );
+
+  /// Opens what was sealed to this host's key and stores it under [name].
+  Future<ReceivedCredential> receiveCredential({
+    required String sealed,
+    required String name,
+    required String kind,
+    required bool replace,
+  }) async => ReceivedCredential.from(
+    await _call('ReceiveCredential', {'sealed': sealed, 'name': name, 'kind': kind, 'replace': replace}),
+  );
+
   /// Which node this is.
   ///
   /// **`GetInfo` says what a daemon is and never which one.** This says which one — so two entries
