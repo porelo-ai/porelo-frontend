@@ -110,7 +110,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f552"></a>[F552](F552-The-Carried-Collection-Is-Readable-And-Its-Absence-Said.md) | S | - | The Linux package installs the carried porelo-host collection readable by everyone (0644), not root's alone, so Set up a machine runs its check; and a collection that cannot be read or whose digest differs is said as such, never as one that holds no check. |
 | <a id="f550"></a>[F550](F550-My-Projects-Is-One-List-With-Default.md) | M | - | Beside an organization, My projects lists every project the person works in, each machine's Default and its local projects included, each marked for what it is, and the link All projects on your machines goes; the rail counts the same rows. |
 | <a id="f551"></a>[F551](F551-Every-Page-Says-What-It-Is.md) | M | - | Every page the window shows carries the i beside its title that opens what the page is and what a person does there; today Planning, My cards & keys, a machine's page and its seven sections, a project's page and the pages opened over the frame lack it. A guard fails on a page shipped without one. |
 | <a id="f553"></a>[F553](F553-A-Rows-State-Stands-Beside-Its-Menu.md) | XS | - | In every list row drawn by LeafListRow, the state chip stands to the left of the row's ⋮ menu or buttons, on one line with them and centered in the row, as ItemListRow's rows already have it, instead of stacked above them in the row's top corner. |
@@ -139,6 +138,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f552"></a>[F552](F552-The-Carried-Collection-Is-Readable-And-Its-Absence-Said.md) | S | - | The Linux package installs the carried porelo-host collection readable by everyone (0644), not root's alone, so Set up a machine runs its check; and a collection that cannot be read or whose digest differs is said as such, never as one that holds no check. |
 
 ## Review
 
