@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/ui/page_explanation.dart';
+import 'package:porelo_planning/porelo_planning.dart';
 
 import '../features/step/a_backend_with_planning_details.dart';
 import '../features/support/planning.dart';
@@ -56,6 +58,31 @@ void main() {
     expectPlanningDetail('# Story source', present: false);
     await planningBack(tester);
     _expectBoard();
+  });
+
+  // Harm: a page in Planning carries two titles, the window's own *Planning* head above the screen's head or breadcrumb.
+  testWidgets('a planning page has one title, with the window\'s i in the screen\'s own head', (tester) async {
+    void expectOneTitle(Finder page, {required bool board}) {
+      expect(find.byType(PageHead), findsNothing, reason: 'the screen\'s head or breadcrumb is the one title');
+      expect(find.descendant(of: page, matching: find.text('Planning')), findsOneWidget);
+      final info = find.descendant(of: page, matching: find.byKey(const ValueKey<String>('explanation-open planning')));
+      expect(info, findsOneWidget, reason: 'the i stands in the screen');
+      // On the board beside the screen's Planning head; on a detail page at the end of its breadcrumb.
+      final line = find.ancestor(of: info, matching: find.byType(board ? Row : Wrap)).first;
+      expect(
+        find.descendant(of: line, matching: board ? find.text('Planning') : find.byKey(const Key('planning-crumb 0'))),
+        findsOneWidget,
+      );
+    }
+
+    await _fromWork(tester);
+    World.shell.goTo(Section.planning);
+    await World.settle(tester);
+    expectOneTitle(find.byType(PlanningScreen), board: true);
+    await _find(tester, 'Open story ST291');
+    expectOneTitle(planningElement('detail'), board: false);
+    await _find(tester, 'Open issue B541');
+    expectOneTitle(planningElement('detail'), board: false);
   });
 
   // Harm: an issue found from elsewhere skips its story on the way back.

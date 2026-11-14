@@ -227,7 +227,11 @@ void expectPlanningSection(WidgetTester tester, String title, String words) {
   expect(detail, findsOneWidget);
   final heading = find.descendant(of: detail, matching: find.text(title));
   expect(heading, findsOneWidget);
-  final section = find.ancestor(of: heading, matching: find.byType(Card)).first;
+  // An issue's facts share one card, a row each; elsewhere a section is its own card.
+  final shared = find.ancestor(of: heading, matching: find.byKey(const Key('planning-issue-details')));
+  final section = shared.evaluate().isNotEmpty
+      ? find.ancestor(of: heading, matching: find.byType(Row)).first
+      : find.ancestor(of: heading, matching: find.byType(Card)).first;
   expect(planningText(tester, section), contains(words));
 }
 

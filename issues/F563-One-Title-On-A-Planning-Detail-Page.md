@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F563",
   "title": "One Title On A Planning Detail Page",
-  "state": "Backlog",
+  "state": "Review",
   "size": "XS",
   "priority": "Highest",
   "rank": 11,
@@ -31,3 +31,24 @@ breadcrumb that leads back.
 
 - A guard sees one title on a story's and an issue's page in Planning, red before and green after; the planning
   scenarios and the explanation guard green.
+
+## Built
+
+The pin of `porelo_planning` stands at porelo-planner `f8465da` (PL134, with PL131, PL132, PL133 and PL130 below it),
+with `pubspec.lock`. The screen takes `pageButton`, and the window passes its *i* there: it stands after the screen's
+*Planning* head on the board, and at the end of the breadcrumb on a story's or an issue's page. The window draws no
+head of its own over a reached planning screen. Where none is reached, its own *Planning* head stands over the line
+that says why, with the same *i*. `test/ui/planning_finder_test.dart` sees one title, and the *i* inside the screen,
+on the board, a story's page and an issue's page. It was red with the window's head and is green now.
+
+A reading by Gemini found that the section check of the planning scenarios read the issue page's one shared card as
+a whole, so a row's words could be found in another row. It now reads the row of an issue's facts, and it refuses a
+claim the old check passed. The guard now also holds that the page's one *Planning* stands in the screen's head or
+breadcrumb, beside the *i*.
+
+## Left
+
+- **No i on the screen's fallback page.** Where no board is read, or the planner of an open story is gone, the screen
+  draws its fallback crumb without `pageButton`, so that page has no *i*. This is asked of porelo-planner.
+- **The first-time words above the title.** The window can place its first-time words only above the whole screen, so
+  they stand above the screen's *Planning* head, not under it. A `pageNote` slot is asked of porelo-planner.

@@ -4353,12 +4353,12 @@ class _ShellState extends State<Shell> {
                           child: switch (widget.shell.section) {
                             Section.work => _workArea(),
                             Section.attention => _needsYou(),
+                            // The screen draws Planning's head and a detail page's breadcrumb, with the i beside it.
                             Section.planning => _explained(
                               'planning',
                               Section.planning.label,
                               pageWords['planning']!,
                               _planningPage(),
-                              ownHead: true,
                             ),
                             Section.cards => _explained(
                               'cards',
@@ -4514,6 +4514,7 @@ class _ShellState extends State<Shell> {
             onStop: _storyWorkStopped,
           ),
           agents: _planningAgents!,
+          pageButton: PageExplanationButton(id: 'planning', settings: widget.settings),
         ),
       },
     ),
@@ -4528,7 +4529,16 @@ class _ShellState extends State<Shell> {
   };
 
   /// One line that planning is not reached, with a button that starts the planner where the person may start it.
-  Widget _planningLine(String words, {Future<void> Function()? start}) => Center(
+  /// Where no screen draws Planning's head, the window's own head over [words].
+  Widget _planningLine(String words, {Future<void> Function()? start}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      PageHead(title: Section.planning.label, id: 'planning', settings: widget.settings),
+      Expanded(child: _planningWords(words, start: start)),
+    ],
+  );
+
+  Widget _planningWords(String words, {Future<void> Function()? start}) => Center(
     child: Padding(
       padding: const EdgeInsets.all(Space.loose),
       child: Column(
