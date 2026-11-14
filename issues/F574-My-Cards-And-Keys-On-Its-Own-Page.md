@@ -50,3 +50,9 @@ modal dialog *My key and card* over it (`identity_view.dart` builds an AlertDial
   and *the title bar's My key and card opens the page*, both red before the change (a dialog opened). The test that
   the dialog could be closed while a lost-key plan was held is deleted with the dialog; `test/app/identity_view_test.dart`
   builds the page in its place.
+- A pending change's *Use another key* left unconfirmed when the person left the page kept the model replacing that
+  change, so on the return a plain *Change my key…* was offered past the pending change and would have replaced it.
+  Leaving the page now puts the change back to pending, unless a replacement is already running. *leaving the page
+  while another key is chosen leaves the pending change as it was* in `test/app/identity_view_test.dart`, red first.
+- The lost-key words name the page as it is now, *My cards & keys*. *the finder's My key and card opens the page, and
+  no dialog stays* in `test/ui/my_cards_page_test.dart`, seen red with the command opening nothing.

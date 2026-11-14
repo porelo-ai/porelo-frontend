@@ -294,6 +294,33 @@ void main() {
       expect(call[call.indexOf('--key') + 1], _waiting);
     });
 
+    // Harm: a key chosen for a pending change and left unconfirmed when the person left the page turns a later plain
+    // *Change my key…* into a replacement of that change, offered past the pending change that should hold it up.
+    testWidgets('leaving the page while another key is chosen leaves the pending change as it was', (tester) async {
+      final core = _Pending(row);
+      final model = IdentityModel(Identity(run: core.run));
+      Future<void> show() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(body: IdentityPage(model: model)),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      tester.view.physicalSize = const Size(1280, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await show();
+      await _tapKey(tester, 'identity.useAnotherKey $_rowId');
+      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SizedBox())));
+      await tester.pumpAndSettle();
+      await show();
+      expect(tester.widget<TextButton>(find.byKey(const Key('identity.changeKey'))).onPressed, isNull);
+      expect(find.textContaining('A change is still pending'), findsWidgets);
+      expect(core.rotations, isEmpty);
+    });
+
     testWidgets('Use another key picks from the agent, confirms and sends a new ID', (tester) async {
       final core = await _openPending(tester, row);
       await _tapKey(tester, 'identity.useAnotherKey $_rowId');

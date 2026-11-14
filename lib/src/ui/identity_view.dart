@@ -107,8 +107,16 @@ class _IdentityPageState extends State<IdentityPage> {
     for (final field in [_database, _entry]) {
       field.dispose();
     }
+    // The choice of another key goes with the page; kept, it would turn a later plain change into a replacement of
+    // the pending one. Told after this frame, as the model's listeners may be built in it.
+    final model = _model;
+    // One already running ends on its own answer.
+    if (_replacingHere && model.replacing != null && !model.busy) scheduleMicrotask(model.stopReplacing);
     super.dispose();
   }
+
+  /// Whether another key was chosen for a pending change here, so leaving the page goes back to it pending.
+  bool _replacingHere = false;
 
   void _pick() {
     setState(() {
@@ -120,6 +128,7 @@ class _IdentityPageState extends State<IdentityPage> {
 
   void _useAnother(PendingIdentityOperation row) {
     _model.startReplacing(row);
+    _replacingHere = true;
     _pick();
   }
 
@@ -633,7 +642,7 @@ class _ReplaceLostKeyDialogState extends State<ReplaceLostKeyDialog> {
                   pending,
                   model: _model,
                   onUseAnother: pending.action == 'revoke-lost' ? () => _useAnother(pending) : null,
-                  elsewhere: 'Another key for this change is chosen under “My key and card”.',
+                  elsewhere: 'Another key for this change is chosen under “My cards & keys”.',
                 ),
               if (_model.lostKeyPlan case final reviewed?)
                 _PlanView(
