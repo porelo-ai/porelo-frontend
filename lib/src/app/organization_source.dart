@@ -916,6 +916,29 @@ abstract class HostConnections extends ChangeNotifier {
   final _heard = <String, HostProgress>{};
   final _askedOnce = <String>{};
 
+  /// When each host was last heard to wait for its first token.
+  final _tokenWaits = <String, DateTime>{};
+
+  /// When [host] was last heard to wait for its first token - by a read of how far it has come, a *Connect*, or the
+  /// setup that prepared it from this computer - or null where nothing heard since says so. It stays while this
+  /// computer is not connected: it is the last word this window has of the machine.
+  DateTime? tokenWaitHeard(String host) => _tokenWaits[host];
+
+  /// Keeps what was just heard of [host]'s first token: that it [waits] for it, or no longer does, as once it took one.
+  void hearTokenWait(String host, {required bool waits}) {
+    if (_letGo) return;
+    if (_keepTokenWait(host, waits: waits)) notifyListeners();
+  }
+
+  /// Whether keeping [waits] for [host] changed what [tokenWaitHeard] answers.
+  bool _keepTokenWait(String host, {required bool waits}) {
+    if (waits) {
+      _tokenWaits[host] = DateTime.now();
+      return true;
+    }
+    return _tokenWaits.remove(host) != null;
+  }
+
   /// The hosts the last [askOnce] found this person may not ask: gone, or not theirs to administer.
   final _notTheirs = <String>{};
 
@@ -941,6 +964,7 @@ abstract class HostConnections extends ChangeNotifier {
     // Asked before the connection went or the role was taken, it stands for nobody now.
     if (!connected(host) || _notTheirs.contains(host)) return progress;
     _heard[host] = progress;
+    _keepTokenWait(host, waits: progress.waitsForToken);
     notifyListeners();
     return progress;
   }
@@ -959,7 +983,10 @@ abstract class HostConnections extends ChangeNotifier {
   void askOnce(OrganizationView view, {bool again = false}) {
     if (again) _askedOnce.clear();
     for (final host in view.hosts) {
-      final mayAsk = view.holdsRoles && host.admins.contains(view.me) && connected(host.name);
+      final administers = view.holdsRoles && host.admins.contains(view.me);
+      // Heard as its Machine Admin, a wait is no word for someone who no longer is one; a lost connection keeps it.
+      if (!administers) _tokenWaits.remove(host.name);
+      final mayAsk = administers && connected(host.name);
       if (!mayAsk) {
         // Gone or no longer theirs to ask: what it said before stands for nobody now.
         _askedOnce.remove(host.name);

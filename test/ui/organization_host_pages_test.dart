@@ -1258,6 +1258,45 @@ void main() {
       expect(_action('giveToken'), findsNothing);
     });
 
+    // Harm: a machine just prepared from this window never admits anyone, and its page, not connected to it, says
+    // nothing of the token it waits for, so the person waits for an admission that never comes.
+    testWidgets('a machine last heard waiting for its token says so while not connected, and takes it there', (
+      tester,
+    ) async {
+      final connections = FixtureConnections()..hearTokenWait('build', waits: true);
+      final gave = <String>[];
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          gave.add(host);
+          // As the token's step does once the machine took it.
+          connections.hearTokenWait(host, waits: false);
+          return null;
+        },
+      );
+      expect(_action('giveToken'), findsOneWidget);
+      expect(find.byKey(const ValueKey('organization.tokenWaitHeard')), findsOneWidget);
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(gave, ['build']);
+      expect(_action('giveToken'), findsNothing, reason: 'it took the token');
+      expect(find.byKey(const ValueKey('organization.tokenWaitHeard')), findsNothing);
+    });
+
+    // Harm: the page's own read of the machine fails, as when its status cannot be run there, and the token the last
+    // Connect heard it wait for goes unsaid, so the machine never admits anyone.
+    testWidgets('a wait the last Connect heard is said and offered while the page cannot read the machine', (
+      tester,
+    ) async {
+      final connections = FixtureConnections(['build'])
+        ..waiting.add('build')
+        ..refuseNext = const OrganizationRefused('build could not say how far it has come.');
+      await page(tester, 'hana', connections: connections, onGiveToken: (_, {atOnce = false}) async => null);
+      expect(find.text('build could not say how far it has come.'), findsOneWidget, reason: 'its read was refused');
+      expect(_action('giveToken'), findsOneWidget);
+    });
+
     // Harm: a person cannot see what is on the machine for a wall of the same sentence.
     testWidgets('a project names its repositories on the machine first, and counts the rest once', (tester) async {
       const why = 'no central address, so this host cannot take it; name one in the project file for a task here';

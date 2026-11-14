@@ -546,7 +546,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
 
   /// Gives the host the token, then reads it again; answers why it was not given, or why the reading failed.
   Future<String?> _giveToken() async {
-    final first = _progress?.waitsForToken ?? false;
+    final first = (_progress?.waitsForToken ?? false) || _waitHeardElsewhere(widget.host);
     final before = widget.connections?.heard(widget.host);
     // The page is busy while the token is given, as for any other ask of the machine.
     setState(() => _working++);
@@ -670,8 +670,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   Widget _stateChip(OrganizationHost? host) {
     final connections = widget.connections;
     if (host == null || connections == null) return const StateChip('not read');
-    if (!connections.connected(host.name)) return const StateChip('Not connected');
-    if (connections.waitsForToken(host.name) || (_progress?.waitsForToken ?? false)) {
+    final heard = _isAdminHere && _waitHeardElsewhere(host.name);
+    if (!connections.connected(host.name) && !heard) return const StateChip('Not connected');
+    if (heard || connections.waitsForToken(host.name) || (_progress?.waitsForToken ?? false)) {
       return const StateChip('Waiting for its token', toneWords: 'waiting');
     }
     if (!connections.up(host.name)) return const StateChip('Connection down', toneWords: 'not connected');
@@ -686,21 +687,51 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         '${last == null ? 'not read' : TimeOfDay.fromDateTime(last.toLocal()).format(context)}';
   }
 
+  /// Whether the last word this window has of [host], wherever it was heard, is that it waits for its first token,
+  /// while the page's own read says nothing of it: not connected, not read yet, or its read refused.
+  bool _waitHeardElsewhere(String host) {
+    final connections = widget.connections;
+    final progress = _progress;
+    if (connections == null || (progress?.waitsForToken ?? false)) return false;
+    // The page's own read stands, unless the wait was heard after it.
+    final at = connections.tokenWaitHeard(host);
+    if (progress != null) return at != null && (_answeredAt == null || at.isAfter(_answeredAt!));
+    return at != null || (connections.connected(host) && connections.waitsForToken(host));
+  }
+
+  /// When and where the wait [_waitHeardElsewhere] found was heard, and what giving the token does from here.
+  String _waitHeardWords(String host, String forge) {
+    final at = widget.connections?.tokenWaitHeard(host);
+    final when = at == null ? '' : ' at ${TimeOfDay.fromDateTime(at.toLocal()).format(context)}';
+    final connected = widget.connections?.connected(host) ?? false;
+    return 'Last heard$when: $host waits for your $forge token. '
+        '${connected ? 'This page has not read it since.' : 'This window is not connected to it now; giving the token connects first.'}';
+  }
+
   /// What only a host admin can read: whether the host waits for their token, and who is locked out and until when.
   List<Widget> _howItStands(OrganizationView view, OrganizationHost host) {
     final connected = widget.connections?.connected(host.name) ?? false;
     final progress = _progress;
-    if (!connected) {
+    final heardElsewhere = _waitHeardElsewhere(host.name);
+    if (!connected && !heardElsewhere) {
       return const [
         Text("Connect to this machine to read how far it has come; the list here is the organization's word."),
       ];
     }
     return [
       if (_acting) const Text('Waiting for the machine…'),
-      if (progress != null && progress.wantsToken) ...[
-        if (progress.waitsForToken) Text(organizationTokenWords(view, host.name)),
-        for (final project in progress.projects)
-          if (project.waitsForToken) Text(organizationTokenWords(view, host.name, project: project.project)),
+      if (heardElsewhere || (progress != null && progress.wantsToken)) ...[
+        if (heardElsewhere) ...[
+          Text(organizationTokenWords(view, host.name)),
+          Text(
+            key: const ValueKey('organization.tokenWaitHeard'),
+            _waitHeardWords(host.name, organizationForgeName(view)),
+          ),
+        ] else if (progress!.waitsForToken)
+          Text(organizationTokenWords(view, host.name)),
+        if (connected)
+          for (final project in progress?.projects ?? const <HostProjectProgress>[])
+            if (project.waitsForToken) Text(organizationTokenWords(view, host.name, project: project.project)),
         Align(
           alignment: Alignment.centerLeft,
           child: AskingButton(
@@ -713,17 +744,19 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           ),
         ),
       ],
-      if (progress?.refused case final refused?)
-        Text(
-          key: const ValueKey('organization.refused'),
-          'The machine refused its last fetch and stays on what it took before: $refused. '
-          'That can be a removal or a commit nobody allowed: look at which, it does not say.',
-        ),
-      for (final person in progress?.locked ?? const <HostLockedPerson>[])
-        Text(
-          key: ValueKey('organization.locked/${person.login}'),
-          '${person.login}: locked, account deleted on ${person.purgeOn}',
-        ),
+      if (connected) ...[
+        if (progress?.refused case final refused?)
+          Text(
+            key: const ValueKey('organization.refused'),
+            'The machine refused its last fetch and stays on what it took before: $refused. '
+            'That can be a removal or a commit nobody allowed: look at which, it does not say.',
+          ),
+        for (final person in progress?.locked ?? const <HostLockedPerson>[])
+          Text(
+            key: ValueKey('organization.locked/${person.login}'),
+            '${person.login}: locked, account deleted on ${person.purgeOn}',
+          ),
+      ],
     ];
   }
 

@@ -6256,13 +6256,16 @@ class _ShellState extends State<Shell> {
   /// A server just prepared: connects to it from its new card. Its token is a step of its own, on the wizard's last
   /// page or its row, never a dialog that opens by itself.
   Future<void> _hostReady(String host) async {
+    // A machine just prepared makes no account before it has its first token: that is the setup's last word of it,
+    // kept for its page until the machine itself says otherwise, connected or not.
+    _hostConnections?.hearTokenWait(host, waits: true);
     try {
       await _connectHost(host);
     } on OrganizationRefused catch (refused) {
       _say('$host is ready, but this window could not connect to it yet: ${refused.words}');
       return;
     }
-    _say('$host is ready. It waits for your token: Give it your token… on its row.');
+    _say('$host is ready. It waits for your token: Give it your token… on its row or its page.');
   }
 
   Future<void> _connectHost(String host) async {
@@ -6291,6 +6294,8 @@ class _ShellState extends State<Shell> {
       give: (answer) => _giveTokenFrom(host, answer),
       heard: () async {
         final connections = _hostConnections;
+        // It took the token: what it waited for is no longer the last word of it, whether or not it can be read now.
+        connections?.hearTokenWait(host, waits: false);
         if (connections != null && connections.connected(host)) await connections.progress(host);
       },
     );

@@ -243,6 +243,8 @@ class CardHostConnections extends HostConnections {
     if (await _letGoMeanwhile(card.name, letGo, machine, again: again)) return;
     if (raised) {
       _waiting.remove(card.name);
+      // It makes the account that let this person in only once it had its token.
+      hearTokenWait(card.name, waits: false);
       lines.add('The connection is up.');
     } else {
       if (machines.tunnels.of(machine)?.problem case final problem?) lines.add('ssh said: $problem');
@@ -317,7 +319,10 @@ class CardHostConnections extends HostConnections {
     final entry = view?.hosts.where((each) => each.name == host).firstOrNull;
     if (view == null || entry == null || !entry.admins.contains(view.me)) return false;
     try {
-      return (await _progress.status(machine.sshConfig, host)).waitsForToken;
+      final waits = (await _progress.status(machine.sshConfig, host)).waitsForToken;
+      // The last word of the token for the machine's page, kept while this computer is not connected.
+      hearTokenWait(host, waits: waits);
+      return waits;
     } on OrganizationRefused {
       return false;
     }

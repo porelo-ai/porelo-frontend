@@ -179,6 +179,9 @@ void main() {
   late bool turnedAway;
   late List<_Master> masters;
   late String hostSays;
+
+  /// What the host's status read exits with, and says on its error stream then.
+  late ({int code, String err}) hostEnds;
   late List<List<String>> ran;
   late bool forwardRefused;
   late Completer<void>? holdStart;
@@ -192,6 +195,7 @@ void main() {
     masters = [];
     turnedAway = false;
     hostSays = '{}';
+    hostEnds = (code: 0, err: '');
     folder = Directory.systemTemp.createTempSync('c-');
     // This account's alone, as the runtime directory is: the one place a socket the window made is later removed.
     Process.runSync('chmod', <String>['700', folder.path]);
@@ -250,7 +254,7 @@ void main() {
       hostProgress: SshHostProgress(
         run: (program, arguments, {inDirectory, environment = const {}, input}) async {
           refreshed.add(arguments[arguments.length - 2]);
-          return (code: 0, out: hostSays, err: '');
+          return (code: hostEnds.code, out: hostSays, err: hostEnds.err);
         },
       ),
       endpoint: (host) => path.join(folder.path, '$host.socket'),
@@ -520,6 +524,26 @@ void main() {
     expect(made.waitsForToken('build'), isTrue);
     await made.disconnect('build');
     expect(made.waitsForToken('build'), isFalse);
+  });
+
+  // Harm: a machine waiting for its first token goes unsaid on its page once its connection is let go, or once a read
+  // of it fails, so its Machine Admin waits for an admission that never comes.
+  test('the token a connect heard waited for outlasts the connection and a failed read, until it comes up', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    await made.connect('build');
+    expect(made.tokenWaitHeard('build'), isNotNull);
+    await made.disconnect('build');
+    expect(made.tokenWaitHeard('build'), isNotNull, reason: 'the last word this window has of it');
+    hostEnds = (code: 127, err: 'env: /usr/sbin/porelo-host: No such file or directory');
+    await expectLater(made.connect('build'), throwsA(isA<OrganizationRefused>()));
+    expect(made.tokenWaitHeard('build'), isNotNull, reason: 'a read that failed says nothing of the token');
+    hostEnds = (code: 0, err: '');
+    turnedAway = false;
+    hostSays = '{}';
+    await made.connect('build');
+    expect(made.tokenWaitHeard('build'), isNull, reason: 'it let this person in, so it had its token');
   });
 
   // Harm: right after Prepare the machine has not yet made the person's account, as its first follow runs within five
