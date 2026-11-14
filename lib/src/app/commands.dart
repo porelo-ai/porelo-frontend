@@ -1682,6 +1682,16 @@ Command hostPreparationCommand({
 Command hostProtocolCommand({required String project, required VoidCallback open, Home home = Home.machineRow}) =>
     Command(id: 'host.protocol', label: 'Open the machine protocol', group: '$project server', home: home, run: open);
 
+/// Opens a terminal on [machine] as the person's own account, over ssh, from its *SSH Console*.
+Command openSshConsoleCommand({required String machine, required VoidCallback open, String? unavailable}) => Command(
+  id: 'machine.sshConsole',
+  label: 'Open the SSH console',
+  group: machine,
+  home: Home.none,
+  run: open,
+  unavailable: unavailable,
+);
+
 /// Copies the public protocol without reopening setup inputs or a terminal.
 Command copyHostProtocolCommand({required String project, required VoidCallback copy}) => Command(
   id: 'host.copyProtocol',

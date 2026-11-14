@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F566",
   "title": "An SSH Console On A Machine's Page",
-  "state": "Backlog",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 12,
@@ -46,3 +46,31 @@ without a key file, a password prompt in the window, or trusting a key the machi
 - A guard that the section is offered for a remote machine and not for this computer or WSL. Another guard that the
   command line carries the machine's pinned options and no others, with no key file and no password option. A
   feature scenario that opens it against a stand-in. Each is red first.
+
+## Built
+
+- A machine section *SSH Console* (`MachineSection.console`), last in a machine's tree, below *Managing this machine*
+  or *Machine Admins*. The tree shows it only for a machine reached over ssh (`sshConsoleOffered`: a host and a remote
+  socket, of no kind or a host's); this computer, a WSL distribution and a forwarded socket show none, and their page,
+  where it is opened anyway, says why.
+- *Open the SSH console* runs `ssh <the machine's loginSshOptions> -t <its host>` (`sshConsoleCommand`) on this
+  computer's pseudoterminal (ConPTY on Windows, by `openHere`), in the terminal view the window's other terminals
+  use, in a dialog over the page. No remote command follows the host, so the account's login shell starts. The
+  options are the machine's own and no others: for a card's machine its ssh config, through the card's control
+  master on Linux and a connection of its own by the same config on Windows; no key file and no password option. A
+  host that starts with a dash opens nothing.
+- Where the machine is not reachable here, or does not answer, the button stands grey with the page's own words
+  (`whyNotReachableHere`, or *<machine> does not answer.*) and nothing is started.
+- A machine added by its address (no card) has no pin of its own: its console takes its options as every other
+  command to it does, which are none, so ssh reads the person's own config and known_hosts and asks before it trusts
+  an unknown host key, in the terminal.
+- **The root switch is hidden.** The window cannot know who may log in as root on a machine: the organization's card
+  names a machine's admins and their keys (`hosts[].admins`), but not whether root takes any of those keys after
+  `up`, nor which. **To be recorded with Agent Machines:** per machine, whether root logs in by key after setup and
+  with which persons' keys, served by `porelo org` beside the machine's admins (for example a `root` flag on each
+  `hosts[].admins` row). With that, the switch shows for those persons and runs the same line with root as the login.
+- Tests: `test/app/ssh_console_test.dart` (offered or not, the exact command line, a dashed host), the console case
+  of *each section of a machine reads that machine* and *the SSH Console of a machine that does not answer says so
+  and starts nothing* in `test/ui/machine_sections_test.dart`, and `test/features/ssh_console.feature` against the
+  fake terminal; no real ssh is started.
+

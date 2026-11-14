@@ -5,6 +5,7 @@ import '../app/fleet_model.dart' show Reachability;
 import '../app/machines.dart';
 import '../app/organization_source.dart';
 import '../app/shell_model.dart';
+import '../app/ssh_console.dart';
 import 'machine_tree.dart';
 import 'tokens.dart';
 import 'window_size.dart';
@@ -196,11 +197,12 @@ class _ShellRailState extends State<ShellRail> {
         if ((widget.machinesWithSections?.contains(entry.machine.name) ?? true) &&
             widget.foldedOpen.contains(ShellPlace.machineKey(entry.machine.name)))
           for (final section in MachineSection.values)
-            _TreeRow(
-              ShellPlace(Section.machine, machine: entry.machine, machineSection: section),
-              section.labelOn(organizationCard: widget.machinesWithAdmins.contains(entry.machine.name)),
-              depth: 2,
-            ),
+            if (section != MachineSection.console || sshConsoleOffered(entry.machine))
+              _TreeRow(
+                ShellPlace(Section.machine, machine: entry.machine, machineSection: section),
+                section.labelOn(organizationCard: widget.machinesWithAdmins.contains(entry.machine.name)),
+                depth: 2,
+              ),
       ],
     _TreeRow(
       const ShellPlace(Section.forges),

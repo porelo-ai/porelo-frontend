@@ -99,6 +99,14 @@ const Map<String, PageWords> pageWords = {
           'there.',
     ),
   ],
+  'machine-console': [
+    (
+      title: 'What is SSH Console?',
+      words:
+          'A shell on this machine in a terminal in this window, as your own account, by the key your agent holds '
+          'for it and the host key it was pinned with. Nothing is typed into a form of the window.',
+    ),
+  ],
   'organization-project': [
     (
       title: "What is an organization's project?",

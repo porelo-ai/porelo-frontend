@@ -66,6 +66,7 @@ import '../app/vault_unlock.dart';
 import '../app/project_deletion.dart';
 import '../app/hand_in.dart';
 import '../app/session.dart';
+import '../app/ssh_console.dart';
 import '../app/unattended_run.dart';
 import '../app/key_recovery.dart';
 import 'key_recovery_dialog.dart';
@@ -125,6 +126,7 @@ import 'projects_page.dart';
 import 'machine_details_page.dart';
 import 'project_details_page.dart';
 import 'shell_rail.dart';
+import 'ssh_console_view.dart';
 import 'facts_page.dart';
 import 'filtered_list_section.dart';
 import 'vault_actions.dart';
@@ -717,6 +719,7 @@ class _ShellState extends State<Shell> {
           await tools.readiness.look(fleet.backend);
         case MachineSection.tasks:
         case MachineSection.projects:
+        case MachineSection.console:
           break;
       }
     });
@@ -4748,6 +4751,17 @@ class _ShellState extends State<Shell> {
                         explanation: machineAdminsWords,
                       )
                     : _machineFacts(managing: true, head: head),
+              MachineSection.console => SshConsoleView(
+                machine: machine,
+                head: head,
+                settings: widget.settings,
+                open: openSshConsoleCommand(
+                  machine: machine.name,
+                  open: () => unawaited(_openSshConsole(machine)),
+                  // In the words the page's head already says, and nothing is started.
+                  unavailable: machine.whyNotReachableHere ?? (answering ? null : '${machine.name} does not answer.'),
+                ),
+              ),
               _ => _explainedLeaf(explanationId, _machineToolPage(machine, fleet, section, tools, head)),
             };
         // An answering machine's Tasks list draws this head itself, with its count and filter.
@@ -4801,6 +4815,30 @@ class _ShellState extends State<Shell> {
           ],
         );
       },
+    );
+  }
+
+  /// Opens a shell on [machine] in a terminal in the window, as the person's own account.
+  Future<void> _openSshConsole(Machine machine) async {
+    final List<String> command;
+    try {
+      command = sshConsoleCommand(machine);
+    } on StateError catch (refused) {
+      _say(refused.message);
+      return;
+    }
+    await runInATerminal(
+      context,
+      key: const Key('ssh-console-terminal'),
+      title: 'SSH Console on ${machine.name}',
+      explanation:
+          'A shell on ${machine.name} as your own account. It logs in with the key your agent holds for it and '
+          'trusts only the host key it was pinned with. Typing exit ends it.',
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+      stillWorking: 'The shell runs on ${machine.name}.',
+      cancel: 'Close the console',
     );
   }
 
@@ -5026,6 +5064,7 @@ class _ShellState extends State<Shell> {
       case MachineSection.tasks:
       case MachineSection.projects:
       case MachineSection.managing:
+      case MachineSection.console:
         return const SizedBox.shrink();
     }
   }

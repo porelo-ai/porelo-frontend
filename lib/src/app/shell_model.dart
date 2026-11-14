@@ -74,7 +74,10 @@ enum MachineSection {
   health('Health'),
 
   /// Its lifecycle and preparation actions.
-  managing('Managing this machine');
+  managing('Managing this machine'),
+
+  /// A terminal on it as the person's own account, for a machine reached over ssh.
+  console('SSH Console');
 
   const MachineSection(this.label);
 

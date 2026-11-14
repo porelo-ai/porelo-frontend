@@ -403,6 +403,17 @@ void main() {
     });
   }
 
+  // Harm: a console on a machine that does not answer starts an ssh that hangs, with nothing said of why.
+  testWidgets('the SSH Console of a machine that does not answer says so and starts nothing', (tester) async {
+    final backend = _GuardedBackend()..absent = const VarlinkDisconnected('No daemon');
+    await _start(tester, secondBackend: backend);
+    final before = World.terminals.length;
+    await _open(tester, MachineSection.console);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('ssh-console-open'))).onPressed, isNull);
+    expect(tester.widget<Text>(find.byKey(const Key('ssh-console-why'))).data, '${_second.name} does not answer.');
+    expect(World.terminals, hasLength(before));
+  });
+
   // Harm: retrying a lost machine leaves its destination list unread and its commands stranded.
   testWidgets('Credentials retries its destinations once the machine answers', (tester) async {
     final backend = _GuardedBackend()..absent = const VarlinkDisconnected('No daemon');
@@ -547,6 +558,9 @@ void main() {
           expect(World.backend.absent, isNull);
           expect(World.elsewhere.absent, isA<VarlinkDisconnected>());
           expect(World.machines.current, first);
+        case MachineSection.console:
+          await World.tapInView(tester, 'ssh-console-open');
+          expect(World.terminals.last.command, ['ssh', '-t', _second.host], reason: 'the console opens on its machine');
       }
       expect(tester.takeException(), isNull);
     });
@@ -674,6 +688,7 @@ void main() {
             expect(find.byKey(const Key('machine.stop')), findsOneWidget);
           case MachineSection.tasks:
           case MachineSection.projects:
+          case MachineSection.console:
             break;
         }
       }
