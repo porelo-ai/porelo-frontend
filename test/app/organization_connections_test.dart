@@ -182,6 +182,9 @@ void main() {
 
   /// What the host's status read exits with, and says on its error stream then.
   late ({int code, String err}) hostEnds;
+
+  /// Holds the host's answer to a read until the test lets it.
+  late Completer<void>? holdAnswer;
   late List<List<String>> ran;
   late bool forwardRefused;
   late Completer<void>? holdStart;
@@ -192,6 +195,7 @@ void main() {
     ran = [];
     forwardRefused = false;
     holdStart = null;
+    holdAnswer = null;
     masters = [];
     turnedAway = false;
     hostSays = '{}';
@@ -254,6 +258,7 @@ void main() {
       hostProgress: SshHostProgress(
         run: (program, arguments, {inDirectory, environment = const {}, input}) async {
           refreshed.add(arguments[arguments.length - 2]);
+          await holdAnswer?.future;
           return (code: hostEnds.code, out: hostSays, err: hostEnds.err);
         },
       ),
@@ -544,6 +549,127 @@ void main() {
     hostSays = '{}';
     await made.connect('build');
     expect(made.tokenWaitHeard('build'), isNull, reason: 'it let this person in, so it had its token');
+  });
+
+  /// [_hostOfMia] with [admins] and, where given, another name, address and host key.
+  OrganizationHost hostOfMia({
+    String name = 'build',
+    String? address,
+    String? hostKey,
+    List<String> admins = const ['mia'],
+  }) => OrganizationHost(
+    name: name,
+    address: address ?? _hostOfMia.address,
+    port: _hostOfMia.port,
+    hostKey: hostKey ?? _hostOfMia.hostKey,
+    admins: admins,
+    projects: const ['demo'],
+  );
+
+  Future<void> reads(CardHostConnections made, OrganizationView view) async {
+    (made.organization.source as FixtureOrganization).view = view;
+    await made.organization.refresh();
+  }
+
+  /// Connects to a host that waits for its first token, and reads it once as its Machine Admin.
+  Future<CardHostConnections> waitingForItsToken() async {
+    final made = await connections(_mia(host: _hostOfMia));
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    await made.connect('build');
+    await made.progress('build');
+    expect(made.waitsForToken('build'), isTrue);
+    expect(made.heard('build')?.waitsForToken, isTrue);
+    return made;
+  }
+
+  // Harm: once the machine took the token, its row, chip and page go on offering the token, because the read that
+  // would say otherwise failed or has not run yet.
+  test('taking the token ends every word of the wait, the connection\'s and the read\'s', () async {
+    final made = await waitingForItsToken();
+    made.hearTokenWait('build', waits: false);
+    expect(made.waitsForToken('build'), isFalse, reason: "the row's wait");
+    expect(made.heard('build')?.waitsForToken ?? false, isFalse, reason: "the read's wait");
+    expect(made.tokenWaitHeard('build'), isNull);
+  });
+
+  // Harm: a Connect that comes up proves the machine took its token, yet the read heard before still says it waits.
+  test('a Connect that comes up ends the wait a read heard, with no read since', () async {
+    final made = await waitingForItsToken();
+    turnedAway = false;
+    await made.connect('build');
+    expect(made.up('build'), isTrue);
+    expect(made.heard('build')?.waitsForToken ?? false, isFalse);
+  });
+
+  // Harm: a connection that came up by itself still reads as waiting for the token on the machine's page.
+  test('a connection raised again by itself that comes up ends the wait', () async {
+    final made = await waitingForItsToken();
+    final machine = machines.all.singleWhere((each) => each.name == 'build');
+    turnedAway = false;
+    await machines.tunnels.raiseAgainIfItDropped(machine);
+    await pumpEventQueue();
+    expect(made.up('build'), isTrue);
+    expect(made.tokenWaitHeard('build'), isNull);
+    expect(made.heard('build')?.waitsForToken ?? false, isFalse);
+  });
+
+  // Harm: the setup's word that the machine waits outlives a Connect that finds it up already.
+  test('a Connect that finds the connection up already ends the wait', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    await made.connect('build');
+    made.hearTokenWait('build', waits: true);
+    await made.connect('build');
+    expect(made.tokenWaitHeard('build'), isNull);
+  });
+
+  // Harm: a machine of the same name at another address, or a new one after the old was taken out, is said to wait
+  // for a token because the old server did.
+  test('a wait is no word of a machine removed or moved since', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    made.hearTokenWait('build', waits: true);
+    await reads(made, _mia(host: hostOfMia(name: 'gone')));
+    expect(made.tokenWaitHeard('build'), isNull, reason: 'removed');
+    await reads(made, _mia(host: _hostOfMia));
+    made.hearTokenWait('build', waits: true);
+    await reads(
+      made,
+      _mia(
+        host: hostOfMia(address: '203.0.113.99', hostKey: _otherHostKey),
+      ),
+    );
+    expect(made.tokenWaitHeard('build'), isNull, reason: 'moved');
+  });
+
+  // Harm: root's word to someone who stopped being the Machine Admin while it was asked is kept as theirs.
+  test('a wait heard after the role was taken meanwhile is not kept', () async {
+    final made = await connections(_mia(host: _hostOfMia));
+    turnedAway = true;
+    hostSays = '{"organization": "waiting-for-token"}';
+    final answer = holdAnswer = Completer<void>();
+    final connecting = made.connect('build');
+    while (refreshed.isEmpty) {
+      await pumpEventQueue();
+    }
+    await reads(made, _mia(host: hostOfMia(admins: const ['hana'])));
+    answer.complete();
+    try {
+      await connecting;
+    } on OrganizationRefused {
+      // Turned away with no wait of theirs to say.
+    }
+    expect(made.tokenWaitHeard('build'), isNull);
+    expect(made.waitsForToken('build'), isFalse);
+  });
+
+  // Harm: someone no longer the machine's admin is offered its token on the row.
+  test('the wait a Connect heard is dropped with the Machine Admin role', () async {
+    final made = await waitingForItsToken();
+    final notAdmin = _mia(host: hostOfMia(admins: const ['hana']));
+    await reads(made, notAdmin);
+    made.askOnce(notAdmin);
+    expect(made.waitsForToken('build'), isFalse);
+    expect(made.tokenWaitHeard('build'), isNull);
   });
 
   // Harm: right after Prepare the machine has not yet made the person's account, as its first follow runs within five

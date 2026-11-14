@@ -45,6 +45,19 @@ offers *Give it your token…* on the page, whatever the setup wizard did before
   heard the wait and whose page read is refused offers the button (red on the old page: no button). A unit test in
   `test/app/organization_connections_test.dart`: the wait a *Connect* heard outlasts a disconnect and a status read
   that exits 127, and ends once the connection comes up (red with either record taken out).
+- **Read again.** One wait for each host, true to the machine: the page asks one notion, `_waitsForItsToken` (its own
+  read, the last *Connect*, or the kept wait), for its words, button, chip and connection line, so a wait the page read
+  itself is still said after a disconnect. No longer waiting (`hearTokenWait(waits: false)`) ends every word of it: the
+  kept wait, a read that said it waits (asked again once), and the connection's own (`dropTokenWait`, which
+  `CardHostConnections` answers with its `_waiting`); a page drops its read of the wait when `tokenWaitEnds` changes,
+  and reads again where it can. A connection that comes up, by *Connect* or by a raise of its own, ends it. A kept wait
+  holds only for the machine the organization names now (`machineOf`: address, port, host key), so a removed or moved
+  host has none; a wait heard while the role was taken is not kept, and losing the role drops the connection's wait
+  too. After giving the token the page connects whenever the wait ended, and a press that gave none answers beside
+  the button. Tests, each red on the first build: a page read's wait outlasting a disconnect; a token taken with every
+  read after it refused; connecting after a token given where the wait was heard elsewhere; the answer beside the
+  button; a connection not up while waiting not called down; unit tests for the token taken, a *Connect* or a raise of
+  its own coming up, an up *Connect*, a removed or moved host, a role taken during the read, and the role lost.
 
 ## Acceptance
 

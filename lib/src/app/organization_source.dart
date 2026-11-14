@@ -916,27 +916,63 @@ abstract class HostConnections extends ChangeNotifier {
   final _heard = <String, HostProgress>{};
   final _askedOnce = <String>{};
 
-  /// When each host was last heard to wait for its first token.
-  final _tokenWaits = <String, DateTime>{};
+  /// When each host was last heard to wait for its first token, and which machine of that name it was then.
+  final _tokenWaits = <String, ({DateTime at, Object? machine})>{};
+
+  /// How often a wait for each host's first token was ended other than by a read, as by the token taken.
+  final _tokenWaitEnds = <String, int>{};
 
   /// When [host] was last heard to wait for its first token - by a read of how far it has come, a *Connect*, or the
   /// setup that prepared it from this computer - or null where nothing heard since says so. It stays while this
-  /// computer is not connected: it is the last word this window has of the machine.
-  DateTime? tokenWaitHeard(String host) => _tokenWaits[host];
-
-  /// Keeps what was just heard of [host]'s first token: that it [waits] for it, or no longer does, as once it took one.
-  void hearTokenWait(String host, {required bool waits}) {
-    if (_letGo) return;
-    if (_keepTokenWait(host, waits: waits)) notifyListeners();
+  /// computer is not connected: it is the last word this window has of the machine, and of that machine alone.
+  DateTime? tokenWaitHeard(String host) {
+    final wait = _tokenWaits[host];
+    return wait != null && wait.machine == machineOf(host) ? wait.at : null;
   }
 
-  /// Whether keeping [waits] for [host] changed what [tokenWaitHeard] answers.
-  bool _keepTokenWait(String host, {required bool waits}) {
+  /// Which machine the organization names [host] now, as its address and keys; a wait heard of another is none of it.
+  @protected
+  Object? machineOf(String host) => null;
+
+  /// Counts each end of [host]'s wait that was no read: a page drops what it read of the wait when it changes.
+  int tokenWaitEnds(String host) => _tokenWaitEnds[host] ?? 0;
+
+  /// Keeps what was just heard of [host]'s first token: that it [waits] for it, or no longer does, as once it took one
+  /// or let this person in. No longer waiting ends every word of the wait kept for it, a read's too.
+  void hearTokenWait(String host, {required bool waits}) {
+    if (_letGo) return;
     if (waits) {
-      _tokenWaits[host] = DateTime.now();
-      return true;
+      _keepTokenWait(host, waits: true);
+      notifyListeners();
+    } else if (_endTokenWait(host)) {
+      notifyListeners();
     }
-    return _tokenWaits.remove(host) != null;
+  }
+
+  /// Ends every word of [host]'s wait for its first token; answers whether there was one.
+  bool _endTokenWait(String host) {
+    final kept = _tokenWaits.remove(host) != null;
+    final read = _heard[host]?.waitsForToken ?? false;
+    if (read) {
+      // What it said is no longer so, and it is asked again once.
+      _heard.remove(host);
+      _askedOnce.remove(host);
+    }
+    final ended = dropTokenWait(host) | kept | read;
+    if (ended) _tokenWaitEnds[host] = tokenWaitEnds(host) + 1;
+    return ended;
+  }
+
+  /// Drops what this kind of connection keeps of [host]'s wait for its first token; answers whether it kept one.
+  @protected
+  bool dropTokenWait(String host) => false;
+
+  void _keepTokenWait(String host, {required bool waits}) {
+    if (waits) {
+      _tokenWaits[host] = (at: DateTime.now(), machine: machineOf(host));
+    } else {
+      _tokenWaits.remove(host);
+    }
   }
 
   /// The hosts the last [askOnce] found this person may not ask: gone, or not theirs to administer.
@@ -985,7 +1021,10 @@ abstract class HostConnections extends ChangeNotifier {
     for (final host in view.hosts) {
       final administers = view.holdsRoles && host.admins.contains(view.me);
       // Heard as its Machine Admin, a wait is no word for someone who no longer is one; a lost connection keeps it.
-      if (!administers) _tokenWaits.remove(host.name);
+      if (!administers) {
+        _tokenWaits.remove(host.name);
+        dropTokenWait(host.name);
+      }
       final mayAsk = administers && connected(host.name);
       if (!mayAsk) {
         // Gone or no longer theirs to ask: what it said before stands for nobody now.

@@ -1297,6 +1297,90 @@ void main() {
       expect(_action('giveToken'), findsOneWidget);
     });
 
+    // Harm: a wait the page read itself goes unsaid once the connection is let go, and the person is told only to
+    // connect to a machine that admits nobody before its token.
+    testWidgets("a wait the page's own read heard is still said and offered after a disconnect", (tester) async {
+      final connections = FixtureConnections(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      await page(tester, 'hana', connections: connections, onGiveToken: (_, {atOnce = false}) async => null);
+      expect(_action('giveToken'), findsOneWidget);
+      await connections.disconnect('build');
+      await tester.pumpAndSettle();
+      expect(_action('giveToken'), findsOneWidget, reason: 'not connected, it still waits');
+      expect(find.byKey(const ValueKey('organization.tokenWaitHeard')), findsOneWidget);
+    });
+
+    // Harm: the machine took the token, the read that would say so failed, and the page goes on offering the token.
+    testWidgets('a token taken ends the wait the page read, though the read after it fails', (tester) async {
+      final connections = _Unreadable(['build'])..hostProgress = const HostProgress(waitsForToken: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          // As the token's step does once the machine took it; the machine cannot be read after.
+          connections.unreadable = true;
+          connections.hearTokenWait(host, waits: false);
+          return null;
+        },
+      );
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(connections.asked, contains('progress build'), reason: 'read after, and refused');
+      expect(_action('giveToken'), findsNothing);
+    });
+
+    // Harm: the token is given from a page whose machine was never read, and the connection it now admits is never
+    // made.
+    testWidgets('a token given where the wait was heard elsewhere connects after, though the read fails', (
+      tester,
+    ) async {
+      final connections = FixtureConnections()..hearTokenWait('build', waits: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (host, {atOnce = false}) async {
+          connections.hearTokenWait(host, waits: false);
+          connections.refuseNext = const OrganizationRefused('build could not say how far it has come.');
+          return null;
+        },
+      );
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(connections.asked, contains('connect build'));
+    });
+
+    // Harm: why no token was given stands at the page's head, far from the button that asked, and the button's own
+    // answer is lost.
+    testWidgets('a press that gives no token where the wait was heard elsewhere says why beside it, once', (
+      tester,
+    ) async {
+      final connections = FixtureConnections()..hearTokenWait('build', waits: true);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        onGiveToken: (_, {atOnce = false}) async {
+          // As a machine not connected to is: its read after the press is refused.
+          connections.refuseNext = const OrganizationRefused('Connect to build first.');
+          return 'No GitHub token is kept on this computer.';
+        },
+      );
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(find.text('No GitHub token is kept on this computer.'), findsOneWidget);
+      expect(_action('giveToken'), findsOneWidget, reason: 'it still waits');
+      expect(find.byKey(const ValueKey('organization.tokenWhy')), findsOneWidget, reason: 'beside the button');
+    });
+
+    // Harm: the page says the connection is down and offers Connect, while the machine waits for a token no Connect
+    // can stand in for.
+    testWidgets('a connection not up while the wait was heard elsewhere is not called down', (tester) async {
+      final connections = _DownConnections(['build'])
+        ..hearTokenWait('build', waits: true)
+        ..refuseNext = const OrganizationRefused('build could not say how far it has come.');
+      await page(tester, 'hana', connections: connections);
+      final said = tester.widget<Text>(find.byKey(const ValueKey('organization.connectionWords'))).data!;
+      expect(said, isNot(contains('is down')));
+    });
+
     // Harm: a person cannot see what is on the machine for a wall of the same sentence.
     testWidgets('a project names its repositories on the machine first, and counts the rest once', (tester) async {
       const why = 'no central address, so this host cannot take it; name one in the project file for a task here';
@@ -1546,6 +1630,22 @@ void main() {
       expect(find.text('acme has no machine gone.'), findsOneWidget);
     });
   });
+}
+
+/// Connections to a machine that, once [unreadable], refuses every read of how far it has come.
+class _Unreadable extends FixtureConnections {
+  _Unreadable(super.hosts);
+
+  bool unreadable = false;
+
+  @override
+  Future<HostProgress> progress(String host) async {
+    if (!unreadable) return super.progress(host);
+    asked.add('progress $host');
+    // A machine answers over ssh, never within the call that asked it.
+    await Future<void>.value();
+    throw OrganizationRefused('$host could not say how far it has come.');
+  }
 }
 
 class _DownConnections extends FixtureConnections {

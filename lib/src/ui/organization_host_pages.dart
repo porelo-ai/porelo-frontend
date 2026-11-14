@@ -397,6 +397,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   bool _askedProgress = false;
   int _progressReads = 0;
 
+  /// The ends of the machine's wait for its token this page has taken in.
+  late int _waitEndsSeen = widget.connections?.tokenWaitEnds(widget.host) ?? 0;
+
   /// What the machine said last, wherever it was asked, as this page last took it.
   HostProgress? _heardSeen;
   DateTime? _answeredAt;
@@ -490,6 +493,19 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// taken too.
   void _askProgress() {
     final connections = widget.connections;
+    // The wait ended other than by a read, as once the token was taken: what this page read of it is no longer so, and
+    // the machine is read again where it can be.
+    final ends = connections?.tokenWaitEnds(widget.host) ?? 0;
+    if (ends != _waitEndsSeen) {
+      _waitEndsSeen = ends;
+      if (_progress?.waitsForToken ?? false) {
+        setState(() {
+          _progress = null;
+          _heardSeen = null;
+        });
+        _askedProgress = false;
+      }
+    }
     if (connections == null || !connections.connected(widget.host) || !_isAdminHere) {
       _askedProgress = false;
       // Losing contact keeps the last word read; one no longer theirs to read is no word of theirs now.
@@ -546,7 +562,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
 
   /// Gives the host the token, then reads it again; answers why it was not given, or why the reading failed.
   Future<String?> _giveToken() async {
-    final first = (_progress?.waitsForToken ?? false) || _waitHeardElsewhere(widget.host);
+    final first = _waitsForItsToken(widget.host);
     final before = widget.connections?.heard(widget.host);
     // The page is busy while the token is given, as for any other ask of the machine.
     setState(() => _working++);
@@ -564,11 +580,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         ? await _read(() async => heard, byAButton: true)
         : await _read(() => connections.ask(widget.host), byAButton: true);
     // The host has made the account it could not make before: now the connection itself can come up.
-    final answer = mounted && first && !(_progress?.waitsForToken ?? true)
+    final answer = mounted && first && !_waitsForItsToken(widget.host)
         ? words ?? await _act(() => connections.connect(widget.host), byAButton: true)
         : words ?? refusal;
     // The button goes once the machine wants no token: its answer then stands at the page's head, not nowhere.
-    if (mounted && answer != null && !(_progress?.wantsToken ?? false)) setState(() => _refusal = answer);
+    final buttonStays = (_progress?.wantsToken ?? false) || _waitsForItsToken(widget.host);
+    if (mounted && answer != null && !buttonStays) setState(() => _refusal = answer);
     return answer;
   }
 
@@ -670,11 +687,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   Widget _stateChip(OrganizationHost? host) {
     final connections = widget.connections;
     if (host == null || connections == null) return const StateChip('not read');
-    final heard = _isAdminHere && _waitHeardElsewhere(host.name);
-    if (!connections.connected(host.name) && !heard) return const StateChip('Not connected');
-    if (heard || connections.waitsForToken(host.name) || (_progress?.waitsForToken ?? false)) {
-      return const StateChip('Waiting for its token', toneWords: 'waiting');
-    }
+    final waits = _waitsForItsToken(host.name);
+    if (!connections.connected(host.name) && !(waits && _isAdminHere)) return const StateChip('Not connected');
+    if (waits) return const StateChip('Waiting for its token', toneWords: 'waiting');
     if (!connections.up(host.name)) return const StateChip('Connection down', toneWords: 'not connected');
     return const StateChip('Connected');
   }
@@ -687,21 +702,24 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         '${last == null ? 'not read' : TimeOfDay.fromDateTime(last.toLocal()).format(context)}';
   }
 
-  /// Whether the last word this window has of [host], wherever it was heard, is that it waits for its first token,
-  /// while the page's own read says nothing of it: not connected, not read yet, or its read refused.
-  bool _waitHeardElsewhere(String host) {
+  /// Whether the last word this window has of [host] is that it waits for its first token: the page's own read, the
+  /// last *Connect*, or a wait heard elsewhere, as by the setup that prepared it. Kept while not connected; a wait
+  /// ended since, as by the token taken, has cleared the page's read of it.
+  bool _waitsForItsToken(String host) {
     final connections = widget.connections;
     final progress = _progress;
-    if (connections == null || (progress?.waitsForToken ?? false)) return false;
-    // The page's own read stands, unless the wait was heard after it.
+    if (progress?.waitsForToken ?? false) return true;
+    if (connections == null) return false;
     final at = connections.tokenWaitHeard(host);
-    if (progress != null) return at != null && (_answeredAt == null || at.isAfter(_answeredAt!));
-    return at != null || (connections.connected(host) && connections.waitsForToken(host));
+    // A read of the page's own that said otherwise stands, unless the wait was heard after it.
+    if (at != null) return progress == null || _answeredAt == null || at.isAfter(_answeredAt!);
+    // What the last Connect heard, which a read that says otherwise ends.
+    return connections.connected(host) && connections.waitsForToken(host);
   }
 
-  /// When and where the wait [_waitHeardElsewhere] found was heard, and what giving the token does from here.
+  /// When the wait was heard, and what giving the token does from here.
   String _waitHeardWords(String host, String forge) {
-    final at = widget.connections?.tokenWaitHeard(host);
+    final at = widget.connections?.tokenWaitHeard(host) ?? _answeredAt;
     final when = at == null ? '' : ' at ${TimeOfDay.fromDateTime(at.toLocal()).format(context)}';
     final connected = widget.connections?.connected(host) ?? false;
     return 'Last heard$when: $host waits for your $forge token. '
@@ -712,23 +730,22 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   List<Widget> _howItStands(OrganizationView view, OrganizationHost host) {
     final connected = widget.connections?.connected(host.name) ?? false;
     final progress = _progress;
-    final heardElsewhere = _waitHeardElsewhere(host.name);
-    if (!connected && !heardElsewhere) {
+    final waits = _waitsForItsToken(host.name);
+    if (!connected && !waits) {
       return const [
         Text("Connect to this machine to read how far it has come; the list here is the organization's word."),
       ];
     }
     return [
       if (_acting) const Text('Waiting for the machine…'),
-      if (heardElsewhere || (progress != null && progress.wantsToken)) ...[
-        if (heardElsewhere) ...[
-          Text(organizationTokenWords(view, host.name)),
+      if (waits || (connected && (progress?.wantsToken ?? false))) ...[
+        if (waits) Text(organizationTokenWords(view, host.name)),
+        // Said of a word this page did not just read: when it was heard, and how the token reaches the machine.
+        if (waits && (!connected || !(progress?.waitsForToken ?? false)))
           Text(
             key: const ValueKey('organization.tokenWaitHeard'),
             _waitHeardWords(host.name, organizationForgeName(view)),
           ),
-        ] else if (progress!.waitsForToken)
-          Text(organizationTokenWords(view, host.name)),
         if (connected)
           for (final project in progress?.projects ?? const <HostProjectProgress>[])
             if (project.waitsForToken) Text(organizationTokenWords(view, host.name, project: project.project)),
@@ -1177,7 +1194,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     final connections = widget.connections;
     final connected = connections?.connected(host.name) ?? false;
     final isUp = connections?.up(host.name) ?? false;
-    final waits = (_progress?.waitsForToken ?? false) || (connections?.waitsForToken(host.name) ?? false);
+    final waits = _waitsForItsToken(host.name);
     final ready = connected && isUp && !waits;
     // Kept here with its connection down: that is what Connect is for, as on the row.
     final isDown = connected && !isUp && !waits;

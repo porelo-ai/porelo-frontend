@@ -48,7 +48,10 @@ class CardHostConnections extends HostConnections {
     for (final machine in machines.all) {
       final card = machine.hostCard;
       if (card == null || card.login != me) continue;
-      final turned = machines.tunnels.of(machine)?.turnedAway ?? false;
+      final tunnel = machines.tunnels.of(machine);
+      // Let in, by a raise of its own: the machine made this person's account, which it does only once it had its token.
+      if (tunnel?.state == TunnelState.up && connected(card.name)) hearTokenWait(card.name, waits: false);
+      final turned = tunnel?.turnedAway ?? false;
       if (!turned) {
         _askedWhenTurnedAway.remove(card.name);
         continue;
@@ -141,6 +144,22 @@ class CardHostConnections extends HostConnections {
   @override
   bool waitsForToken(String host) => _waiting.contains(host) && connected(host) && !up(host);
 
+  @override
+  bool dropTokenWait(String host) => _waiting.remove(host);
+
+  @override
+  Object? machineOf(String host) {
+    final entry = organization.view?.hosts.where((each) => each.name == host).firstOrNull;
+    return entry == null ? null : (address: entry.address, port: entry.port, hostKey: entry.hostKey);
+  }
+
+  /// Whether this person is [host]'s Machine Admin, as the organization says now.
+  bool _administers(String host) {
+    final view = organization.view;
+    final entry = view?.hosts.where((each) => each.name == host).firstOrNull;
+    return view != null && entry != null && entry.admins.contains(view.me);
+  }
+
   /// What the machine now says of the token is what stands, whoever gave it and from where.
   HostProgress _heard(String host, HostProgress progress) {
     if (!progress.waitsForToken) _waiting.remove(host);
@@ -214,6 +233,8 @@ class CardHostConnections extends HostConnections {
     // Connected already with what the organization names: nothing to do, whatever number of projects it carries.
     if (known?.hostCard == card && machines.tunnels.of(known!)?.state == TunnelState.up) {
       _waiting.remove(card.name);
+      // Up means let in, which the machine does only once it had its token.
+      hearTokenWait(card.name, waits: false);
       lines.add('This computer is connected already with what the organization names.');
       return;
     }
@@ -315,11 +336,11 @@ class CardHostConnections extends HostConnections {
 
   /// Whether [host] says, to its host admin as root, that it waits for its first token.
   Future<bool> _waitsForToken(Machine machine, String host) async {
-    final view = organization.view;
-    final entry = view?.hosts.where((each) => each.name == host).firstOrNull;
-    if (view == null || entry == null || !entry.admins.contains(view.me)) return false;
+    if (!_administers(host)) return false;
     try {
       final waits = (await _progress.status(machine.sshConfig, host)).waitsForToken;
+      // Root's word is no word to someone whose role was taken while it was asked.
+      if (!_administers(host)) return false;
       // The last word of the token for the machine's page, kept while this computer is not connected.
       hearTokenWait(host, waits: waits);
       return waits;

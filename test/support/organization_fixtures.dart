@@ -150,6 +150,9 @@ class FixtureConnections extends HostConnections {
   @override
   bool waitsForToken(String host) => hosts.contains(host) && waiting.contains(host);
 
+  @override
+  bool dropTokenWait(String host) => waiting.remove(host);
+
   /// Hosts prepared moments ago that turn the person away until their first follow; their connection is not up.
   final admitting = <String>{};
 
