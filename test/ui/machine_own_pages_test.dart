@@ -594,6 +594,69 @@ void main() {
     carriedAndNoLongerWaiting(tester);
   });
 
+  /// Machine `build`, whose Porelo lists `demo` waiting for the token and whose host was asked once, as root, while it
+  /// waited; pat administers both the machine and the project, and nothing is asked again on a timer.
+  Future<FixtureConnections> patWaitedOnce(WidgetTester tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [...World.backend.theProjectsItHas, _demoListed('waiting-for-token')];
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+    await _withTheCard(
+      tester,
+      me: 'pat',
+      connections: connections,
+      organizationHost: OrganizationHost(
+        name: buildHost.name,
+        address: buildHost.address,
+        port: buildHost.port,
+        hostKey: buildHost.hostKey,
+        webPort: buildHost.webPort,
+        admins: const ['pat'],
+        projects: const ['demo'],
+      ),
+    );
+    await World.settings.setRefreshSeconds(0);
+    // Read after the host was asked, as the work's pushes read it.
+    World.backend.publish(World.backend.tasksNow);
+    await World.settle(tester);
+    return connections;
+  }
+
+  // Harm: once the machine took the token, the organization's list of a person's projects still says it waits for it
+  // and offers the token again, until the window is restarted.
+  testWidgets("a project its machine's Porelo answers carried no longer waits in the organization's projects", (
+    tester,
+  ) async {
+    final connections = await patWaitedOnce(tester);
+    World.shell.choosePlace(const ShellPlace(Section.projects));
+    await World.settle(tester);
+    final row = find.byKey(const ValueKey('my-project demo'));
+    expect(find.descendant(of: row, matching: find.textContaining('waits for your')), findsOneWidget);
+    carriedNow();
+    World.backend.publish(World.backend.tasksNow);
+    await World.settle(tester);
+    expect(find.descendant(of: row, matching: find.textContaining('waits for your')), findsNothing);
+    expect(connections.asked.where((each) => each == 'progress build'), hasLength(1), reason: 'no root login more');
+  });
+
+  // Harm: once the machine took the token, the organization's row of the machine still says it waits for it, and
+  // calls the project not ready to work on, until the window is restarted.
+  testWidgets("a project its machine's Porelo answers carried no longer waits on the organization's machine row", (
+    tester,
+  ) async {
+    await patWaitedOnce(tester);
+    World.shell.choosePlace(
+      const ShellPlace(Section.organization, organization: 'acme', organizationSection: OrganizationSection.machines),
+    );
+    await World.settle(tester);
+    final row = find.byKey(const ValueKey('organization-machine build'));
+    expect(find.descendant(of: row, matching: find.textContaining('waits for your')), findsWidgets);
+    carriedNow();
+    World.backend.publish(World.backend.tasksNow);
+    await World.settle(tester);
+    expect(find.descendant(of: row, matching: find.textContaining('waits for your')), findsNothing);
+  });
+
   // Harm: each start form a Machine Admin opens logs in to the machine as root again, for what it said already.
   testWidgets('opening the start form takes what the machine said, asking nothing more', (tester) async {
     await World.startBackend(World.work);

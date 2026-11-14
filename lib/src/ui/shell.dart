@@ -569,6 +569,7 @@ class _ShellState extends State<Shell> {
     // machine its Machine Admin is connected to.
     _organization?.addListener(_askHostsOnce);
     _hostConnections?.addListener(_askHostsOnce);
+    _hostConnections?.listedOn = _listedOn;
     _tokens.addListener(_homeserversChanged);
     _centralReleases.addListener(_homeserversChanged);
     if (_organization?.view case final view?) _hostConnections?.askOnce(view);
@@ -6543,9 +6544,21 @@ class _ShellState extends State<Shell> {
 
   /// What [machine] said last, where an organization's card names it; null for one no card names.
   HostProgress? _heardFrom(Machine machine) => switch (machine.hostCard) {
-    final card? when _organization != null => _asListedNow(machine, _hostConnections?.heard(card.name)),
+    final card? when _organization != null => _hostConnections?.heard(card.name),
     _ => null,
   };
+
+  /// What the Porelo of the machine [host] names, as this person's card has it, lists of its projects and when; null
+  /// where that machine is not watched or not read yet.
+  ({List<Project> projects, DateTime at})? _listedOn(String host) {
+    final me = _organization?.view?.me;
+    final machine = widget.machines.all
+        .where((each) => each.hostCard?.name == host && each.hostCard?.login == me)
+        .firstOrNull;
+    final fleet = machine == null ? null : widget.machines.watching(machine);
+    final at = fleet?.projectsReadAt;
+    return fleet == null || at == null ? null : (projects: fleet.listedProjects, at: at);
+  }
 
   /// [said], what [machine] said as root when it was asked, with what its own Porelo lists now in place of a word on a
   /// project that Porelo, read since, says otherwise: the root answer is kept until the connection comes back or a

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:porelo_frontend/client.dart' show Project;
 
 import 'host_progress.dart';
 
@@ -1028,7 +1029,18 @@ abstract class HostConnections extends ChangeNotifier {
 
   /// What [host] last said of how far it has come, while this computer is connected to it; null where it was not
   /// asked. Asking it is [progress] or [refresh]; this asks nothing.
-  HostProgress? heard(String host) => connected(host) && _heardOf[host] == machineOf(host) ? _heard[host] : null;
+  ///
+  /// It was said as root and is kept until the connection comes back or a refresh; what the machine's own Porelo lists
+  /// since, read afresh from the host's same publication, stands in place of a word on a project it now says otherwise.
+  HostProgress? heard(String host) {
+    final said = connected(host) && _heardOf[host] == machineOf(host) ? _heard[host] : null;
+    final listed = said == null ? null : listedOn?.call(host);
+    return listed == null ? said : said!.asListedBy(listed.projects, listedAt: listed.at);
+  }
+
+  /// What the Porelo of the machine a host names lists of its projects, and when it read them; null where this window
+  /// does not watch that machine or has not read it yet. Set by the window, which watches the machines.
+  ({List<Project> projects, DateTime at})? Function(String host)? listedOn;
 
   /// Keeps [progress] as what [host] said last, for every page that shows it, and answers it.
   @protected

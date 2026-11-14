@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F576",
   "title": "The Organization's Pages Read The Token's State Anew",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 21,
@@ -36,3 +36,16 @@ of the token, as the machine's own project page does since [F570](README.md#f570
 ## Acceptance
 
 - Both tests red before the change and green after; the organization page tests green.
+
+## Built
+
+- **Cause:** as found, every page of the organization read the root answer through `HostConnections.heard`, which
+  only the machine's own project page reconciled with what the machine's Porelo lists.
+- `HostConnections.heard` now does the reconciling itself (`HostProgress.asListedBy`, the later read standing) with
+  the project list of the machine the host's card names for this person, which the window hands it (`listedOn`, set
+  by the shell). So every reader of it follows: `projectWaits` (the organization's project rows, dialogs and list), the
+  organization's machine rows and machine page, and the machine's own pages, which no longer reconcile a second time.
+  The root answer kept stays as it was said; no root login is added.
+- Tests in `test/ui/machine_own_pages_test.dart`, both red before the change: *a project its machine's Porelo answers
+  carried no longer waits in the organization's projects* and *a project its machine's Porelo answers carried no
+  longer waits on the organization's machine row*.
