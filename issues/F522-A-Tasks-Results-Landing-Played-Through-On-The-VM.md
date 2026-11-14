@@ -78,7 +78,7 @@ next reading finds nothing blocking and sets the issue to Review; an idea a task
   holds every field it must; the idea step fails until that holds.
 - A task proposing an idea of its own (`Tasks1.ProposeIdea` in porelo, with the project's allowance of ideas): until
   porelo offers it, the builder cannot bring back an idea, and the idea step fails.
-- [F492](README.md#f492) (Implementing): the real walk this script stands on; a fault in its steps names it.
+- The real walk of an idea to Finished, built since: the walk this script stands on; a fault in its steps names it.
 
 ## Note
 
@@ -102,7 +102,7 @@ next reading finds nothing blocking and sets the issue to Review; an idea a task
 
 - The green run: run 16 of story `a_tasks_results_land` (its report story-f522-16), all 23
   steps OK with no hand repairs, on the local VM with Core's packages 95edd73df, the planner at 2f194b5, and the
-  window and its tooling from the walk2 worktree at 4bb5b227 (6b1a5df6 with [F510](README.md#f510)'s pairing of a
+  window and its tooling from the walk2 worktree at 4bb5b227 (6b1a5df6 with the pairing of a
   start by its key).
 - The walk runs in repositories of its own, named for the story (`tasks-results-foo-project`, `-foo-1`, `-foo-2`),
   copied from the templates, its project added to the organization for the run and taken out at its end

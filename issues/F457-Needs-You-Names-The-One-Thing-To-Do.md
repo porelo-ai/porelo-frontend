@@ -113,7 +113,7 @@ Part 4 first: the pull request on a host's forge and the done task's own state, 
     story was seen while its work could not be read, and came back (red: `Expected: empty Actual: ['story ended
     builder/demo/story']`); a board is read whole only once every story's work is current.
   - Taken, red first in `test/ui/needs_you_causes_test.dart`: Must 7. The plan's point 2 and this issue name *Seen*
-    as the word of whatever only informs, ran out among them, and [F353](README.md#f353)'s *Got it* came before it, so *Got it* became
+    as the word of whatever only informs, ran out among them, and the work cards' *Got it* came before it, so *Got it* became
     *Seen*; a failed operation, named by the plan too, gets *Seen* beside *Open what it printed* (red: `Expected:
     exactly one matching candidate Actual: _DescendantWidgetFinder:<Found 0 widgets with text "Seen" ...`).
   - Must 9: its first and third gaps are the tests above; its second goes with Must 3.

@@ -54,7 +54,7 @@ The reading of the fix that made attention, notifications and the planning calle
 2026-11-13: the machine's stand-in, chosen over moving every reader to `watching`. Reading the code found about 250
 readers, not twenty: `shell.dart` alone reads `Machines.of` 105 times and its `_fleet` 123 times, which is L or more.
 `Machines` instead hands a stand-in while a machine is listed and not watched; moving the readers themselves to
-`watching` is an issue of its own, [F536](README.md#f536).
+`watching` is built apart, every reader asking whether its machine is watched.
 
 ## How it was built
 

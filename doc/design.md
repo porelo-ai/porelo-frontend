@@ -128,6 +128,39 @@ checked, they cannot drift or silently vanish.
 - `avoid_print` is disabled per-file in `tool/contract.dart`: it is a command-line tool and
   printing is its output. That is the only lint exception, and it is stated in the file.
 
+### A move rehearsed in the window
+
+`tool/rehearse_window.sh` drives the main scenarios of a move through the real window, unattended,
+against a rented host that is already set up, acting as one test person; the scenarios are
+`integration_test/rehearsing_a_move.feature`, and each step checks on the host itself, over the
+contract or `porelo build status`, what the window made happen.
+
+- **The window runs in a local VM with no desktop**, under `xvfb-run`, so no window, notification
+  or keyboard focus reaches a person's display. `check` names what the VM lacks and the line that
+  installs it; `run` copies HEAD there, fetches the pinned Flutter against its published digest,
+  trusts only the host key it is given, and forwards the test person's ssh agent for the run alone.
+  The key never enters the VM, and no token reaches a command line, a log or the report.
+- **The report** is `scenarios.txt`, one `OK`, `FAIL` or `SKIPPED <name>: <why>` line per scenario
+  from `tool/test_report.dart --lines=`, beside the HTML and JUnit report and a picture of the
+  window for every failed scenario (`pictures/<scenario>.png`, drawn from the window's own root
+  layer). The run exits 0 only where no scenario failed and one ran; the window's part stops after
+  `--budget-minutes`.
+- **The host's key** shown on the host's page is compared with the one read from the server as
+  root; a mismatch fails the run.
+- **An agent's sign-in** is driven up to its terminal showing the provider's link; the browser login
+  is not driven, and the report says so. A host where the agent is signed in skips it.
+- **Not driven:** a grant under *Needs you*, which the run cannot bring about, *Take Porelo off*,
+  which would remove Porelo from the rented host, and the gathered push to central, which waits on
+  the host taking the central token from the person's vault; each is named in the report as not run.
+
+### An idea walked in the window
+
+`tool/walk_idea.sh` walks a real idea through the real window to its story Finished, in a local VM under `xvfb-run`
+against that VM's own `porelo` and a given planner; the steps are `integration_test/walking_an_idea.feature`, and each
+reads its effect on the board, in the repositories and on the forge, never in what the window says of itself. A run
+works in repositories of the test organization made for its story, deleted whole when it ends; a red step keeps them,
+and the VM's state, for `resume` or `clean`. The script's head says what each command takes and needs.
+
 ## The mock backend
 
 A mock daemon — a small Dart program binding a real unix socket and speaking real varlink. The
@@ -201,6 +234,14 @@ The packaging requirement is met and retired; this is what it is made of.
   Debian 13's glibc 2.41.
 - **Architecture:** Flutter has no cross-compile for Linux desktop. Every architecture shipped
   needs a builder of that architecture.
+- **Third-party notices:** `tool/package.sh` unpacks the bundle's gzip `NOTICES.Z` into one plain
+  `THIRD-PARTY-NOTICES`, installed to `/usr/share/doc/porelo-frontend/` and named in the deb's `copyright`, and as a
+  second license file under `/usr/share/licenses/porelo-frontend/` for the rpm, since Fedora has no shared license
+  directory; a `NOTICES.Z` that is not gzip, not UTF-8 or empty stops the packaging.
+- **The channel a host installs from** follows the `porelo-host` that prepares it: only a plain
+  `<major>.<minor>.<patch>`, compiled in from a tag, installs from `releases`; a snapshot, a pre-release or a build
+  with no version installs from `snapshots`, and `--distribution` wins. A window run from source passes
+  `--distribution snapshots`, since the `porelo-host` it calls is the installed one, of whatever channel.
 
 ### Where it lives
 
@@ -213,6 +254,15 @@ is; a second consumer of the client code is what would change that.
 Host and project actions consume Core's verified person, host and admission state. No wizard asks for host
 values, project signing keys, laptop keys or host secrets.
 
+*What does creating it need?*, in the dialog of creating, shows Core's own check of founding at the typed address (`porelo
+org create <address> --check`), each need in Core's words with its next step. It is asked on a press, not while typing,
+as asking may reach the forge, and it never holds *Create it* back: Core's own creating refuses what it must.
+
+A read of the organization that meets an unknown SSH host key of its forge asks the person in the window: the keys
+Core offers (`porelo credentials trust-host <host>`) are shown, to be compared with what the forge publishes; only the
+one the person chooses is recorded, and the read is asked once more. A read nobody asked for, such as a timer's, never
+asks: it says the key was not trusted, and *Refresh* asks again.
+
 A project is on one host at a time, and a Machine Admin decides which projects a host carries, never which persons: every
 member of a project is on its host. *Connect* makes one connection per host, whatever number of projects it carries, from
 the address, port and host key in the organization. Other programs read what it writes, so that stays as it is:
@@ -220,13 +270,23 @@ the address, port and host key in the organization. Other programs read what it 
 `<host>` being one lower-case DNS label whatever the address.
 
 A card may name a host name, an IPv4 or an IPv6 address. Two limits stand: a server with no IPv4 default route cannot be
-prepared, as the host's own play stops, and the host vault is not opened from here for a card on another port or at an IPv6
-address, as `porelo host unlock` takes neither, which the interface says in words. A whole preparation given by name, and any
+prepared, as the host's own play stops, and on Linux the host vault is not opened from here for a card on another port or at an IPv6
+address, as `porelo host unlock` takes neither, which the interface says in words; on Windows the window opens it
+itself, over the card's port. A whole preparation given by name, and any
 run over a real IPv6 network, have not been tried.
 
 *Bring it to central…*, on a project's page on its host, is the one way the window releases a host's approved main
 to the central forge: through the machine's own `PushToCentral`, after the person agreed to the commits it names. The
 host refuses what a person's role does not allow, and the page says it in the machine's words.
+
+*Open its forge*, on a connected host's row and machine page, opens the host's forge through the window's forward at
+`http://<host>.localhost:<port>/`, or `http://127.0.0.1:<port>/` where this computer has no IPv6 loopback.
+
+On Linux no ssh binds a TCP port of this computer: a card's forge web, Git and homeserver forwards, a joined
+homeserver and a sign-in's redirect each go to a Unix socket of the person's own, and the window holds the loopback
+port itself (`PersonOnlyRelay`). It relays a connection only when `/proc/net/tcp` or `tcp6` names this account's uid
+as the owner of its other end, and closes any other before reading from it; every byte passes as it came. On Windows a
+card's ports and a sign-in's forward are still reached by every local account of this computer.
 
 A project's row says how its machine's approved commits stand with the central forge, as the person's own daemon on the
 host lists it in `Projects` (each carried repository's `central`, `ahead` and `aheadMeasured`), asked over the person's
@@ -245,6 +305,9 @@ that changed between comparing and *Prepare* starts nothing and returns to the k
 the interface writes the machine file whose `organization` part the host reads: the organization's `settings`, the
 central forge's lines from the person's own `known_hosts` (first use is not trusted, so none stops here) and a
 `login key` pin from every row of `hosts[].admins`, backup keys included; a row with no key refuses the whole pin.
+*Run it for me* runs that line from here instead, only at the person's press: over ssh as the first login, trusting
+only the compared key, never waiting for input, each `sudo` as `sudo -n`; root's login is tried right after, and where
+`sudo` wants a password the terminal on the server is the way.
 
 The wizard opens at the click and does that read inside it, its first *Next* unavailable until the answer and a refusal
 shown there. A run belongs to the window, not to its dialog: the dialog says at once what runs and that it can take
@@ -271,7 +334,7 @@ rest, the play and the release. A
 status that cannot be read purges nothing and leaves the ordinary take-down, whose play still refuses while anyone holds a
 membership. A holder new after a refused play needs another confirmation, and a failed take-down then offers the one
 confirmed as a loss.
-After Porelo is taken off, the card still names the machine, which its Machine Admin or an Organization Admin removes. SSH forwarding and unlock integration belong to the shared host transport. Provider sign-ins and the
+Once Porelo is confirmed off, the window removes the machine from the organization's list; a refusal, or no answer within two minutes, is said in the dialog, and the row keeps *Remove the machine…*. SSH forwarding and unlock integration belong to the shared host transport. Provider sign-ins and the
 local vault keep their own terminal paths.
 
 A saved rental made before one-click joining stays visible for give-back or setup again. Its provider
@@ -280,6 +343,83 @@ machine is never connected with its saved private-key path. Failed or unconfirme
 rental. Explicitly confirmed legacy give-back does not run obsolete backup or teardown credentials and
 clears recovery only after the provider confirms removal. Setup again receives that existing rental,
 without discarding its recovery record while the replacement flow runs.
+
+- **A ready server's *Run its setup again*** runs `up` once more in the interface's own run, with the arguments its
+  setup was made with, so a stop in it is completed from *Needs you* and the server stays listed as ready.
+- **`porelo-host find`** asks the provider which server carries the project's tag and prints one JSON line, or exits
+  69 when none does; it changes nothing. A guide asks it before it uses an address, since neither the window's list nor
+  `known_hosts` tells a given-back server from a live one.
+- **The collection is taken only by its digest:** `up` refuses a tarball whose SHA-256 differs from the one it was
+  given before anything is copied, and the host checks the copy again with `sha256sum -c` right before
+  `ansible-galaxy collection install`, so only Porelo's own tarball reaches an installer that resolves member paths
+  without following links.
+- **A server is the package's to give back** when it carries `porelo-project=<project>` or, rented with no project,
+  `porelo-host=<name>`; one with neither is refused.
+- **A project with no Git repository yet** is one whose `opened` is false in `porelo org --json`; an answer without the
+  field, or a `stale` one, says nothing of a missing repository. Such a project is on no list of *My projects* or of a
+  machine: it stands on the Organization page, where its named Project Admin creates the repository, also from a row of
+  *Needs you* that only they get, and anyone else reads who it waits for.
+- **A project's page stands at once**, its head filled from what the organization's list holds, while `porelo project
+  show` takes two to three seconds. Opened again, it shows the session's last read of the project at once, marked as
+  read again, and offers no change while it shows it, since a change carries the revision of the read it was made on;
+  a read again that fails keeps the last read and says so.
+
+## Planning
+
+- **The planning screen is porelo-planner's Flutter package `porelo_planning`**, taken by `git:` at a pinned commit
+  with `path: screen`. The board, a story, an issue, their moves and *Start work* are the package's; the window embeds
+  it (`lib/src/ui/planning_embedding.dart`) and answers its hooks, and its feature files run on the package's stand-in.
+- **A Start the machine refuses after the planning screen asked for it**, by a refusal, a throw or an answer with no
+  container, is written to the window's log at WARN with the machine, the project, what was to start and the machine's
+  words, and shown as a notice beside the planning screen's own line. A Start turned away in the dialog, or refused by
+  the window before it asks, is neither.
+- **The planner is found by its address file**, `porelo-planner/planner.json` under `XDG_RUNTIME_DIR`. Only a missing
+  address means none runs: the window then starts `/usr/libexec/porelo/planner`, else `porelo-planner` on an absolute
+  `PATH` entry, once, and waits 20 s for its address. Every other refusal is said, and starts nothing.
+- **A project is told to the planner by its own repository's upstream** as a watched machine lists it, a remote clone
+  URL before a local path; where no machine names one, the board says so in words.
+- **Each task the window starts for an offer is reported to the planner** through the provider's source, one report
+  at a time: `started` once, and `ended` once for each end of its agent, with Porelo's record unmapped. The offer is
+  kept in the settings by machine and container with what was told, so nothing is told twice across restarts, and the
+  newest 2000 offers handed to Start are kept, so a follow-up order of an answer starts once. `TaskNotAnswered` stops
+  the task and forgets its offer; another refusal is said and not sent again before the window's next start; a planner
+  not reached is tried again on the next change. A story stopped on the board stops the tasks the package names, with
+  no report. A report a crash cut off before its mark was kept is sent once more after the restart.
+- **A reader is started naming the tasks whose work it reads**, the order's `reads`, so Porelo's gate hands it those
+  branches. Work that still waited at the gate when its task ended is reported once more, as `landed`, once the task's
+  row names where it landed; an end that already names it counts as that report.
+- **A task is found again by its offer**, which Start is given as the task's `callerKey` where Start declares it: a
+  window that ended before Start answered keeps, at its next start, the listed task of the offer's project whose key
+  is the offer, and reports it. Against a Porelo without `callerKey` such a task is not found again, and its reports
+  are lost.
+- **The address file is read again every two seconds**, so the window follows a planner restarted on another port
+  without a restart of its own; a file gone at two reads in a row counts as no planner, which is then looked for, and
+  started, as at first.
+- **A planner the window started ends with it.** It runs with `--end-with-input` and its input a pipe the window
+  holds, so a hard kill of the window ends it too; closing the window, SIGTERM and SIGINT end it with SIGTERM, then
+  SIGKILL after two seconds, only while its address file still names the address it wrote. A planner found serving is
+  never touched.
+- **On Windows the planner is `porelo-planner.exe` on a `PATH` folder from a drive's root**, its address
+  `%LOCALAPPDATA%\porelo-planner\planner.json`. It is started only when the person asks on the planning place, and is
+  ended by closing its input, then hard after three seconds, as Windows has no SIGTERM.
+
+## The window's log
+
+- **`frontend.log` in `logs` under the window's state folder**, `$XDG_STATE_HOME/porelo/logs` on Linux and
+  `%LOCALAPPDATA%\porelo\logs` on Windows, the folder the planner writes its log into too. One line per entry: its time
+  in UTC, its level, the machine where there is one, and its words, never a credential's value. Past 10 MB a new file
+  is started and three older ones are kept. A folder that cannot be written is said once on standard error, and the
+  window goes on without its log.
+- **What only informs goes to the log, not to *Needs you***: a row put away or resolved is written there at INFO, and
+  so is what a planner the window started prints, its standard output at DEBUG.
+- **The log level**, ERROR, WARN, INFO or DEBUG, is chosen under *Options* → *Logs*, INFO where none was, and holds
+  from the next entry. The planner is told it with `PUT /log/level` when the window finds or starts one and on each
+  change; *Logs* says where the planner answered another level or did not take it.
+- **Each log opens from *Logs*** with the desktop's opener, the planner's at the path its `planner.json` names, kept
+  once that planner has gone. Only a file of its own directly in the `logs` folder is opened, never a link or a path
+  elsewhere, since the opener runs whatever lies at a path; a file not there yet is said with its path. On Windows
+  `rundll32 url.dll,FileProtocolHandler` ends with 0 whether or not a program took the file, so a failure to open is
+  not seen there.
 
 ## Windows
 
@@ -310,6 +450,12 @@ distribution.
 - **A machine over ssh is reached from the Linux build only, so far:** `dart:io` opens no unix socket
   on Windows, so the forward does not work there. A socket entry carried over from Linux is said to
   name a path Windows cannot open.
+- **A host's vault is opened by the window itself:** Core's `porelo host unlock` does not run on Windows, so
+  `lib/src/app/windows_vault_unlock.dart` does its steps over the card's own `ssh -F <card config>`. `ssh-keyscan` of the
+  card's address and port must offer the pinned Ed25519 key; the Windows OpenSSH agent (`\\.\pipe\openssh-ssh-agent`,
+  where KeePassXC adds its keys) signs Core's SSHSIG; and the share derived from it by Core's written rule goes only on
+  the standard input of `porelo vault unlock`, `init` or `rekey --share-stdin` on the host. A vault another key opened is
+  kept.
 - **Notifications are not raised on Windows yet**, and that is said once: Windows' own need the
   application registered with the shell, which the MSIX's identity would give.
 - **The files:** `%APPDATA%\porelo\frontend.json`; the operations record under

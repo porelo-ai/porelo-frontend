@@ -21,12 +21,12 @@ in a project of one repository.
 
 ## Why
 
-The first half of [F117](README.md#f117), split off when its other half was built. Walk 8 found
+The first half of what walk 8 left unbuilt, split off when its other half was built. Walk 8 found
 that a tile named its repository only in `tile-where`, and only in a project of several.
 
 ## What changed since its plan
 
-[F117](README.md#f117)'s plan put the repository into the heading, `tile-what` reading "<work> · <repository>". The row
+The first plan put the repository into the heading, `tile-what` reading "<work> · <repository>". The row
 under *Work* has been rebuilt since (`WorkRow` in `lib/src/ui/attention_view.dart`): `tile-what` is now the task's name
 as a `SelectableText`, kept so because it is what a person types into `porelo` on the machine, and the line under it,
 `tile-sub`, says "<project> · <agent> · on <machine>". Putting the repository into the selectable name would break

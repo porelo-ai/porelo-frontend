@@ -23,7 +23,7 @@ the window does not delete it: neither a live socket nor a file.
 
 ## Why
 
-The reading by another model of [F219](README.md#f219)'s final changes found four grave points that the issue's own fix
+The reading by another model of the final changes that leave no forward behind found four grave points that the issue's own fix
 does not settle, since they lie in code it touched but does not own. Each loses data or takes away another program's
 socket:
 

@@ -23,7 +23,7 @@ five seconds of ending.
 
 ## Why
 
-A reading of [F219](README.md#f219)'s final changes found, beside the grave points filed as [F513](README.md#f513):
+A reading of the final changes that leave no forward behind found, beside the grave points filed as [F513](README.md#f513):
 - `isGone()` (`lib/src/app/forward_records.dart`) uses `typeSync()`, which answers `notFound` for a lookup error as
   well as for absence. A failed lookup of `/proc/<pid>` then drops a live forward's record.
 - A probe whose `ConnectionTask` arrives after its timeout (`lib/src/app/tunnel.dart`) is neither cancelled nor

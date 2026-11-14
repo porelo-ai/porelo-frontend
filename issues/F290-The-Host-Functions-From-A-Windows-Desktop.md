@@ -17,8 +17,8 @@
 **Why this size.** XL: the card's ssh config; a loopback listener the window holds on both families through every
 reconnect; a carrier of each connection over its own ssh, bounded in children, rate and buffers; readiness proven by
 the daemon's own answer; the host reads' ssh; and their tests, several of them run on Windows against a native
-contender; Core's and Matrix's parts are their own. The Windows vault unlock left this issue for
-[F512](README.md#f512); the carrier, its bounds and their tests stay, so the size stays XL and the estimate as it was.
+contender; Core's and Matrix's parts are their own. The Windows vault unlock left this issue and is
+built apart: the window unlocks a host's vault from Windows itself; the carrier, its bounds and their tests stay, so the size stays XL and the estimate as it was.
 
 **What must be true.** On Windows, a person connects to a machine, and a Machine Admin prepares it and names its
 people, as on Linux: through the host's card, with the same `-F` file and the same fixed ports. Linux stays as it is.
@@ -89,7 +89,7 @@ people, as on Linux: through the host's card, with the same `-F` file and the sa
 - **No `ControlMaster` on Windows.** The config written there leaves out `ControlMaster`, `ControlPath` and
   `ControlPersist`. Whoever else needs the host opens a connection of its own through the same `-F` file. The host
   vault is not unlocked from Windows here: Core's `porelo host unlock` does not run there, and the window does its
-  steps itself under [F512](README.md#f512).
+  steps itself.
 - **The return channel** waits on the messenger's endpoint on Windows; once there, it is carried the same way, the
   window holding nothing the messenger has not bound first.
 - **One use of the key per connection, none confirmed.** The person's key is held by KeePassXC's agent while the
@@ -126,7 +126,7 @@ goes; what replaces it:
   `-L` or `-R`, holds both families of each port through a reconnect, and is up only on the daemon's answer: stderr
   with a banner alone, malformed output, failed authentication and an answer after release leave it down. A carried
   connection whose relay exits 64, 69 or 70 is said on the card as above; one the client ended says nothing.
-- `CoreHostUnlocker` stays as it is: on Windows the vault unlock is [F512](README.md#f512)'s.
+- `CoreHostUnlocker` stays as it is: on Windows the window unlocks the vault itself.
 
 ## Parts of other repositories
 

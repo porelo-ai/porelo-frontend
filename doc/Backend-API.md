@@ -27,10 +27,22 @@ of truth that nothing keeps honest.
 
 No method says where a project comes from: `porelo project list --json` answers each project's `source`
 (`organization`, `local` or `built-in`), `role`, `locked`, `host` and `opened`, and `porelo project show
-PROJECT --json` its `address`. Every read fetches, so *Refresh* simply reads again; a host's effect is
+PROJECT --json` its `address`. *Refresh* reads again; a host's effect is
 `org refresh`, on the host's page. These answers are kept in `Organization`, read only when a person's
 view needs one, one at a time, and for five minutes or until *Refresh*. A project with no readable
 address matches no forge, and says so.
+
+`porelo org` and `porelo project show` answer the state Porelo kept at once, `stale` with its `checked_at` and
+`stale_why`, and check the organization afterwards. The window shows a stale answer at once as the last read, saying
+when it was checked and why and offering no change from it, then asks again with `--refresh`, which waits for the
+check, at most 60 seconds. A check refused or not ended leaves the kept state, said with what stopped it; only a host
+key the person declined to trust stops the read. A kept state never replaces a checked one, and a stale project's
+`cannot-say` repositories are said as an organization not reached, with when and why, never as none.
+
+`porelo project show` names each repository's `upstream` and `central`. *Add a repository* always names the address
+typed as `central`, and as `upstream` too unless a machine's local address is known. A `central` said empty means a
+machine takes nothing from that row, and the project's page offers to name the row's own address by `porelo project
+repository change --central`; a `central` not said at all, from an older Porelo, is not warned about.
 
 `RemoveProject(name, dryRun?, force?)` answers a `Deletion`. It is offered only for a project whose `source`
 is `local`, and not while the source cannot be read or the answer is `stale`; the daemon refuses a project
@@ -119,6 +131,8 @@ The IDL carries the detail, a comment per method and per field. The shape of it:
 | **A carried project** | A row of `Projects` with `carried: true` and an empty `file`: the host carries it and this person has not taken it here. `TakeProject` takes it, once, at a person's act, and answers `{file}` or `{reason, words}`; a list never takes |
 | **A repository on its machine** | A `Repository` of `Projects` says `carriedHere` (whether this machine, a host of the project, carries it; absent on a machine that is no host of it), `tasks` and `running` (its work, and how much is up), `central` with `centralWhy` (how the host forge's copy stands against central, as the host last said; new values may appear), and `ahead` with `aheadMeasured` (the commits for central, as last answered). The window takes each where it is said, on the project's page opened from a machine, its rows' start and the repositories *New work* offers; where one is absent it says what it said before or *not reported*, never 0 and never up to date |
 | **Running tasks** | `Start` (creates or brings back; streams the build), `Stop` (keeps it), `Remove`, `Tail` (follows a log) |
+| **A task the planner orders** | `Start` with exactly the order's project, repository, agent, model, mode and prompt, `now: true` (the start counts as made once Start streams the step `AGENT` in state `STARTED`, its container named there or else the task `List` newly shows; Start's final reply comes only when the agent's run ends) the tasks a reader reads as `reads`, and the order's offer as `callerKey`, on the watched machine that carries the project, its host first; the task's name is read from `List` by the container, and the offer is kept beside the machine and container until the task is removed |
+| **A discussion of an idea** | `Start` with `allRepositories` and `result` and no repository, the person choosing agent and model; a machine whose `Start` does not declare both says so on the form before anything is chosen, and the form offers no Start |
 | **Builds of a push** | `Task.builds`, `buildReader`, `buildProblem`, `buildsCredential` (no method: `Watch` carries them) |
 | **Files handed in** | `HandIn` (in parts), `TakeBack`, `HandIns` (the record, also after the task is gone) |
 | **The gate** | `Pending`, `Review`, `Approve`, `Reject`; `CredentialTryPush` tries a forward with one ssh key alone |
@@ -231,6 +245,8 @@ Worth knowing before designing around them:
   as it is beside the runs listed so far; and `runs` empty beside `success` says no workflow ran.
   Where `runs` is absent (an older machine), the jobs are grouped by their `"<workflow> / <job>"` name
   instead.
+- **A build's verdict `none` is final:** the forge will not build that push, and the tile reads "No build for this
+  push", never running, passed or failed. `unknown` is not final, and is said as it comes.
 - **`Prompts` has a deadline.** A task is *blocked* while a clearance prompt is unanswered and
   the watcher gives up after its own timeout. This is the one place where interface latency costs
   something real, which is why it is a stream and not a poll.

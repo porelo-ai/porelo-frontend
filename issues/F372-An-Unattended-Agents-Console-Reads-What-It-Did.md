@@ -18,7 +18,7 @@
 
 ## Why
 
-The drawn console in [F353](README.md#f353) shows these summaries, and today's log gives one line per tool. That page is built on today's lines and does not wait for this.
+The drawn console of the redesigned work cards shows these summaries, and today's log gives one line per tool. That page is built on today's lines and does not wait for this.
 
 ## To be checked
 

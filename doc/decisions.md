@@ -30,7 +30,7 @@ taken, `git log` answers.
 | [Whom work may talk to is the project's: its rules declared in its repository, only the brake set here](#whom-work-may-talk-to-is-the-projects) |
 | [An authorization is granted in a browser, its link shown whole, and the wait ends outside the interface](#an-authorization-is-granted-in-a-browser) |
 | [A tile keeps its actions, each offered only where it can be honored](#a-tile-keeps-its-actions-each-offered-only-where-it-can-be-honored) |
-| [A row shows the last lines its agent wrote, read now and then](#a-row-shows-the-last-lines-its-agent-wrote-read-now-and-then) |
+| [A row says its state; its agent's lines are under Running](#a-row-says-its-state-its-agents-lines-are-under-running) |
 | [One session at a time, in its tab under Running](#one-session-at-a-time-in-its-tab-under-running) |
 | [Handing off work from another device needs no feature of its own](#handing-off-from-another-device-needs-no-feature-of-its-own) |
 | [The settings file is written atomically and owner-only, and a bad entry is dropped rather than fatal](#the-settings-file-is-written-atomically-and-owner-only) |
@@ -68,6 +68,14 @@ taken, `git log` answers.
 | [A row's actions are behind one menu, and a page's lists are cards](#a-rows-actions-are-behind-one-menu-and-a-pages-lists-are-cards) |
 | [A change that adds to or takes from a list closes onto a provisional row](#a-change-that-adds-to-or-takes-from-a-list-closes-onto-a-provisional-row) |
 | [Each organization role answers for the one below](#each-organization-role-answers-for-the-one-below) |
+| [Planning is porelo-planner's, and the window keeps none of its own](#planning-is-porelo-planners-and-the-window-keeps-none-of-its-own) |
+| [A planner the window started ends with the window](#a-planner-the-window-started-ends-with-the-window) |
+| [The window carries ideas to the planner, which talks to no Porelo](#the-window-carries-ideas-to-the-planner) |
+| [The planner is given the one Porelo the window vouches for, by its path](#the-planner-is-given-the-one-porelo-the-window-vouches-for) |
+| [A task on a host is certified by this computer's agent, which is never forwarded](#a-task-on-a-host-is-certified-by-this-computers-agent) |
+| [An organization may be created at an https address, with a word that no machine can follow it](#an-organization-may-be-created-at-an-https-address) |
+| [The side bar is a folding tree, and only a leaf shows a list](#the-side-bar-is-a-folding-tree-and-only-a-leaf-shows-a-list) |
+| [The scenarios' stub agent is pinned by version, and a warning says when to move it](#the-scenarios-stub-agent-is-pinned-by-version-and-a-warning-says-when-to-move-it) |
 
 ## The interface can do what a console can
 
@@ -126,6 +134,15 @@ between is still removed. What would change the answer: an ownership marker or a
 which nothing else on either side of this implements, or a per-instance directory. It needs another
 process to bind that exact path inside a millisecond-wide window, and a second instance of this
 interface — the likeliest candidate — is already prevented by the single-instance socket.
+
+**A forward this interface left behind is ended, not refused.** Each ssh forward raised here is recorded under
+`$XDG_RUNTIME_DIR/porelo-forwards` with its pid, start time, boot id and arguments, the directories 0700 and the record
+0600, all of this account, written without following a link. At a start, after the single-instance socket is taken, an
+endpoint that already answers is ended only when its record still names that very process, of this account, forwarding
+this very endpoint and not held by this run; the signal goes through a pidfd, and an endpoint still answering two
+seconds later is refused as before. Elsewhere than Linux nothing is swept. SIGINT and SIGTERM let go of every forward
+as closing the window does, within five seconds; SIGKILL and a crash leave what the next start ends. No parent-death
+signal is used: Linux sends it when the starting thread ends, and Dart starts processes from pool threads.
 
 ## `XDG_RUNTIME_DIR` is trusted
 
@@ -268,6 +285,9 @@ machines alone.
   from its card on its forge's page.
 - ***My forges*** lists every forge set up on this computer; a forge's page lists its repositories with
   a filter, each card saying on which watched machines it is worked on.
+  Creating a Porelo organization lists its forge here, named by its repository's host, and asks for nothing: the token
+  that created it is the access. Each count on the side bar is its page's rows with no filter counted; the organization
+  page's *Projects* and *Machines* count the whole organization.
 - **The first start**, while there is no work anywhere, leads through a machine that answers, a
   project or none, and the first work, each step saying when it is done.
 - **Problems needing a person go to *Needs you***, a machine that does not answer included, so daily
@@ -293,11 +313,13 @@ not in it**: it is under *Work*, where the same tile carries the same menu.
 a list of every tile is fifty tiles of which two need anybody, and a filter added later to fix that
 would hide something without saying what. Nothing is hidden this way; it is placed.
 
-**A question that was answered or ran out, a resolved row, or a read message moves into *Recently
-resolved*** below the open rows, newest first, kept in memory with its buttons disabled until a set
-time passes (one hour by default, or removed at once with 0); it does not survive a restart. A
-question that ran out while nobody looked would otherwise leave the view without a trace, and the
-confirmation of an answer would vanish with the click that gave it.
+**An answered question, a resolved row, or a read message moves into *Recently resolved*** below the open rows,
+newest first, kept in memory with its buttons disabled until a set time passes (one hour by default, or removed at once
+with 0); it does not survive a restart, and keeps the confirmation of an answer from vanishing with the click that gave
+it. **A question that ran out is a row of its own and counts until a person presses *Seen***, across a restart too: the
+window cannot tell whether anybody looked when it ran out. The settings file keeps it with the address it asked to
+reach, in plain words, and keeps up to fifty seen ones for a week, so a machine sending the same one again does not
+bring it back.
 
 **An operation somebody started that failed waits there too, until it has been opened** — from its
 card, from the session record, or by having been open while it failed — so a failed start is not
@@ -323,12 +345,20 @@ none sorting after every one that has one, then by the oldest question.
 rows in cards: *Decide soon* holds the questions and the held messages, *Reviews* the work at the gate,
 and *Also needs you* the rest.
 
-**It counts every row, one number**, in its header and on the rail's badge, work at the gate like any
+**It counts every row, one number**, in its subtitle and on the side bar's badge, work at the gate like any
 other: a count that left some rows out said two things about one page. Work that ended with a failure
 or left something a person has not seen is a row until it is opened or put away; what was put away is
 kept in the settings by machine, work and end, so a later end is a row again. Work that finished with
 nothing waiting is no row and stays under *Work* alone. The rows that are no work, such as a silent
 machine, a host's stop, a failed operation or an authorization, stay and count.
+
+A planner's stopped reading is put away by the planner's own key for it: machine, project, issue, and the reason and
+state it showed, so a change of either says it again. The window keeps that set in its settings, not the planner's,
+whose set forgets every row no board says and so would bring each back at every start; a mark goes once its board,
+read whole, no longer says it as it was, or no machine lists its project, or its machine is gone.
+
+**What it costs:** a reading that stops again as it was while the window is closed, after its board stopped saying it
+in between, stays put away.
 
 ## A held message is read whole, as text, before it is decided
 
@@ -401,20 +431,15 @@ device needs no feature of its own*. An action a machine cannot honor from here 
 unavailable with its reason rather than removed: working in a task by hand, for one, is unavailable
 for a machine reached through a socket somebody else forwarded, because there is no host to log into.
 
-## A row shows the last lines its agent wrote, read now and then
+## A row says its state; its agent's lines are under Running
 
-Each unfolded row on *Work* shows about five of the newest lines its agent wrote, formatted rather
-than raw JSON, in a small console, marked with what the window can tell of a line: headings, errors,
-results. Its *Follow its log* leads to the agent's tab under *Running*. It reads only the end of the log (`Tail` with
-`last` and `formatted`, asked only where the machine takes them), is redrawn at most every three
-seconds, and a folded row reads nothing of it. Work in a terminal shows the session's last lines
-through `Screen`, without attaching, in the terminal's own look. When an unattended run's agent has
-ended, a line under the console says whether it finished or stopped before its end and whether its
-work waits at the gate; where to go next is said in *Needs you*, since no row of *Work* decides.
+An unfolded row on *Work* shows its state's whole sentence, its facts and its way on: *Open its terminal*, *Follow its
+log*, or *Read its log* once its work has stopped. It shows none of its agent's lines: those are in its tab under
+*Running*. Its *Tokens used* is read when it unfolds, and every thirty seconds while running work's row stays unfolded;
+where to go next is said in *Needs you*, since no row of *Work* decides.
 
-**What it costs:** an unfolded row reads even while it is scrolled out of view; folding it is what
-stops the reading. A folded row of work in a terminal is still asked after every thirty seconds, one call
-at a time, whether its session is there, so the row can say when it has ended.
+**What it costs:** a row of work in a terminal, folded too, is asked every thirty seconds, one call at a time, whether
+its session is there (`Screen`), so its row and its tab can say when it has ended.
 
 ## One session at a time, in its tab under Running
 
@@ -544,6 +569,8 @@ left and why, and one refusal does not stop the rest.
 A person takes part in a project's Matrix conversation from a client of their own, through an account
 the machine makes for them. Its login is shown once, whole and selectable, and kept nowhere; a
 second join offers a new password.
+Where the person already has an account on that homeserver, a join into another project's room invites it instead:
+no password is made or shown, and the person accepts the invitation in the client they already sign in to.
 
 **Where the homeserver is the machine's loopback, its port stays forwarded while the window runs**,
 once the person has joined from this computer, and not only while the dialog is open: a Matrix
@@ -900,6 +927,8 @@ section, and *Add me*, is on no row and stays visible.
 A page of several lists draws each as a card: a header band with its title and count, a magnifier that opens its filter,
 and a sort menu, by name and by state, and by machine for projects, the choice kept per list. No card starts folded
 because it is long.
+An empty one starts folded, its count 0 and its head's actions still usable; it folds when emptied and opens with its
+first row, unless the person folded or opened it, which the window keeps until it closes.
 
 **What it costs:** an action is two clicks and cannot be seen at a glance. Tabs or a table sort more naturally, but hide
 the rest of the organization or cut off a row's words, which a person's roles need.
@@ -934,3 +963,91 @@ Organization Admins.
 
 **What it costs:** a Machine Admin who is in no project of it reaches that project only from *Organization*, as
 `porelo project show` keeps a non-member out of *Projects*.
+
+## Planning is porelo-planner's, and the window keeps none of its own
+
+The board, its moves, a story's work and their screens are porelo-planner's, written once in its Flutter package and
+tested there without Porelo. The window embeds that package and answers its hooks: where the planner listens, a start
+on a machine, the window's place, its opener and its commands.
+
+**What it costs:** a change to the planning screen is the planner's to make, and reaches the window only when the pin
+moves; the window's planning tests run on the package's stand-in source.
+
+## A planner the window started ends with the window
+
+A planner the window started because none was serving lives only as long as the window: the window holds its input,
+whose close ends it, and the window's clean ends stop it. A planner that served before the window started is left
+running, and so is one that took the started one's place.
+
+**What it costs:** a planner the window started no longer serves the account's other windows and tools once that
+window ends; they find or start their own.
+
+## The window carries ideas to the planner
+
+The planner runs on this computer and talks to no Porelo, while the ideas it plans come from tasks on machines, a rented
+host as often as not. The window reaches both, so it carries them: the idea file an ended discussion names, read from
+its machine with `Result` and handed as `POST /projects/{project}/ideas` with the offer it came from, and each idea a
+task on a watched machine proposes, handed as a new issue in Idea of the task's repository and then taken from its task
+with `TakeIdea`. Each is handed once, also across restarts, by a mark kept in the settings.
+
+**What it costs:** an idea reaches the planner only while a window runs. The planner's new issue takes no key that makes
+a second send harmless, so a window that ends between the planner's save and its mark hands that idea once more at its
+next start. Against a Porelo without `TakeIdea` the idea stays on its task's row, and the window logs it.
+
+## The planner is given the one Porelo the window vouches for
+
+The planner lends git the account's forge tokens through Porelo (`vault credential --for <url>`), so it runs the same
+`porelo` the window does. The window looks for it once at start, at two places only: the account's own install,
+`porelo` in the local `bin` folder of the home directory, then the package's, `/usr/bin/porelo`. The first where anything lies decides, its links followed.
+The planner it starts gets that path as `PORELO_EXECUTABLE`, any inherited value dropped. The path is given only where
+the file and every folder up to `/` are owned by root or the person and writable by nobody else but the person's own
+private group: their primary group, which no other account has as its primary one and which `/etc/group` lists with no
+other member. Off Linux the variable is left unset.
+
+**What it costs:** a Porelo installed elsewhere, as under `/opt` or by Nix, is not found, and a refused one is said only
+in the window's log; the planning then reads public repositories only. Accounts and groups known only through NSS (LDAP,
+NIS) are not seen, so a folder their group may write is refused.
+
+## A task on a host is certified by this computer's agent
+
+A host starts no task without a certificate for that task's own key. The window asks for it in `Start` itself, and
+this computer's ssh agent signs. The window never starts through the command line and never forwards the agent:
+`ForwardAgent=no` stays. Before signing, the window checks what the host asked for, as the command line does: one
+Ed25519 key, the principal `task:<project>:<task>` of the start the person asked for, and at most seven days.
+Renewing runs `porelo task certify` here, since only the command line asks the agent for that.
+
+**What it costs:** a card key missing from the agent stops the start; the window names the key beside the start.
+
+## An organization may be created at an https address
+
+A machine follows a Porelo organization with an ssh key of its own, so it cannot follow one at an https address. Creating
+one there is still allowed: once such an address is typed, the dialog says that no machine can follow it and asks for the
+ssh form, and preparing a machine later names Core's way to move it, `porelo setup --organization <its ssh address>
+--replace`. It is not refused, as that stops a person who needs no machine, and not converted, as that needs an
+authentication key the person may not have.
+
+**What it costs:** a person who wants a machine later moves the organization first.
+
+## The side bar is a folding tree, and only a leaf shows a list
+
+The side bar folds open to each machine and each organization, and those to their sections, so a machine's vault or an
+organization's people are reached in a few clicks and never through a menu; a section opened under a machine shows that
+machine's, whichever is current. An entry with entries under it shows facts and actions, never a list of what is under
+it; only a leaf lists, under one head: the path line, a large title, a subtitle counting every row, a filter and its
+main action. An action with no command yet is a greyed, dashed button saying that it waits for one. The fold and the
+chosen place are kept across a restart, and a first start unfolds *My machines* and the current machine. The side bar
+stands beside the page from 600 wide and is a drawer only below; the stop for every machine stays in the title bar at
+every width and never goes into its overflow.
+
+**What it costs:** a section's action is a click further than in a machine's menu, and the tree grows with every
+machine and organization, so it scrolls under its foot.
+
+## The scenarios' stub agent is pinned by version, and a warning says when to move it
+
+The stub agent the scenarios fetch is a named version, in
+`integration_test/step/the_test_machine_has_porelos_stub_agent.dart`, so a run can be repeated; reading the newest from
+its folder's listing was not taken. The folder on Artifactory keeps the newest 20 versions, and its retention stays as
+it is: `tool/stub_pin.sh`, run by `tool/e2e.sh` before every run, says when the folder no longer holds the pin or holds
+15 or more newer versions, and never stops a run.
+
+**What it costs:** the pin is moved by hand, before 20 Builds on `main` have passed it.

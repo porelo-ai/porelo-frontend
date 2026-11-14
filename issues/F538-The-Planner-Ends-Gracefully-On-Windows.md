@@ -17,7 +17,7 @@
 **Why this size.** S: one more way to end the started planner in `LocalPlanner` (`lib/src/app/planner.dart`), chosen
 on Windows, and its test with a stand-in planner.
 
-Found in the code reading of [F476](README.md#f476) (2026-11-13).
+Found in the code reading of the window's planner start on Windows (2026-11-13).
 
 **How it stands.**
 - When the window closes, or a planner it started must go before another starts, the window ends that planner in

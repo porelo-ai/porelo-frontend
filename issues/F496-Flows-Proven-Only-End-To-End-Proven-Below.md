@@ -28,7 +28,7 @@ issues and independent of the others; the measured basis stands in [F499](README
 ## Decided by the operator (2026-11-12)
 
 - The window's move to the test pyramid is five issues of their own; this one stands alone in order.
-- The two points placed from [F451](README.md#f451) (2026-11-10), points 4 and 5, belong here.
+- The two points placed from the planning board's leftovers (2026-11-10), points 4 and 5, belong here.
 
 ## Measured: flows proven only end-to-end or live
 

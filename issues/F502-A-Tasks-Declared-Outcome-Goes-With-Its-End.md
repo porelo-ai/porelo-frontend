@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F502",
   "title": "A Task's Declared Outcome Goes With Its End",
-  "state": "Review",
+  "state": "Rework",
   "size": "S",
   "priority": "High",
   "rank": 18,
@@ -26,6 +26,14 @@ done, and its issue is moved on. A task's result must land where the next step f
 Porelo already answers the outcome on each task's row of `List` and `Watch` as `ended`, with `outcome`, `why` and `at`:
 the task's own declaration first (DONE or BLOCKED, BLOCKED always with a non-blank why), else FAILED with the run's
 error when the run ended unfinished, else absent. A finished run without a declaration has no `ended`.
+
+## Rework
+
+Its code never reached `main`: its three commits (0c166ac9, 99f50d8f, 9fb4a934) lie only on the local branch
+`f502-outcome`, never pushed, and `main` reads and reports no declared outcome of a task
+(`lib/src/ui/planning_reports.dart` passes a task's end with no outcome and holds nothing back for one). The rework
+brings the branch onto today's `main`, where the planner's calls and the task reports moved on since it was based,
+and runs the whole suite on it.
 
 ## Plan
 

@@ -75,9 +75,8 @@ version; after the planner is killed, the window finds it again at its new port.
   seen and stopped with the system's own commands; the update and the kill steps fail until it does.
 - porelo-planner ending by itself when the window's end of the pipe it was started with closes, a hard kill of the
   window included.
-- [F479](README.md#f479) (Backlog): a planner the window started ends with it.
-- [F494](README.md#f494): the planner's version in About; the version step names it as missing until its Review
-  stands on `main`.
+- A planner the window started ends with it, built since.
+- The planner's version in About, built since; the version step named it as missing before.
 
 ## Note
 

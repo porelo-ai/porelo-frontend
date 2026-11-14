@@ -17,7 +17,7 @@
 **Why this size.** M: the owner of a loopback connection read on Windows, the check in `LoopbackCarrier` and in a
 sign-in's forward, measuring Win32-OpenSSH's `-L` to an `AF_UNIX` socket, and their tests on the Windows runner.
 
-Split from [F394](README.md#f394) (2026-11-13), which closed it on Linux.
+Split from the work that lets in only the person's own tunnel connections, which closed it on Linux.
 
 **How it stands.**
 - On Linux the window holds every forward's port itself and relays only connections whose other end belongs to the

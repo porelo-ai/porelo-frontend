@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F494",
   "title": "About Names The Planner's Version",
-  "state": "Review",
+  "state": "Rework",
   "size": "S",
   "priority": "High",
   "rank": 2,
@@ -22,7 +22,7 @@ the planner the window runs, for example "planner: porelo-planner <version>". Wh
 the planner says no version, About says so in words instead of leaving the line out. Today About names porelo's
 version alone, and "built from source" for the window itself.
 
-Asked by the operator during [F492](README.md#f492)'s walks, where the planner was swapped between builds (daace48,
+Asked by the operator during the walks of a real idea to Finished, where the planner was swapped between builds (daace48,
 f9e58ea, f1dbbcd) and nothing in the window told which one answered.
 
 ## The planner's contract (agreed 2026-11-12)
@@ -30,6 +30,23 @@ f9e58ea, f1dbbcd) and nothing in the window told which one answered.
 `GET /health`, with the token as today, answers `{"status": "UP", "version": "<version>", "commit": "<40 hex>"}`:
 `version` is the package's (`x.y.z`, or `x.y.z~snapshot.<run>`, as its .deb and .rpm), `commit` the commit it was
 built from or null where the build had no checkout. `status` stays as it is; `planner.json` gets neither field.
+
+## Rework
+
+Its code never reached `main`: it lies on the local branch `f494-on-f523`, its first commit there brought onto the
+window's code as it stood after the planner's calls were made safe. Taken as it is, it undoes that:
+
+- `askPlannerBuild` (`lib/src/app/planner_build.dart`) reads the planner's `/health` with `Authorization: Bearer
+  <the planner's token>`, while the window's own calls to the planner go through `callOwnPlanner`, signed and only to a
+  listener that proved it holds the token, so the token itself is never sent. About would send it again to whatever
+  listens on the port the address file names.
+- Its second commit (a byte cap on the planner's answers, a version kept beside a commit of the wrong shape) conflicts
+  with that call path in `lib/src/app/planner_log_level.dart`, which already reads through `callOwnPlanner` with a
+  64 KiB bound.
+
+What the rework takes: `askPlannerBuild` moved onto `callOwnPlanner('GET', ['health'], maxBody: 64 * 1024)`; red first,
+a test whose listener sees no `Authorization` header on the health call; the second commit's version handling folded in
+where it still applies; the whole suite; and one reading by another model, since it touches the token's trust boundary.
 
 ## Plan
 

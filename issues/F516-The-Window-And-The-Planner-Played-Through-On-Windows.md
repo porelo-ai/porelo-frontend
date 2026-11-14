@@ -73,7 +73,7 @@ there, and both repositories' Windows builds are green.
 
 ## Expected failures
 
-- [F476](README.md#f476) (Backlog): the window finding and starting the planner on Windows; Planning fails on it.
+- The window finding and starting the planner on Windows, built since; Planning failed without it.
 - porelo-planner's Windows executable, built, tested and shipped as a ZIP and a signed MSIX that puts it on the PATH,
   with its digests; the install fails until porelo-planner ships it.
 - porelo-planner's screen package finding the planner on Windows, reading `planner.json` under
@@ -94,7 +94,7 @@ there, and both repositories' Windows builds are green.
 ## Acceptance
 
 - One run on a Windows test machine with a report naming each step: OK, FAIL with what was asked and got, or
-  EXPECTED with [F476](README.md#f476), porelo-planner's missing Windows executable or its screen's missing
+  EXPECTED with the window's planner start on Windows, porelo-planner's missing Windows executable or its screen's missing
   Windows lookup.
 - Both packages are gone from the guest after the run.
 

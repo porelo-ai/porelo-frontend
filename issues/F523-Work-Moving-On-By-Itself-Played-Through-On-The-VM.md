@@ -77,9 +77,9 @@ the rework, and a failed task keeps its card with a warning and a Needs-you entr
 
 ## Expected failures
 
-- [F492](README.md#f492) (Implementing): the real walk this script stands on.
-- [F500](README.md#f500) (Backlog): a reader started naming the work it reads.
-- [F501](README.md#f501) (Backlog): a started offer found again by its key.
+- The real walk of an idea to Finished, built since: the walk this script stands on.
+- A reader started naming the work it reads, built since.
+- A started offer found again by its key, built since.
 - Whether the reader on the VM names the seeded test a blocking finding is known only from a run; if it does not, the
   second's reading ends OK and the stop step fails.
 - porelo-planner carrying one story in a real run beside a real installed Porelo, and work moving on by itself from a

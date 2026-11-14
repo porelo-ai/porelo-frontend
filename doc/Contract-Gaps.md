@@ -22,17 +22,6 @@ gap here is a backend method that has to be added, not a workaround waiting to b
   project's file, and nothing names the path of the host forge's copy of it. The window builds a pull request's
   address from the project's name and the last part of the repository's address, as the host names its copy;
   where the machine reports no address for the repository, the pull request is shown and cannot be opened.
-- **Planning details and issue state changes.** The interface uses stand-in `GetStory(project, story)`,
-  `ListStoryIssues(project, story)` and `GetIssue(project, issue)` reads for story text, issue acceptance
-  criteria, last reader findings and sub-agents. Story and issue destinations share one pending batch and
-  one Save. The stand-in `MoveStories(project, moves, revision)` accepts both `(story, to)` and `(issue, to)`
-  entries atomically and returns `moved`, the new revision, and the complete workflow, story list and issue
-  states. Story moves apply before explicit issue destinations. A stale revision returns
-  `PlanningChanged(detail)` or `StaleRevision(revision)`; refused issue moves return
-  `MoveNotAllowed(item, from, to, reason)`, `StateNotAllowed(item, from, to, reason)` or
-  `EnteredOnlyByWork(item, to)`. The interface keeps still-applicable drafts after rereading stale planning
-  and displays a refusal beside its named item. These stand-ins must be served before the flow works
-  against a real machine.
 
 - **The task name a start made.** `Start` answers the container on its final reply, not the task's name within the
   project; the window reads that name from `List` by the container, and refuses to answer a start whose container
@@ -46,6 +35,11 @@ gap here is a backend method that has to be added, not a workaround waiting to b
 - **A waiting push's review summary** (no method or field yet). Whether a push is ready to let through depends on how
   many findings and review threads are open and how complete each check is; the daemon answers neither the counts nor
   a check's completeness per waiting push, so the push's page cannot say whether its checks finished.
+
+- **A waiting review's age and file count on its task's row** (no field yet). *Needs you* would say how long a review
+  has waited and how many files it holds. `Task.waiting` says only whether work is at the gate; `PendingPush` has the
+  wait and `Review` the ranked files, but a pending push names a task and several containers over time share its ref,
+  so the two cannot be joined, and an empty ranked list may be an older daemon's.
 
 - **A pushed commit's whole message** (a `message` on `PendingPush` and `ReviewCommit`, agreed for `Tasks1`, not
   served yet). The window reads it already: until it is served the trailer check cannot be made, since a
