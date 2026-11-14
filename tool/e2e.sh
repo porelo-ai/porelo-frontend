@@ -84,9 +84,6 @@ if [ -n "${PORELO_E2E_KEY:-}" ] || [ -n "${PORELO_MACHINES_SSH:-}" ]; then
     fi
 fi
 
-# Said before the run, never stopping it: the stub agent's pin about to leave its folder, which keeps the newest 20.
-if [ -f "$(dirname "$0")/stub_pin.sh" ]; then bash "$(dirname "$0")/stub_pin.sh" || true; fi
-
 # Headless only: a test window on somebody's desktop takes their keyboard mid-sentence.
 command -v xvfb-run >/dev/null || {
     echo "xvfb-run is missing: sudo apt install xvfb" >&2

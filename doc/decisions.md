@@ -75,7 +75,7 @@ taken, `git log` answers.
 | [A task on a host is certified by this computer's agent, which is never forwarded](#a-task-on-a-host-is-certified-by-this-computers-agent) |
 | [An organization may be created at an https address, with a word that no machine can follow it](#an-organization-may-be-created-at-an-https-address) |
 | [The side bar is a folding tree, and only a leaf shows a list](#the-side-bar-is-a-folding-tree-and-only-a-leaf-shows-a-list) |
-| [The scenarios' stub agent is pinned by version, and a warning says when to move it](#the-scenarios-stub-agent-is-pinned-by-version-and-a-warning-says-when-to-move-it) |
+| [The scenarios' stub agent is the newest snapshot, checked by its own digest](#the-scenarios-stub-agent-is-the-newest-snapshot-checked-by-its-own-digest) |
 
 ## The interface can do what a console can
 
@@ -1042,12 +1042,13 @@ every width and never goes into its overflow.
 **What it costs:** a section's action is a click further than in a machine's menu, and the tree grows with every
 machine and organization, so it scrolls under its foot.
 
-## The scenarios' stub agent is pinned by version, and a warning says when to move it
+## The scenarios' stub agent is the newest snapshot, checked by its own digest
 
-The stub agent the scenarios fetch is a named version, in
-`integration_test/step/the_test_machine_has_porelos_stub_agent.dart`, so a run can be repeated; reading the newest from
-its folder's listing was not taken. The folder on Artifactory keeps the newest 20 versions, and its retention stays as
-it is: `tool/stub_pin.sh`, run by `tool/e2e.sh` before every run, says when the folder no longer holds the pin or holds
-15 or more newer versions, and never stops a run.
+A snapshot uses snapshots throughout, so the stub agent the scenarios fetch is no named version: at run time,
+`integration_test/step/the_test_machine_has_porelos_stub_agent.dart` reads its folder's listing on Artifactory, takes
+the newest snapshot by version order, and checks the binary against that version's own `porelo-agent-stub.sha256`. It
+refuses, saying why, where the listing names no snapshot, the digest is malformed or the binary does not match it, and
+names the version and digest it took. The folder keeps the newest 20 versions, and its retention stays as it is.
 
-**What it costs:** the pin is moved by hand, before 20 Builds on `main` have passed it.
+**What it costs:** a run cannot be repeated with the same stub once a newer snapshot is published, and the digest is
+only as trustworthy as the folder that holds both it and the binary.
