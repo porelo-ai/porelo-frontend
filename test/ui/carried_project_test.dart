@@ -55,6 +55,30 @@ void main() {
       expect(World.starting.project, isNull);
     });
 
+    // Harm: a repository row's Start work on a carried project starts nothing and says nothing when the machine refuses
+    // to take it, or asks the machine to take it twice; what reads the project's file is offered before it is there.
+    testWidgets("a repository's Start work takes it once, and says a refused take", (tester) async {
+      await _onTheMachine(
+        tester,
+        Project.from(<String, dynamic>{
+          'name': 'foo',
+          'carried': true,
+          'repositories': <Map<String, dynamic>>[
+            <String, dynamic>{'name': 'api', 'own': false, 'carriedHere': true},
+          ],
+        }),
+      );
+      World.backend.takeAnswers = const TakenProject(reason: 'cannot-say', words: 'The forge did not answer.');
+      await World.tapInView(tester, 'repository-menu api');
+      for (final id in ['sync-api', 'backups-api', 'opens-api', 'reach-api']) {
+        expect(tester.widget<PopupMenuItem<String>>(find.byKey(ValueKey<String>(id))).enabled, isFalse, reason: id);
+      }
+      await World.tapInView(tester, 'start-in-api');
+      expect(World.backend.taken, <String>['foo'], reason: 'taken once');
+      expect(find.textContaining('The forge did not answer.'), findsWidgets);
+      expect(World.starting.project, isNull, reason: 'nothing started');
+    });
+
     // Harm: an older Porelo fails with a programmer's word.
     testWidgets('a Porelo with no take says it needs a newer one', (tester) async {
       await _onTheMachine(tester, _carried());

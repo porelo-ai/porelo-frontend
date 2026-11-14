@@ -50,3 +50,7 @@ The work:
   takes it, in place of *not on this machine*.
 - Test: `test/ui/project_header_test.dart` *a carried repository's menu offers its work, as its row and the page say*,
   red before the fix (the menu said *not on this machine*).
+- `test/ui/carried_project_test.dart` *a repository's Start work takes it once, and says a refused take*: through the
+  shell, a refused take says the machine's words, starts nothing and takes once, and upstream, backups, what work would
+  open and what it may reach stay disabled. Seen red with the row's start taken away again, and with upstream offered
+  on a carried project.
