@@ -1668,12 +1668,15 @@ class _ShellState extends State<Shell> {
       final said = machine is SetsUpRooms
           ? await setUpRoom(machine as SetsUpRooms, project.name)
           : const RoomSetUp(ready: false, words: "This machine's Porelo cannot set up a room before the first task.");
-      if (!mounted) return;
+      // Another machine chosen meanwhile is another page: this room is not opened over it.
+      if (!mounted || _fleet != fleet) return;
       if (!said.ready) return fleet.say(said.words);
       await fleet.refresh(quietly: true);
-      if (!mounted) return;
+      if (!mounted || _fleet != fleet) return;
       final name = project.name;
-      project = fleet.projects.where((each) => each.name == name).firstOrNull ?? project;
+      final again = fleet.projects.where((each) => each.name == name).firstOrNull;
+      if (again == null) return fleet.say("$name's room is set up, but the project is no longer listed here.");
+      project = again;
     }
     await showProjectMessages(
       context,

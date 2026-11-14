@@ -116,7 +116,9 @@ class ProjectDetailsPage extends StatelessWidget {
             child: Tooltip(
               message:
                   room.unavailable ??
-                  (_roomToSetUp ? project.project.messages!.detail : '${room.label} of ${project.label}'),
+                  (_roomToSetUp && project.project.messages!.detail.isNotEmpty
+                      ? project.project.messages!.detail
+                      : '${room.label} of ${project.label}'),
               child: TextButton.icon(
                 key: const Key('project-room'),
                 onPressed: room.available ? room.run : null,

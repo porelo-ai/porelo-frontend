@@ -151,5 +151,14 @@ void main() {
       expect(find.textContaining('the forge refused the take'), findsWidgets);
       expect(find.byKey(const Key('messages-dialog')), findsNothing);
     });
+
+    // Harm: a room still not ready after the take opens empty, or nobody is told why.
+    testWidgets('a room not ready after the take says why and opens nothing', (tester) async {
+      await _onTheMachine(tester, carriedWithRoom());
+      World.backend.roomNotReady = 'the homeserver did not answer';
+      await World.tapInView(tester, 'project-room');
+      expect(find.textContaining("foo's room is not ready yet: the homeserver did not answer"), findsWidgets);
+      expect(find.byKey(const Key('messages-dialog')), findsNothing);
+    });
   });
 }

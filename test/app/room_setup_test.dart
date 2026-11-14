@@ -58,4 +58,10 @@ void main() {
     final said = await setUpRoom(_Machine(() async => throw const FeatureNotSupported('SetUpMessages')), 'checkout');
     expect(said.words, contains('cannot set up a room before the first task'));
   });
+
+  // Harm: a project without a conversation reads as a room that is coming.
+  test('a project with no room says so', () async {
+    final said = await setUpRoom(_Machine(() async => null), 'checkout');
+    expect(said.words, 'checkout has no room on this machine.');
+  });
 }

@@ -361,6 +361,9 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
   /// Whether the next `SetUpMessages` is refused with the transport's words. Set by the scenario.
   String? roomRefused;
 
+  /// Why the next `SetUpMessages` answers a room not ready yet. Set by the scenario.
+  String? roomNotReady;
+
   @override
   Future<ProjectMessages?> setUpMessages(String project) async {
     roomsSetUp.add(project);
@@ -370,8 +373,18 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
         'code': 69,
       });
     }
-    // As porelo does: the project is taken first, then its room answers ready.
+    // As porelo does: the project is taken first, then its room answers ready, or not yet with why.
     await takeProject(project);
+    if (roomNotReady case final detail?) {
+      return ProjectMessages(
+        transport: 'matrix',
+        conversation: '',
+        reaches: const <String>[],
+        ready: false,
+        detail: detail,
+        loopbackOnly: false,
+      );
+    }
     theProjectsItHas = <Project>[
       for (final each in theProjectsItHas)
         if (each.name == project) _withReadyRoom(each) else each,
