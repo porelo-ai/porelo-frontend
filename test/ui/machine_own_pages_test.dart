@@ -67,6 +67,21 @@ Future<Machine> _waitingDemo(WidgetTester tester, {FixtureConnections? connectio
   );
 }
 
+/// Project `demo` with its file, as the machine's Porelo lists it with the host's word on it, [hostState].
+Project _demoListed(String hostState) => Project.from({
+  'name': 'demo',
+  'file': '/srv/demo/project.yml',
+  'hostState': hostState,
+  'repositories': [
+    {
+      'name': 'demo',
+      'carriedHere': true,
+      'hostState': hostState == 'carried' ? 'taken' : hostState,
+      if (hostState == 'carried') 'central': 'up-to-date',
+    },
+  ],
+});
+
 void main() {
   // Harm: a repository with commits not yet at central reads as at central, and its work is trusted as kept there.
   testWidgets('a project opened from its machine says of each repository whether it is at central', (tester) async {
@@ -497,6 +512,69 @@ void main() {
     await World.tapInView(tester, 'refresh-all');
     await World.settle(tester);
     expect(tester.widget<Text>(find.byKey(const Key('project-facts'))).data, isNot(contains('waits for your')));
+  });
+
+  /// Machine `build`, whose Porelo lists `demo` in [hostState] and whose host was asked once, as root, while it waited
+  /// for the token; its project page open, from the machine, and nothing asked again on a timer.
+  Future<FixtureConnections> waitedOnce(WidgetTester tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [...World.backend.theProjectsItHas, _demoListed('waiting-for-token')];
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+    final machine = await _withTheCard(tester, connections: connections);
+    await World.settings.setRefreshSeconds(0);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    await _tap(tester, 'project build/demo');
+    expect(tester.widget<Text>(find.byKey(const Key('project-facts'))).data, contains('waits for your'));
+    expect(find.byKey(const Key('project-give-token')), findsOneWidget);
+    return connections;
+  }
+
+  /// What Porelo answers now that the host carries `demo`: it reads the host afresh on every call.
+  void carriedNow() => World.backend.theProjectsItHas = [
+    for (final each in World.backend.theProjectsItHas)
+      if (each.name == 'demo') _demoListed('carried') else each,
+  ];
+
+  void carriedAndNoLongerWaiting(WidgetTester tester) {
+    expect(tester.widget<Text>(find.byKey(const Key('project-facts'))).data, isNot(contains('waits for your')));
+    expect(find.byKey(const Key('project-give-token')), findsNothing);
+    final row = find.byKey(const Key('repository-demo'));
+    expect(find.descendant(of: row, matching: find.textContaining('carried')), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.textContaining('token')), findsNothing);
+    final commands = tester.widget<ProjectDetailsPage>(find.byType(ProjectDetailsPage)).commands;
+    expect(commands.where((each) => each.id == 'work.start').single.available, isTrue);
+  }
+
+  // Harm: once the machine took the token, its project's page still says it waits for it, offers the token again and
+  // refuses work there until the window is restarted (seen live).
+  testWidgets("a project its machine's Porelo answers carried after a token wait no longer waits, with no restart", (
+    tester,
+  ) async {
+    final connections = await waitedOnce(tester);
+    carriedNow();
+    // Work moving elsewhere has the window read the projects again, as it does on every push of the work.
+    World.backend.publish(World.backend.tasksNow);
+    await World.settle(tester);
+    carriedAndNoLongerWaiting(tester);
+    expect(connections.asked.where((each) => each == 'progress build'), hasLength(1), reason: 'no root login more');
+  });
+
+  // Harm: once the machine's watch of its work ended, nothing it says reaches the window any more, and a project
+  // carried since reads as waiting for the token until a restart.
+  testWidgets('a project carried after its machine ended the watch no longer waits, once the watch is open again', (
+    tester,
+  ) async {
+    await waitedOnce(tester);
+    final opened = World.backend.watchesOpened;
+    World.backend.endWatch();
+    await World.settle(tester);
+    carriedNow();
+    await tester.pump(const Duration(seconds: 2));
+    await World.settle(tester);
+    expect(World.backend.watchesOpened, greaterThan(opened), reason: 'the watch was opened again');
+    carriedAndNoLongerWaiting(tester);
   });
 
   // Harm: each start form a Machine Admin opens logs in to the machine as root again, for what it said already.

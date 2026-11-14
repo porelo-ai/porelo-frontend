@@ -2445,6 +2445,14 @@ class Project {
   /// where an empty [credentials] means *not said*, not *none*.
   final bool credentialsAnswered;
 
+  /// The host's word on it, as the machine, a host of it, reads the host's publication afresh on every call:
+  /// `pending`, `carried`, `waiting-for-token`, `held`, `refused`, `cannot-say` where the publication cannot be read,
+  /// or a word of a later Porelo. Null off a host, and from a Porelo that does not say.
+  final String? hostState;
+
+  /// Why it stands so, as the host explains it, shown as it comes; null where it gives no reason.
+  final String? hostWhy;
+
   /// The repositories work starts in. A project that names others under `repositories:` is never
   /// worked in itself: its own repository holds its file, its planning and its issues, and a start
   /// there is refused. A project of one repository is that repository.
@@ -2494,6 +2502,8 @@ class Project {
     this.messages,
     this.lastUsed,
     this.carried = false,
+    this.hostState,
+    this.hostWhy,
   });
 
   /// Reads one from a reply.
@@ -2521,6 +2531,8 @@ class Project {
       String value => value,
       _ => null,
     },
+    hostState: Repository._said(map, 'hostState'),
+    hostWhy: Repository._said(map, 'hostWhy'),
   );
 
   /// Whether this project is behind its upstream by an amount somebody can act on.
@@ -5128,6 +5140,14 @@ class Repository {
   /// Why [central] is `cannot-say`, one line, shown as it comes; null otherwise.
   final String? centralWhy;
 
+  /// The host's word on it: the project's own while the project waits or cannot be read, else this repository's
+  /// progress, `taken`, `waiting`, `not-carried`, `held` or `no-central`. Null off a host, and from a Porelo that does
+  /// not say.
+  final String? hostState;
+
+  /// Why it stands so, as the host explains it, shown as it comes; null where it gives no reason.
+  final String? hostWhy;
+
   /// Whether it is behind its upstream by an amount somebody can act on.
   bool get hasFallenBehind => behindReason == 'MEASURED' && behind > 0;
 
@@ -5156,6 +5176,8 @@ class Repository {
     this.aheadMeasured,
     this.central,
     this.centralWhy,
+    this.hostState,
+    this.hostWhy,
   });
 
   /// Reads one from a reply.
@@ -5180,6 +5202,8 @@ class Repository {
     aheadMeasured: _said(map, 'aheadMeasured'),
     central: _said(map, 'central'),
     centralWhy: _said(map, 'centralWhy'),
+    hostState: _said(map, 'hostState'),
+    hostWhy: _said(map, 'hostWhy'),
   );
 
   /// A count that may be absent: null where it is, or is no whole number of none or more, never 0.

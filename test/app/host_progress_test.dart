@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart' show Project;
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
@@ -310,5 +311,37 @@ void main() {
       expect(read.why, isNull, reason: '$central');
       expect(read.blocksGiveBack, isTrue, reason: '$central');
     }
+  });
+
+  // Harm: a publication the machine's Porelo cannot read, or a project it says nothing of, reads as the token wait
+  // ended, and work is started where the host refuses it; or, once the wait ended, a taken repository loses what the
+  // host said of its commits not yet at central.
+  test("the machine's Porelo replaces a kept word only where it says otherwise, and never by cannot say", () {
+    final kept = HostProgress.read('''
+{"projects":[
+  {"project":"demo","state":"waiting-for-token","repositories":[
+    {"repository":"demo-api","state":"taken","central":{"state":"ahead","commits":2}},
+    {"repository":"demo-docs","state":"waiting"}]},
+  {"project":"other","state":"waiting-for-token"},
+  {"project":"quiet","state":"waiting-for-token"}]}
+''');
+    Project listed(String name, String state, [List<Map<String, dynamic>> repositories = const []]) =>
+        Project.from({'name': name, 'hostState': state, 'repositories': repositories});
+    final now = kept.asListedBy([
+      listed('demo', 'carried', [
+        {'name': 'demo-api', 'hostState': 'taken'},
+        {'name': 'demo-docs', 'hostState': 'taken'},
+      ]),
+      listed('other', 'cannot-say'),
+      Project.from(const {'name': 'quiet'}),
+    ]);
+    expect(now.of('demo')?.state, 'carried');
+    expect(now.of('demo')?.waitsForToken, isFalse);
+    expect(now.of('demo')?.taken, ['demo-api', 'demo-docs']);
+    expect(now.of('demo')?.repositories.first.central?.state, 'ahead', reason: 'what the host said of central stays');
+    expect(now.of('demo')?.repositories.last.central, isNull, reason: 'nobody said it of the one taken since');
+    expect(now.of('other')?.waitsForToken, isTrue, reason: 'cannot say is no end of the wait');
+    expect(now.of('quiet')?.waitsForToken, isTrue, reason: 'saying nothing is no end of the wait');
+    expect(identical(kept.asListedBy([listed('demo', 'waiting-for-token')]), kept), isTrue);
   });
 }

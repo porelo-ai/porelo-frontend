@@ -6535,15 +6535,23 @@ class _ShellState extends State<Shell> {
 
   /// What [machine] said last, where an organization's card names it; null for one no card names.
   HostProgress? _heardFrom(Machine machine) => switch (machine.hostCard) {
-    final card? when _organization != null => _hostConnections?.heard(card.name),
+    final card? when _organization != null => _asListedNow(machine, _hostConnections?.heard(card.name)),
     _ => null,
   };
+
+  /// [said], what [machine] said as root when it was asked, with what its own Porelo lists now in place of a word on a
+  /// project that Porelo now says otherwise: the root answer is kept until the connection comes back or a refresh, and
+  /// a wait for the token in it would outlive the token taken since.
+  HostProgress? _asListedNow(Machine machine, HostProgress? said) {
+    final fleet = widget.machines.all.contains(machine) ? widget.machines.watching(machine) : null;
+    return fleet == null ? said : said?.asListedBy(fleet.listedProjects);
+  }
 
   /// What [machine], an organization's card names, waits for before it takes [project], as it said last; null where
   /// it waits for nothing of this person's, or was not asked.
   HostProjectProgress? _waitOn(Machine machine, String project) {
     if (!_onTheOrganizationsPage(machine)) return null;
-    final said = _hostConnections?.heard(machine.hostCard!.name)?.of(project);
+    final said = _heardFrom(machine)?.of(project);
     return said != null && (said.waitsForToken || said.hasNoAddress) ? said : null;
   }
 
@@ -6723,6 +6731,7 @@ class _ShellState extends State<Shell> {
     String? notRead,
   }) {
     final watched = widget.machines.all.contains(machine);
+    progress = _asListedNow(machine, progress);
     // The menu and the page's own button name what the same word of the host says is ahead.
     if (watched && progress != null) {
       final answering = widget.machines.watching(machine)?.reachability == Reachability.connected;

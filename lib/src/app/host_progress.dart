@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:porelo_frontend/client.dart' show Repository;
+import 'package:porelo_frontend/client.dart' show Project, Repository;
 import 'package:porelo_host/porelo_host.dart' show missingPoreloHost, poreloHostCommand;
 
 import 'machines.dart' show openSsh;
@@ -236,6 +236,62 @@ class HostProgress {
 
   /// The host's word on [project], or null.
   HostProjectProgress? of(String project) => projects.where((each) => each.project == project).firstOrNull;
+
+  /// This answer, with the word on each project that the machine's own Porelo, in [listed], now says otherwise. This
+  /// answer was asked once, as root, and is kept until the connection comes back or a refresh; that Porelo reads the
+  /// host afresh on every call, so a wait for the token kept here gives way to the project carried since. Where it
+  /// says nothing of a project, or cannot say, the word kept here stands.
+  HostProgress asListedBy(Iterable<Project> listed) {
+    final now = <String, Project>{
+      for (final each in listed)
+        if (each.hostState case final state? when state != 'cannot-say') each.name: each,
+    };
+    final kept = {for (final each in projects) each.project};
+    final added = [
+      for (final listed in now.values)
+        if (!kept.contains(listed.name)) _asListed(listed),
+    ];
+    bool differs(HostProjectProgress kept) {
+      final state = now[kept.project]?.hostState;
+      return state != null && state != kept.state;
+    }
+
+    if (!projects.any(differs) && added.isEmpty) return this;
+    return HostProgress(
+      projects: [
+        for (final each in projects)
+          if (differs(each)) _asListed(now[each.project]!, before: each) else each,
+        ...added,
+      ],
+      locked: locked,
+      waitsForToken: waitsForToken,
+      refused: refused,
+      hasRepositoryStatus: hasRepositoryStatus,
+    );
+  }
+
+  /// [listed]'s word, keeping how a repository taken [before] as now stands with central.
+  static HostProjectProgress _asListed(Project listed, {HostProjectProgress? before}) => HostProjectProgress(
+    project: listed.name,
+    state: listed.hostState!,
+    why: listed.hostWhy,
+    repositories: [
+      for (final repository in listed.repositoryStates)
+        // While the project waits, each repository carries the project's word rather than its own.
+        if (repository.hostState case final state? when state != listed.hostState)
+          (
+            repository: repository.name,
+            state: state,
+            why: repository.hostWhy,
+            central: state != 'taken'
+                ? null
+                : before?.repositories
+                      .where((each) => each.repository == repository.name && each.state == 'taken')
+                      .firstOrNull
+                      ?.central,
+          ),
+    ],
+  );
 
   /// Whether anything waits for the host admin's central token.
   bool get wantsToken => waitsForToken || projects.any((project) => project.waitsForToken);

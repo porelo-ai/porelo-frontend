@@ -587,6 +587,7 @@ class FleetModel extends ChangeNotifier {
   }
 
   void _follow() {
+    _followAgain?.cancel();
     _watching?.cancel();
     _watching = backend.watch().listen(
       (tasks) {
@@ -612,8 +613,21 @@ class FleetModel extends ChangeNotifier {
         }
         _say('Watching failed: $error', LogLevel.warn);
       },
+      onDone: () {
+        // A watch the daemon ended with a final reply pushes nothing more, and the project list it has read again
+        // would stay as it was, a token wait the machine has ended since included. Opened again, its first push reads
+        // both anew; after a pause, so a daemon that ends every watch at once is not asked in a loop.
+        _live = false;
+        _followAgain?.cancel();
+        if (_disposed || retryAfter == Duration.zero) return;
+        _followAgain = Timer(retryAfter, () {
+          if (!_disposed && _reachability == Reachability.connected) _follow();
+        });
+      },
     );
   }
+
+  Timer? _followAgain;
 
   void _adopt(List<Task> tasks) {
     _tasks = tasks;
@@ -725,6 +739,7 @@ class FleetModel extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _retry?.cancel();
+    _followAgain?.cancel();
     _watching?.cancel();
     clearance
       ..removeListener(_notify)

@@ -333,6 +333,8 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
           credentialsAnswered: project.credentialsAnswered,
           messages: project.messages,
           lastUsed: project.lastUsed,
+          hostState: project.hostState,
+          hostWhy: project.hostWhy,
         ),
     ];
   }
@@ -453,9 +455,19 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
   @override
   Stream<List<Task>> watch() async* {
     if (withoutWatch) throw const FeatureNotSupported('Watch');
+    watchesOpened++;
     yield _tasks;
-    yield* _changes.stream;
+    yield* _changes.stream.takeWhile((tasks) => !identical(tasks, _watchEnded));
   }
+
+  /// How often [watch] was opened.
+  int watchesOpened = 0;
+
+  /// Stands for the end of every watch open now, never for a list of work.
+  final _watchEnded = <Task>[];
+
+  /// Ends every watch open now with a final reply, as a daemon may: a watch opened afterwards runs as before.
+  void endWatch() => _changes.add(_watchEnded);
 
   @override
   Stream<StartEvent> startTask({
