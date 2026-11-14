@@ -97,6 +97,11 @@ class FactsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final phone = WindowSize.fromContext(context) == WindowSize.compact;
+    // A page given no explanation of its own draws the one its place gives its head.
+    final scope = this.explanationId == null ? PageExplanationScope.onHeadOf(context) : null;
+    final explanationId = this.explanationId ?? scope?.id;
+    final settings = this.settings ?? scope?.settings;
+    final explanation = scope?.parts ?? this.explanation;
     final actions = [
       ...commands.where((command) => command.visible && !_danger(command)),
       ...commands.where((command) => command.visible && _danger(command)),
@@ -151,14 +156,14 @@ class FactsPage extends StatelessWidget {
             children: [
               if (!phone) Expanded(child: Text(title, style: theme.textTheme.headlineSmall)),
               if (settings != null && explanationId != null)
-                PageExplanationButton(id: explanationId!, settings: settings!),
+                PageExplanationButton(id: explanationId, settings: settings),
             ],
           ),
         if (settings != null && explanationId != null && explanation.isNotEmpty)
           PageExplanation(
             key: ValueKey('explanation $explanationId'),
-            id: explanationId!,
-            settings: settings!,
+            id: explanationId,
+            settings: settings,
             parts: explanation,
           ),
         ?identity,

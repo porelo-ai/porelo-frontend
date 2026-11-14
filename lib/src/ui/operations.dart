@@ -48,6 +48,7 @@ class OperationsList extends StatelessWidget {
     return Column(
       children: <Widget>[
         PaneHeader(
+          page: true,
           title: machine == null ? 'This session' : 'What was run on $machine',
           trailing: onClose == null
               ? null
@@ -183,6 +184,7 @@ class _OperationOutputViewState extends State<OperationOutputView> {
     return Column(
       children: <Widget>[
         PaneHeader(
+          page: true,
           title: operation.title,
           leading: BackButton(onPressed: widget.onBack),
           trailing: run != null && !operation.running

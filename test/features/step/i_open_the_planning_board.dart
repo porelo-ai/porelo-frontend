@@ -7,4 +7,10 @@ import '../support/world.dart';
 Future<void> iOpenThePlanningBoard(WidgetTester tester) async {
   await tester.tap(find.byKey(const Key('rail planning')));
   await World.settle(tester);
+  // The page's explanation stands open the first time; the board is worked once it is read and closed.
+  final fold = find.byKey(const ValueKey<String>('explanation-fold planning'));
+  if (fold.evaluate().isNotEmpty) {
+    await tester.tap(fold);
+    await World.settle(tester);
+  }
 }

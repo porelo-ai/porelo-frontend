@@ -156,6 +156,7 @@ import 'project_forge_view.dart';
 import 'organization_host_pages.dart';
 import 'organization_page.dart';
 import 'page_explanation.dart';
+import 'page_words.dart';
 import 'organization_dialogs.dart';
 import 'organization_project_pages.dart';
 import 'default_view.dart';
@@ -4347,8 +4348,20 @@ class _ShellState extends State<Shell> {
                           child: switch (widget.shell.section) {
                             Section.work => _workArea(),
                             Section.attention => _needsYou(),
-                            Section.planning => _planningPage(),
-                            Section.cards => _cardsPage(),
+                            Section.planning => _explained(
+                              'planning',
+                              Section.planning.label,
+                              pageWords['planning']!,
+                              _planningPage(),
+                              ownHead: true,
+                            ),
+                            Section.cards => _explained(
+                              'cards',
+                              Section.cards.label,
+                              pageWords['cards']!,
+                              _cardsPage(),
+                              ownHead: true,
+                            ),
                             Section.organizations => _organizationsFacts(),
                             Section.machines =>
                               _organizationHost == null || _organization == null
@@ -4360,14 +4373,17 @@ class _ShellState extends State<Shell> {
                               widget.shell.place.organizationSection == null
                                   ? _organizationsFacts(one: true)
                                   : _organizationPage(),
-                            Section.forge => _forgePage(),
+                            Section.forge => _explainedHead('forge', _forgePage()),
                             Section.machine || Section.project => ListenableBuilder(
                               listenable: _hostRuns,
                               builder: (context, _) => widget.shell.section == Section.project
                                   ? _machineArea()
                                   : switch (widget.shell.place.machineSection) {
-                                      null => _machineFacts(),
-                                      final MachineSection section => _machineSection(section),
+                                      null => _explainedHead('machine', _machineFacts()),
+                                      final MachineSection section => _explainedHead(
+                                        machineSectionPageId(section),
+                                        _machineSection(section),
+                                      ),
                                     },
                             ),
                           },
@@ -5666,6 +5682,16 @@ class _ShellState extends State<Shell> {
     ),
   );
 
+  /// [page] with the `i` and the words of the page [id] on the page's own head.
+  Widget _explainedHead(String id, Widget page) => PageExplanationScope(
+    title: '',
+    id: id,
+    settings: widget.settings,
+    parts: pageWords[id]!,
+    onHead: true,
+    child: page,
+  );
+
   Widget _explainedProjects(Widget page) =>
       _explained('projects', 'My projects', const <({String title, String words})>[
         (
@@ -6533,6 +6559,8 @@ class _ShellState extends State<Shell> {
         : waitsWhyNot(host: machine.hostCard!.name, project: project.name, waits: waits);
     return ProjectDetailsPage(
       key: ValueKey('project ${machine.name}/${project.name}'),
+      settings: widget.settings,
+      explanation: pageWords['project']!,
       machine: machine,
       machineState: !watched
           ? 'not read'
@@ -6978,7 +7006,13 @@ class _ShellState extends State<Shell> {
   ///
   /// Resolved rather than read straight off the model, because what a view points at can go away
   /// underneath it: work that stopped existing, an operation this session never had.
-  Widget? _opened({Machine? on}) {
+  Widget? _opened({Machine? on}) => switch (_openedView(on: on)) {
+    final view? => _explainedHead(openedPageId(widget.shell.opened), view),
+    null => null,
+  };
+
+  /// The page opened over the frame, without its explanation.
+  Widget? _openedView({Machine? on}) {
     final opened = widget.shell.opened;
     if (opened is NothingOpened) return null;
     final machine = on ?? widget.machines.current;

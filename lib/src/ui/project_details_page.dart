@@ -4,6 +4,7 @@ import 'package:porelo_frontend/client.dart';
 import '../app/commands.dart';
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
+import '../app/settings.dart';
 import 'command_menu.dart';
 import 'expandable_list_row.dart';
 import 'filtered_list_section.dart';
@@ -27,6 +28,8 @@ class ProjectDetailsPage extends StatelessWidget {
     this.machinePath,
     this.onGeneralPage,
     this.machineNote,
+    this.settings,
+    this.explanation = const [],
     super.key,
   });
 
@@ -70,6 +73,12 @@ class ProjectDetailsPage extends StatelessWidget {
   /// The saved jobs available on this project.
   final List<FilteredRow> jobs;
 
+  /// Where the page's explanation is kept, or null for a page without one.
+  final Settings? settings;
+
+  /// What the page is and what a person does there, under its `i`.
+  final List<({String title, String words})> explanation;
+
   @override
   Widget build(BuildContext context) {
     final isDefault = project.name == defaultProject;
@@ -84,6 +93,8 @@ class ProjectDetailsPage extends StatelessWidget {
           path: machinePath ?? [(label: 'My projects', go: onBack)],
           // Opened from the machine, what the page says of it is only as good as the machine's answer.
           titleChip: fromMachine ? StateChip(machineState) : null,
+          id: settings == null ? null : 'project',
+          settings: settings,
           subtitle: 'on ${machine.name}',
           action: CommandMenu(
             key: const Key('project-menu'),
@@ -93,6 +104,8 @@ class ProjectDetailsPage extends StatelessWidget {
             onShown: onShown,
           ),
         ),
+        if (settings != null && explanation.isNotEmpty)
+          PageExplanation(id: 'project', settings: settings!, parts: explanation),
         // The room in one press, by a name that says it is the room: the menu's entry names messages first.
         if (commands.where((each) => each.id == 'project.messages' && each.visible).firstOrNull case final room?)
           Align(

@@ -57,6 +57,7 @@ class BackupsView extends StatelessWidget {
       return Column(
         children: <Widget>[
           PaneHeader(
+            page: true,
             title: backups.repository == null
                 ? 'Backups of ${backups.project}'
                 : 'Backups of ${backups.project} · ${backups.repository}',

@@ -6,7 +6,9 @@ import '../app/settings.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 
-/// Says that a page's explanation has its `i` on the list titled [title], which draws it beside its title.
+/// Says that a page's explanation has its `i` on the list titled [title], which draws it beside its title; or, with
+/// [onHead], on the page's own head ([PageHead] without an id of its own, or the `PaneHeader` of a page opened over
+/// the frame), which then draws [parts] under it.
 class PageExplanationScope extends InheritedWidget {
   /// Constructor taking the list's title, the page's name and where it is kept.
   const PageExplanationScope({
@@ -15,8 +17,18 @@ class PageExplanationScope extends InheritedWidget {
     required this.settings,
     required super.child,
     this.parts = const [],
+    this.onHead = false,
     super.key,
   });
+
+  /// Whether the page's own head draws the `i` and the words, whatever its title.
+  final bool onHead;
+
+  /// The one above [context] that the page's own head draws, if any.
+  static PageExplanationScope? onHeadOf(BuildContext context) => switch (of(context)) {
+    final scope? when scope.onHead => scope,
+    _ => null,
+  };
 
   /// Words drawn under the leaf head.
   final List<({String title, String words})> parts;
@@ -35,7 +47,8 @@ class PageExplanationScope extends InheritedWidget {
       context.dependOnInheritedWidgetOfExactType<PageExplanationScope>();
 
   @override
-  bool updateShouldNotify(PageExplanationScope oldWidget) => title != oldWidget.title || id != oldWidget.id;
+  bool updateShouldNotify(PageExplanationScope oldWidget) =>
+      title != oldWidget.title || id != oldWidget.id || onHead != oldWidget.onHead;
 }
 
 /// The `i` beside a page's title, which opens its explanation.
@@ -250,7 +263,12 @@ class PageHead extends StatelessWidget {
   Widget build(BuildContext context) {
     final phone = WindowSize.fromContext(context) == WindowSize.compact;
     final text = Theme.of(context).textTheme;
-    final info = id != null && settings != null ? PageExplanationButton(id: id!, settings: settings!) : null;
+    final scope = id == null ? PageExplanationScope.onHeadOf(context) : null;
+    final explanationId = id ?? scope?.id;
+    final explanationSettings = settings ?? scope?.settings;
+    final info = explanationId != null && explanationSettings != null
+        ? PageExplanationButton(id: explanationId, settings: explanationSettings)
+        : null;
     final heading = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -362,6 +380,8 @@ class PageHead extends StatelessWidget {
               );
             },
           ),
+          if (scope != null && scope.parts.isNotEmpty)
+            PageExplanation(id: scope.id, settings: scope.settings, parts: scope.parts),
         ],
       ),
     );

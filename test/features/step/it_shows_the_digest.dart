@@ -8,6 +8,7 @@ Future<void> itShowsTheDigest(WidgetTester tester, String digest) async {
   // Copied whole: a digest is compared, never retyped, so the copy is the full one the machine checks against.
   expect(find.byKey(const Key('agent-artifact-digest')), findsWidgets);
   World.watchTheClipboard(tester);
+  await tester.ensureVisible(find.byKey(const Key('agent-artifact-copy')).first);
   await tester.tap(find.byKey(const Key('agent-artifact-copy')).first);
   await tester.pump();
   expect(World.copied, <String>[digest]);

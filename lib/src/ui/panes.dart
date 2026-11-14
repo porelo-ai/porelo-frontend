@@ -6,12 +6,16 @@ import '../app/hand_in.dart';
 import '../app/work_held.dart';
 import 'how_long.dart';
 import 'missing_credentials_view.dart';
+import 'page_explanation.dart';
 import 'tokens.dart';
 
 /// The heading over a pane, so a pane is identifiable when it is the only one on screen.
 class PaneHeader extends StatelessWidget {
   /// Constructor taking what the pane is called and anything to show beside it.
-  const PaneHeader({required this.title, this.trailing, this.leading, super.key});
+  const PaneHeader({required this.title, this.trailing, this.leading, this.page = false, super.key});
+
+  /// Whether this is the head of a page opened over the frame, which draws that page's `i` and its words.
+  final bool page;
 
   /// What the pane is.
   final String title;
@@ -23,19 +27,38 @@ class PaneHeader extends StatelessWidget {
   final Widget? leading;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.fromLTRB(leading == null ? Space.normal : Space.tight, Space.small, Space.normal, Space.small),
-    decoration: BoxDecoration(
-      border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
-    ),
-    child: Row(
+  Widget build(BuildContext context) {
+    final scope = page ? PageExplanationScope.onHeadOf(context) : null;
+    final head = Container(
+      padding: EdgeInsets.fromLTRB(
+        leading == null ? Space.normal : Space.tight,
+        Space.small,
+        Space.normal,
+        Space.small,
+      ),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: Row(
+        children: <Widget>[
+          ?leading,
+          Flexible(child: Text(title, style: Theme.of(context).textTheme.titleSmall)),
+          if (scope != null) PageExplanationButton(id: scope.id, settings: scope.settings),
+          const Spacer(),
+          ?trailing,
+        ],
+      ),
+    );
+    if (scope == null || scope.parts.isEmpty) return head;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        ?leading,
-        Expanded(child: Text(title, style: Theme.of(context).textTheme.titleSmall)),
-        ?trailing,
+        head,
+        PageExplanation(id: scope.id, settings: scope.settings, parts: scope.parts),
       ],
-    ),
-  );
+    );
+  }
 }
 
 /// Gives a standalone pane its viewport, or lets a card use its page's scroll.
@@ -107,6 +130,7 @@ class WorkDetail extends StatelessWidget {
     return Column(
       children: <Widget>[
         PaneHeader(
+          page: true,
           title: task.shown,
           trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
         ),

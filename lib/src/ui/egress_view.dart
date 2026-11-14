@@ -33,6 +33,7 @@ class EgressView extends StatelessWidget {
     return Column(
       children: <Widget>[
         PaneHeader(
+          page: true,
           title: egress.repository == null
               ? 'What ${egress.project?.name ?? ''} may reach'
               : 'What ${egress.project?.name ?? ''} · ${egress.repository} may reach',

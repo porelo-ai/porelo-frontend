@@ -40,6 +40,7 @@ class GateView extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     children: <Widget>[
       PaneHeader(
+        page: true,
         title: 'Waiting at the gate · ${gate.project?.name ?? ''}',
         trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
       ),
@@ -272,6 +273,7 @@ class ReviewView extends StatelessWidget {
     return Column(
       children: <Widget>[
         PaneHeader(
+          page: true,
           title: push.subject,
           leading: BackButton(onPressed: onBack),
           trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),

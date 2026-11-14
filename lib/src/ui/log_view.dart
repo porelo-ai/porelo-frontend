@@ -50,6 +50,7 @@ class _LogViewState extends State<LogView> {
       children: <Widget>[
         if (widget.headed)
           PaneHeader(
+            page: true,
             title: tail.formatted ? '${tail.task} · what its agent writes' : '${tail.log} · ${tail.task}',
             trailing: Row(
               children: <Widget>[
