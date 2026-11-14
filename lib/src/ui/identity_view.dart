@@ -17,12 +17,6 @@ import 'tokens.dart';
 import 'unlock_terminal.dart';
 import 'wizard.dart';
 
-/// Opens the person's key and card over the frame.
-Future<void> showIdentity(BuildContext context, {IdentityModel? model, OpenTerminal? open}) => showDialog<void>(
-  context: context,
-  builder: (_) => IdentityDialog(model: model ?? IdentityModel(Identity()), open: open),
-);
-
 /// Writes a person's new card to [file]; a card is public, so nothing more is asked of the file.
 typedef WriteCard = Future<void> Function(String file, String card);
 
@@ -61,10 +55,11 @@ Future<({int code, String last})> _keyTerminal(
   return (code: end.code ?? -1, last: last);
 }
 
-/// The person's one key and card: its state, where it is filed, and the change of its key.
-class IdentityDialog extends StatefulWidget {
+/// The person's one key and card, the body of *My cards & keys*: its state, where it is filed, and the change of its
+/// key.
+class IdentityPage extends StatefulWidget {
   /// Constructor taking the model, a fake-backed one in tests, and the terminal opener.
-  const IdentityDialog({
+  const IdentityPage({
     required this.model,
     this.open,
     this.chooseNewFile = chooseWithTheDesktop,
@@ -85,10 +80,10 @@ class IdentityDialog extends StatefulWidget {
   final WriteCard writeCard;
 
   @override
-  State<IdentityDialog> createState() => _IdentityDialogState();
+  State<IdentityPage> createState() => _IdentityPageState();
 }
 
-class _IdentityDialogState extends State<IdentityDialog> {
+class _IdentityPageState extends State<IdentityPage> {
   IdentityModel get _model => widget.model;
   final _database = TextEditingController();
   final _entry = TextEditingController();
@@ -197,12 +192,13 @@ class _IdentityDialogState extends State<IdentityDialog> {
   ];
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    key: const Key('identity-dialog'),
-    title: const Text('My key and card'),
-    content: SizedBox(
-      width: Sizes.dialog,
-      child: SingleChildScrollView(
+  Widget build(BuildContext context) => SingleChildScrollView(
+    key: const Key('identity-page'),
+    padding: const EdgeInsets.all(Space.wide),
+    child: Align(
+      alignment: Alignment.topLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: Sizes.cardsPage),
         child: ListenableBuilder(
           listenable: _model,
           builder: (context, _) => Column(
@@ -247,7 +243,6 @@ class _IdentityDialogState extends State<IdentityDialog> {
         ),
       ),
     ),
-    actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
   );
 
   List<Widget> _firstStart(BuildContext context) => [

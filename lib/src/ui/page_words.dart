@@ -34,7 +34,7 @@ const Map<String, PageWords> pageWords = {
       title: 'What is My cards & keys?',
       words:
           'Your card says who you are to your machines and your organization; your key signs for you. '
-          'My key and card… opens them.',
+          'Change my key… replaces the key, and your card with it.',
     ),
   ],
   'machine': [

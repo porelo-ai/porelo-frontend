@@ -966,7 +966,7 @@ class _ShellState extends State<Shell> {
     viewActions: [
       ..._viewActions(),
       ..._organizationFactsCommands(),
-      myKeyCommand(open: () => unawaited(showIdentity(context, model: widget.identity))),
+      myKeyCommand(open: () => _chooseTreePlace(const ShellPlace(Section.cards), false)),
       ...logCommands(
         windowsLog: windowLogFile(desk),
         plannersLog: _plannersLog,
@@ -4597,12 +4597,11 @@ class _ShellState extends State<Shell> {
     ),
   );
 
-  Widget _cardsPage() => Center(
-    child: FilledButton(
-      onPressed: () => unawaited(showIdentity(context, model: widget.identity)),
-      child: const Text('My key and card…'),
-    ),
-  );
+  Widget _cardsPage() => switch (widget.identity) {
+    final identity? => IdentityPage(model: identity),
+    // Only a window built without one, as in a test of another page: nothing here can read the key then.
+    null => const Center(child: Text('Your key and card cannot be read in this window.')),
+  };
 
   void _chooseTreePlace(ShellPlace place, bool branch, {bool selectMachine = true}) {
     if (!_beforePlanningNavigation(
@@ -4629,7 +4628,6 @@ class _ShellState extends State<Shell> {
     if (selectMachine && machine != null && widget.machines.all.contains(machine)) widget.machines.select(machine);
     widget.shell.choosePlace(place, branch: branch);
     if (place.section == Section.work) _workView.search.clear();
-    if (place.section == Section.cards) unawaited(showIdentity(context, model: widget.identity));
   }
 
   void _goToMachineSection(MachineSection section, {Machine? on}) {

@@ -51,6 +51,7 @@ import 'package:porelo_frontend/src/app/operations.dart';
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/app/identity.dart' show IdentityModel;
 import 'package:porelo_frontend/src/app/porelo_app.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart' show EmbeddedPlanning, WindowTaskStarts;
 import 'package:porelo_frontend/src/ui/planning_reports.dart';
@@ -3571,6 +3572,7 @@ class World {
     Future<HostAccess> Function(Settings settings)? hostAccess,
     bool planningServed = true,
     EmbeddedPlanning Function(Machines machines)? planning,
+    IdentityModel? identity,
   }) async {
     // The view rather than the surface, at a pixel ratio of one: the surface is set in *physical*
     // pixels, so a default ratio quietly turns a desktop window into a narrow one and every
@@ -3737,6 +3739,7 @@ class World {
         narrowing: narrowing,
         held: held,
         planning: planning?.call(machines) ?? (planningServed ? planningOf(machines) : null),
+        identity: identity,
       ),
     );
     await settle(tester);

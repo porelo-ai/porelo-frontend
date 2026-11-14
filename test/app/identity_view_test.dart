@@ -49,7 +49,7 @@ Future<void> _open(WidgetTester tester, Ran shown, List<List<String>> calls) asy
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: IdentityDialog(model: IdentityModel(Identity(run: run))),
+        body: IdentityPage(model: IdentityModel(Identity(run: run))),
       ),
     ),
   );
@@ -141,7 +141,7 @@ Future<_Pending> _openPending(WidgetTester tester, Map<String, Object?> row) asy
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: IdentityDialog(model: IdentityModel(Identity(run: core.run))),
+        body: IdentityPage(model: IdentityModel(Identity(run: core.run))),
       ),
     ),
   );
@@ -201,7 +201,7 @@ void main() {
     final model = IdentityModel(Identity(run: run));
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: IdentityDialog(model: model)),
+        home: Scaffold(body: IdentityPage(model: model)),
       ),
     );
     await World.settle(tester);
@@ -268,7 +268,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: IdentityDialog(model: IdentityModel(Identity(run: run))),
+          body: IdentityPage(model: IdentityModel(Identity(run: run))),
         ),
       ),
     );
@@ -283,27 +283,6 @@ void main() {
     expect(tester.widget<FilledButton>(find.byKey(const Key('identity-proposal-sign'))).onPressed, isNotNull);
     expect(calls.map((call) => call[1]), ['show', 'propose']);
   });
-  // Harm: a dialog with no way out, since it does not show the lost-key plan whose Cancel would be the one.
-  testWidgets('My key and card can be closed while a lost-key plan is held', (tester) async {
-    final model = IdentityModel(
-      Identity(run: (_, _, {inDirectory, environment = const {}, input}) async => (code: 70, out: '', err: '')),
-    );
-    model.lostKeyPlan = (
-      plan: const LostKeyPlan(whoMay: [], hosts: [], signIns: []),
-      fingerprint: 'SHA256:held',
-      database: null,
-      entry: null,
-      id: 'lost-1',
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: IdentityDialog(model: model)),
-      ),
-    );
-    await tester.pump();
-    expect(find.text('Close'), findsOneWidget);
-  });
-
   group('a pending change on the page', () {
     const row = {'id': _rowId, 'action': 'rotate', 'fingerprint': _waiting};
 
@@ -648,7 +627,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: IdentityDialog(model: IdentityModel(Identity(run: run))),
+          body: IdentityPage(model: IdentityModel(Identity(run: run))),
         ),
       ),
     );

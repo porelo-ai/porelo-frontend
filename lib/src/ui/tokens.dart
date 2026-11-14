@@ -456,6 +456,9 @@ abstract final class Sizes {
   /// A dialog that asks several things at once, wide enough for a URL or a key on one line.
   static const dialog = 620.0;
 
+  /// The body of *My cards & keys*, as wide as a dialog that asks several things: a key or a URL on one line.
+  static const cardsPage = dialog;
+
   /// A dialog that explains before it asks: a paragraph, a command line or a list, then the choice.
   static const dialogMedium = 560.0;
 

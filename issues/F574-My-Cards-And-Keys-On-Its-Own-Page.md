@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F574",
   "title": "My Cards And Keys On Its Own Page",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 19,
@@ -32,3 +32,21 @@ modal dialog *My key and card* over it (`identity_view.dart` builds an AlertDial
 ## Acceptance
 
 - A guard that the page's body shows the key and card and that no dialog opens for reading, red first. The identity tests green.
+
+## Built
+
+- The dialog *My key and card* is now the body of *My cards & keys* (`IdentityPage` in `identity_view.dart`): the key,
+  its validity, the SSH agent, the organization card, the central forge keys, the unfinished changes and *Change my
+  key…*, read once each time the page is opened, as the dialog was. The rail, the title bar's *My key and card…* and the
+  finder's command of the same name open the page; nothing opens a dialog to read the key any more.
+- The change of the key goes on in the page itself (the picker, KeePassXC's fields and the review before it runs), as
+  it did inside the dialog; the dialogs that stay are those that change something: the proposed card, the first-start
+  wizard, a lost key's replacement and the terminals.
+- A window built without the identity (only a test of another page) says the key cannot be read there, where the
+  rail used to open a dialog running the real `porelo` beside the test.
+- `tool/capture_screens.dialogs` no longer names *My key and card*, which opens no dialog; the page is one of the
+  screens captured.
+- Tests: `test/ui/my_cards_page_test.dart` *My cards & keys shows the key and card in its own body, opening no dialog*
+  and *the title bar's My key and card opens the page*, both red before the change (a dialog opened). The test that
+  the dialog could be closed while a lost-key plan was held is deleted with the dialog; `test/app/identity_view_test.dart`
+  builds the page in its place.
