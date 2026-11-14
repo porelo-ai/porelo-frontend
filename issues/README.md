@@ -110,6 +110,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f564"></a>[F564](F564-Planning-Opens-At-Once.md) | S | - | Story ST361: Planning opens at once on a board of the porelo projects' size, shows that it loads while it does, and folds a lane without a stall. |
 | <a id="f565"></a>[F565](F565-A-Running-Setup-Offers-What-Goes-With-It.md) | M | - | Story ST361: while a machine's setup runs, its wizard step and its row offer only what makes sense then: no Back, a Leave without a warning for work that goes on by design, a protocol that says it waits for its first line, and a row menu with the protocol alone. |
 | <a id="f567"></a>[F567](F567-Revoking-The-Last-Device-Says-What-It-Costs.md) | S | - | Story ST361: revoking the last device of a machine's vault says that afterwards only the passphrase at the machine opens it, that it stays shut after every restart until typed there, and that without the passphrase its entries are lost for good. |
 | <a id="f568"></a>[F568](F568-A-Carried-Repositorys-Menu-Agrees-With-Its-Row.md) | S | - | Story ST361: a repository a machine carries offers its work in its menu, as its row and the page say, instead of calling it not on this machine. |
