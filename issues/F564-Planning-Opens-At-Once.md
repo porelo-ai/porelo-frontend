@@ -125,3 +125,9 @@ looking it up on a board that has built everything:
 
 Seen red with the fixture broken on purpose: one more *Highest* story in *Build* fails the sort, the folded marks and
 the hidden low-priority story; *Review* made a working state ahead of *Implementing* fails the working-states order.
+
+A reading of the change closed its gaps: the walk also covers the column of stories outside the reported workflow, and
+fails when it finds no column at all; a card's saving line is read with the card in view; the folded phase holds no
+mark outside a tile; the guard checks that the lane folded and came back, and compares the medians of three returns
+on each board. With the screen pinned, the large board takes 0.85 to 1.5 times as long to open as the small one and
+0.77 to 1.3 times as long to fold and unfold a lane.

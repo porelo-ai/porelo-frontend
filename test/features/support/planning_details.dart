@@ -70,14 +70,29 @@ ScrollableState planningPhaseHolding(WidgetTester tester, Finder finder) {
 ScrollableState planningPhaseScroll(WidgetTester tester, String id) =>
     _phaseScrollable(tester, planningElement('phase-scroll $id'));
 
-/// Walks the board's phases (or the one [only]) from top to foot, half a view at a time, and asks [look] at each stop.
+/// The scroll of every column on the board, left to right: each phase's, then the column of stories whose state the
+/// workflow does not report, which has no key of its own and is found by its heading.
+List<ScrollableState> _columnScrolls(WidgetTester tester) {
+  final scrolls = [
+    for (final phase in _phaseScrolls.evaluate().toList()) _phaseScrollable(tester, find.byWidget(phase.widget)),
+  ];
+  final unplaced = find.text('Stories outside the reported workflow', skipOffstage: false);
+  if (unplaced.evaluate().isNotEmpty) {
+    final scroll = tester.state<ScrollableState>(find.ancestor(of: unplaced, matching: find.byType(Scrollable)).first);
+    expect(scroll.position.axis, Axis.vertical);
+    scrolls.add(scroll);
+  }
+  return scrolls;
+}
+
+/// Walks the board's columns (or the one [only]) from top to foot, half a view at a time, and asks [look] at each stop.
 ///
-/// Each phase builds only the cards in its view, so this is how a check sees a whole phase. The walk stops where [look]
-/// answers true and leaves that phase there; every other phase gets its offset back.
+/// Each column builds only the cards in its view, so this is how a check sees a whole column. The walk stops where
+/// [look] answers true and leaves that column there; every other column gets its offset back. A board with no column
+/// shown fails the walk, so a check over it never passes for having looked at nothing.
 Future<bool> walkPlanning(WidgetTester tester, bool Function() look, {ScrollableState? only}) async {
-  final scrolls = only != null
-      ? [only]
-      : [for (final phase in _phaseScrolls.evaluate().toList()) _phaseScrollable(tester, find.byWidget(phase.widget))];
+  final scrolls = only != null ? [only] : _columnScrolls(tester);
+  expect(scrolls, isNotEmpty, reason: 'no column of the planning board is shown');
   for (final scroll in scrolls) {
     final position = scroll.position;
     final start = position.pixels;

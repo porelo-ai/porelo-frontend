@@ -24,13 +24,20 @@ Future<void> theFoldedPlanningBuildRetainsItsCountAndMarks(WidgetTester tester) 
       counted = true;
     }
     expect(find.descendant(of: phase, matching: find.byType(Card)), findsNothing);
+    var (up, down) = (0, 0);
     for (final tile in tiles.evaluate().toList()) {
       final within = find.byWidget(tile.widget);
-      marks[(tile.widget.key! as ValueKey<String>).value] = (
+      final mark = (
         find.descendant(of: within, matching: find.text('▲▲')).evaluate().length,
         find.descendant(of: within, matching: find.text('▼')).evaluate().length,
       );
+      marks[(tile.widget.key! as ValueKey<String>).value] = mark;
+      up += mark.$1;
+      down += mark.$2;
     }
+    // No mark stands in the phase outside a story's tile.
+    expect(find.descendant(of: phase, matching: find.text('▲▲')).evaluate().length, up);
+    expect(find.descendant(of: phase, matching: find.text('▼')).evaluate().length, down);
     return false;
   });
   expect(marks, hasLength(10));
