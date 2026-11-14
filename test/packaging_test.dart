@@ -2,6 +2,7 @@
 @Tags(<String>['linux'])
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -151,6 +152,139 @@ void main() {
     expect(File('$out/porelo-host-0.6.0.tar.gz').statSync().mode & 0x1ff, 0x1a4, reason: 'mode 0644');
     final script = File('tool/package.sh').readAsStringSync();
     expect(script, contains(r'install -m 0644 -- "build/collection/$collection_file" "$bundle/$collection_file"'));
+  });
+
+  group('the snapshot collection', () {
+    const version = '0.5.13-snapshot.412';
+    const file = 'porelo-host-$version.tar.gz';
+    // The SHA-256 of the bytes 1, 2, 3.
+    const digest = '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81';
+    final commit = List.filled(40, 'a').join();
+    late Directory scratch;
+    late Directory source;
+
+    setUp(() async {
+      scratch = await Directory.systemTemp.createTemp('snapshot-collection-');
+      addTearDown(() => scratch.delete(recursive: true));
+      source = await Directory('${scratch.path}/source').create();
+      await File('${source.path}/$file').writeAsBytes(const [1, 2, 3]);
+      await File('${source.path}/SHA256SUMS').writeAsString('$digest  $file\n');
+    });
+
+    Future<ProcessResult> fetch(String sha256, {Map<String, String> environment = const {}}) => Process.run(
+      'bash',
+      ['tool/fetch_collection.sh', version, sha256, '${scratch.path}/out', file],
+      environment: {'PORELO_COLLECTION_SOURCE': source.path, ...environment},
+    );
+
+    Future<ProcessResult> choose(String channel, {String? pointer}) async {
+      if (pointer != null) await File('${source.path}/latest.json').writeAsString(pointer);
+      return Process.run(
+        'bash',
+        ['tool/host_collection.sh', channel],
+        environment: {'PORELO_COLLECTION_SOURCE': source.path},
+      );
+    }
+
+    String pointer({Object v = version, Object f = file, Object s = digest, Object? c}) =>
+        jsonEncode({'version': v, 'file': f, 'sha256': s, 'commit': c ?? commit});
+
+    // Harm: a snapshot window carries a collection nobody checked, or the build cannot fetch the snapshot at all and
+    // falls back to what the release lacks.
+    test('a snapshot collection is taken by its digest alone, from the snapshot release', () async {
+      final wrong = await fetch(List.filled(64, 'b').join());
+      expect(wrong.exitCode, isNot(0), reason: 'another digest must be refused');
+      expect(File('${scratch.path}/out/$file').existsSync(), isFalse, reason: 'nothing refused may be handed on');
+
+      final right = await fetch(digest);
+      expect(right.exitCode, 0, reason: '${right.stderr}');
+      expect(File('${scratch.path}/out/$file').readAsBytesSync(), const [1, 2, 3]);
+
+      // Without a local source it asks GitHub; a stand-in curl names what it was asked and answers 404.
+      final bin = await Directory('${scratch.path}/bin').create();
+      final asked = File('${scratch.path}/asked');
+      final curl = File('${bin.path}/curl')
+        ..writeAsStringSync('#!/bin/sh\nprintf "%s\\n" "\$@" >> "${asked.path}"\nprintf 404\n');
+      await Process.run('chmod', ['755', curl.path]);
+      final online = await Process.run(
+        'bash',
+        ['tool/fetch_collection.sh', version, digest, '${scratch.path}/online', file],
+        environment: {
+          'PATH': '${bin.path}:${Platform.environment['PATH']}',
+          'PORELO_COLLECTION_SOURCE': '',
+          'PORELO_COLLECTION_CACHE': '${scratch.path}/cache',
+          'GITHUB_SERVER_URL': '',
+        },
+      );
+      expect(online.exitCode, isNot(0), reason: 'a 404 must fail the fetch');
+      expect(
+        asked.readAsStringSync(),
+        contains('https://github.com/porelo-ai/porelo-host/releases/download/snapshot/$file'),
+      );
+    });
+
+    // Harm: a malformed or tampered pointer names a collection the build then compiles in and carries.
+    test('a snapshot pointer is refused unless every field has its form', () async {
+      final malformed = <String, String>{
+        'not JSON': 'version=$version',
+        'a list': '[]',
+        'no commit': jsonEncode({'version': version, 'file': file, 'sha256': digest}),
+        'a release version': pointer(v: '0.5.13', f: 'porelo-host-0.5.13.tar.gz'),
+        'a version as a number': pointer(v: 5),
+        'a file of another version': pointer(f: 'porelo-host-0.5.13-snapshot.411.tar.gz'),
+        'a file in another directory': pointer(f: '../$file'),
+        'a short digest': pointer(s: digest.substring(1)),
+        'an upper-case digest': pointer(s: digest.toUpperCase()),
+        'a short commit': pointer(c: commit.substring(1)),
+        'a commit with a second line': pointer(c: '$commit\nx'),
+        'a commit with a trailing newline': pointer(c: '$commit\n'),
+      };
+      for (final MapEntry(key: what, value: text) in malformed.entries) {
+        final said = await choose('snapshots', pointer: text);
+        expect(said.exitCode, isNot(0), reason: '$what must be refused; got ${said.stdout}');
+        expect('${said.stdout}', isEmpty, reason: '$what must name no collection');
+      }
+      expect((await choose('nightly', pointer: pointer())).exitCode, isNot(0), reason: 'an unknown channel');
+    });
+
+    // Harm: the build carries a collection other than the one the pointer names.
+    test('a good snapshot pointer gives version, digest, file and commit on one line', () async {
+      final said = await choose('snapshots', pointer: pointer());
+      expect(said.exitCode, 0, reason: '${said.stderr}');
+      expect('${said.stdout}', '$version $digest $file $commit\n');
+    });
+
+    // Harm: a release window carries a snapshot collection, or whichever the newest pointer names instead of the
+    // release it was tested with.
+    test('a release keeps the pinned release collection, whatever the snapshot pointer says', () async {
+      final pinned = await Process.run('dart', ['packages/porelo_host/bin/porelo_host.dart', '--collection-info']);
+      expect(pinned.exitCode, 0, reason: '${pinned.stderr}');
+      final [pinnedVersion, _, _] = '${pinned.stdout}'.trim().split(' ');
+      expect(pinnedVersion, matches(RegExp(r'^\d+\.\d+\.\d+$')), reason: 'the pin must be a release');
+
+      final said = await choose('releases', pointer: pointer());
+      expect(said.exitCode, 0, reason: '${said.stderr}');
+      expect('${said.stdout}', '${'${pinned.stdout}'.trim()} v$pinnedVersion\n');
+    }, timeout: const Timeout(Duration(minutes: 3)));
+
+    // Harm: one of the builds still takes the release pin for a snapshot, or compiles porelo-host without the
+    // collection it carries.
+    test('every build that carries the collection takes it from the one choice by its channel', () {
+      final linux = File('.github/workflows/build.yml').readAsStringSync();
+      final trial = File('.github/workflows/windows.yml').readAsStringSync();
+      final package = File('tool/package.sh').readAsStringSync();
+      final prepare = File('tool/windows-prepare.ps1').readAsStringSync();
+      for (final (name, text) in [('build.yml', linux), ('windows.yml', trial)]) {
+        expect(text, isNot(contains('bin/porelo_host.dart --collection-info')), reason: '$name asks the pin directly');
+      }
+      expect(RegExp('tool/host_collection.sh').allMatches(linux).length, 2, reason: 'the Linux and Windows jobs');
+      expect(RegExp('tool/host_collection.sh').allMatches(trial).length, 1, reason: 'the Windows trial');
+      for (final (name, text) in [('package.sh', package), ('windows-prepare.ps1', prepare)]) {
+        for (final define in ['version', 'file', 'sha256']) {
+          expect(text, contains('-Dporelo_host.collection.$define='), reason: '$name compiles in the $define');
+        }
+      }
+    });
   });
 
   group('the build that publishes them', () {

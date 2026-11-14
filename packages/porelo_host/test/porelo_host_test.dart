@@ -297,6 +297,23 @@ void main() {
     expect(result.exitCode, 64, reason: '${result.stderr}');
   }, timeout: const Timeout(Duration(minutes: 3)));
 
+  // Harm: a snapshot build carries a snapshot collection while its porelo-host names the release, so the carried
+  // check is refused by its digest and the machine is prepared without it, or with what the release lacks.
+  test('the collection given when it is built is the one --collection-info names', () async {
+    const version = '0.9.1-snapshot.77';
+    const file = 'porelo-host-$version.tar.gz';
+    final digest = List.filled(64, 'c').join();
+    final result = await Process.run(Platform.resolvedExecutable, [
+      '-Dporelo_host.collection.version=$version',
+      '-Dporelo_host.collection.file=$file',
+      '-Dporelo_host.collection.sha256=$digest',
+      'bin/porelo_host.dart',
+      '--collection-info',
+    ]);
+    expect(result.exitCode, 0, reason: '${result.stderr}');
+    expect('${result.stdout}'.trim(), '$version $digest $file');
+  }, timeout: const Timeout(Duration(minutes: 3)));
+
   test('--offer names the Elastic Metal offer rented, and EM-I220E-NVME stays the default', () {
     Future<ApiAnswer> api(String method, String path, {Map<String, Object?>? body}) => throw StateError('not asked');
     expect(cli.scalewayFor({'scaleway-project': 'p', 'offer': 'EM-B420E-NVME'}, api).offer, 'EM-B420E-NVME');

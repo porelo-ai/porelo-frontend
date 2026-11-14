@@ -99,13 +99,19 @@ jobs:
                     $certificate.Dispose()
                   }
 
-            # The carried collection beside the build, as the release's Windows job fetches it: the next step checks it.
-            - name: The pinned host collection's digest
+            # The carried collection beside the build, chosen and fetched as the Build's Windows job does: the next steps
+            # check it.
+            - name: The host collection this channel carries
               id: collection
               shell: bash
+              env:
+                  CHANNEL: ${{ startsWith(github.ref, 'refs/tags/v') && 'releases' || 'snapshots' }}
               run: |
+                  set -eu
                   dart pub get --directory=packages/porelo_host >/dev/null
-                  read -r version digest file <<< "$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)"
+                  line=$(tool/host_collection.sh "$CHANNEL")
+                  read -r version digest file source <<< "$line"
+                  echo "Carrying porelo-host collection $version, SHA-256 $digest, from $source"
                   { echo "version=$version"; echo "digest=$digest"; echo "file=$file"; } >> "$GITHUB_OUTPUT"
 
             - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -114,7 +120,7 @@ jobs:
                   path: ~/.cache/porelo-pinned/collection
                   key: pinned-collection-${{ runner.os }}-${{ steps.collection.outputs.digest }}
 
-            - name: Fetch the pinned host collection
+            - name: Fetch the host collection
               shell: bash
               env:
                   # The job's token, for a download from https://github.com alone; none on a host's forge.
@@ -134,6 +140,11 @@ jobs:
 
             - name: Ready the window's build
               shell: pwsh
+              env:
+                  # Compiled into porelo-host.exe, which then names the collection it carries.
+                  PORELO_HOST_COLLECTION_VERSION: ${{ steps.collection.outputs.version }}
+                  PORELO_HOST_COLLECTION_SHA256: ${{ steps.collection.outputs.digest }}
+                  PORELO_HOST_COLLECTION_FILE: ${{ steps.collection.outputs.file }}
               run: ./tool/windows-prepare.ps1
 
             # Refused before anything is packed or any key is touched: a secret is empty.

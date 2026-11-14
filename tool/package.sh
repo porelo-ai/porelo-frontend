@@ -93,19 +93,49 @@ test -x "$bundle/porelo_frontend" || {
     exit 1
 }
 
-# `porelo-host`, beside the launcher, of the same version: the interface calls this copy by its path.
+# `porelo-host`, beside the launcher, of the same version: the interface calls this copy by its path. It carries the
+# collection tool/host_collection.sh chose, given as PORELO_HOST_COLLECTION_VERSION, _SHA256 and _FILE and compiled in,
+# so its `--collection-info` and its check name exactly that one; without them the release porelo-host pins stands.
 say "Building porelo-host $version"
-collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
-read -r _ collection_digest collection_file <<<"$collection"
-printf '%s  %s\n' "$collection_digest" "build/collection/$collection_file" | sha256sum -c -
-# nfpm takes each mode from disk, and the window reads the collection as any account: readable by all.
-install -m 0644 -- "build/collection/$collection_file" "$bundle/$collection_file"
+given="${PORELO_HOST_COLLECTION_VERSION:-}${PORELO_HOST_COLLECTION_SHA256:-}${PORELO_HOST_COLLECTION_FILE:-}"
+collection_defines=()
+if [ -n "$given" ]; then
+    [ -n "${PORELO_HOST_COLLECTION_VERSION:-}" ] && [ -n "${PORELO_HOST_COLLECTION_SHA256:-}" ] &&
+        [ -n "${PORELO_HOST_COLLECTION_FILE:-}" ] || {
+        echo "PORELO_HOST_COLLECTION_VERSION, _SHA256 and _FILE are given all three or none" >&2
+        exit 1
+    }
+    collection_defines=(
+        -Dporelo_host.collection.version="$PORELO_HOST_COLLECTION_VERSION"
+        -Dporelo_host.collection.file="$PORELO_HOST_COLLECTION_FILE"
+        -Dporelo_host.collection.sha256="$PORELO_HOST_COLLECTION_SHA256"
+    )
+fi
 dart pub get --directory=packages/porelo_host >/dev/null
-dart compile exe packages/porelo_host/bin/porelo_host.dart -Dporelo_host.version="$version" -o "$bundle/porelo-host"
+dart compile exe packages/porelo_host/bin/porelo_host.dart -Dporelo_host.version="$version" \
+    "${collection_defines[@]}" -o "$bundle/porelo-host"
 test "$("$bundle/porelo-host" --version)" = "$version" || {
     echo "porelo-host does not say $version" >&2
     exit 1
 }
+collection=$("$bundle/porelo-host" --collection-info)
+read -r collection_version collection_digest collection_file <<<"$collection"
+if [ -n "$given" ]; then
+    want="$PORELO_HOST_COLLECTION_VERSION $PORELO_HOST_COLLECTION_SHA256 $PORELO_HOST_COLLECTION_FILE"
+    [ "$collection" = "$want" ] || {
+        echo "porelo-host names the collection $collection, not $want" >&2
+        exit 1
+    }
+fi
+# A release carries only a released collection: a snapshot's may change under it.
+if [ "${RELEASE:-0}" = 1 ] && ! [[ $collection_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "a release carries a released collection, not $collection_version" >&2
+    exit 1
+fi
+echo "porelo-host carries the collection $collection_version, SHA-256 $collection_digest"
+printf '%s  %s\n' "$collection_digest" "build/collection/$collection_file" | sha256sum -c -
+# nfpm takes each mode from disk, and the window reads the collection as any account: readable by all.
+install -m 0644 -- "build/collection/$collection_file" "$bundle/$collection_file"
 
 # The licenses of the third-party code built in, as one plain file where each system looks for them: Flutter writes
 # them, gzip-compressed, into the bundle's assets, the text the window's *View licenses* shows.

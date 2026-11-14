@@ -204,12 +204,18 @@ jobs:
                   dart tool/test_report.dart
                   exit $built
 
-            # The collection is kept in the cache by its SHA-256 and checked against it after a hit as
-            # after a download.
-            - name: The pinned host collection's digest
+            # A release carries the release porelo-host pins, a snapshot the newest snapshot collection, read once from
+            # its pointer here and passed on. The collection is kept in the cache by its SHA-256 and checked against it
+            # after a hit as after a download.
+            - name: The host collection this channel carries
               id: collection
+              env:
+                  CHANNEL: ${{ steps.channel.outputs.channel }}
               run: |
-                  read -r version digest file <<< "$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)"
+                  set -eu
+                  line=$(tool/host_collection.sh "$CHANNEL")
+                  read -r version digest file source <<< "$line"
+                  echo "Carrying porelo-host collection $version, SHA-256 $digest, from $source"
                   { echo "version=$version"; echo "digest=$digest"; echo "file=$file"; } >> "$GITHUB_OUTPUT"
 
             - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -218,7 +224,7 @@ jobs:
                   path: ~/.cache/porelo-pinned/collection
                   key: pinned-collection-${{ runner.os }}-${{ steps.collection.outputs.digest }}
 
-            - name: Fetch the pinned host collection
+            - name: Fetch the host collection
               env:
                   # The job's token, for a download from https://github.com alone; none on a host's forge.
                   PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
@@ -249,6 +255,10 @@ jobs:
               env:
                   # The job's token, for a download from https://github.com alone; none on a host's forge.
                   PORELO_PINNED_GITHUB_TOKEN: ${{ github.server_url == 'https://github.com' && github.token || '' }}
+                  # Compiled into porelo-host, which then names the collection it carries.
+                  PORELO_HOST_COLLECTION_VERSION: ${{ steps.collection.outputs.version }}
+                  PORELO_HOST_COLLECTION_SHA256: ${{ steps.collection.outputs.digest }}
+                  PORELO_HOST_COLLECTION_FILE: ${{ steps.collection.outputs.file }}
               run: |
                   set -eu
                   . .github/actions/pinned-jdk/pinned.sh
@@ -372,12 +382,18 @@ jobs:
               timeout-minutes: 20
               run: flutter build windows --release
 
-            # Kept in the cache by its SHA-256, as in the Linux job, and checked against it after a hit.
-            - name: The pinned host collection's digest
+            # Chosen by the channel as in the Linux job, a tag `v*` being a release as windows-prepare.ps1 reads it; kept in
+            # the cache by its SHA-256 and checked against it after a hit.
+            - name: The host collection this channel carries
               id: collection
               shell: bash
+              env:
+                  CHANNEL: ${{ startsWith(github.ref, 'refs/tags/v') && 'releases' || 'snapshots' }}
               run: |
-                  read -r version digest file <<< "$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)"
+                  set -eu
+                  line=$(tool/host_collection.sh "$CHANNEL")
+                  read -r version digest file source <<< "$line"
+                  echo "Carrying porelo-host collection $version, SHA-256 $digest, from $source"
                   { echo "version=$version"; echo "digest=$digest"; echo "file=$file"; } >> "$GITHUB_OUTPUT"
 
             - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -386,7 +402,7 @@ jobs:
                   path: ~/.cache/porelo-pinned/collection
                   key: pinned-collection-${{ runner.os }}-${{ steps.collection.outputs.digest }}
 
-            - name: Fetch the pinned host collection
+            - name: Fetch the host collection
               shell: bash
               env:
                   # The job's token, for a download from https://github.com alone; none on a host's forge.
@@ -409,6 +425,11 @@ jobs:
             # prove it and not kept.
             - name: Ready the window's build
               shell: pwsh
+              env:
+                  # Compiled into porelo-host.exe, which then names the collection it carries.
+                  PORELO_HOST_COLLECTION_VERSION: ${{ steps.collection.outputs.version }}
+                  PORELO_HOST_COLLECTION_SHA256: ${{ steps.collection.outputs.digest }}
+                  PORELO_HOST_COLLECTION_FILE: ${{ steps.collection.outputs.file }}
               run: ./tool/windows-prepare.ps1
 
             - name: Pack the ZIP and the MSIX
