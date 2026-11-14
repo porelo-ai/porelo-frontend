@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh;
+import 'package:porelo_frontend/client.dart' show Project;
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/links.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
@@ -509,6 +510,61 @@ void main() {
       expect(find.descendant(of: row, matching: find.textContaining('ready to work on')), findsNothing);
       expect(find.descendant(of: row, matching: find.textContaining('carries demo')), findsNothing);
       expect(find.descendant(of: row, matching: find.textContaining('waits for your')), findsOneWidget);
+    });
+
+    /// The organization's page, with machine `build` waiting for pat's token for `demo` as it said as root, and its
+    /// Porelo's list of projects as [listed] answers.
+    Future<FixtureConnections> waitingForPat(
+      WidgetTester tester,
+      ({List<Project> projects, DateTime at})? Function() listed,
+    ) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}')
+        ..listedOn = (_) => listed();
+      await connections.progress('build');
+      await section(
+        tester,
+        organizationFor(
+          'pat',
+          host: const OrganizationHost(name: 'build', admins: ['pat'], projects: ['demo']),
+        ),
+        connections: connections,
+      );
+      return connections;
+    }
+
+    bool rowWaits(WidgetTester tester) => find
+        .descendant(
+          of: find.byKey(const ValueKey('organization-machine build')),
+          matching: find.textContaining('waits for your'),
+        )
+        .evaluate()
+        .isNotEmpty;
+
+    final carried = [
+      Project.from(const {'name': 'demo', 'hostState': 'carried'}),
+    ];
+
+    // Harm: the machine's Porelo read the project carried, and the organization's row of the machine goes on saying it
+    // waits for the token until something else happens to redraw the page.
+    testWidgets("a list read anew is followed by the organization's row, with nothing else changed", (tester) async {
+      ({List<Project> projects, DateTime at})? listed;
+      final connections = await waitingForPat(tester, () => listed);
+      expect(rowWaits(tester), isTrue);
+      listed = (projects: carried, at: DateTime.now().add(const Duration(minutes: 1)));
+      connections.listedAnew();
+      await tester.pump();
+      expect(rowWaits(tester), isFalse);
+    });
+
+    // Harm: a list read before the machine said, as root, that it waits again hides that wait on the organization's row.
+    testWidgets("a list read before the machine's answer leaves the organization's row waiting", (tester) async {
+      ({List<Project> projects, DateTime at})? listed;
+      final connections = await waitingForPat(tester, () => listed);
+      listed = (projects: carried, at: DateTime.now().subtract(const Duration(minutes: 1)));
+      connections.listedAnew();
+      await tester.pump();
+      expect(rowWaits(tester), isTrue);
     });
 
     // Harm: *Connect* greys for a moment and returns, with no word, as in the foo test.
@@ -1209,6 +1265,28 @@ void main() {
       await pressOrganizationAction(tester, 'giveToken');
       expect(connections.asked.where((each) => each.startsWith('progress')), ['progress build']);
       expect(_action('giveToken'), findsNothing, reason: 'it no longer waits');
+    });
+
+    // Harm: a press that gave no token takes what the machine said before for an answer since, because its own list of
+    // projects stood in for part of it, and the machine is never asked after the press.
+    testWidgets("a press that gave no token asks the machine, though its Porelo's list stands in part of its word", (
+      tester,
+    ) async {
+      final connections = FixtureConnections(['build'])
+        ..hostProgress = HostProgress.read(
+          '{"organization":"waiting-for-token","projects":[{"project":"demo","state":"waiting-for-token"}]}',
+        );
+      final at = DateTime.now().add(const Duration(minutes: 1));
+      connections.listedOn = (_) => (
+        projects: [
+          Project.from(const {'name': 'demo', 'hostState': 'carried'}),
+        ],
+        at: at,
+      );
+      await page(tester, 'hana', connections: connections, onGiveToken: (_, {atOnce = false}) async => null);
+      connections.asked.clear();
+      await pressOrganizationAction(tester, 'giveToken');
+      expect(connections.asked.where((each) => each.startsWith('progress')), ['progress build']);
     });
 
     // Harm: the button seems dead, as in the foo test: a press with no token must leave words on the page.

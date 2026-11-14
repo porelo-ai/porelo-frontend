@@ -33,6 +33,21 @@ String openSsh(String program, {Desk? on}) {
   return here.isWindows ? windowsOpenSsh(program, here.environment) : program;
 }
 
+/// The one machine of [all] whose card names [host] under [login] and that [isTheMachine] takes for the machine the
+/// organization names; null where none is, or several are, since then whose list is whose cannot be told.
+Machine? cardMachineOf(
+  Iterable<Machine> all,
+  String host, {
+  required String? login,
+  required bool Function(HostCardSsh card) isTheMachine,
+}) {
+  final matching = [
+    for (final each in all)
+      if (each.hostCard case final card? when card.name == host && card.login == login && isTheMachine(card)) each,
+  ];
+  return matching.length == 1 ? matching.single : null;
+}
+
 /// One machine this interface can reach.
 ///
 /// A name and a socket path — and, when the interface raises the way in itself, where that

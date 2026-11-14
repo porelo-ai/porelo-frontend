@@ -22,6 +22,7 @@ Future<void> _tap(WidgetTester tester, String key) => World.tapInView(tester, ke
 Future<Machine> _withTheCard(
   WidgetTester tester, {
   String me = 'hana',
+  String? login,
   FixtureConnections? connections,
   OrganizationHost organizationHost = buildHost,
 }) async {
@@ -36,7 +37,7 @@ Future<Machine> _withTheCard(
     address: buildHost.address!,
     sshPort: buildHost.port!,
     hostKey: buildHost.hostKey!,
-    login: me,
+    login: login ?? me,
     publicKey: buildHost.hostKey!,
     webPort: buildHost.webPort,
   );
@@ -516,12 +517,12 @@ void main() {
 
   /// Machine `build`, whose Porelo lists `demo` in [hostState] and whose host was asked once, as root, while it waited
   /// for the token; its project page open, from the machine, and nothing asked again on a timer.
-  Future<FixtureConnections> waitedOnce(WidgetTester tester) async {
+  Future<FixtureConnections> waitedOnce(WidgetTester tester, {String? login}) async {
     await World.startBackend(World.work);
     World.backend.theProjectsItHas = [...World.backend.theProjectsItHas, _demoListed('waiting-for-token')];
     final connections = FixtureConnections(['build'])
       ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
-    final machine = await _withTheCard(tester, connections: connections);
+    final machine = await _withTheCard(tester, connections: connections, login: login);
     await World.settings.setRefreshSeconds(0);
     World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
     await World.settle(tester);
@@ -596,10 +597,10 @@ void main() {
 
   /// Machine `build`, whose Porelo lists `demo` waiting for the token and whose host was asked once, as root, while it
   /// waited; pat administers both the machine and the project, and nothing is asked again on a timer.
-  Future<FixtureConnections> patWaitedOnce(WidgetTester tester) async {
+  Future<FixtureConnections> patWaitedOnce(WidgetTester tester, {FixtureConnections? connecting}) async {
     await World.startBackend(World.work);
     World.backend.theProjectsItHas = [...World.backend.theProjectsItHas, _demoListed('waiting-for-token')];
-    final connections = FixtureConnections(['build'])
+    final connections = (connecting ?? FixtureConnections(['build']))
       ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
     await _withTheCard(
       tester,
@@ -637,6 +638,31 @@ void main() {
     await World.settle(tester);
     expect(find.descendant(of: row, matching: find.textContaining('waits for your')), findsNothing);
     expect(connections.asked.where((each) => each == 'progress build'), hasLength(1), reason: 'no root login more');
+  });
+
+  bool projectRowWaits(WidgetTester tester) => find
+      .descendant(of: find.byKey(const ValueKey('my-project demo')), matching: find.textContaining('waits for your'))
+      .evaluate()
+      .isNotEmpty;
+
+  // Harm: a card whose address no longer is the organization's machine lends its list to that machine's word.
+  testWidgets("a card that is not the organization's machine any more reads nothing into its word", (tester) async {
+    await patWaitedOnce(tester, connecting: _MovedConnections(['build']));
+    World.shell.choosePlace(const ShellPlace(Section.projects));
+    carriedNow();
+    World.backend.publish(World.backend.tasksNow);
+    await World.settle(tester);
+    expect(projectRowWaits(tester), isTrue);
+  });
+
+  // Harm: the page of a machine whose card names the host under another login of this person goes on saying it waits
+  // for the token after its own Porelo answered the project carried.
+  testWidgets("a machine's own page under another login takes its own Porelo's word on the token", (tester) async {
+    await waitedOnce(tester, login: 'hana-builds');
+    carriedNow();
+    World.backend.publish(World.backend.tasksNow);
+    await World.settle(tester);
+    carriedAndNoLongerWaiting(tester);
   });
 
   // Harm: once the machine took the token, the organization's row of the machine still says it waits for it, and
@@ -684,4 +710,12 @@ void main() {
     expect(World.starting.project?.name, 'demo', reason: 'the start form opened');
     expect(connections.asked.where((each) => each == 'progress build'), hasLength(1));
   });
+}
+
+/// Connections to machine `build` whose organization now names it at another address than its cards hold.
+class _MovedConnections extends FixtureConnections {
+  _MovedConnections(super.hosts);
+
+  @override
+  Object? machineOf(String host) => (address: '192.0.2.200', port: buildHost.port, hostKey: buildHost.hostKey);
 }

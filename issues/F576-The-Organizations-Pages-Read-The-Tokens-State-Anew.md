@@ -49,3 +49,17 @@ of the token, as the machine's own project page does since [F570](README.md#f570
 - Tests in `test/ui/machine_own_pages_test.dart`, both red before the change: *a project its machine's Porelo answers
   carried no longer waits in the organization's projects* and *a project its machine's Porelo answers carried no
   longer waits on the organization's machine row*.
+- The list is taken only from the one machine whose card is the organization's machine as the connection knows it
+  (address, port and host key, `HostConnections.isTheMachine`), under this person's login (`cardMachineOf`); where
+  none or several are, nothing is read into the root answer. `test/app/card_machine_test.dart`, both red first; and
+  *a card that is not the organization's machine any more reads nothing into its word*, red first. The window itself
+  refuses a second machine under a card's name, so two such machines cannot be listed at once.
+- A machine's own page takes its own Porelo's list again, whatever login its card names the host under: *a machine's
+  own page under another login takes its own Porelo's word on the token*, red first.
+- The organization's pages follow a list read anew: the shell tells the connections when a card's machine read its
+  projects (`listedAnew`), and their listeners redraw. *a list read anew is followed by the organization's row, with
+  nothing else changed*, red first; *a list read before the machine's answer leaves the organization's row waiting*,
+  seen red without the guard on when each was read.
+- `heard` answers the same object while neither the root answer nor the list changed, and the machine page's *Give
+  token* tells an answer heard since by the root answer itself (`heardAsSaid`), never by the reconciled one: *a press
+  that gave no token asks the machine, though its Porelo's list stands in part of its word*, red first.

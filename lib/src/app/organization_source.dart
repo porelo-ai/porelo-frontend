@@ -938,6 +938,13 @@ abstract class HostConnections extends ChangeNotifier {
   @protected
   Object? machineOf(String host) => null;
 
+  /// Whether a card at [address], [port] with [hostKey] is the machine the organization names [host] now; true where
+  /// the connection keeps no such identity.
+  bool isTheMachine(String host, {required String address, required int port, required String hostKey}) {
+    final identity = machineOf(host);
+    return identity == null || identity == (address: address, port: port, hostKey: hostKey);
+  }
+
   /// Counts each end of [host]'s wait that was no read: a page drops what it read of the wait when it changes.
   int tokenWaitEnds(String host) => _tokenWaitEnds[host] ?? 0;
 
@@ -1032,15 +1039,35 @@ abstract class HostConnections extends ChangeNotifier {
   ///
   /// It was said as root and is kept until the connection comes back or a refresh; what the machine's own Porelo lists
   /// since, read afresh from the host's same publication, stands in place of a word on a project it now says otherwise.
+  ///
+  /// The same answer is the same object while neither it nor the list changed, so a page can tell a new one by identity.
   HostProgress? heard(String host) {
-    final said = connected(host) && _heardOf[host] == machineOf(host) ? _heard[host] : null;
+    final said = heardAsSaid(host);
     final listed = said == null ? null : listedOn?.call(host);
-    return listed == null ? said : said!.asListedBy(listed.projects, listedAt: listed.at);
+    if (said == null || listed == null) return said;
+    if (_reconciled[host] case (:final from, :final at, :final made) when identical(from, said) && at == listed.at) {
+      return made;
+    }
+    final made = said.asListedBy(listed.projects, listedAt: listed.at);
+    _reconciled[host] = (from: said, at: listed.at, made: made);
+    return made;
   }
+
+  final _reconciled = <String, ({HostProgress from, DateTime at, HostProgress made})>{};
+
+  /// What [host] last said of how far it has come, as root, with nothing of its Porelo's list in it: what tells an
+  /// answer heard since from one heard before.
+  HostProgress? heardAsSaid(String host) => connected(host) && _heardOf[host] == machineOf(host) ? _heard[host] : null;
 
   /// What the Porelo of the machine a host names lists of its projects, and when it read them; null where this window
   /// does not watch that machine or has not read it yet. Set by the window, which watches the machines.
   ({List<Project> projects, DateTime at})? Function(String host)? listedOn;
+
+  /// Tells every page that shows what a host said that a machine's own list of its projects was read anew.
+  void listedAnew() {
+    if (_letGo) return;
+    notifyListeners();
+  }
 
   /// Keeps [progress] as what [host] said last, for every page that shows it, and answers it.
   @protected

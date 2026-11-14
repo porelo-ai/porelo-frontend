@@ -620,7 +620,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// from a project's row rather than [AskingButton], the answer stands at the page's head.
   Future<String?> _giveToken({bool byTheButton = true}) async {
     final first = _waitsForItsToken(widget.host);
-    final before = widget.connections?.heard(widget.host);
+    // Told by what the machine said itself: its Porelo's list, read anew meanwhile, is no answer of the machine's.
+    final before = widget.connections?.heardAsSaid(widget.host);
     final takenBefore = widget.connections?.tokenTakenRead(widget.host).count;
     final machine = _machineNow;
     // The page is busy while the token is given, as for any other ask of the machine.
@@ -644,7 +645,8 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     // asked anew. A machine not connected to is read once its connection comes up.
     String? refusal;
     final heard = connections.heard(widget.host);
-    final heardSince = heard != null && !identical(heard, before);
+    final said = connections.heardAsSaid(widget.host);
+    final heardSince = heard != null && said != null && !identical(said, before);
     if (words != null) {
       if (_isAdminHere && connections.connected(widget.host)) {
         if (heardSince) {

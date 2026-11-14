@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:guided_walk/guided_walk.dart';
@@ -652,6 +653,7 @@ class _ShellState extends State<Shell> {
 
   void _machineChanged() {
     _dropForgottenTools();
+    _tellListsReadAnew();
     // A push of a machine no longer watched has nobody to say its answer to.
     _centralReleases.forget(keep: {for (final each in widget.machines.all) each.name});
     _leaveTheSignInsOfForgottenMachines();
@@ -659,6 +661,23 @@ class _ShellState extends State<Shell> {
     if (_observedMachine == machine) return;
     _observedMachine = machine;
     _toolsFor(machine).connections.prepareFor(machine.name);
+  }
+
+  /// When each card's machine last read its list of projects, as last told to the organization's pages.
+  Map<String, DateTime?> _listsRead = const {};
+
+  /// Tells the organization's pages, which follow the connections, that a card's machine read its projects anew: what
+  /// they show of the token reads that list too.
+  void _tellListsReadAnew() {
+    final connections = _hostConnections;
+    if (connections == null) return;
+    final now = {
+      for (final each in widget.machines.all)
+        if (each.hostCard != null) each.name: widget.machines.watching(each)?.projectsReadAt,
+    };
+    if (mapEquals(now, _listsRead)) return;
+    _listsRead = now;
+    connections.listedAnew();
   }
 
   void _checkOrganizationPlace() {
@@ -6544,17 +6563,26 @@ class _ShellState extends State<Shell> {
 
   /// What [machine] said last, where an organization's card names it; null for one no card names.
   HostProgress? _heardFrom(Machine machine) => switch (machine.hostCard) {
-    final card? when _organization != null => _hostConnections?.heard(card.name),
+    // The open machine's own list counts for its own page, whatever login its card names the host under.
+    final card? when _organization != null => _asListedNow(machine, _hostConnections?.heard(card.name)),
     _ => null,
   };
 
   /// What the Porelo of the machine [host] names, as this person's card has it, lists of its projects and when; null
   /// where that machine is not watched or not read yet.
+  ///
+  /// The machine is the one whose card is the organization's machine as the connection knows it, by address, port and
+  /// host key; where several cards are, or none, nothing is read into what the machine said.
   ({List<Project> projects, DateTime at})? _listedOn(String host) {
     final me = _organization?.view?.me;
-    final machine = widget.machines.all
-        .where((each) => each.hostCard?.name == host && each.hostCard?.login == me)
-        .firstOrNull;
+    final connections = _hostConnections;
+    final machine = cardMachineOf(
+      widget.machines.all,
+      host,
+      login: me,
+      isTheMachine: (card) =>
+          connections?.isTheMachine(host, address: card.address, port: card.sshPort, hostKey: card.hostKey) ?? true,
+    );
     final fleet = machine == null ? null : widget.machines.watching(machine);
     final at = fleet?.projectsReadAt;
     return fleet == null || at == null ? null : (projects: fleet.listedProjects, at: at);
