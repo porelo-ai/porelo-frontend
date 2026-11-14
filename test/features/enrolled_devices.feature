@@ -166,6 +166,28 @@ Feature: Opening the store with an enrolled device, never with a passphrase
         And I begin revoking {'laptop'}
         Then it says {'This device will no longer open the vault, and forgets its key.'}
 
+    # Harm: the last device is revoked with no word that the vault then opens only by its passphrase at the machine,
+    # stays shut after every restart, and loses its entries for good without it.
+    Scenario: revoking the last device says before it is done what only the passphrase opens afterwards
+        When I enroll this device as {'laptop'}
+        And I close the answer
+        And I show the vault
+        And I begin revoking {'laptop'}
+        Then it says {'Afterwards only the passphrase opens it'}
+        And it says {'stays shut after every restart until someone types the passphrase there'}
+        And it says {'Without the passphrase, its entries are lost for good'}
+        And it says {'this window cannot tell'}
+
+    # Harm: a device that is not the last is warned about as if the vault were shut for good with it.
+    Scenario: revoking a device that is not the last says nothing of the passphrase
+        Given another device {'old phone'} can open the store
+        When I enroll this device as {'laptop'}
+        And I close the answer
+        And I show the vault
+        And I begin revoking {'old phone'}
+        Then it says {'"old phone" will no longer open the vault.'}
+        And it does not say {'lost for good'}
+
     Scenario: revoking another device names it before it is done
         Given another device {'old phone'} can open the store
         When I show the vault

@@ -43,6 +43,7 @@ import './step/the_connection_goes_while_enrolling.dart';
 import './step/this_device_keeps_a_key_for_the_machine.dart';
 import './step/the_machine_takes_away_the_slot_of.dart';
 import './step/i_begin_revoking.dart';
+import './step/it_does_not_say.dart';
 import './step/another_device_keeps_its_key.dart';
 
 void main() {
@@ -237,6 +238,29 @@ void main() {
       await iShowTheVault(tester);
       await iBeginRevoking(tester, 'laptop');
       await itSays(tester, 'This device will no longer open the vault, and forgets its key.');
+    });
+    testWidgets('''revoking the last device says before it is done what only the passphrase opens afterwards''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await iEnrollThisDeviceAs(tester, 'laptop');
+      await iCloseTheAnswer(tester);
+      await iShowTheVault(tester);
+      await iBeginRevoking(tester, 'laptop');
+      await itSays(tester, 'Afterwards only the passphrase opens it');
+      await itSays(tester, 'stays shut after every restart until someone types the passphrase there');
+      await itSays(tester, 'Without the passphrase, its entries are lost for good');
+      await itSays(tester, 'this window cannot tell');
+    });
+    testWidgets('''revoking a device that is not the last says nothing of the passphrase''', (tester) async {
+      await bddSetUp(tester);
+      await anotherDeviceCanOpenTheStore(tester, 'old phone');
+      await iEnrollThisDeviceAs(tester, 'laptop');
+      await iCloseTheAnswer(tester);
+      await iShowTheVault(tester);
+      await iBeginRevoking(tester, 'old phone');
+      await itSays(tester, '"old phone" will no longer open the vault.');
+      await itDoesNotSay(tester, 'lost for good');
     });
     testWidgets('''revoking another device names it before it is done''', (tester) async {
       await bddSetUp(tester);

@@ -229,6 +229,59 @@ void main() {
     expect(devices.said, isNull);
     expect((await store.read('node-a'))?.slot, 'slot-1', reason: 'the key is per node and still kept');
   });
+
+  group('what revoking a device costs, said before it is done', () {
+    Keyslot slot(String id, {bool recovery = false}) => Keyslot(
+      id: id,
+      name: recovery ? 'recovery passphrase' : id,
+      storage: KeyslotStorage.userScoped,
+      enrolled: 'e',
+      lastUsed: '',
+      self: false,
+      recovery: recovery,
+    );
+    final passphrase = slot('slot-0', recovery: true);
+    final phone = slot('slot-1');
+    final laptop = slot('slot-2');
+
+    // Harm: the last device is revoked with no word that the vault then opens only by its passphrase at the machine,
+    // stays shut after every restart, and loses its entries for good without it (seen live).
+    test('the last device on the machine says what only the passphrase does afterwards', () {
+      final cost = revokeCost(slot: phone, slots: [passphrase, phone], itself: false, atTheMachine: true);
+      expect(cost.refused, isFalse);
+      expect(cost.words, contains('only the passphrase opens it'));
+      expect(cost.words, contains('porelo vault unlock'));
+      expect(cost.words, contains('shut after every restart'));
+      expect(cost.words, contains('lost for good'));
+      expect(cost.words, contains('cannot tell'), reason: 'nothing says whether anybody knows the passphrase');
+    });
+
+    // Harm: a window away from the machine shuts the vault for good, where nobody at it can type the passphrase.
+    test('the last device of a machine elsewhere is not revoked from here, and says how to at the machine', () {
+      final cost = revokeCost(slot: phone, slots: [passphrase, phone], itself: false, atTheMachine: false);
+      expect(cost.refused, isTrue);
+      expect(cost.words, contains('porelo vault revoke slot-1'));
+      expect(cost.words, contains('lost for good'));
+    });
+
+    // Harm: the one way into a vault with no passphrase is revoked, and its entries are lost for good.
+    test('the last way into a vault with no passphrase is not revoked, wherever this window runs', () {
+      for (final here in [true, false]) {
+        final cost = revokeCost(slot: phone, slots: [phone], itself: true, atTheMachine: here);
+        expect(cost.refused, isTrue, reason: 'at the machine: $here');
+        expect(cost.words, contains('no passphrase'));
+      }
+    });
+
+    // Harm: a device that is not the last is refused or warned about as if the vault were lost with it.
+    test('a device that is not the last costs only itself', () {
+      for (final here in [true, false]) {
+        final cost = revokeCost(slot: phone, slots: [passphrase, phone, laptop], itself: false, atTheMachine: here);
+        expect(cost.refused, isFalse, reason: 'at the machine: $here');
+        expect(cost.words, isNot(contains('passphrase')), reason: 'at the machine: $here');
+      }
+    });
+  });
 }
 
 class _Refusing extends MemoryDeviceKeyStore {

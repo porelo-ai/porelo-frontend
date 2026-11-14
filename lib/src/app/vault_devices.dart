@@ -218,6 +218,50 @@ String stillOpens(List<Keyslot> remaining) {
   return 'Still able to open it: $listed.';
 }
 
+/// What revoking [slot] costs, said before it is done, from [slots], every way into the vault as the machine listed
+/// them; `refused` where this window does not revoke it, the words then saying how to do it at the machine. [itself]
+/// is whether [slot] is this device's; [atTheMachine] whether this window runs on the vault's machine, where its
+/// passphrase is typed.
+///
+/// The machine lists its passphrase as a way in where it has one; whether anybody still knows it, nothing can say.
+({String words, bool refused}) revokeCost({
+  required Keyslot slot,
+  required List<Keyslot> slots,
+  required bool itself,
+  required bool atTheMachine,
+}) {
+  final first = itself
+      ? 'This device will no longer open the vault, and forgets its key.'
+      : '"${slot.name}" will no longer open the vault.';
+  if (slots.any((each) => !each.recovery && each.id != slot.id)) return (words: first, refused: false);
+  if (!slots.any((each) => each.recovery)) {
+    // A vault made from a share alone has no passphrase: without its last device nothing opens it again.
+    return (
+      words:
+          '"${slot.name}" is the only way into the vault: it has no passphrase, so without this device nothing '
+          'would open it again and its entries would be lost for good. It is not revoked.',
+      refused: true,
+    );
+  }
+  const cost =
+      'It is the last device that opens the vault. Afterwards only the passphrase opens it, typed at the machine '
+      'with `porelo vault unlock`, and it stays shut after every restart until someone types the passphrase there. '
+      'Without the passphrase, its entries are lost for good.';
+  if (!atTheMachine) {
+    // Shut out from afar, nobody here could open it again: it is done where the passphrase is typed.
+    return (
+      words:
+          '$cost It is not revoked from this window, which is not at the machine: revoke it there with '
+          '`porelo vault revoke ${slot.id}`, once you are sure of the passphrase.',
+      refused: true,
+    );
+  }
+  return (
+    words: '$first $cost Whether anyone still knows the passphrase, this window cannot tell: be sure of it first.',
+    refused: false,
+  );
+}
+
 /// What a device's way of keeping its key protects against, **never said stronger than it is**.
 String storageWords(KeyslotStorage storage) => switch (storage.name) {
   'USER_SCOPED' => 'Kept in a keyring that opens at login: anything running as this user can read it.',

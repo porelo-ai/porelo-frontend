@@ -4894,6 +4894,7 @@ class _ShellState extends State<Shell> {
       key: const Key('vault-view'),
       vault: tools.vault,
       head: head,
+      atTheMachine: machine.isThisComputer,
       actions: [
         if (primary != null)
           Tooltip(

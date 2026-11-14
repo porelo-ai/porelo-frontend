@@ -17,6 +17,7 @@ class VaultView extends StatelessWidget {
     required this.vault,
     required this.onRevoke,
     required this.head,
+    required this.atTheMachine,
     this.actions = const [],
     this.notes = const [],
     this.onUnlockHere,
@@ -33,6 +34,10 @@ class VaultView extends StatelessWidget {
 
   /// Where the page sits and what its head says beside the vault's own words.
   final LeafHead head;
+
+  /// Whether this window runs on the vault's machine, where its passphrase is typed: the last device is revoked only
+  /// there.
+  final bool atTheMachine;
 
   /// The page's main action and the menu of the vault's other commands.
   final List<Widget> actions;
@@ -244,24 +249,32 @@ class VaultView extends StatelessWidget {
   }
 
   Future<void> _revoke(BuildContext context, Keyslot slot) async {
-    final itself = vault.devices.mine?.slot == slot.id;
+    final cost = revokeCost(
+      slot: slot,
+      slots: vault.devices.slots,
+      itself: vault.devices.mine?.slot == slot.id,
+      atTheMachine: atTheMachine,
+    );
     final sure = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Revoke "${slot.name}"?'),
-        content: Text(
-          itself
-              ? 'This device will no longer open the vault, and forgets its key.'
-              : '"${slot.name}" will no longer open the vault.',
-          key: const Key('revoke-says'),
+        title: Text(cost.refused ? '"${slot.name}" is not revoked from here' : 'Revoke "${slot.name}"?'),
+        content: SizedBox(
+          width: Sizes.dialogMedium,
+          child: Text(cost.words, key: const Key('revoke-says')),
         ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Keep it')),
-          FilledButton(
-            key: const Key('revoke-confirm'),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Revoke'),
+          TextButton(
+            key: const Key('revoke-keep'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(cost.refused ? 'Close' : 'Keep it'),
           ),
+          if (!cost.refused)
+            FilledButton(
+              key: const Key('revoke-confirm'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Revoke'),
+            ),
         ],
       ),
     );
