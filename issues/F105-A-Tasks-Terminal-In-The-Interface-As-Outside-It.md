@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F105",
   "title": "A Task's Terminal In The Interface As Outside It",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 6,
@@ -66,6 +66,10 @@ Read in the code on 2026-11-12:
 
 ## Plan
 
+- **How far it got.** Put back from Implementing, nobody building it now. Alt with the cursor keys and focus reports
+  as xterm sends them (629ac626) and the word to both sessions when another is shown with the keyboard kept (25b1c613)
+  are on main, from branch `f105-terminal` d27abb5e. The measured table per key, scrolling through tmux alone and the
+  scenario against a real task are not done.
 - **Measure first.** On the VM, against one task, a plain terminal and the interface side by side,
   per key and capability in *The shape*. Write down the bytes each sends, as a table in the issue.
 - **Red first: a per-key test**, a new `test/ui/session_keys_test.dart` built as

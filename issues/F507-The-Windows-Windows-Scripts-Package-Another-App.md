@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F507",
   "title": "The Window's Windows Scripts Package Another App",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 20,
@@ -52,6 +52,9 @@ porelo-planner's Windows build, which serves the board on Windows, is the first 
 
 ## Plan
 
+- **How far it got.** Put back from Implementing, nobody building it now. Its code is on main (6a0d0dfb and the five
+  commits after it, from branch `f507-windows-scripts`). Branch `f507-windows-scripts` 6b8f52e1, not on main, sets it
+  to Review after trial 6 (run 43317836783) with its changelog entry and what that trial checked.
 - **The window's preparation moves out of the packer.** The version from `pubspec.yaml` and `GITHUB_REF`, the
   `porelo-host.exe` compile and its version check, and the collection check move into a script of the window's own,
   `tool/windows-prepare.ps1`. It ends by naming the folder, name and version it prepared. The packer reads no

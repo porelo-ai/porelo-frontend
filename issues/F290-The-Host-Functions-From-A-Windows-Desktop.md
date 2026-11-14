@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F290",
   "title": "The Host Functions From A Windows Desktop",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "XL",
   "priority": "Medium",
   "rank": 13,
@@ -99,6 +99,11 @@ people, as on Linux: through the host's card, with the same `-F` file and the sa
 
 ## Plan
 
+- **How far it got.** Put back from Implementing, nobody building it now. Every commit of branch `f290-windows-host`
+  (1e471b3d) is on main: the card's config without a master (e587a7df), the relay over its own config (bb4c839a), the
+  carrier of each connection over its own ssh (f6120fce), the relay's three exits (64f87180), a card taken down when a
+  port goes (a14ccfde), no relay end for a connection the carrier cut (5a3c125d) and a carried connection ended on a
+  full buffer (1422206b). *Acceptance* is not recorded as run.
 Built on the branch's first commits, which stay: the card's config on Windows without master lines and with its
 paths (`HostCardSsh`), the relay over its own config (`Machine.relayOn`, `whyNotReachableOn`), and the host reads
 through Windows' own OpenSSH (`SshHostProgress._ssh`). The Windows tunnel with `-L`, `-R` and ssh's "listening" line

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F97",
   "title": "Forwarding To A Branch, Measured Against GitHub",
-  "state": "Implementing",
+  "state": "Backlog",
   "size": "M",
   "priority": "Medium",
   "rank": 5,
@@ -31,6 +31,10 @@ The test organization `porelo-ai-test` and its token exist now; the idea walk ru
 
 ## Plan
 
+- **How far it got.** Put back from Implementing, nobody building it now. Its scenario, the run's GitHub support and
+  the stop of its task are on main (fd0bed53, aab8a308, bf2e4af7, from branch `f97-forward-github` b1c19123, which
+  also carries [F507](README.md#f507)'s commits); the measured run on the VM that *Acceptance* asks for is not
+  recorded here.
 - **On the VM, through the walk's script.** `tool/walk_idea.sh run --test forwarding_to_a_branch` runs
   `integration_test/forwarding_to_a_branch_test.dart` there, without a planner or a seed. It makes the branch
   `walk-<run>-existing` of the first issue repository (foo-1) at its default tip, names `walk-<run>-typed` as the
