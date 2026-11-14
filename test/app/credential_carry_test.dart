@@ -263,4 +263,16 @@ void main() {
     expect(calls, <String>['host receiver']);
     expect(said.words, contains("The host's vault is shut"));
   });
+
+  // Harm: an entry too large to carry reads as an unknown code, not as why it cannot go.
+  test('an entry too large to carry says so', () async {
+    here.seals = const SealedCredential(outcome: 'TOO_LARGE', sealed: '', name: 'anthropic', kind: '', detail: '');
+    final said = await carry(
+      here: here,
+      host: host,
+      source: const VaultEntrySource(name: 'anthropic', type: 'api-key', characters: 51),
+      provider: 'anthropic',
+    );
+    expect(said.words, 'That entry is too large to carry to a host.');
+  });
 }

@@ -183,6 +183,7 @@ String _sealWords(SealedCredential said) {
   final words = switch (said.outcome) {
     'NO_SUCH_ENTRY' => "This computer's vault no longer holds that entry.",
     'VAULT_LOCKED' => "This computer's vault is shut, so nothing could be taken from it. Open it here first.",
+    'TOO_LARGE' => 'That entry is too large to carry to a host.',
     'BAD_KEY' => "The host's key could not be used. Try again.",
     'NO_SUCH_AGENT' => 'That agent is not installed on this computer.',
     'NO_CONFIG_DIRECTORY' => 'That agent keeps its sign-in somewhere this computer could not find.',

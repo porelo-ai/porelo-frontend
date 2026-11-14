@@ -3613,7 +3613,7 @@ class CredentialReceiver {
 /// One credential sealed here to a host's key.
 class SealedCredential {
   /// `SEALED`, `NO_SUCH_ENTRY`, `VAULT_LOCKED`, `BAD_KEY`, `NO_SUCH_AGENT`, `NO_CONFIG_DIRECTORY`,
-  /// `NOTHING_TO_IMPORT`, `WRONG_PROVIDER` or `FAILED`.
+  /// `NOTHING_TO_IMPORT`, `WRONG_PROVIDER`, `TOO_LARGE` or `FAILED`.
   final String outcome;
 
   /// The ciphertext, only the host can open it. Carried once to the host, never kept or shown.
