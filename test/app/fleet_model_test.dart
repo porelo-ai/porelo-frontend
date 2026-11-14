@@ -486,8 +486,14 @@ class _Machine implements FleetBackend {
     Project.from(const <String, dynamic>{'name': 'busy', 'tasks': 7, 'running': 3}),
   ];
 
+  /// How often [watch] was asked for.
+  int watches = 0;
+
   @override
-  Stream<List<Task>> watch() => const Stream<List<Task>>.empty();
+  Stream<List<Task>> watch() {
+    watches++;
+    return const Stream<List<Task>>.empty();
+  }
 
   @override
   Stream<StartEvent> startTask({
@@ -1079,6 +1085,37 @@ void main() {
     expect(busy.tasks, isEmpty);
     fleet.dispose();
   });
+
+  // Harm: a machine whose Porelo has no Watch is asked for one again every few seconds, for as long as the window is
+  // open, and its status line repeats that it cannot push changes.
+  test('a watch the machine cannot serve is not asked for again', () async {
+    final backend = _WithoutWatch();
+    final fleet = FleetModel(backend, retryAfter: const Duration(milliseconds: 5));
+    await fleet.connect();
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(backend.watches, 1);
+    expect(fleet.liveUpdates, isFalse);
+    fleet.dispose();
+  });
+
+  // Harm: a watch the machine ended is never opened again, and nothing it says reaches the window until a restart.
+  test('a watch the machine ended is opened again after a pause', () async {
+    final backend = _Machine();
+    final fleet = FleetModel(backend, retryAfter: const Duration(milliseconds: 5));
+    await fleet.connect();
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(backend.watches, greaterThan(1));
+    fleet.dispose();
+  });
+}
+
+/// A machine whose Porelo is older than `Watch`.
+class _WithoutWatch extends _Machine {
+  @override
+  Stream<List<Task>> watch() {
+    watches++;
+    return Stream<List<Task>>.error(const FeatureNotSupported('Watch'));
+  }
 }
 
 /// A machine whose removals are confirmed, or refused as holding work.

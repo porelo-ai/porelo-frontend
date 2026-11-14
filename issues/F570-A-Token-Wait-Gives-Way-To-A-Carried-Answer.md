@@ -57,3 +57,8 @@ it on a Refresh.
   longer waits, with no restart* and *a project carried after its machine ended the watch no longer waits, once the
   watch is open again*, both red before the fix; `test/app/host_progress_test.dart` *the machine's Porelo replaces a
   kept word only where it says otherwise, and never by cannot say*, seen red by letting `cannot-say` through.
+- A watch that fails is not opened again when it ends, only one the machine ended with a final reply: a machine whose
+  Porelo has no `Watch` was otherwise asked for one again every two seconds, its status line repeating that it cannot
+  push changes. `test/app/fleet_model_test.dart` *a watch the machine cannot serve is not asked for again* was red
+  first (ten asks), and *a watch the machine ended is opened again after a pause* was seen red with the reopening taken
+  out.

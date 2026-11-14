@@ -589,6 +589,9 @@ class FleetModel extends ChangeNotifier {
   void _follow() {
     _followAgain?.cancel();
     _watching?.cancel();
+    // Only a watch the machine ended with a final reply is opened again: one that failed would be asked for in a loop
+    // where the machine cannot serve it or refuses it, and a lost connection reconnects on its own and watches anew.
+    var failed = false;
     _watching = backend.watch().listen(
       (tasks) {
         _live = true;
@@ -600,6 +603,7 @@ class FleetModel extends ChangeNotifier {
         unawaited(_readProjectsAgain());
       },
       onError: (Object error) {
+        failed = true;
         if (error is FeatureNotSupported) {
           // Per feature, not per connection: this backend is older, so the list stops arriving
           // by itself and everything else carries on.
@@ -619,7 +623,7 @@ class FleetModel extends ChangeNotifier {
         // both anew; after a pause, so a daemon that ends every watch at once is not asked in a loop.
         _live = false;
         _followAgain?.cancel();
-        if (_disposed || retryAfter == Duration.zero) return;
+        if (failed || _disposed || retryAfter == Duration.zero) return;
         _followAgain = Timer(retryAfter, () {
           if (!_disposed && _reachability == Reachability.connected) _follow();
         });
