@@ -6,6 +6,7 @@ test/features/planning_board.feature
 test/features/planning_board_test.dart
 test/features/step/another_machine_offers_the_same_project_planning.dart
 test/features/step/closed_planning_states_are_shown.dart
+test/features/step/closed_planning_states_start_folded.dart
 test/features/step/low_priority_planning_stories_are_hidden.dart
 test/features/step/only_the_searched_planning_story_remains.dart
 test/features/step/the_machine_moves_a_planning_story.dart

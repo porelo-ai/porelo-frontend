@@ -15,8 +15,8 @@ import './step/the_old_planning_state_is_absent.dart';
 import './step/the_planning_build_stories_are_sorted.dart';
 import './step/i_fold_the_planning_phase.dart';
 import './step/the_folded_planning_build_retains_its_count_and_marks.dart';
-import './step/closed_planning_states_are_hidden.dart';
-import './step/i_show_closed_planning_states.dart';
+import './step/closed_planning_states_start_folded.dart';
+import './step/i_unfold_closed_planning_states.dart';
 import './step/closed_planning_states_are_shown.dart';
 import './step/the_machine_moves_a_planning_story.dart';
 import './step/the_moved_planning_story_is_absent_from_backlog.dart';
@@ -33,7 +33,7 @@ import './step/the_window_is_pixels_wide.dart';
 import './step/the_planning_search_is_reachable.dart';
 import './step/another_machine_offers_the_same_project_planning.dart';
 import './step/the_other_planning_provider_supplies_the_board.dart';
-import './step/i_retry_planning.dart';
+import './step/i_reload_planning.dart';
 import './step/the_machine_reports_issues_in_reading_and_reworking.dart';
 import './step/the_planning_story_shows_reading.dart';
 import './step/the_machine_reports_a_stopped_reading.dart';
@@ -79,8 +79,8 @@ void main() {
     testWidgets('''Closed states can be revealed''', (tester) async {
       await bddSetUp(tester);
       await iOpenThePlanningBoard(tester);
-      await closedPlanningStatesAreHidden(tester);
-      await iShowClosedPlanningStates(tester);
+      await closedPlanningStatesStartFolded(tester);
+      await iUnfoldClosedPlanningStates(tester);
       await closedPlanningStatesAreShown(tester);
     });
     testWidgets('''A changed watch answer replaces the board without reload''', (tester) async {
@@ -133,7 +133,7 @@ void main() {
       await bddSetUp(tester);
       await iOpenThePlanningBoard(tester);
       await thePlanningWatchFails(tester);
-      await iRetryPlanning(tester);
+      await iReloadPlanning(tester);
       await theMachineMovesAPlanningStory(tester);
       await thePlanningStoryIsIn(tester, 'ST291', 'Review');
     });

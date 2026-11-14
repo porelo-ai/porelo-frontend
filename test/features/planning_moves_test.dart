@@ -33,7 +33,7 @@ import './step/the_planning_machine_refuses_story_with.dart';
 import './step/the_planning_move_error_no_longer_says.dart';
 import './step/i_fold_the_planning_phase.dart';
 import './step/planning_start_was_requested_for_in.dart';
-import './step/i_show_closed_planning_states.dart';
+import './step/i_unfold_closed_planning_states.dart';
 import './step/i_hold_planning_story_over.dart';
 import './step/the_planning_drop_hint_names.dart';
 import './step/i_drop_the_planning_story.dart';
@@ -195,7 +195,7 @@ void main() {
     testWidgets('''A closed destination accepts a drop''', (tester) async {
       await bddSetUp(tester);
       await iSearchPlanningFor(tester, 'ST293');
-      await iShowClosedPlanningStates(tester);
+      await iUnfoldClosedPlanningStates(tester);
       await iFoldThePlanningPhase(tester, 'Build');
       await iDragPlanningStoryTo(tester, 'ST293', 'Finished');
       await planningStoryIsNotBeingSaved(tester, 'ST293');

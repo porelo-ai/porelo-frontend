@@ -139,16 +139,11 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f549"></a>[F549](F549-Planning-Tests-Follow-The-Board-Without-Its-Closed-Filter.md) | S | - | The window's planning feature tests stop using the board's Finished-and-Rejected filter and its separate Retry button, which porelo-planner's planning package drops for one Reload planning button; built against the planner commit that drops them. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f549"></a>[F549](F549-Planning-Tests-Follow-The-Board-Without-Its-Closed-Filter.md) | S | - | The window's planning feature tests stop using the board's Finished-and-Rejected filter and its separate Retry button, which porelo-planner's planning package drops for one Reload planning button; built against the planner commit that drops them. |
 | <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f473"></a>[F473](F473-The-Window-Calls-The-Host-Programs-It-Has-Now.md) | S | - | Every call the window makes on a host names a program the host has now: root's org status, org refresh and person purge by /usr/sbin/porelo-host, and a project's central state from the person's own daemon there, so no machine page fails on a removed program. |
 | <a id="f509"></a>[F509](F509-A-Hosts-Browser-Address-Reaches-Only-Its-Own-Forward.md) | S | - | The forge and homeserver addresses the window gives a browser for a host's card reach only the card's own forward, on IPv6 loopback as on IPv4, never another local program that listens there. |

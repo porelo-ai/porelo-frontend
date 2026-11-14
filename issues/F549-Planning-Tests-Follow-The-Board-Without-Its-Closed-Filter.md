@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F549",
   "title": "Planning Tests Follow The Board Without Its Closed Filter",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 1,
@@ -46,6 +46,8 @@ be resumed while the machine stays connected.
   button; the closed-drop and watch-resume scenarios still run and fail when the closed states or the reload are
   broken on purpose.
 
-## To be checked
+## Built
 
-- On the planner commit: how closed states show now (always, or in a folded phase), and the merged button's key.
+- On porelo-planner 8379dfd the closed states stand in *Done*, which starts folded and draws its stories as tiles
+  without their titles; the merged button's key is `planning-reload`. The steps now say so: *closed planning states
+  start folded*, *I unfold closed planning states*, *I reload planning*.

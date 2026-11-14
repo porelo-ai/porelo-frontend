@@ -130,7 +130,7 @@ Feature: Planning moves are saved at once
     # Harm: closed states cannot receive deliberate moves from folded columns.
     Scenario: A closed destination accepts a drop
         When I search planning for {'ST293'}
-        And I show closed planning states
+        And I unfold closed planning states
         And I fold the planning phase {'Build'}
         And I drag planning story {'ST293'} to {'Finished'}
         Then planning story {'ST293'} is not being saved

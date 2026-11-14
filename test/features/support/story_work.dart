@@ -211,7 +211,6 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
       await tester.tap(perIssue);
       await World.settle(tester);
     case 'show closed cards':
-      await workTap(tester, 'planning-show-closed');
       await workTap(tester, 'planning-fold-phase Done');
     case 'change builder and rounds':
       await workTap(tester, 'story-work-choice ${workRepository()} porelo/B540/BUILDER CHANGE');

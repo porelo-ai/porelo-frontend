@@ -32,8 +32,8 @@ Feature: The stories of a project on a planning board
     # Harm: closed work crowds current work or cannot be found again.
     Scenario: Closed states can be revealed
         When I open the planning board
-        Then closed planning states are hidden
-        When I show closed planning states
+        Then closed planning states start folded
+        When I unfold closed planning states
         Then closed planning states are shown
 
     # Harm: another person changes the board while the window keeps an obsolete snapshot.
@@ -86,7 +86,7 @@ Feature: The stories of a project on a planning board
     Scenario: Planning can be retried while the machine stays connected
         When I open the planning board
         And the planning watch fails
-        And I retry planning
+        And I reload planning
         And the machine moves a planning story
         Then the planning story {'ST291'} is in {'Review'}
 

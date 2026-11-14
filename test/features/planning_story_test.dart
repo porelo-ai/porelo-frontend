@@ -58,7 +58,7 @@ import './step/i_remove_the_planning_provider.dart';
 import './step/the_unavailable_planning_source_is_shown.dart';
 import './step/the_planning_issue_has_partial_sections.dart';
 import './step/the_planning_replacement_part_is_refused.dart';
-import './step/i_retry_planning.dart';
+import './step/i_reload_planning.dart';
 import './step/the_machine_reports_an_empty_planning_finding_file.dart';
 import './step/the_planning_issue_row_says.dart';
 import './step/the_planning_issue_row_does_not_say.dart';
@@ -388,7 +388,7 @@ void main() {
       await bddSetUp(tester);
       await iOpenPlanningStory(tester, 'ST291');
       await thePlanningWatchFails(tester);
-      await iRetryPlanning(tester);
+      await iReloadPlanning(tester);
       await planningDetailsDoNotContain(tester, 'The last answer may be out of date');
       await planningDetailsContain(tester, '# Story source');
     });

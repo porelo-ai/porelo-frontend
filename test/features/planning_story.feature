@@ -303,7 +303,7 @@ Feature: Open stories and issues from planning
     Scenario: The detail watch can be retried
         When I open planning story {'ST291'}
         And the planning watch fails
-        And I retry planning
+        And I reload planning
         Then planning details do not contain {'The last answer may be out of date'}
         And planning details contain {'# Story source'}
 

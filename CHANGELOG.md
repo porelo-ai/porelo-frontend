@@ -19,6 +19,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The planning board has no *Show Finished and Rejected* filter any more: the closed stories stand in *Done*, which starts folded, and unfolding it shows them whole. *Retry planning* is gone too; the one *Reload planning*, on the board and on a story's or issue's page, also opens a stream that is down again.
 - A pushed commit the forge will not build reads *No build for this push* on its tile, instead of *Build: none*.
 - A move on *Planning* is saved at once, as the preview of what it would do showed it. Where it would stop work at hand, among it a start this window handed on that the planner does not report yet, the board warns first, and once confirmed the window ends exactly the tasks the planner says it stopped.
 - A story's row in *Needs you* whose work stopped, or whose save or next step was refused, offers *Start again…* in the window's own *Needs you* too, before the planning board was ever opened.
