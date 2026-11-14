@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
 import 'planning.dart';
+import 'planning_details.dart';
 import 'world.dart';
 import '../../support/expand_list_rows.dart';
 import '../../support/planning_embedding.dart';
@@ -13,6 +14,10 @@ Finder workKey(String key) => find.byKey(Key(key));
 /// Brings a scrollable form control into view before using it.
 Future<void> workTap(WidgetTester tester, String key) async {
   final found = workKey(key);
+  // The board builds only the cards in view, so a card's menu off screen is first walked to.
+  if (found.evaluate().isEmpty && key.startsWith('planning-')) {
+    await revealPlanning(tester, found);
+  }
   expect(found, findsOneWidget);
   await tester.ensureVisible(found);
   await tester.tap(found);
@@ -307,6 +312,7 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
     case 'waiting card quiet':
     case 'closed card quiet':
       final card = cardIn(proof == 'closed card quiet' ? 'Finished' : 'Backlog');
+      await revealPlanning(tester, card);
       expect(card, findsOneWidget);
       expect(
         find.descendant(of: card, matching: find.text('The host run by a program of its own, built like porelo')),
