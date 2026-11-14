@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "XS",
   "priority": "Highest",
-  "rank": 3,
+  "rank": 4,
   "blockedBy": [],
   "covers": "A host whose /usr/sbin/porelo-host is missing, as after a setup that stopped before installing it, is said so on its page in the window's words, with how to go on, instead of the last line env printed there (uutils env's \"use -[v]S to pass options in shebang lines\")."
 }

@@ -110,6 +110,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f556"></a>[F556](F556-A-Snapshot-Window-Carries-The-Newest-Snapshot-Collection.md) | S | - | A snapshot build of the window carries porelo-host's newest snapshot collection, found by its published latest pointer and taken only by that digest, and names the one collection it took; a release build keeps pinning a porelo-host release. |
 | <a id="f554"></a>[F554](F554-A-Host-Without-Porelo-Host-Is-Said-So.md) | XS | - | A host whose /usr/sbin/porelo-host is missing, as after a setup that stopped before installing it, is said so on its page in the window's words, with how to go on, instead of the last line env printed there (uutils env's "use -[v]S to pass options in shebang lines"). |
 | <a id="f555"></a>[F555](F555-A-Machine-Says-It-Waits-For-Your-Token.md) | S | - | After Set up a machine stops at the preparation, the machine's own page says the machine waits for the person's forge token and offers Give it your token there, instead of leaving the person to wait for an admission that never comes. |
 | <a id="f550"></a>[F550](F550-My-Projects-Is-One-List-With-Default.md) | M | - | Beside an organization, My projects lists every project the person works in, each machine's Default and its local projects included, each marked for what it is, and the link All projects on your machines goes; the rail counts the same rows. |

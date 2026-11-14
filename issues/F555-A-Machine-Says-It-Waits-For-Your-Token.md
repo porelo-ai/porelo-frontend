@@ -8,7 +8,7 @@
   "state": "Backlog",
   "size": "S",
   "priority": "Highest",
-  "rank": 4,
+  "rank": 5,
   "blockedBy": [],
   "covers": "After Set up a machine stops at the preparation, the machine's own page says the machine waits for the person's forge token and offers Give it your token there, instead of leaving the person to wait for an admission that never comes."
 }
