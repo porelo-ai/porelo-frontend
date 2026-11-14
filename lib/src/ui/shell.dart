@@ -6540,11 +6540,12 @@ class _ShellState extends State<Shell> {
   };
 
   /// [said], what [machine] said as root when it was asked, with what its own Porelo lists now in place of a word on a
-  /// project that Porelo now says otherwise: the root answer is kept until the connection comes back or a refresh, and
-  /// a wait for the token in it would outlive the token taken since.
+  /// project that Porelo, read since, says otherwise: the root answer is kept until the connection comes back or a
+  /// refresh, and a wait for the token in it would outlive the token taken since.
   HostProgress? _asListedNow(Machine machine, HostProgress? said) {
     final fleet = widget.machines.all.contains(machine) ? widget.machines.watching(machine) : null;
-    return fleet == null ? said : said?.asListedBy(fleet.listedProjects);
+    final listedAt = fleet?.projectsReadAt;
+    return fleet == null || listedAt == null ? said : said?.asListedBy(fleet.listedProjects, listedAt: listedAt);
   }
 
   /// What [machine], an organization's card names, waits for before it takes [project], as it said last; null where

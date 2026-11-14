@@ -577,6 +577,23 @@ void main() {
     carriedAndNoLongerWaiting(tester);
   });
 
+  // Harm: a machine whose watch sends nothing when it is opened again leaves a token wait it ended meanwhile on the page
+  // until the next change of its work, or the quiet refresh a minute later.
+  testWidgets('a watch opened again reads the projects anew, though the machine pushes nothing on opening', (
+    tester,
+  ) async {
+    await waitedOnce(tester);
+    World.backend.pushesOnOpen = false;
+    final opened = World.backend.watchesOpened;
+    World.backend.endWatch();
+    await World.settle(tester);
+    carriedNow();
+    await tester.pump(const Duration(seconds: 2));
+    await World.settle(tester);
+    expect(World.backend.watchesOpened, greaterThan(opened), reason: 'the watch was opened again');
+    carriedAndNoLongerWaiting(tester);
+  });
+
   // Harm: each start form a Machine Admin opens logs in to the machine as root again, for what it said already.
   testWidgets('opening the start form takes what the machine said, asking nothing more', (tester) async {
     await World.startBackend(World.work);

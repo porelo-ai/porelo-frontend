@@ -263,6 +263,10 @@ class FleetModel extends ChangeNotifier {
   /// The authoritative project list, without groups synthesized for orphaned tasks.
   List<Project> get listedProjects => List<Project>.unmodifiable(_known);
 
+  /// When [listedProjects] was last read, by this computer's clock; null before it was.
+  DateTime? get projectsReadAt => _projectsReadAt;
+  DateTime? _projectsReadAt;
+
   /// Every project the daemon lists, each with the work under it.
   ///
   /// Asked for rather than derived from the task list. A project that has never run anything is
@@ -557,6 +561,7 @@ class FleetModel extends ChangeNotifier {
     _readingProjects = true;
     try {
       _known = await backend.projects();
+      _projectsReadAt = DateTime.now();
       _followPullRequests();
       _notify();
     } on VarlinkDisconnected {
@@ -573,6 +578,7 @@ class FleetModel extends ChangeNotifier {
       // Nothing refreshes the project list on its own — `WatchProjects` is not used yet — so it is
       // asked for again beside the tasks, after anything that would have changed it.
       _known = await backend.projects();
+      _projectsReadAt = DateTime.now();
       _followPullRequests();
       _adopt(await backend.tasks());
       windowLog.debug(
@@ -619,13 +625,16 @@ class FleetModel extends ChangeNotifier {
       },
       onDone: () {
         // A watch the daemon ended with a final reply pushes nothing more, and the project list it has read again
-        // would stay as it was, a token wait the machine has ended since included. Opened again, its first push reads
-        // both anew; after a pause, so a daemon that ends every watch at once is not asked in a loop.
+        // would stay as it was, a token wait the machine has ended since included. It is opened again and the projects
+        // read anew; after a pause, so a daemon that ends every watch at once is not asked in a loop.
         _live = false;
         _followAgain?.cancel();
         if (failed || _disposed || retryAfter == Duration.zero) return;
         _followAgain = Timer(retryAfter, () {
-          if (!_disposed && _reachability == Reachability.connected) _follow();
+          if (_disposed || _reachability != Reachability.connected) return;
+          _follow();
+          // A daemon may send nothing on a watch until the work changes: what changed while none was open is read now.
+          unawaited(_readProjectsAgain());
         });
       },
     );

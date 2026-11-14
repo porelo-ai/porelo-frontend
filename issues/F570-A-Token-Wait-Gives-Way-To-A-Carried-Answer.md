@@ -62,3 +62,20 @@ it on a Refresh.
   push changes. `test/app/fleet_model_test.dart` *a watch the machine cannot serve is not asked for again* was red
   first (ten asks), and *a watch the machine ended is opened again after a pause* was seen red with the reopening taken
   out.
+- A watch opened again also reads the project list anew: a daemon may send nothing on a watch until the work
+  changes, and the token wait stayed until then or the quiet refresh. Seen red with a fake that pushes nothing on
+  opening: `test/ui/machine_own_pages_test.dart` *a watch opened again reads the projects anew, though the machine
+  pushes nothing on opening* and `test/app/fleet_model_test.dart` *a watch opened again reads the projects anew*.
+- The later read stands: the root answer is stamped when it is kept (`HostProgress.heardAt`) and the project list
+  when it is read (`FleetModel.projectsReadAt`), and Porelo's word replaces the root's only where the list was read
+  after the answer was heard. A Refresh that hears the wait again, as after the token was revoked, is no longer hidden
+  by an older list that said carried. `test/app/host_progress_test.dart` *the machine's Porelo replaces a kept word only
+  when it was read after that word was heard*, red first.
+- A project only the list names is still taken from it, now only where the list is the later read. Both read the
+  host's one publication (`hostState` is "the host's published project progress", and the root's `org status` reads
+  the same), so a project the root did not name is one published since it was asked, not one it left out on purpose;
+  and `hostWhy` for `waiting-for-token` says the person's forge token is needed, which is what *Give token* offers.
+  *a project only the machine's Porelo names is taken from it only when it was read after the answer*, red first.
+- `test/app/fleet_model_test.dart` *a watch that failed with an error and then ended is not asked for again* (seen red
+  by counting only an unserved watch as failed) and *a watch waiting to be opened again is not opened once the machine
+  is let go* (seen red with the reopening left to run after dispose).

@@ -137,6 +137,7 @@ class HostProgress {
     this.waitsForToken = false,
     this.refused,
     this.hasRepositoryStatus = true,
+    this.heardAt,
   });
 
   /// This answer, with [without] known as having no address on the host.
@@ -149,6 +150,7 @@ class HostProgress {
     waitsForToken: waitsForToken,
     refused: refused,
     hasRepositoryStatus: hasRepositoryStatus,
+    heardAt: heardAt,
   );
 
   /// Reads `org status` or `org refresh`; what this build does not know is passed over, and a part of an older host's
@@ -217,6 +219,19 @@ class HostProgress {
     _ => false,
   };
 
+  /// When this answer was heard and kept, by this computer's clock; null for one not kept.
+  final DateTime? heardAt;
+
+  /// This answer, as heard at [instant].
+  HostProgress heard(DateTime instant) => HostProgress(
+    projects: projects,
+    locked: locked,
+    waitsForToken: waitsForToken,
+    refused: refused,
+    hasRepositoryStatus: hasRepositoryStatus,
+    heardAt: instant,
+  );
+
   /// Whether the host supplied enough repository rows to judge the safety of give-back.
   final bool hasRepositoryStatus;
 
@@ -237,11 +252,16 @@ class HostProgress {
   /// The host's word on [project], or null.
   HostProjectProgress? of(String project) => projects.where((each) => each.project == project).firstOrNull;
 
-  /// This answer, with the word on each project that the machine's own Porelo, in [listed], now says otherwise. This
+  /// This answer, with the word on each project that the machine's own Porelo, in [listed] as read at [listedAt], now
+  /// says otherwise, where it was read after this answer was heard. This
   /// answer was asked once, as root, and is kept until the connection comes back or a refresh; that Porelo reads the
   /// host afresh on every call, so a wait for the token kept here gives way to the project carried since. Where it
   /// says nothing of a project, or cannot say, the word kept here stands.
-  HostProgress asListedBy(Iterable<Project> listed) {
+  HostProgress asListedBy(Iterable<Project> listed, {required DateTime listedAt}) {
+    // Both read the host's one publication, so the later read stands: an answer heard after the list was read, as a
+    // Refresh that found the wait again once the token was revoked, stands whole. A project only the list names is
+    // one published since the answer, and Porelo's word on it is taken as on any other.
+    if (heardAt?.isAfter(listedAt) ?? false) return this;
     final now = <String, Project>{
       for (final each in listed)
         if (each.hostState case final state? when state != 'cannot-say') each.name: each,
@@ -267,6 +287,7 @@ class HostProgress {
       waitsForToken: waitsForToken,
       refused: refused,
       hasRepositoryStatus: hasRepositoryStatus,
+      heardAt: heardAt,
     );
   }
 

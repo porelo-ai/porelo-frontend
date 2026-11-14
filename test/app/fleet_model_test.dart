@@ -1107,6 +1107,63 @@ void main() {
     expect(backend.watches, greaterThan(1));
     fleet.dispose();
   });
+  // Harm: a watch the machine refused with an error is asked for again every few seconds, the refusal said each time.
+  test('a watch that failed with an error and then ended is not asked for again', () async {
+    final backend = _WatchFails(const VarlinkException('org.fuin.porelo.Tasks1.Refused'));
+    final fleet = FleetModel(backend, retryAfter: const Duration(milliseconds: 5));
+    await fleet.connect();
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(backend.watches, 1);
+    fleet.dispose();
+  });
+
+  // Harm: a window closed while a watch waited to be opened again keeps asking its machine for one.
+  test('a watch waiting to be opened again is not opened once the machine is let go', () async {
+    final backend = _Machine();
+    final fleet = FleetModel(backend, retryAfter: const Duration(milliseconds: 40));
+    await fleet.connect();
+    // The first watch has ended, and its reopening waits.
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    final before = backend.watches;
+    fleet.dispose();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(backend.watches, before);
+  });
+
+  // Harm: a watch opened again that sends nothing at first leaves the projects as they were read before it ended.
+  test('a watch opened again reads the projects anew', () async {
+    final backend = _ProjectsCounted();
+    final fleet = FleetModel(backend, retryAfter: const Duration(milliseconds: 20));
+    await fleet.connect();
+    final before = backend.projectsRead;
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(backend.projectsRead, greaterThan(before));
+    fleet.dispose();
+  });
+}
+
+/// A machine whose watch fails with [error] and then ends.
+class _WatchFails extends _Machine {
+  _WatchFails(this.error);
+
+  final Object error;
+
+  @override
+  Stream<List<Task>> watch() {
+    watches++;
+    return Stream<List<Task>>.error(error);
+  }
+}
+
+/// A machine whose watch ends at once and whose project list is counted.
+class _ProjectsCounted extends _Machine {
+  int projectsRead = 0;
+
+  @override
+  Future<List<Project>> projects() {
+    projectsRead++;
+    return super.projects();
+  }
 }
 
 /// A machine whose Porelo is older than `Watch`.

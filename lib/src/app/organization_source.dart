@@ -1037,6 +1037,8 @@ abstract class HostConnections extends ChangeNotifier {
     if (_letGo) return progress;
     // Asked before the connection went or the role was taken, it stands for nobody now.
     if (!connected(host) || _notTheirs.contains(host)) return progress;
+    // When it was heard, so a project list read before it never stands over it.
+    progress = progress.heard(DateTime.now());
     _heard[host] = progress;
     _heardOf[host] = machineOf(host);
     _keepTokenWait(host, waits: progress.waitsForToken);

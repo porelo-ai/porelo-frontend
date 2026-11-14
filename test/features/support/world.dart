@@ -457,12 +457,15 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
   Stream<List<Task>> watch() async* {
     if (withoutWatch) throw const FeatureNotSupported('Watch');
     watchesOpened++;
-    yield _tasks;
+    if (pushesOnOpen) yield _tasks;
     yield* _changes.stream.takeWhile((tasks) => !identical(tasks, _watchEnded));
   }
 
   /// How often [watch] was opened.
   int watchesOpened = 0;
+
+  /// Whether a watch pushes the work there is as soon as it is opened; a daemon may send nothing until it changes.
+  bool pushesOnOpen = true;
 
   /// Stands for the end of every watch open now, never for a list of work.
   final _watchEnded = <Task>[];

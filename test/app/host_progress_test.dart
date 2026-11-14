@@ -327,7 +327,7 @@ void main() {
 ''');
     Project listed(String name, String state, [List<Map<String, dynamic>> repositories = const []]) =>
         Project.from({'name': name, 'hostState': state, 'repositories': repositories});
-    final now = kept.asListedBy([
+    final now = kept.asListedBy(listedAt: DateTime.utc(2026), [
       listed('demo', 'carried', [
         {'name': 'demo-api', 'hostState': 'taken'},
         {'name': 'demo-docs', 'hostState': 'taken'},
@@ -342,6 +342,36 @@ void main() {
     expect(now.of('demo')?.repositories.last.central, isNull, reason: 'nobody said it of the one taken since');
     expect(now.of('other')?.waitsForToken, isTrue, reason: 'cannot say is no end of the wait');
     expect(now.of('quiet')?.waitsForToken, isTrue, reason: 'saying nothing is no end of the wait');
-    expect(identical(kept.asListedBy([listed('demo', 'waiting-for-token')]), kept), isTrue);
+    expect(
+      identical(kept.asListedBy(listedAt: DateTime.utc(2026), [listed('demo', 'waiting-for-token')]), kept),
+      isTrue,
+    );
+  });
+
+  // Harm: a Refresh that heard the token wait anew, as after the token was revoked, is hidden by an older list that said
+  // the project carried, and work is started where the host refuses it.
+  test("the machine's Porelo replaces a kept word only when it was read after that word was heard", () {
+    final heard = DateTime.utc(2026, 11, 14, 12);
+    final kept = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}').heard(heard);
+    final carried = [
+      Project.from(const {'name': 'demo', 'hostState': 'carried'}),
+    ];
+    final older = kept.asListedBy(carried, listedAt: heard.subtract(const Duration(seconds: 30)));
+    expect(older.of('demo')?.waitsForToken, isTrue, reason: 'the list was read before the wait was heard anew');
+    final newer = kept.asListedBy(carried, listedAt: heard.add(const Duration(seconds: 30)));
+    expect(newer.of('demo')?.state, 'carried');
+    expect(newer.heardAt, heard, reason: 'what the machine said as root is still of that time');
+  });
+
+  // Harm: a project the root answer named nothing of, and that the machine's Porelo read since as waiting for the
+  // token, offers no token, or one heard older than the answer raises a wait that answer no longer has.
+  test("a project only the machine's Porelo names is taken from it only when it was read after the answer", () {
+    final heard = DateTime.utc(2026, 11, 14, 12);
+    final kept = HostProgress.read('{"projects":[]}').heard(heard);
+    final waiting = [
+      Project.from(const {'name': 'fresh', 'hostState': 'waiting-for-token'}),
+    ];
+    expect(kept.asListedBy(waiting, listedAt: heard.add(const Duration(seconds: 1))).wantsToken, isTrue);
+    expect(kept.asListedBy(waiting, listedAt: heard.subtract(const Duration(seconds: 1))).wantsToken, isFalse);
   });
 }
