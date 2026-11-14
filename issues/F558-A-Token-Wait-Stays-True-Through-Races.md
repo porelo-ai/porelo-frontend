@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F558",
   "title": "A Token Wait Stays True Through Races",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 10,
