@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F568",
   "title": "A Carried Repository's Menu Agrees With Its Row",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Highest",
   "rank": 14,
@@ -36,3 +36,17 @@ The work:
 ## Acceptance
 
 - A guard with a carried repository whose menu offers its work entries, red first. The project page tests green.
+
+## Built
+
+- **Cause: the window's.** The row and the page read the machine's answer that it carries the project for this person
+  and the repository here (`carried`, `carriedHere`); the menu read only whether the project has a file on the machine,
+  which a carried project has not until it is taken. So *Start work in …* had no way to start and said *work cannot
+  start in this project*, and the entries that read the project's file said *This repository is not on this machine*.
+  Porelo's answer was right; nothing is needed of it.
+- A repository row's *Start work in …* on a project the machine carries and this person has not taken yet now starts,
+  as the project's own *Start work* does: the start takes the project first. The entries that read its file (upstream,
+  backups, what work would open, what it may reach) say that it is carried and not taken yet, and that starting work
+  takes it, in place of *not on this machine*.
+- Test: `test/ui/project_header_test.dart` *a carried repository's menu offers its work, as its row and the page say*,
+  red before the fix (the menu said *not on this machine*).

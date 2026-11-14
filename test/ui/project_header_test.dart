@@ -43,4 +43,49 @@ void main() {
     await _show(tester, 'checkout', {'utils4j': _carried, defaultProject: _carried});
     expect(find.byKey(const Key('repository-default')), findsOneWidget);
   });
+
+  // Harm: a repository its row and its page call carried by this machine refuses its work in its menu, or calls itself
+  // not on this machine there, so the start the row offers cannot be reached from its menu (seen live).
+  testWidgets("a carried repository's menu offers its work, as its row and the page say", (tester) async {
+    final started = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ProjectHeader(
+              project: ProjectOnScreen(
+                project: Project.from(<String, dynamic>{
+                  'name': 'tools',
+                  'carried': true,
+                  'repositories': <Map<String, dynamic>>[
+                    <String, dynamic>{'name': 'claude', 'own': false, 'carriedHere': true, 'central': 'up-to-date'},
+                  ],
+                }),
+                tasks: const <Task>[],
+              ),
+              muted: false,
+              menu: const [],
+              onTheMachine: const {'claude': (words: 'carried here alone', carried: true, startRefused: null)},
+              onStart: started.add,
+              onSync: (_) {},
+              onBackups: (_) {},
+              onOpens: (_) {},
+              onReach: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.textContaining('carried by this machine'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('repository-menu claude')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining('not on this machine'), findsNothing);
+    expect(find.textContaining('work cannot start'), findsNothing);
+    expect(find.textContaining('not taken here yet'), findsNWidgets(4), reason: 'what needs it taken says so');
+    await tester.tap(find.text('Start work in claude'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(started, ['claude']);
+  });
 }

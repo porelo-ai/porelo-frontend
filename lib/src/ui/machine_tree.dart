@@ -551,8 +551,15 @@ class ProjectHeader extends StatelessWidget {
                 repositories: part,
                 onTheMachine: onTheMachine ?? const {},
                 giveToken: waits == null ? null : giveToken,
-                onStart: project.canBeActedOn ? onStart : null,
+                // A project the machine carries and this person has not taken yet starts as the page says: the start
+                // takes it. What reads its file waits for that, and says so rather than calling it not here.
+                onStart: project.canBeActedOn || p.carried ? onStart : null,
                 startUnavailable: startUnavailable,
+                notHere: project.canBeActedOn
+                    ? null
+                    : p.carried
+                    ? '${project.name} is carried by this machine and not taken here yet: starting work takes it.'
+                    : 'This repository is not on this machine.',
                 onSync: project.canBeActedOn ? onSync : null,
                 onBackups: project.canBeActedOn ? onBackups : null,
                 onOpens: project.canBeActedOn ? onOpens : null,
@@ -591,6 +598,7 @@ class _Repositories extends StatelessWidget {
     this.giveToken,
     this.onStart,
     this.startUnavailable,
+    this.notHere,
     this.onSync,
     this.onBackups,
     this.onOpens,
@@ -608,6 +616,7 @@ class _Repositories extends StatelessWidget {
   final Command? giveToken;
   final void Function(String repository)? onStart;
   final String? startUnavailable;
+  final String? notHere;
   final void Function(String repository)? onSync;
   final void Function(String repository)? onBackups;
   final void Function(String repository)? onOpens;
@@ -632,6 +641,7 @@ class _Repositories extends StatelessWidget {
             giveToken: giveToken,
             onStart: onStart,
             startUnavailable: startUnavailable,
+            notHere: notHere,
             onSync: onSync,
             onBackups: onBackups,
             onOpens: onOpens,
@@ -655,6 +665,7 @@ class _RepositoryLine extends StatelessWidget {
     this.giveToken,
     this.onStart,
     this.startUnavailable,
+    this.notHere,
     this.onSync,
     this.onBackups,
     this.onOpens,
@@ -669,6 +680,9 @@ class _RepositoryLine extends StatelessWidget {
   final Command? giveToken;
   final void Function(String repository)? onStart;
   final String? startUnavailable;
+
+  /// Why what reads the project's file here cannot run, where the project is not taken on this machine; null otherwise.
+  final String? notHere;
   final void Function(String repository)? onSync;
   final void Function(String repository)? onBackups;
   final void Function(String repository)? onOpens;
@@ -720,7 +734,7 @@ class _RepositoryLine extends StatelessWidget {
             group: 'Repositories',
             home: Home.repositoryRow,
             run: () => onSync?.call(name),
-            unavailable: onSync == null ? 'This repository is not on this machine.' : null,
+            unavailable: onSync == null ? notHere ?? 'This repository is not on this machine.' : null,
           ),
           Command(
             id: 'backups-$name',
@@ -728,7 +742,7 @@ class _RepositoryLine extends StatelessWidget {
             group: 'Repositories',
             home: Home.repositoryRow,
             run: () => onBackups?.call(name),
-            unavailable: onBackups == null ? 'This repository is not on this machine.' : null,
+            unavailable: onBackups == null ? notHere ?? 'This repository is not on this machine.' : null,
           ),
           Command(
             id: 'opens-$name',
@@ -736,7 +750,7 @@ class _RepositoryLine extends StatelessWidget {
             group: 'Repositories',
             home: Home.repositoryRow,
             run: () => onOpens?.call(name),
-            unavailable: onOpens == null ? 'This repository is not on this machine.' : null,
+            unavailable: onOpens == null ? notHere ?? 'This repository is not on this machine.' : null,
           ),
           Command(
             id: 'reach-$name',
@@ -744,7 +758,7 @@ class _RepositoryLine extends StatelessWidget {
             group: 'Repositories',
             home: Home.repositoryRow,
             run: () => onReach?.call(name),
-            unavailable: onReach == null ? 'This repository is not on this machine.' : null,
+            unavailable: onReach == null ? notHere ?? 'This repository is not on this machine.' : null,
           ),
           if (onTakeOut case final takeOut?)
             Command(
