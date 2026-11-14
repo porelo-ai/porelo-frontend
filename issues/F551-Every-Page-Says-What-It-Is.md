@@ -59,3 +59,11 @@ page is and what they do there; it stands open the first time, as on the pages t
 ## To be checked
 
 - The pages read but not measured: measure them with the guard's first run and add any that lack an `i` to the work.
+
+## Left
+
+- **Managing before the organization is read.** On a machine an organization's card names, while the organization's
+  list is not read yet or does not name the machine, *Managing this machine* draws the organization's machine page
+  with no `i` until the list is read, and then its head over the managing facts' own.
+- **Work's words while Running shows.** Work and a machine's *Tasks* keep their explanation mounted offstage under the
+  *Running* tab, so its first time can pass unseen there.

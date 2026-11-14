@@ -177,6 +177,9 @@ const Map<String, PageWords> pageWords = {
   'log': [(title: 'What is a log?', words: 'The lines a task writes, as they come. Close it to go back.')],
 };
 
+/// The name the Machine Admins page of a machine an organization's card names keeps its explanation under.
+const machineAdminsPageId = 'machine-admins';
+
 /// The words of Managing this machine where an organization's card names the machine: its Machine Admins.
 const PageWords machineAdminsWords = [
   (

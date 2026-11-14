@@ -253,7 +253,7 @@ void main() {
     expect(find.byKey(const ValueKey('organization-host build')), findsOneWidget);
     await guard.visit(
       'its Machine Admins',
-      machineSectionPageId(MachineSection.managing),
+      machineAdminsPageId,
       () => World.shell.choosePlace(
         ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.managing),
       ),

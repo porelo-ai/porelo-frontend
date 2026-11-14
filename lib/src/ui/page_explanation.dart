@@ -104,6 +104,16 @@ class _PageExplanationState extends State<PageExplanation> {
   }
 
   @override
+  void didUpdateWidget(PageExplanation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Another page's explanation drawn in this one's place: it is that page's first time, not this one's.
+    if (oldWidget.id != widget.id) {
+      oldWidget.settings.forgetExplanationOpen(oldWidget.id);
+      widget.settings.showExplanationTheFirstTime(widget.id);
+    }
+  }
+
+  @override
   void dispose() {
     widget.settings.forgetExplanationOpen(widget.id);
     super.dispose();

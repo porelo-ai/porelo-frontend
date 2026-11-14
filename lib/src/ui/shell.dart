@@ -4703,7 +4703,7 @@ class _ShellState extends State<Shell> {
                         machine.hostCard!.name,
                         onlyAdmins: true,
                         path: _machineSectionPath(machine),
-                        explanationId: explanationId,
+                        explanationId: machineAdminsPageId,
                         explanation: machineAdminsWords,
                       )
                     : _machineFacts(managing: true, head: head),

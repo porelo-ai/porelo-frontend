@@ -134,6 +134,26 @@ void main() {
     expect(find.text('Repositories on your forges.'), findsOneWidget);
   });
 
+  // Harm: a page drawn in another page's place keeps that page's explanation state, so its own words do not stand
+  // open the first time.
+  testWidgets('an explanation drawn in place of another stands open its own first time', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    await settings.load();
+    Widget page(String id) => MaterialApp(
+      home: Scaffold(
+        body: PageExplanation(id: id, settings: settings, parts: [(title: 'What is $id?', words: 'The $id page.')]),
+      ),
+    );
+    await tester.pumpWidget(page('first'));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('explanation-fold first')));
+    await tester.pump();
+    await tester.pumpWidget(page('second'));
+    await tester.pump();
+    expect(find.text('The second page.'), findsOneWidget);
+    expect(settings.explanationOpen('first'), isFalse);
+  });
+
   // Harm: an explanation closed before anything was read, and no way to open it again.
   testWidgets('My projects keeps its i with nothing read yet', (tester) async {
     final organization = Organization(
