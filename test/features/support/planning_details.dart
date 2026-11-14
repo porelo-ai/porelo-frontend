@@ -57,7 +57,7 @@ Future<void> tapPlanning(WidgetTester tester, Finder finder) async {
   await World.settle(tester);
 }
 
-/// Checks visible detail text, including selectable Markdown source.
+/// Checks visible detail text: plain, selectable, or rendered from Markdown.
 void expectPlanningDetail(String words, {bool present = true}) {
   final detail = planningElement('detail');
   expect(detail, findsOneWidget);
@@ -65,7 +65,7 @@ void expectPlanningDetail(String words, {bool present = true}) {
     of: detail,
     matching: find.byWidgetPredicate(
       (widget) =>
-          widget is Text && (widget.data?.contains(words) ?? false) ||
+          widget is Text && ((widget.data ?? widget.textSpan?.toPlainText())?.contains(words) ?? false) ||
           widget is SelectableText && (widget.data?.contains(words) ?? false),
     ),
   );

@@ -5,10 +5,12 @@ Feature: Open stories and issues from planning
         And the app is running
         When I open the planning board
 
-    # Harm: a card opens stale summaries instead of the machine supplied story and source text.
+    # Harm: a card opens stale summaries instead of the machine supplied story and source text, or shows a Markdown
+    # description as its raw signs.
     Scenario: A card opens its story
         When I open planning story {'ST291'}
-        Then planning details contain {'# Story source'}
+        Then planning details contain {'Story source'}
+        And planning details do not contain {'# Story source'}
         And planning details contain {'0 of 16 in Review or Finished'}
         And the planning issue table is shown
         And the planning breadcrumb is {'Planning,ST291'}
@@ -176,7 +178,7 @@ Feature: Open stories and issues from planning
         And I remember the planning board position
         And I open planning story {'ST291'}
         And the planning watch fails
-        Then planning details contain {'# Story source'}
+        Then planning details contain {'Story source'}
         And planning details do not contain {'Story supplied by another machine'}
         When I press planning breadcrumb {0}
         Then the planning board position is retained
@@ -213,7 +215,7 @@ Feature: Open stories and issues from planning
         Given the planning part {'Issue list'} is refused
         When I open planning story {'ST291'}
         Then the planning detail error is {'Issue list: This part is locked for repair'}
-        And planning details contain {'# Story source'}
+        And planning details contain {'Story source'}
         And planning details do not contain {'Issues not reported'}
         When I open the planning web link {'Open story'}
         Then the planning browser opened {'https://example.org/stories/ST291'}
@@ -276,7 +278,7 @@ Feature: Open stories and issues from planning
     Scenario: A failed story reload retains the last details
         When I open planning story {'ST291'}
         And the planning replacement part {'Story'} is refused
-        Then planning details contain {'# Story source'}
+        Then planning details contain {'Story source'}
         And the planning issue table is shown
         And the planning detail error is {'Story: This part is locked for repair'}
         And the planning message {'Story: This part is locked for repair'} appears once
@@ -286,7 +288,7 @@ Feature: Open stories and issues from planning
         When I open planning story {'ST291'}
         And the planning replacement part {'Issue list'} is refused
         Then the planning issue table is shown
-        And planning details contain {'# Story source'}
+        And planning details contain {'Story source'}
         And the planning detail error is {'Issue list: This part is locked for repair'}
 
     # Harm: a failed issue refresh erases the issue and its valid browser link.
@@ -305,7 +307,7 @@ Feature: Open stories and issues from planning
         And the planning watch fails
         And I reload planning
         Then planning details do not contain {'The last answer may be out of date'}
-        And planning details contain {'# Story source'}
+        And planning details contain {'Story source'}
 
     # Harm: an empty finding file produces a malformed or empty location.
     Scenario: A finding with an empty file shows only its line

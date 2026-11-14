@@ -52,7 +52,8 @@ void main() {
 
     expect(World.shell.section, Section.planning);
     await expectPlanningCrumbs(tester, 'Planning,ST291');
-    expectPlanningDetail('# Story source');
+    expectPlanningDetail('Story source');
+    expectPlanningDetail('# Story source', present: false);
     await planningBack(tester);
     _expectBoard();
   });

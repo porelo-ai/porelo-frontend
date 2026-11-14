@@ -84,7 +84,8 @@ void main() {
     testWidgets('''A card opens its story''', (tester) async {
       await bddSetUp(tester);
       await iOpenPlanningStory(tester, 'ST291');
-      await planningDetailsContain(tester, '# Story source');
+      await planningDetailsContain(tester, 'Story source');
+      await planningDetailsDoNotContain(tester, '# Story source');
       await planningDetailsContain(tester, '0 of 16 in Review or Finished');
       await thePlanningIssueTableIsShown(tester);
       await thePlanningBreadcrumbIs(tester, 'Planning,ST291');
@@ -261,7 +262,7 @@ void main() {
       await iRememberThePlanningBoardPosition(tester);
       await iOpenPlanningStory(tester, 'ST291');
       await thePlanningWatchFails(tester);
-      await planningDetailsContain(tester, '# Story source');
+      await planningDetailsContain(tester, 'Story source');
       await planningDetailsDoNotContain(tester, 'Story supplied by another machine');
       await iPressPlanningBreadcrumb(tester, 0);
       await thePlanningBoardPositionIsRetained(tester);
@@ -298,7 +299,7 @@ void main() {
       await thePlanningPartIsRefused(tester, 'Issue list');
       await iOpenPlanningStory(tester, 'ST291');
       await thePlanningDetailErrorIs(tester, 'Issue list: This part is locked for repair');
-      await planningDetailsContain(tester, '# Story source');
+      await planningDetailsContain(tester, 'Story source');
       await planningDetailsDoNotContain(tester, 'Issues not reported');
       await iOpenThePlanningWebLink(tester, 'Open story');
       await thePlanningBrowserOpened(tester, 'https://example.org/stories/ST291');
@@ -361,7 +362,7 @@ void main() {
       await bddSetUp(tester);
       await iOpenPlanningStory(tester, 'ST291');
       await thePlanningReplacementPartIsRefused(tester, 'Story');
-      await planningDetailsContain(tester, '# Story source');
+      await planningDetailsContain(tester, 'Story source');
       await thePlanningIssueTableIsShown(tester);
       await thePlanningDetailErrorIs(tester, 'Story: This part is locked for repair');
       await thePlanningMessageAppearsOnce(tester, 'Story: This part is locked for repair');
@@ -371,7 +372,7 @@ void main() {
       await iOpenPlanningStory(tester, 'ST291');
       await thePlanningReplacementPartIsRefused(tester, 'Issue list');
       await thePlanningIssueTableIsShown(tester);
-      await planningDetailsContain(tester, '# Story source');
+      await planningDetailsContain(tester, 'Story source');
       await thePlanningDetailErrorIs(tester, 'Issue list: This part is locked for repair');
     });
     testWidgets('''A failed issue reload retains the last issue''', (tester) async {
@@ -390,7 +391,7 @@ void main() {
       await thePlanningWatchFails(tester);
       await iReloadPlanning(tester);
       await planningDetailsDoNotContain(tester, 'The last answer may be out of date');
-      await planningDetailsContain(tester, '# Story source');
+      await planningDetailsContain(tester, 'Story source');
     });
     testWidgets('''A finding with an empty file shows only its line''', (tester) async {
       await bddSetUp(tester);
