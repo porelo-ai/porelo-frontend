@@ -1,4 +1,5 @@
 import 'package:porelo_frontend/client.dart' show Connection;
+import 'package:porelo_host/porelo_host.dart' show missingPoreloHost;
 
 import 'run_here.dart';
 
@@ -9,6 +10,7 @@ import 'run_here.dart';
 /// through `ForgeConnection.feedKeptToken`.
 String? tokenGivenWords(String host, String forge, Ran ran) {
   if (ran.code == 0) return null;
+  if (missingPoreloHost(host, ran.code) case final missing?) return missing;
   final said = ran.err.trim().isEmpty ? ran.out.trim() : ran.err.trim();
   if (RegExp(r'administration|forbidden|\b403\b|not accessible|must have admin', caseSensitive: false).hasMatch(said)) {
     return '$host could not use your $forge token: it needs Administration: write on these repositories. '

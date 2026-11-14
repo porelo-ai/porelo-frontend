@@ -457,6 +457,22 @@ void main() {
     });
   }
 
+  // Harm: a host whose setup stopped before installing porelo-host is refused with env's last line as its reason,
+  // which on uutils env names an option fault, and nothing says porelo-host is missing.
+  test('a membership read of a host without porelo-host says it is not installed there', () async {
+    provider.rented = const RentedHost(id: 'h1', address: '192.0.2.7', hostKey: sshKey, ready: true);
+    remote.statusResult = const RemoteResult(
+      127,
+      "env: '/usr/sbin/porelo-host': No such file or directory\nenv: use -[v]S to pass options in shebang lines\n",
+    );
+    final run = HostRun(provider: provider, remote: remote, emit: steps.add, trust: (_, _) async {});
+    expect(await run.memberships(plan), Exit.refused);
+    expect(steps.last.state, StepState.refused);
+    expect(steps.last.fix, contains('porelo-host is not installed on 192.0.2.7'));
+    expect(steps.where((step) => '${step.words}'.contains('-[v]S')), isEmpty);
+    expect(provider.released, isEmpty);
+  });
+
   // Harm: retrying a refused existing root login can lock out the administrator.
   // Rental retries still allow cloud-init to finish installing its key.
   for (final given in [true, false]) {

@@ -666,6 +666,10 @@ done''',
       final words = [result.stderr, answer.toString()].where((part) => part.isNotEmpty).join('\n');
       if (result.exitCode == 255) return _unreachable(step, words);
       if (result.exitCode != 0) {
+        // A missing porelo-host is said by its own words alone: env's lines name another fault on uutils env.
+        if (missingPoreloHost(address, result.exitCode) case final missing?) {
+          return _refused(step, RemoteResult(result.exitCode, ''), missing);
+        }
         return _refused(step, RemoteResult(result.exitCode, words), 'The host refused the membership read.');
       }
       HostMembership.readStatus(answer.toString());

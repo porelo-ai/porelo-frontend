@@ -118,6 +118,17 @@ void main() {
     expect(tokenGivenWords('build', 'GitHub', (code: 2, out: '', err: '')), contains('code 2'));
   });
 
+  // Harm: a token given to a machine whose setup stopped before installing porelo-host is refused with env's last
+  // line, which on uutils env names an option fault, and nothing says porelo-host is missing.
+  test('a machine without porelo-host is said so when given a token', () {
+    final said = tokenGivenWords('build', 'GitHub', (
+      code: 127,
+      out: '',
+      err: "env: '/usr/sbin/porelo-host': No such file or directory\nenv: use -[v]S to pass options in shebang lines\n",
+    ));
+    expect(said, allOf(contains('porelo-host is not installed on build'), isNot(contains('-[v]S'))));
+  });
+
   // Harm: a person is told nothing changed; the promise of what is done with the token must stand in the dialog.
   test('the words say what it is for, the right it needs, and where it goes', () {
     final words = keptTokenWords('build', 'GitHub', 'GitHub');

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:porelo_frontend/client.dart' show Repository;
-import 'package:porelo_host/porelo_host.dart' show poreloHostCommand;
+import 'package:porelo_host/porelo_host.dart' show missingPoreloHost, poreloHostCommand;
 
 import 'machines.dart' show openSsh;
 import 'organization_source.dart';
@@ -392,6 +392,7 @@ class SshHostProgress {
       if (answer.err.contains('Permission denied')) {
         throw OrganizationRefused(notTheAdminsKey(host));
       }
+      if (missingPoreloHost(host, answer.code) case final missing?) throw OrganizationRefused(missing);
       final said = answer.err.trim().split('\n').last.trim();
       throw OrganizationRefused(said.isEmpty ? 'The machine refused this, and did not say why.' : said);
     }

@@ -62,6 +62,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A machine whose setup stopped before installing porelo-host now says so on its page, with *Set up this machine…* to go on, instead of the last line `env` printed there, which on Ubuntu 26.04 read *use -[v]S to pass options in shebang lines*.
 - The packages install the carried host collection readable by every account, not by root alone, so *Set up a machine* runs its check again; where the check cannot be offered, the setup now says which of a missing collection, one this account cannot read, one with another digest or one without a check stands in the way, instead of saying of each that it holds no check.
 - A task the window finds again by its start's key, after the window ended before Start answered, is taken only when it is of the offer's project; one whose row names no task lets its start go instead of keeping it for ever; and two starts of one project at once are each paired with their own task by their key.
 - While a machine is being opened or reconnects, every page draws it as not answering yet, and an action on it changes nothing and says so in a notice; before, what was done on it then, a project chosen, a line said or the saved place, was lost without a word. A run started unattended follows its machine through a reconnect.

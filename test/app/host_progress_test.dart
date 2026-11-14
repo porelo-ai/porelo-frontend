@@ -263,6 +263,30 @@ void main() {
       );
     });
 
+    // Harm: a machine whose setup stopped before installing porelo-host shows the last line env printed, which on
+    // uutils env sends the person after an option fault, and nothing says porelo-host is missing.
+    test('a host without porelo-host is said so, not by env\'s last line', () async {
+      answer = (
+        code: 127,
+        out: '',
+        err: "env: '/usr/sbin/porelo-host': No such file or directory\nenv: use -[v]S to pass options in shebang lines\n",
+      );
+      await expectLater(
+        progress.status('/c/build.conf', 'build'),
+        throwsA(
+          isA<OrganizationRefused>().having(
+            (refused) => refused.words,
+            'words',
+            allOf(
+              contains('porelo-host is not installed on build'),
+              contains('Set up this machine'),
+              isNot(contains('-[v]S')),
+            ),
+          ),
+        ),
+      );
+    });
+
     // Harm: a refusal reads as a state.
     test("a refusal is said in the host's words", () async {
       answer = (code: 65, out: '', err: 'porelo-host: nope\n');
