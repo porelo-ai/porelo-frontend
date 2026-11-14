@@ -162,7 +162,11 @@ void main() {
     expect(await client.tasks(), isEmpty, reason: 'answered while the wait is out');
 
     await waiting.cancel();
-    await pumpEventQueue();
+    // The mock sees the close when its socket does, which a busy machine takes more than one turn of the queue for.
+    final until = DateTime.now().add(const Duration(seconds: 5));
+    while (daemon.openConnections != before && DateTime.now().isBefore(until)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
     expect(daemon.openConnections, before, reason: 'left, the wait closed its connection');
     answer.complete(<String, dynamic>{'stored': true, 'reason': ''});
   });

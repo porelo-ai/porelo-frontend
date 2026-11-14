@@ -150,7 +150,7 @@ void main() {
       await iRevoke(tester, 'laptop');
       await thisDeviceKeepsNoKeyForTheMachine(tester);
       await enrollingIsOfferedInTheMachinesMenu(tester);
-    });
+    }, tags: ['linux']);
     testWidgets('''the recovery passphrase is listed and cannot be revoked from here''', (tester) async {
       await bddSetUp(tester);
       await iShowTheVault(tester);
@@ -238,7 +238,7 @@ void main() {
       await iShowTheVault(tester);
       await iBeginRevoking(tester, 'laptop');
       await itSays(tester, 'This device will no longer open the vault, and forgets its key.');
-    });
+    }, tags: ['linux']);
     testWidgets('''revoking the last device says before it is done what only the passphrase opens afterwards''', (
       tester,
     ) async {
@@ -251,7 +251,7 @@ void main() {
       await itSays(tester, 'stays shut after every restart until someone types the passphrase there');
       await itSays(tester, 'Without the passphrase, its entries are lost for good');
       await itSays(tester, 'this window cannot tell');
-    });
+    }, tags: ['linux']);
     testWidgets('''revoking a device that is not the last says nothing of the passphrase''', (tester) async {
       await bddSetUp(tester);
       await anotherDeviceCanOpenTheStore(tester, 'old phone');
@@ -268,7 +268,7 @@ void main() {
       await iShowTheVault(tester);
       await iBeginRevoking(tester, 'old phone');
       await itSays(tester, '"old phone" will no longer open the vault.');
-    });
+    }, tags: ['linux']);
     testWidgets('''a key kept in a keyring that opens at login is said to be readable by this user''', (tester) async {
       await bddSetUp(tester);
       await anotherDeviceKeepsItsKey(tester, 'desk', 'USER_SCOPED');

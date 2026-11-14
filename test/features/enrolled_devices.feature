@@ -88,6 +88,9 @@ Feature: Opening the store with an enrolled device, never with a passphrase
         Then it says {'"old phone" can no longer open the vault.'}
         And this device keeps the key the machine was given
 
+    # Linux only: Windows runs no Porelo of its own, so the machine here is not this computer, where the passphrase is
+    # typed; there the last device is not revoked from the window at all.
+    @linux
     Scenario: revoking this device forgets its key here, and enrolling is offered again
         When I enroll this device as {'laptop'}
         And I close the answer
@@ -159,6 +162,9 @@ Feature: Opening the store with an enrolled device, never with a passphrase
         Then it says {'Enrolled 2026-09-10, last used 2026-09-17.'}
         And it says {'Enrolled 2026-09-18, not used yet.'}
 
+    # Linux only: Windows runs no Porelo of its own, so the machine here is not this computer, where the passphrase is
+    # typed; there the last device is not revoked from the window at all.
+    @linux
     Scenario: revoking this device says before it is done that this device will not open the store
         When I enroll this device as {'laptop'}
         And I close the answer
@@ -168,6 +174,9 @@ Feature: Opening the store with an enrolled device, never with a passphrase
 
     # Harm: the last device is revoked with no word that the vault then opens only by its passphrase at the machine,
     # stays shut after every restart, and loses its entries for good without it.
+    # Linux only: Windows runs no Porelo of its own, so the machine here is not this computer, where the passphrase is
+    # typed; there the last device is not revoked from the window at all.
+    @linux
     Scenario: revoking the last device says before it is done what only the passphrase opens afterwards
         When I enroll this device as {'laptop'}
         And I close the answer
@@ -188,6 +197,9 @@ Feature: Opening the store with an enrolled device, never with a passphrase
         Then it says {'"old phone" will no longer open the vault.'}
         And it does not say {'lost for good'}
 
+    # Linux only: Windows runs no Porelo of its own, so the machine here is not this computer, where the passphrase is
+    # typed; there the last device is not revoked from the window at all.
+    @linux
     Scenario: revoking another device names it before it is done
         Given another device {'old phone'} can open the store
         When I show the vault

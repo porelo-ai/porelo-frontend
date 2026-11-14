@@ -73,7 +73,7 @@ void main() {
       await iImportWhatTheAgentAlreadyHas(tester);
       await theProviderSays(tester, 'a-provider', 'Stored as an-agent: 51 characters');
       await noSecretCrossedTheSocket(tester);
-    });
+    }, tags: ['linux']);
     testWidgets('''nothing to import is a sentence with a next step, never a failure''', (tester) async {
       await bddSetUp(tester);
       await importingWillFindNothing(tester);

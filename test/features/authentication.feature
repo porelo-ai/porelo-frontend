@@ -44,6 +44,8 @@ Feature: Which providers a machine is authenticated against
         And it says {'That is not the same as none of them being'}
 
     # The daemon reads the agent's own config file on its own disk. Only a name crosses.
+    # Linux only: Windows runs no Porelo of its own, so the machine here is not this computer, and the button names it.
+    @linux
     Scenario: what an agent already holds there is imported without a secret crossing
         When I show what this machine can authenticate against
         And I open the provider {'A Provider'}
