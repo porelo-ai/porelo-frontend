@@ -45,7 +45,7 @@ void main() {
           'sealed': 'c2VhbGVk',
           'name': 'an-agent',
           'kind': 'oauth',
-          'detail': '',
+          'detail': 'sealed here',
         }),
       )
       ..method(
@@ -105,7 +105,7 @@ void main() {
     final sealed = await client.sealCredential(key: receiver.key, name: 'an-agent');
     expect(
       (sealed.outcome, sealed.sealed, sealed.name, sealed.kind, sealed.detail),
-      ('SEALED', 'c2VhbGVk', 'an-agent', 'oauth', ''),
+      ('SEALED', 'c2VhbGVk', 'an-agent', 'oauth', 'sealed here'),
     );
     final received = await client.receiveCredential(
       sealed: sealed.sealed,
