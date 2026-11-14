@@ -98,7 +98,7 @@ void main() {
       await iShowWhatThisMachineCanAuthenticateAgainst(tester);
       await iOpenTheProvider(tester, 'A Provider');
       await iImportWhatTheAgentAlreadyHas(tester);
-      await itSays(tester, 'The vault is shut, so nothing here can say whether it holds one');
+      await theProviderSays(tester, 'a-provider', 'The vault is shut, so nothing here can say whether it holds one');
     });
     testWidgets('''where a provider has more than one way in, what differs is said''', (tester) async {
       await bddSetUp(tester);
