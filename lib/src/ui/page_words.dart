@@ -19,7 +19,7 @@ String openedPageId(Opened opened) => switch (opened) {
 /// The name a machine's section keeps its explanation under.
 String machineSectionPageId(MachineSection section) => 'machine-${section.name}';
 
-/// The words of the pages that draw them on their own head, by the name each is kept under.
+/// The words of the pages, by the name each is kept under.
 const Map<String, PageWords> pageWords = {
   'planning': [
     (
@@ -41,65 +41,95 @@ const Map<String, PageWords> pageWords = {
     (
       title: "What is a machine's page?",
       words:
-          'One machine: whether it answers and what it holds. Its sections go on: its tasks, projects, vault, '
-          'credentials, agents, health and how it is managed.',
+          'One machine: whether it answers, and what it holds at a glance. Where this window holds it, its '
+          'sections go further: Tasks, Projects, Vault, Credentials, Agents & providers, Health and Managing this '
+          'machine.',
     ),
   ],
   'machine-tasks': [
     (
       title: 'What is Tasks?',
       words:
-          'The work on this machine: running, waiting for a person, or stopped. Open a task to see it and act on it.',
+          "This machine's tasks, running or stopped. Open one to see it and act on it; Running shows the terminals "
+          'of its running work.',
     ),
   ],
   'machine-projects': [
     (
       title: 'What is Projects?',
-      words: "The projects on this machine. Open one to see its repositories and jobs, and to start work on it.",
+      words: 'The projects on this machine. Open one to see its repositories and saved jobs, and to start work on it.',
     ),
   ],
   'machine-vault': [
     (
       title: 'What is the Vault?',
-      words: "What this machine keeps sealed for its work, and the devices that may open it.",
+      words:
+          "The entries this machine's vault keeps for its work, never shown, and the devices that open it. Make, "
+          'open or shut the vault from here.',
     ),
   ],
   'machine-credentials': [
     (
       title: 'What is Credentials?',
-      words: "The tokens and keys this machine's work signs in with, and whether each still holds.",
+      words:
+          "The credentials this machine's work declares: whether each is present where it is kept, and when it "
+          'expires where that is known. Add one from here.',
     ),
   ],
   'machine-agents': [
     (
       title: 'What is Agents & providers?',
-      words: 'The coding agents this machine can run and the providers they reach, with what stands in their way.',
+      words: 'The coding agents installed on this machine, with their versions, and the providers they sign in to.',
     ),
   ],
   'machine-health': [
     (
       title: 'What is Health?',
-      words: "Checks of this machine's parts: whether each answers, and what stands in the way of work.",
+      words:
+          'Whether this machine can run work: each part it checks, and what is missing or not fine. Check it again '
+          'from here.',
     ),
   ],
   'machine-managing': [
     (
       title: 'What is Managing this machine?',
-      words: 'Who manages this machine and how it is kept: its connection, its updates, and taking it off.',
+      words:
+          'Its connection, vault, work and health at a glance, and what can be done with it: check it, read it '
+          'again, open or shut its vault, stop Porelo on it, stop everything on it, or clear it of what Porelo put '
+          'there.',
+    ),
+  ],
+  'organization-project': [
+    (
+      title: "What is an organization's project?",
+      words:
+          'One project of your organization: whether its pushes need review, its project repository, its '
+          'repositories and its members. A Project Admin changes them here, and puts it on a machine or takes it '
+          'off.',
+    ),
+  ],
+  'organizations': [
+    (
+      title: 'What is the Porelo organization?',
+      words:
+          'Who manages it, its people with their cards, its projects with their members, and its machines. '
+          'Porelo asks it whom to trust before anyone gets onto a machine.',
     ),
   ],
   'project': [
     (
       title: "What is a project's page?",
       words:
-          'One project on a machine: its repositories, its jobs, who reviews what it pushes and whom it may talk '
-          'to. Start work on it from here.',
+          'One project on a machine: its repositories, the machines it is on, its saved jobs, the pushes waiting at '
+          'the gate, where it may reach on the network, and its room. Start work on it from here.',
     ),
   ],
   'forge': [
     (
       title: "What is a forge's page?",
-      words: "The repositories you reach on this forge. A repository's menu makes it a project.",
+      words:
+          "The repositories you reach on this forge. A repository's menu opens its project, opens it at the "
+          'forge, works on it in the Default project, or shows the changes waiting in it.',
     ),
   ],
   'work-item': [
@@ -115,7 +145,10 @@ const Map<String, PageWords> pageWords = {
     ),
   ],
   'operations': [
-    (title: 'What is Operations?', words: 'What the window did for you, newest first. Open one to read its lines.'),
+    (
+      title: 'What is Operations?',
+      words: 'What this window ran for you, in this session or on this machine. Open one to read its lines.',
+    ),
   ],
   'gate': [
     (
@@ -126,7 +159,7 @@ const Map<String, PageWords> pageWords = {
   'review': [
     (
       title: 'What is a review?',
-      words: 'One push waiting at the gate: read its changes, then approve it to let it out or reject it.',
+      words: 'One push waiting at the gate: read its changes, copy the diff, then forward it or drop the request.',
     ),
   ],
   'egress': [
@@ -138,8 +171,18 @@ const Map<String, PageWords> pageWords = {
   'backups': [
     (
       title: 'What is Backups?',
-      words: "Copies of this machine's mirror of its repositories: look at one, restore from it, or remove it.",
+      words: "The backups recorded of a project's repositories on this machine: restore from one, or remove one.",
     ),
   ],
   'log': [(title: 'What is a log?', words: 'The lines a task writes, as they come. Close it to go back.')],
 };
+
+/// The words of Managing this machine where an organization's card names the machine: its Machine Admins.
+const PageWords machineAdminsWords = [
+  (
+    title: 'What is Machine Admins?',
+    words:
+        "Who administers this machine for the organization. A Machine Admin names another one here, and makes a "
+        'backup key.',
+  ),
+];

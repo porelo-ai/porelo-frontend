@@ -426,7 +426,7 @@ class _FilteredListSectionState extends State<FilteredListSection> {
         Flexible(
           child: Text(widget.title, style: theme.textTheme.titleMedium, overflow: TextOverflow.ellipsis),
         ),
-        if (PageExplanationScope.of(context) case final scope? when scope.title == widget.title)
+        if (PageExplanationScope.listOf(context) case final scope? when scope.title == widget.title)
           PageExplanationButton(id: scope.id, settings: scope.settings),
         const SizedBox(width: Space.small),
         DecoratedBox(
@@ -500,7 +500,8 @@ class _FilteredListSectionState extends State<FilteredListSection> {
 
   Widget _leaf(List<FilteredRow> shown) {
     final theme = Theme.of(context);
-    final scope = PageExplanationScope.of(context);
+    // A page opened over the frame draws its explanation on its own head, never on a list in it.
+    final scope = PageExplanationScope.listOf(context);
     final phone = WindowSize.fromContext(context) == WindowSize.compact;
     final target = WindowSize.fromContext(context).showsTwoPanes ? Sizes.leafSort : Sizes.touchTarget;
     final read = howLongSince(widget.readAt);

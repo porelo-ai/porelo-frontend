@@ -749,7 +749,8 @@ void main() {
           .map((element) => (element.widget.key! as ValueKey<String>).value)
           .toSet();
       expect(dangerous, {'machine.panic', 'machine.clear'});
-      expect(find.textContaining('Last read: '), findsOneWidget);
+      // Below the page's explanation, which stands open the first time.
+      expect(find.textContaining('Last read: ', skipOffstage: false), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

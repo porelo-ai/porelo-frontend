@@ -429,7 +429,8 @@ void main() {
     World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
     await World.settle(tester);
     await _tap(tester, 'project build/demo');
-    final row = tester.widget<TemplateRow>(find.byType(TemplateRow));
+    // Below the page's explanation, which stands open the first time.
+    final row = tester.widget<TemplateRow>(find.byType(TemplateRow, skipOffstage: false));
     expect(row.unavailable, isNotNull);
     row.onPressed();
     await World.settle(tester);

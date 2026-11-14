@@ -2092,6 +2092,8 @@ class _ShellState extends State<Shell> {
           connections: _hostConnections,
           onGiveToken: _giveHostToken,
           onBack: _backFromOrganizationProject,
+          settings: widget.settings,
+          explanation: pageWords[OrganizationProjectPage.explanationId]!,
         );
 
   /// The organization's people, projects, hosts and owners.
@@ -2206,35 +2208,38 @@ class _ShellState extends State<Shell> {
   Widget _forgePage() {
     final machineAtOpen = widget.machines.current;
     return _opened() ??
-        ListenableBuilder(
-          listenable: Listenable.merge(<Listenable>[
-            for (final machine in widget.machines.all) ?widget.machines.watching(machine),
-          ]),
-          builder: (context, _) => ForgePage(
-            onBack: () => widget.shell.goTo(Section.forges),
-            onMachine: (name) {
-              final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
-              if (machine != null) _openPageMachine(machine);
-            },
-            forges: _forges,
-            usedBy: _usedBy,
-            usedOn: _machinesWorkingOn,
-            inDefault: (fullName) => (_fleet?.projects ?? const <ProjectOnScreen>[])
-                .where((each) => each.name == defaultProject)
-                .any(
-                  (each) =>
-                      each.project.repositoryStates.any((repository) => fullNameOf(repository.upstream) == fullName),
-                ),
-            onDefaultChanged: () => unawaited(_fleet?.refresh(quietly: true)),
-            machine: _fleet?.reachability == Reachability.connected ? _fleet?.backend : null,
-            machineName: widget.machines.current.name,
-            tokenVault: _forgeTokenVault,
-            onOpenProject: (entry, fullName) => unawaited(_openProjectOfRepository(entry, fullName)),
-            usedOnAt: _machinesWorkingOnAt,
-            onStartWork: (project) {
-              widget.machines.select(machineAtOpen);
-              return project == defaultProject ? _startInDefault() : _startWorkIn(project);
-            },
+        _explainedLeaf(
+          'forge',
+          ListenableBuilder(
+            listenable: Listenable.merge(<Listenable>[
+              for (final machine in widget.machines.all) ?widget.machines.watching(machine),
+            ]),
+            builder: (context, _) => ForgePage(
+              onBack: () => widget.shell.goTo(Section.forges),
+              onMachine: (name) {
+                final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
+                if (machine != null) _openPageMachine(machine);
+              },
+              forges: _forges,
+              usedBy: _usedBy,
+              usedOn: _machinesWorkingOn,
+              inDefault: (fullName) => (_fleet?.projects ?? const <ProjectOnScreen>[])
+                  .where((each) => each.name == defaultProject)
+                  .any(
+                    (each) =>
+                        each.project.repositoryStates.any((repository) => fullNameOf(repository.upstream) == fullName),
+                  ),
+              onDefaultChanged: () => unawaited(_fleet?.refresh(quietly: true)),
+              machine: _fleet?.reachability == Reachability.connected ? _fleet?.backend : null,
+              machineName: widget.machines.current.name,
+              tokenVault: _forgeTokenVault,
+              onOpenProject: (entry, fullName) => unawaited(_openProjectOfRepository(entry, fullName)),
+              usedOnAt: _machinesWorkingOnAt,
+              onStartWork: (project) {
+                widget.machines.select(machineAtOpen);
+                return project == defaultProject ? _startInDefault() : _startWorkIn(project);
+              },
+            ),
           ),
         );
   }
@@ -4366,24 +4371,21 @@ class _ShellState extends State<Shell> {
                             Section.machines =>
                               _organizationHost == null || _organization == null
                                   ? _machinesFacts()
-                                  : _machineOnePage(_organizationHost!),
+                                  : _machineOnePage(_organizationHost!, explanationId: 'machine'),
                             Section.projects => _projectsPage(),
                             Section.forges => _forgesPage(),
                             Section.organization =>
                               widget.shell.place.organizationSection == null
                                   ? _organizationsFacts(one: true)
                                   : _organizationPage(),
-                            Section.forge => _explainedHead('forge', _forgePage()),
+                            Section.forge => _forgePage(),
                             Section.machine || Section.project => ListenableBuilder(
                               listenable: _hostRuns,
                               builder: (context, _) => widget.shell.section == Section.project
                                   ? _machineArea()
                                   : switch (widget.shell.place.machineSection) {
-                                      null => _explainedHead('machine', _machineFacts()),
-                                      final MachineSection section => _explainedHead(
-                                        machineSectionPageId(section),
-                                        _machineSection(section),
-                                      ),
+                                      null => _machineFacts(),
+                                      final MachineSection section => _machineSection(section),
                                     },
                             ),
                           },
@@ -4615,7 +4617,8 @@ class _ShellState extends State<Shell> {
     final machine = widget.shell.place.machine!;
     if (!widget.machines.all.contains(machine)) return _machineFacts();
     final fleet = widget.machines.watching(machine);
-    if (fleet == null) return _notWatchedYetPage(machine, section.label);
+    final explanationId = machineSectionPageId(section);
+    if (fleet == null) return _notWatchedYetPage(machine, section.label, explanationId: explanationId);
     final tools = _toolsFor(machine);
     return ListenableBuilder(
       listenable: Listenable.merge([
@@ -4668,7 +4671,7 @@ class _ShellState extends State<Shell> {
             opened ??
             switch (section) {
               MachineSection.tasks => _workArea(onlyMachine: machine),
-              MachineSection.vault => _machineVault(machine, fleet, tools, head),
+              MachineSection.vault => _explainedLeaf(explanationId, _machineVault(machine, fleet, tools, head)),
               MachineSection.projects => ListView(
                 padding: const EdgeInsets.all(Space.normal),
                 children: [
@@ -4696,13 +4699,24 @@ class _ShellState extends State<Shell> {
               ),
               MachineSection.managing =>
                 _hasMachineAdmins(machine)
-                    ? _machineOnePage(machine.hostCard!.name, onlyAdmins: true, path: _machineSectionPath(machine))
+                    ? _machineOnePage(
+                        machine.hostCard!.name,
+                        onlyAdmins: true,
+                        path: _machineSectionPath(machine),
+                        explanationId: explanationId,
+                        explanation: machineAdminsWords,
+                      )
                     : _machineFacts(managing: true, head: head),
-              _ => _machineToolPage(machine, fleet, section, tools, head),
+              _ => _explainedLeaf(explanationId, _machineToolPage(machine, fleet, section, tools, head)),
             };
         // An answering machine's Tasks list draws this head itself, with its count and filter.
         final ownHead =
             !leaf && (section != MachineSection.tasks || opened != null || fleet.refusal != null || !answering);
+        // The head drawn here is the page's where nothing is opened over it and nothing below draws one: Projects,
+        // or Tasks while a refusal takes its list's place.
+        final explained =
+            opened == null &&
+            (section == MachineSection.projects || section == MachineSection.tasks && fleet.refusal != null);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -4716,7 +4730,11 @@ class _ShellState extends State<Shell> {
                       title: section.label,
                       path: _machineSectionPath(machine),
                       pathKey: ValueKey('machine-section-path ${machine.name}'),
+                      id: explained ? explanationId : null,
+                      settings: explained ? widget.settings : null,
                     ),
+                    if (explained)
+                      PageExplanation(id: explanationId, settings: widget.settings, parts: pageWords[explanationId]!),
                     ...notices,
                   ],
                 ),
@@ -4748,7 +4766,7 @@ class _ShellState extends State<Shell> {
   /// A page of [machine] while it is listed and not watched yet, as while it reconnects: nothing of it is read, and the
   /// page says so under its [title], with its way back and its status line. It is drawn anew once the machine is
   /// watched.
-  Widget _notWatchedYetPage(Machine machine, String title) => Column(
+  Widget _notWatchedYetPage(Machine machine, String title, {String? explanationId}) => Column(
     key: ValueKey('not-watched-yet-page ${machine.name}'),
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
@@ -4761,7 +4779,11 @@ class _ShellState extends State<Shell> {
               title: title,
               path: _machineSectionPath(machine),
               pathKey: ValueKey('machine-section-path ${machine.name}'),
+              id: explanationId,
+              settings: explanationId == null ? null : widget.settings,
             ),
+            if (explanationId != null)
+              PageExplanation(id: explanationId, settings: widget.settings, parts: pageWords[explanationId]!),
             Text('${machine.name} is not answering yet: it is being opened. This page is read once it answers.'),
           ],
         ),
@@ -4982,6 +5004,9 @@ class _ShellState extends State<Shell> {
       if (opened != null) return opened;
       return FactsPage(
         title: preparation.name,
+        settings: widget.settings,
+        explanationId: 'machine',
+        explanation: pageWords['machine']!,
         highlight: widget.shell.highlight,
         facts: [
           (label: 'State', value: hostPreparationWords(preparation), known: true),
@@ -5025,9 +5050,19 @@ class _ShellState extends State<Shell> {
       return withStatus(_managingPage(machine, fleet, tools!, vault, head));
     }
     final onePage = _onTheOrganizationsPage(machine);
+    // The page's one head draws its explanation: the managing head where there is one, else the organization's page
+    // of the machine where it is drawn in that, else this page's own.
+    final explanationId = head != null
+        ? machineSectionPageId(MachineSection.managing)
+        : onePage
+        ? null
+        : 'machine';
     final page = FactsPage(
       embedded: onePage,
       title: machine.name,
+      settings: explanationId == null ? null : widget.settings,
+      explanationId: explanationId,
+      explanation: explanationId == null ? const [] : pageWords[explanationId]!,
       head: head == null
           ? null
           : Column(
@@ -5035,6 +5070,8 @@ class _ShellState extends State<Shell> {
               children: [
                 PageHead(
                   title: MachineSection.managing.label,
+                  id: explanationId,
+                  settings: widget.settings,
                   path: head.path,
                   pathKey: head.pathKey,
                   subtitle:
@@ -5145,7 +5182,11 @@ class _ShellState extends State<Shell> {
           : [],
       tools: fleet != null && ownVault != null && vault != null ? _vaultButtonsFor(machine, fleet, ownVault) : null,
     );
-    return withStatus(onePage ? _machineOnePage(machine.hostCard!.name, work: page) : page);
+    return withStatus(
+      onePage
+          ? _machineOnePage(machine.hostCard!.name, work: page, explanationId: head == null ? 'machine' : null)
+          : page,
+    );
   }
 
   /// A machine's managing page: its head once, its facts as four tiles, its actions with the
@@ -5192,12 +5233,19 @@ class _ShellState extends State<Shell> {
         children: [
           PageHead(
             title: machine.name,
+            id: machineSectionPageId(MachineSection.managing),
+            settings: widget.settings,
             titleInAppBar: false,
             pathTitle: MachineSection.managing.label,
             path: head.path,
             pathKey: head.pathKey,
             titleChip: StateChip(answering ? 'Connected' : 'Not answering'),
             subtitle: '$kind · Porelo ${fleet.info?.version ?? 'not read'}',
+          ),
+          PageExplanation(
+            id: machineSectionPageId(MachineSection.managing),
+            settings: widget.settings,
+            parts: pageWords[machineSectionPageId(MachineSection.managing)]!,
           ),
           ...head.notices,
         ],
@@ -5319,15 +5367,9 @@ class _ShellState extends State<Shell> {
         title: title,
         settings: widget.settings,
         highlight: widget.shell.highlight,
-        explanationId: 'organization',
-        explanation: const [
-          (
-            title: 'What is the Porelo organization?',
-            words:
-                'Who manages it, its people with their cards, its projects with their members, and its machines. '
-                'Porelo asks it whom to trust before anyone gets onto a machine.',
-          ),
-        ],
+        // Organizations and one organization's page keep what was read of each apart.
+        explanationId: one ? 'organization' : 'organizations',
+        explanation: pageWords['organizations']!,
         warnings: [
           ?organization?.problem,
           if (view?.stale ?? false) 'The store could not be reached; these are the last facts read.',
@@ -5682,7 +5724,11 @@ class _ShellState extends State<Shell> {
     ),
   );
 
-  /// [page] with the `i` and the words of the page [id] on the page's own head.
+  /// [page], a single list drawn as a leaf, with the `i` and the words of the page [id] on that list's head.
+  Widget _explainedLeaf(String id, Widget page) =>
+      PageExplanationScope(title: '', id: id, settings: widget.settings, parts: pageWords[id]!, child: page);
+
+  /// [page], opened over the frame, with the `i` and the words of the page [id] on its pane's head.
   Widget _explainedHead(String id, Widget page) => PageExplanationScope(
     title: '',
     id: id,
@@ -5749,19 +5795,28 @@ class _ShellState extends State<Shell> {
               ? PageHead(title: 'Work', id: 'work', settings: widget.settings)
               : PageHead(
                   title: MachineSection.tasks.label,
+                  id: machineSectionPageId(MachineSection.tasks),
+                  settings: widget.settings,
                   path: _machineSectionPath(onlyMachine),
                   pathKey: ValueKey('machine-section-path ${onlyMachine.name}'),
                 ),
-          explanation: PageExplanation(
-            id: 'work',
-            settings: widget.settings,
-            parts: const <({String title, String words})>[
-              (
-                title: 'What is Work?',
-                words: 'All work on your machines: what is running, what has stopped, and the way to its terminal.',
-              ),
-            ],
-          ),
+          explanation: onlyMachine == null
+              ? PageExplanation(
+                  id: 'work',
+                  settings: widget.settings,
+                  parts: const <({String title, String words})>[
+                    (
+                      title: 'What is Work?',
+                      words:
+                          'All work on your machines: what is running, what has stopped, and the way to its terminal.',
+                    ),
+                  ],
+                )
+              : PageExplanation(
+                  id: machineSectionPageId(MachineSection.tasks),
+                  settings: widget.settings,
+                  parts: pageWords[machineSectionPageId(MachineSection.tasks)]!,
+                ),
           view: _workView,
           listFocus: _openedFocus,
           reveal: switch (_fleet?.selectedTask) {
@@ -6926,6 +6981,8 @@ class _ShellState extends State<Shell> {
     List<({String name, Widget row})>? machineProjects,
     bool onlyAdmins = false,
     List<LeafPathStep>? path,
+    String? explanationId,
+    List<({String title, String words})>? explanation,
   }) {
     final machine = widget.machines.all.where((machine) => machine.hostCard?.name == host).firstOrNull;
     return ListenableBuilder(
@@ -6934,6 +6991,9 @@ class _ShellState extends State<Shell> {
       listenable: Listenable.merge([_hostRuns, if (machine != null) ?widget.machines.watching(machine)]),
       builder: (context, _) => OrganizationHostPage(
         onlyAdmins: onlyAdmins,
+        settings: explanationId == null ? null : widget.settings,
+        explanationId: explanationId,
+        explanation: explanationId == null ? const [] : explanation ?? pageWords[explanationId]!,
         version: machine == null ? null : widget.machines.watching(machine)?.info?.version,
         lastAnswered: machine == null ? null : widget.machines.watching(machine)?.lastAnswered,
         path:

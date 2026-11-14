@@ -66,7 +66,7 @@ void main() {
     (Section.machines, 'machines', 'What is in My machines?', 'Where work runs'),
     (Section.forges, 'forges', 'What is in My forges?', 'Where your repositories are'),
     (Section.projects, 'projects', 'What is in My projects?', 'How work runs'),
-    (Section.organization, 'organization', 'What is the Porelo organization?', 'Who manages it'),
+    (Section.organizations, 'organizations', 'What is the Porelo organization?', 'Who manages it'),
   ]) {
     testWidgets('$question stands open the first time, and after that behind its i', (tester) async {
       await World.startBackend(World.work);

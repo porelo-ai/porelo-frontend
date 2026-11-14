@@ -10,6 +10,7 @@ import '../app/machines.dart';
 import '../app/organization_source.dart';
 import '../app/repository_address.dart';
 import '../app/run_here.dart' show WorkspaceRefused;
+import '../app/settings.dart';
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
 import 'page_explanation.dart';
@@ -371,8 +372,16 @@ class OrganizationProjectPage extends StatefulWidget {
     this.path = const [],
     this.connections,
     this.onGiveToken,
+    this.settings,
+    this.explanation = const [],
     super.key,
   });
+
+  /// Where the page's explanation is kept, or null for a page that draws none.
+  final Settings? settings;
+
+  /// What the page is and what a person does there, under its `i`.
+  final List<({String title, String words})> explanation;
 
   /// The ancestors of the place this project was opened from.
   final List<LeafPathStep> path;
@@ -391,6 +400,9 @@ class OrganizationProjectPage extends StatefulWidget {
 
   /// Returns to the list.
   final VoidCallback onBack;
+
+  /// The name the page's explanation is kept under.
+  static const explanationId = 'organization-project';
 
   @override
   State<OrganizationProjectPage> createState() => _OrganizationProjectPageState();
@@ -576,7 +588,11 @@ class _OrganizationProjectPageState extends State<OrganizationProjectPage> {
           action: commands.isEmpty
               ? null
               : CommandMenu(tooltip: 'What can be done with ${widget.project}', commands: commands),
+          id: widget.settings == null ? null : OrganizationProjectPage.explanationId,
+          settings: widget.settings,
         ),
+        if (widget.settings case final settings? when widget.explanation.isNotEmpty)
+          PageExplanation(id: OrganizationProjectPage.explanationId, settings: settings, parts: widget.explanation),
         if (_problem case final problem?) _Problem(problem, onRetry: () => unawaited(_read())),
         if (_reading && _lastRead)
           Text('Reading ${widget.project} again…', key: const Key('organization-project-reading-again'))

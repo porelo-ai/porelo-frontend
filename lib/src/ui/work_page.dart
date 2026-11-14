@@ -482,7 +482,7 @@ class _WorkPageState extends State<WorkPage> {
   Widget _leafHead(BuildContext context, List<Tile> tiles) {
     final supplied = widget.head;
     final head = supplied is PageHead ? supplied : null;
-    final scope = PageExplanationScope.of(context);
+    final scope = PageExplanationScope.listOf(context);
     final work = tiles.length == 1 ? 'piece of work' : 'pieces of work';
     // Work its agent said is done is not running work, though its container may be up.
     final running = tiles.where((tile) => tile.task?.runningWork ?? false).length;

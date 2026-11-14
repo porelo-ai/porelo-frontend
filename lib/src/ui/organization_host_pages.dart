@@ -9,6 +9,7 @@ import '../app/host_progress.dart';
 import '../app/host_runs.dart' show HostPreparation;
 import '../app/key_recovery.dart' show BackupScope;
 import '../app/organization_source.dart';
+import '../app/settings.dart';
 import '../app/tunnel.dart' show Tunnel;
 import 'asking_button.dart';
 import 'command_menu.dart';
@@ -325,8 +326,21 @@ class OrganizationHostPage extends StatefulWidget {
     this.onlyAdmins = false,
     this.version,
     this.lastAnswered,
+    this.settings,
+    this.explanationId,
+    this.explanation = const [],
     super.key,
   });
+
+  /// Where the page's explanation is kept, or null for a page that draws none.
+  final Settings? settings;
+
+  /// The name the page's explanation is kept under, or null for a page that draws none, as where it is part of
+  /// another page that draws its own.
+  final String? explanationId;
+
+  /// What the page is and what a person does there, under its `i`.
+  final List<({String title, String words})> explanation;
 
   /// Whether the page is the machine's *Machine Admins* leaf: their list and its two actions, nothing of the machine's
   /// own page again.
@@ -674,6 +688,11 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         if (_refusal case final refusal?) _Problem(refusal),
         if (view != null && host == null) Text('${view.name} has no machine ${widget.host}.'),
       ];
+      final settings = widget.settings;
+      final id = settings == null ? null : widget.explanationId;
+      final explained = id == null || settings == null || widget.explanation.isEmpty
+          ? null
+          : PageExplanation(id: id, settings: settings, parts: widget.explanation);
       if (widget.onlyAdmins) {
         return ListView(
           key: ValueKey('organization-host-admins ${widget.host}'),
@@ -681,10 +700,27 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           children: [
             OrganizationChangeMark(widget.organization),
             if (view == null || host == null) ...[
-              PageHead(title: 'Machine Admins', titleInAppBar: false, path: path, subtitle: 'not read'),
+              PageHead(
+                title: 'Machine Admins',
+                titleInAppBar: false,
+                path: path,
+                subtitle: 'not read',
+                id: id,
+                settings: settings,
+              ),
+              ?explained,
               ...problems,
-            ] else
-              _admins(view, host, isAdmin, path: path, beforeRows: problems),
+            ] else if (id == null || settings == null)
+              _admins(view, host, isAdmin, path: path, beforeRows: problems)
+            else
+              // The list is the page: its head draws the page's i and its words.
+              PageExplanationScope(
+                title: 'Machine Admins',
+                id: id,
+                settings: settings,
+                parts: widget.explanation,
+                child: _admins(view, host, isAdmin, path: path, beforeRows: problems),
+              ),
           ],
         );
       }
@@ -700,7 +736,10 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             pathKeys: const {'My machines': Key('organization-host-back'), 'Machines': Key('organization-host-back')},
             titleChip: _stateChip(host),
             subtitle: _headWords(),
+            id: id,
+            settings: settings,
           ),
+          ?explained,
           ...problems,
           if (view != null && host != null) ...[
             _connection(view, host),
