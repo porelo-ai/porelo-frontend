@@ -54,9 +54,11 @@ class _CarryCredentialDialogState extends State<CarryCredentialDialog> {
 
   Future<void> _carry({required bool replace}) async {
     final chosen = _chosen;
-    if (chosen == null) return;
+    // A second tap before the first answered carries nothing more.
+    if (chosen == null || _carrying) return;
     setState(() {
       _carrying = true;
+      _said = null;
       _failed = null;
     });
     try {

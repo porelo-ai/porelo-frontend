@@ -3,7 +3,6 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/credential_carry.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
 
-const _value = 'sk-the-value-itself';
 const _cipher = 'c2VhbGVkLXRvLXRoZS1ob3N0';
 
 /// One end of a carry, writing down what it was asked.
@@ -130,7 +129,7 @@ void main() {
     expect(calls[4], startsWith('here seal to key2'));
   });
 
-  // Harm: the words a person reads carry the ciphertext or the value.
+  // Harm: the words a person reads, or a printed answer, carry the ciphertext.
   test('neither the value nor the ciphertext is in any words', () async {
     for (final outcome in <String>['STORED', 'EXISTS', 'VAULT_LOCKED', 'NO_RECEIVER', 'REFUSED']) {
       host.receives = <String>[outcome];
@@ -141,7 +140,6 @@ void main() {
         provider: 'anthropic',
       );
       expect(said.words, isNot(contains(_cipher)));
-      expect(said.words, isNot(contains(_value)));
     }
     expect('${here.seals}', isNot(contains(_cipher)));
   });
@@ -151,7 +149,7 @@ void main() {
     const vault = VaultState(
       vault: 'vault',
       exists: true,
-      readable: false,
+      readable: true,
       credentials: <Credential>[
         Credential(name: 'anthropic', type: 'api-key', characters: 51, settings: <String, String>{}),
         Credential(name: 'git.example.org', type: 'token', characters: 40, settings: <String, String>{}),
@@ -190,8 +188,65 @@ void main() {
       ],
     );
     expect(sources.map((s) => s.id), <String>['vault anthropic', 'agent claude', 'agent pi']);
-    expect(sources[0].whyNot, contains('shut'));
+    expect(sources[0].whyNot, isNull);
+    expect(sources[0].facts, 'api-key · 51 characters');
     expect(sources[1].whyNot, isNull);
     expect(sources[2].whyNot, contains('not signed in on this computer'));
+  });
+
+  // Harm: a shut vault reads as one holding nothing for the provider, so nobody thinks to open it.
+  test("a shut vault keeps the provider's place, greyed with why", () {
+    const shut = VaultState(
+      vault: 'vault',
+      exists: true,
+      readable: false,
+      credentials: <Credential>[],
+      connections: <Connection>[],
+    );
+    final sources = sourcesFor(_provider, vault: shut, agents: const <Agent>[]);
+    expect(sources.single.id, 'vault anthropic');
+    expect(sources.single.whyNot, contains('shut'));
+    expect(sourcesFor(_provider, vault: null, agents: const <Agent>[]).single.whyNot, contains('could not be read'));
+  });
+
+  // Harm: an agent signed in to another provider is offered, and carrying it would store the wrong sign-in.
+  test('an agent signed in to another provider is greyed', () {
+    final sources = sourcesFor(
+      _provider,
+      vault: null,
+      agents: const <Agent>[
+        Agent(
+          name: 'omp',
+          label: 'omp',
+          binary: 'omp',
+          version: '',
+          from: '',
+          foundProvider: 'openai',
+          allowedDomains: <String>['api.anthropic.com'],
+        ),
+      ],
+    );
+    expect(sources.last.whyNot, 'omp is signed in to openai, not Anthropic.');
+  });
+
+  // Harm: a refusal here is said in words that do not tell the person what to do.
+  test("each refusal to seal says what to do, in the daemon's words too", () async {
+    here.seals = const SealedCredential(
+      outcome: 'VAULT_LOCKED',
+      sealed: '',
+      name: 'anthropic',
+      kind: '',
+      detail: 'Run porelo vault unlock.',
+    );
+    final said = await carry(
+      here: here,
+      host: host,
+      source: const VaultEntrySource(name: 'anthropic', type: 'api-key', characters: 51),
+      provider: 'anthropic',
+    );
+    expect(
+      said.words,
+      "This computer's vault is shut, so nothing could be taken from it. Open it here first. Run porelo vault unlock.",
+    );
   });
 }

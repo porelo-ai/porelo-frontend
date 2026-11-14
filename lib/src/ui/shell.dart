@@ -4887,10 +4887,11 @@ class _ShellState extends State<Shell> {
     if (watched == null || watched is! CarriesCredentials) return _notWatchedYet(machine);
     final FleetBackend host = watched;
     final receiver = watched as CarriesCredentials;
-    // This computer's own daemon, watched or asked afresh.
-    final here = widget.machines.watching(Machine.local())?.backend ?? Machines.overSocket(Machine.local());
-    var opened = widget.machines.watching(Machine.local())?.backend != null;
-    Future<FleetBackend> ready() async {
+    // This computer's own daemon, asked afresh over its own socket: a watched entry found by name could be a host
+    // of that name, and one still connecting has nothing open to ask.
+    final here = thisComputersPorelo();
+    var opened = false;
+    Future<PoreloBackend> ready() async {
       if (!opened) {
         await here.open();
         opened = true;
@@ -4909,15 +4910,7 @@ class _ShellState extends State<Shell> {
         return sourcesFor(provider, vault: vault, agents: agents.agents);
       },
       carry: (source, {required replace}) async {
-        final on = await ready();
-        if (on is! CarriesCredentials) throw StateError("this computer's porelo cannot carry credentials");
-        return carry(
-          here: on as CarriesCredentials,
-          host: receiver,
-          source: source,
-          provider: provider.name,
-          replace: replace,
-        );
+        return carry(here: await ready(), host: receiver, source: source, provider: provider.name, replace: replace);
       },
     );
     if (!mounted || !_stillWatching(machine, tools)) return;

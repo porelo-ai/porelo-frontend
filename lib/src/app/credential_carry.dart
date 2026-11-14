@@ -39,7 +39,7 @@ class VaultEntrySource extends CarrySource {
   String get label => name;
 
   @override
-  String get facts => <String>[if (type.isNotEmpty) type, '$characters characters'].join(' · ');
+  String get facts => <String>[if (type.isNotEmpty) type, if (characters > 0) '$characters characters'].join(' · ');
 
   @override
   String get id => 'vault $name';
@@ -108,10 +108,14 @@ List<CarrySource> sourcesFor(Provider provider, {required VaultState? vault, req
       ? null
       : "This computer's vault is shut; open it here to carry from it.";
   return <CarrySource>[
-    for (final entry in vault?.credentials ?? const <Credential>[])
-      if (entry.name == provider.credentialName ||
-          (provider.credentialType.isNotEmpty && entry.type == provider.credentialType))
-        VaultEntrySource(name: entry.name, type: entry.type, characters: entry.characters, whyNot: vaultShut),
+    // A shut or unread vault lists nothing, which is not the same as holding nothing: its place stays, greyed.
+    if (vaultShut != null)
+      VaultEntrySource(name: provider.credentialName, type: provider.credentialType, characters: 0, whyNot: vaultShut)
+    else
+      for (final entry in vault!.credentials)
+        if (entry.name == provider.credentialName ||
+            (provider.credentialType.isNotEmpty && entry.type == provider.credentialType))
+          VaultEntrySource(name: entry.name, type: entry.type, characters: entry.characters, whyNot: vaultShut),
     for (final agent in agents)
       if (agent.allowedDomains.contains(provider.upstream) || agent.foundProvider == provider.name)
         AgentSignInSource(

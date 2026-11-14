@@ -318,12 +318,17 @@ Future<List<Connection>> readThisComputersDeclarations({FleetBackend? localBacke
   }
 }
 
-/// Whether this computer's Porelo-Vault is shut, as its Porelo answers; null where it did not answer.
-Future<bool?> isThisComputersVaultShut({FleetBackend? localBackend}) async {
+/// This computer's own Porelo, not yet opened: its own socket, never one `PORELO_SOCKET` forwards from a host.
+PoreloBackend thisComputersPorelo() {
   final machine = desk.isWindows
       ? Machine.local()
       : Machine(name: 'this machine', socketPath: Backend.local().socketPath);
-  final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine));
+  return PoreloBackend(Machines.backendFor(machine));
+}
+
+/// Whether this computer's Porelo-Vault is shut, as its Porelo answers; null where it did not answer.
+Future<bool?> isThisComputersVaultShut({FleetBackend? localBackend}) async {
+  final backend = localBackend ?? thisComputersPorelo();
   try {
     await backend.open();
     final vault = await backend.credentials();
