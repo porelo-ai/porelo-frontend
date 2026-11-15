@@ -17,7 +17,12 @@ class WizardStep {
     required this.check,
     required this.summary,
     this.beforeNext,
+    this.shown,
   });
+
+  /// Whether the question has anything to ask now; false passes it over, its summary staying in the review. Null
+  /// asks it always.
+  final ValueGetter<bool>? shown;
 
   /// The short name in the step indicator.
   final String title;
@@ -107,6 +112,8 @@ class Wizard extends StatefulWidget {
     this.actions,
     this.scrollController,
     this.goBackTo,
+    this.start,
+    this.canLeave,
     super.key,
   }) : assert(steps.length > 0),
        assert(actions == null || actionSteps.length > 0);
@@ -144,6 +151,13 @@ class Wizard extends StatefulWidget {
   /// Set by the caller to a question's index when what that question proved no longer holds; the wizard goes there.
   final ValueListenable<int?>? goBackTo;
 
+  /// The review's start decision where no [actionSteps] follow: run on [action]'s button, the wizard closing with
+  /// true once it answers true, and staying on the review, its caller saying why, when it answers false.
+  final Future<bool> Function()? start;
+
+  /// Whether *Leave* is offered now; null offers it always.
+  final ValueGetter<bool>? canLeave;
+
   @override
   State<Wizard> createState() => _WizardState();
 }
@@ -165,6 +179,7 @@ class _WizardState extends State<Wizard> {
   void initState() {
     super.initState();
     _initial = [for (final step in widget.steps) List.of(step.summary())];
+    _index = _shownFrom(0, 1);
     widget.changes?.addListener(_changed);
     widget.goBackTo?.addListener(_goBack);
     _focusFirst();
@@ -244,6 +259,7 @@ class _WizardState extends State<Wizard> {
 
   String? get _reason {
     if (_checking) return 'Wait for the input check to answer.';
+    if (_executing && _actionStep == null) return 'Wait for the start to answer.';
     if (_index < widget.steps.length) return widget.steps[_index].check();
     if (_actionStep case final step?) {
       if (_failed != null) return _failed;
@@ -274,6 +290,17 @@ class _WizardState extends State<Wizard> {
     (_panel.currentContext as Element?)?.visitChildren(visit);
     first?.widget.focusNode.requestFocus();
   });
+
+  bool _asks(int index) => widget.steps[index].shown?.call() ?? true;
+
+  /// The first question from [index] on, going by [by], that asks something now; the review where none after it does,
+  /// and [index] itself where none before it does.
+  int _shownFrom(int index, int by) {
+    for (var at = index; at >= 0 && at < widget.steps.length; at += by) {
+      if (_asks(at)) return at;
+    }
+    return by > 0 ? widget.steps.length : index;
+  }
 
   void _go(int index) {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -321,10 +348,12 @@ class _WizardState extends State<Wizard> {
     if (_index == 0 || _checking || _actionRuns) return;
     if (_busy && !await _confirm('back')) return;
     _changing = false;
-    if (mounted) _go(_index - 1);
+    final to = _index <= widget.steps.length ? _shownFrom(_index - 1, -1) : _index - 1;
+    if (mounted && (to < _index && (to >= widget.steps.length || _asks(to)))) _go(to);
   }
 
   Future<void> _leave() async {
+    if (!(widget.canLeave?.call() ?? true)) return;
     if ((_given || _busy) && !_leavesFreely && !await _confirm('leave')) return;
     if (mounted) Navigator.of(context).pop();
   }
@@ -362,7 +391,15 @@ class _WizardState extends State<Wizard> {
       _go(widget.steps.length);
       return;
     }
+    if (_index == widget.steps.length && widget.actionSteps.isEmpty && widget.start != null) {
+      await _startOnTheReview();
+      return;
+    }
     final last = widget.steps.length + widget.actionSteps.length;
+    if (_index < widget.steps.length) {
+      _go(_shownFrom(_index + 1, 1));
+      return;
+    }
     if (_index == last) {
       _finish();
       return;
@@ -374,6 +411,24 @@ class _WizardState extends State<Wizard> {
             (action.state() == WizardActionState.running || action.state() == WizardActionState.waiting))) {
       await _run(action.run);
     }
+  }
+
+  Future<void> _startOnTheReview() async {
+    if (_executing) return;
+    setState(() {
+      _executing = true;
+      _failed = null;
+    });
+    bool started;
+    try {
+      started = await widget.start!();
+    } on Exception {
+      started = false;
+      if (mounted) setState(() => _failed = 'The start could not complete. Check its progress before trying again.');
+    } finally {
+      if (mounted) setState(() => _executing = false);
+    }
+    if (started && mounted) Navigator.of(context).pop(true);
   }
 
   Future<void> _run(AsyncCallback run) async {
@@ -451,7 +506,7 @@ class _WizardState extends State<Wizard> {
                                   Row(
                                     children: [
                                       Expanded(child: Text(step.title, style: Theme.of(context).textTheme.titleSmall)),
-                                      if (!_busy)
+                                      if (!_busy && _asks(index))
                                         TextButton(
                                           key: Key('wizard-change-$index'),
                                           onPressed: _checking ? null : () => _change(index),
@@ -484,8 +539,9 @@ class _WizardState extends State<Wizard> {
                   runSpacing: Space.small,
                   children: [
                     if (widget.actions case final actions?) actions(context, _run),
-                    TextButton(key: const Key('wizard-leave'), onPressed: _leave, child: const Text('Leave')),
-                    if (_index > 0 && !_actionRuns)
+                    if (widget.canLeave?.call() ?? true)
+                      TextButton(key: const Key('wizard-leave'), onPressed: _leave, child: const Text('Leave')),
+                    if (_index > _shownFrom(0, 1) && !_actionRuns && !_executing)
                       TextButton(key: const Key('wizard-back'), onPressed: _back, child: const Text('Back')),
                     FilledButton(
                       key: review ? widget.actionKey : const Key('wizard-next'),

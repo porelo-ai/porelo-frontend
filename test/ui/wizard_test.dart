@@ -286,4 +286,108 @@ void main() {
     expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
     expect(find.text('Give a second value before going on.'), findsOneWidget);
   });
+
+  Future<bool?> openStarting(
+    WidgetTester tester, {
+    required Future<bool> Function() start,
+    bool Function()? firstShown,
+    bool Function()? canLeave,
+  }) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    bool? answered;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async => answered = await showDialog<bool>(
+                context: context,
+                builder: (_) => Wizard(
+                  title: 'A start',
+                  action: 'Start',
+                  changes: Listenable.merge([first, second]),
+                  start: start,
+                  canLeave: canLeave,
+                  steps: [
+                    WizardStep(
+                      title: 'First',
+                      words: 'Give the first value.',
+                      panel: (_) => TextField(key: const Key('first'), controller: first),
+                      check: () => null,
+                      summary: () => ['first: ${first.text}'],
+                      shown: firstShown,
+                    ),
+                    WizardStep(
+                      title: 'Second',
+                      words: 'Give the second value.',
+                      panel: (_) => TextField(key: const Key('second'), controller: second),
+                      check: () => second.text.isEmpty ? 'Give a second value before going on.' : null,
+                      summary: () => ['second: ${second.text}'],
+                    ),
+                  ],
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await World.settle(tester);
+    return answered;
+  }
+
+  // Harm: a question with nothing to choose stands in the way, or its answer is missing from the review.
+  testWidgets('a step not shown is passed over, and its answer stays in the review', (tester) async {
+    first.text = 'given';
+    await openStarting(tester, start: () async => true, firstShown: () => false);
+    expect(find.byKey(const Key('second')), findsOneWidget);
+    expect(find.byKey(const Key('wizard-back')), findsNothing);
+    await tester.enterText(find.byKey(const Key('second')), 'two');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    expect(find.text('first: given'), findsOneWidget);
+    expect(find.byKey(const Key('wizard-change-0')), findsNothing);
+    expect(find.byKey(const Key('wizard-change-1')), findsOneWidget);
+    await tap(tester, 'wizard-back');
+    expect(find.byKey(const Key('second')), findsOneWidget);
+  });
+
+  // Harm: a refused start closes the wizard and drops what the person chose.
+  testWidgets('the start closes the wizard with true once it answers true, and stays when refused', (tester) async {
+    var answer = false;
+    var asked = 0;
+    await openStarting(
+      tester,
+      start: () async {
+        asked++;
+        return answer;
+      },
+    );
+    await tap(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('second')), 'two');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    await tap(tester, 'wizard-start');
+    expect(asked, 1);
+    expect(find.text('A start'), findsOneWidget, reason: 'a refused start keeps the wizard');
+    answer = true;
+    await tap(tester, 'wizard-start');
+    expect(asked, 2);
+    expect(find.text('A start'), findsNothing);
+  });
+
+  // Harm: leaving while the caller cannot let go drops a start under way.
+  testWidgets('Leave is offered only while the caller allows it', (tester) async {
+    var may = false;
+    await openStarting(tester, start: () async => true, canLeave: () => may);
+    expect(find.byKey(const Key('wizard-leave')), findsNothing);
+    may = true;
+    await tester.enterText(find.byKey(const Key('first')), 'x');
+    await tester.pump();
+    expect(find.byKey(const Key('wizard-leave')), findsOneWidget);
+  });
 }
