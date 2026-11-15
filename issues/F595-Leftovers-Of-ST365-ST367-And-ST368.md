@@ -41,8 +41,8 @@ before it is fixed.
 - A start's final reply's output and steps may be said twice in its operation where the machine repeats them there.
 - A planner-ordered start that fails after it said something also shows as a failed operation under *Needs you*,
   beside the report's own problem.
-- The *Start work* dialog stays over the window while it waits on Start, so the operation stands behind it until the
-  start answers; closing it at the press is porelo-planner's (PL140 shows the wait).
+- The *Start work* dialog staying over the window while it waits on Start: its own issue,
+  [F597](README.md#f597).
 - Test gaps: the planner told once is asserted only through the stand-in's count of starts; a start that answered
   without starting (`_Said`) has no operation test; a discussion's operation title is not asserted; the live read of
   the operations has no test of its own.
