@@ -301,8 +301,8 @@ class WindowTaskReports {
   /// again until [missingSettles] passed.
   final _resultMissingSince = <(String, String), DateTime>{};
 
-  /// Stage ends whose result could not be read from the machine in this window's life, by offer and end, so it is
-  /// said once and not tried on every change of the machine; the next start of the window tries once more.
+  /// Stage ends whose result could not be read from the machine yet, by offer and end, so it is said once; it is read
+  /// again on later sweeps.
   final _resultsNotRead = <(String, String)>{};
 
   /// Whether a planner not reached for a stage's result was said since the last one that went through.
@@ -781,20 +781,23 @@ class WindowTaskReports {
 
   /// Hands what [kept]'s planned stage produced at [end] to the planner: its result file's object, or one line of why
   /// there is none. Answers whether the planner has it now, saved or refused, so the end may be reported; a planner
-  /// not reached, a result still missing so soon after the end, or one that could not be read answers false.
+  /// not reached, a result still missing so soon after the end, or one that could not be read answers false, and is
+  /// tried again on a later sweep: the end waits for the result rather than go on without it.
   Future<bool> _handStageResult(PlannedOffer kept, String end) async {
     final name = kept.result!;
-    if (_resultsNotRead.contains((kept.offer, end))) return false;
     final TaskResult read;
     try {
       read = await resultOf(kept.machine, kept.container);
     } on Object catch (error) {
-      _resultsNotRead.add((kept.offer, end));
-      _sayLogged(
-        kept.provider,
-        kept.project,
-        'The $name of ${kept.container} could not be read from ${kept.machine}: $error',
-      );
+      // Said once; read again once [missingSettles] passed, or on the next change of the machine.
+      if (_resultsNotRead.add((kept.offer, end))) {
+        Timer(missingSettles, sweep);
+        _sayLogged(
+          kept.provider,
+          kept.project,
+          'The $name of ${kept.container} could not be read from ${kept.machine} yet: $error',
+        );
+      }
       return false;
     }
     if (read.state == ResultState.missing) {

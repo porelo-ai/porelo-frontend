@@ -85,8 +85,8 @@ then moved the issue to *Analyzed* on central, whose issue held no plan and no s
   or the planner, unreadable, or no JSON object is sent as `missing` with one line why. The end follows once the
   planner answered, saved or refused; a refusal is said with its faults. A transient one keeps the end back, is said
   once and tried on the next sweep; a hand-in saved while the end could not be told is not sent again
-  (`resultHanded`), also across a restart. One whose file could not be read from the machine is said once and not
-  tried again in this window's life.
+  (`resultHanded`), also across a restart. One whose file could not be read from the machine is said once and read
+  again on later sweeps (the Plan's "not tried again" would hold its end back for the window's life).
 - **Departure from the Plan:** a refused result still lets its end be reported: the planner moves the issue on the
   saved result, not on the end, as the agreed format says. The window removes no planned stage's task.
 - **Tests**, each seen red by a deliberate break, then restored from a copy:
@@ -105,7 +105,15 @@ then moved the issue to *Analyzed* on central, whose issue held no plan and no s
   - `test/ui/window_task_starts_test.dart` *a stage starts read only with its result file and given issues…*,
     through `PlanningTaskOrder.from` on the new pin: red without `given`, `readOnly` or the kept result. On the old pin
     the order itself is refused ("Only a discussion hands back a result."), read in its code, not run.
-- **Runs:** `dart analyze` No issues found; the six files above green together (122) on the new pin. `test/ui` and
+- **After the reading** by another model (Claude Sonnet). Red, fixed: a result the machine could not read held its
+  end back for the window's life; now read again (test *a result the machine could not read is said once and read
+  again…*, red with the once-only skip back, and with the line said on every sweep). Red, fixed: a planner not
+  reached or not proven was taken for a refusal, so the end went on and the result was lost; any failure to ask is
+  transient now (test *a planner not proven has not refused…*, red with the old flag), and so is a `NoSuchProject`
+  after the project was given (red without it). Yellows left: another 404 reads "needs a newer planner" also for a
+  task the planner does not know; the bound is the file's text, the body is re-encoded; the planner's faults are
+  said as it words them; an offer an earlier build kept reports its end with no hand-in.
+- **Runs:** `dart analyze` No issues found; the touched files green on the new pin. `test/ui` and
   `test/features` not run whole.
 - **Not done:** the Plan's feature scenario. The planner's `MockPlanningSource` serves no stage order and the
   features' world hands nothing to a planner, so a scenario needs a stand-in for both; left to

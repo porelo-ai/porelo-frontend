@@ -55,7 +55,9 @@ Future<void> handStageResult(
       within: within,
     );
   } on PlannerDidNotSave catch (refusal) {
-    throw StageResultNotSaved(refusal.words, faults: refusal.faults, transient: refusal.transient);
+    // A planner that could not be asked, or not proven, has not refused the result: its end waits and it is handed
+    // in again, never reported as if the planner had answered.
+    throw StageResultNotSaved(refusal.words, faults: refusal.faults, transient: true);
   }
   stageResultAnswered(answered.$1, answered.$2);
 }
@@ -78,6 +80,7 @@ void stageResultAnswered(int status, String body) {
   throw StageResultNotSaved(
     plannerWords(status, problem),
     faults: faultsIn(problem),
-    transient: status == 503 || status == 504,
+    // A project the planner was given and still does not know may be settling after its start.
+    transient: status == 503 || status == 504 || problem['title'] == 'NoSuchProject',
   );
 }

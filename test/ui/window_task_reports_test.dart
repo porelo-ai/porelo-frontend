@@ -960,6 +960,24 @@ void main() {
       expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
     });
 
+    // Harm: a machine that cannot answer for a moment, as right after it is reached again, holds the stage's end back
+    // for the rest of the window's life; or the failure is said on every change of the machine.
+    test('a result the machine could not read is said once and read again, and its end follows', () async {
+      final (reports, started, problems) = await staged();
+      machine.end(started.container, {'at': '2026-11-15T11:00:00Z', 'finished': true, 'result': analysisFile});
+
+      await sweeps(reports);
+      expect(stageResults, isEmpty);
+      expect(events(), [PlanningTaskEvent.started]);
+      expect(problems, hasLength(1));
+
+      results[started.container] = TaskResult.from({...analysisFile, 'content': jsonEncode(analysis)});
+      await sweeps(reports);
+      expect(stageResults.single.$4, analysis);
+      expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+      expect(problems, hasLength(1));
+    });
+
     // Harm: work that pushes waits for a result it never writes, so its end is never reported.
     test('a task with no result file reports its end alone', () async {
       final (starts, reports) = window();

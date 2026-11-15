@@ -165,6 +165,28 @@ void main() {
     );
   });
 
+  // Harm: a planner that cannot prove the token, as a stale address file or a planner starting again, is taken for
+  // one that refused the result: the end goes on and a good result is lost.
+  test('a planner not proven has not refused: the result is handed in again later', () async {
+    planner.signing.stranger = true;
+
+    await expectLater(
+      handStageResult('demo', 'pi', offer, result: result, runtimeDirectory: runtime.path),
+      throwsA(isA<StageResultNotSaved>().having((refusal) => refusal.transient, 'transient', isTrue)),
+    );
+    expect(planner.calls, isEmpty);
+  });
+
+  // Harm: a project the planner was given but does not know yet, while it settles, ends the hand-in for good.
+  test('a project still unknown after it was given is tried again later', () async {
+    planner.answer = (404, jsonEncode({'title': 'NoSuchProject'}));
+
+    await expectLater(
+      handStageResult('demo', 'pi', offer, result: result, runtimeDirectory: runtime.path),
+      throwsA(isA<StageResultNotSaved>().having((refusal) => refusal.transient, 'transient', isTrue)),
+    );
+  });
+
   // Harm: a planner not running loses the result instead of having it handed in once it runs.
   test('no planner running is a failure to try again later', () async {
     await File('${runtime.path}/porelo-planner/planner.json').delete();
