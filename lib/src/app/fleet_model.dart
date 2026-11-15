@@ -9,7 +9,7 @@ import 'mailboxes.dart';
 import 'fleet_backend.dart';
 import 'host_pull_requests.dart';
 import 'outcome_words.dart';
-import 'start_refusals.dart' show startRefusalWords;
+import 'start_refusals.dart' show isStartRefusal, startRefusalWords;
 import 'window_log.dart';
 
 /// Whether the interface can currently reach the backend it is pointed at.
@@ -498,11 +498,9 @@ class FleetModel extends ChangeNotifier {
       final StartProgress started;
       try {
         started = await backend.startAgain(project: file, task: task.task, repository: repository);
-      } on VarlinkDisconnected {
-        rethrow;
-      } on FeatureNotSupported {
-        rethrow;
       } on Exception catch (refused) {
+        // Only Start's refusals: a lost connection, an older machine, a timeout or a socket's fault goes on as before.
+        if (!isStartRefusal(refused)) rethrow;
         // In the words every start path says a refusal in, never the wire's type name.
         _say(
           '${task.name} was not started: ${startRefusalWords(refused, machine: machine ?? 'the machine')}',

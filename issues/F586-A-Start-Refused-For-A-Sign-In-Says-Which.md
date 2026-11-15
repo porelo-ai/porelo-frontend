@@ -126,5 +126,39 @@ Guards, each seen red first (break from a copy, restored, `cmp` equal, `git diff
   'needs-you-sign-in'").
 - `test/ui/window_task_starts_test.dart`: the VaultLocked expectation reads the window's words now.
 
-Not checked: the remote-host row's LOOPBACK note has no test (words only); a real host's SignInNeeded was not
-replayed (no VM, no window); `test/ui` and `test/features` were not run whole.
+Not checked: a real host's SignInNeeded was not replayed (no VM, no window); `test/ui` and `test/features` were not
+run whole.
+
+### After the reading
+
+Another model read the change. Fixed, each with a guard seen red:
+
+- An unknown refusal with no detail, message or reason printed every parameter's value. It now names the error and
+  the parameter keys only ("<machine> refused (Name: key, key)"). Break: keys back to "key value"; red: "Expected:
+  'build-host refused (SomethingNew: which, token).' Actual: '… (SomethingNew: which moon, token hunter2-secret).'"
+- `SignInsNeeded` had no tests. A second refusal for the same machine and agent adds no second row (break: the
+  check for a kept one removed; red: "Expected: <2> Actual: <3>"). `keepOnly` drops the row of a machine no longer
+  watched (break: it keeps every row; red: "Expected: ['laptop'] Actual: ['build-host', 'laptop']").
+- An operation that is no start (a stop or a removal failing with NoSuchTask, VaultLocked or an unknown error) is
+  said in words that fit any operation. Break: VaultLocked worded as a start's; red: "Expected: not contains 'start'".
+- `FleetModel.startAgain` caught every exception. It now catches only Start's refusals (`isStartRefusal`: a
+  `VarlinkException`, `SignInNeeded`, `NoSuchDestination`, `EarlierWorkWaits`, `UpstreamUnreadable`, `StartRefused`);
+  a lost connection, an older machine, a timeout or a socket's fault goes on as before. Break: the rethrow removed;
+  red: "Expected: throws <Instance of 'TimeoutException'> … emitted <null>".
+- The board said "Needs you offers its sign-in." whenever an offer was wired. `onSignInNeeded` and
+  `SignInsNeeded.need` now answer whether the row stands, and the board says it only then. Break: said on every
+  SignInNeeded; red: "Expected: not contains 'Needs you' Actual: '… Needs you offers its sign-in.'"
+  (`test/ui/window_task_starts_test.dart`).
+
+Left as it is: the agent's label in a restart's words, and in an operation's other than the start form's. Neither
+`FleetModel` nor `Operations` holds the machine's agents list, so these name the agent by the name the machine sent.
+The start form, *Start agents* and the Planning start use the label. The other points left open are under *To be
+checked*.
+
+## To be checked
+
+- A *Needs you* sign-in row resolves only on its own sign-in's `signedIn` answer: one made elsewhere (the start form,
+  a terminal at the machine) leaves it until it is pressed or its machine is forgotten.
+- The row's key is the machine's name, so a machine renamed leaves its row until the machine is forgotten.
+- The row's `ask()` runs on the backend of the start that was refused, which may be stale after a reconnect.
+- The row's LOOPBACK note (made at the machine or carried with "Import from this computer…") has no test.

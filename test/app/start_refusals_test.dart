@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/agent_sign_in.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/operations.dart';
 import 'package:porelo_frontend/src/app/start_refusals.dart';
@@ -91,9 +92,11 @@ void main() {
         _words('SomethingNew', {'detail': 'The moon is in the way'}),
         'build-host refused: The moon is in the way.',
       );
-      final bare = _words('SomethingNew', {'which': 'moon'});
-      expect(bare, contains('build-host refused'));
-      expect(bare, contains('which moon'));
+      // Harm: a value the machine sent with an unknown refusal, a secret among them, is shown on screen.
+      final bare = _words('SomethingNew', {'which': 'moon', 'token': 'hunter2-secret'});
+      expect(bare, 'build-host refused (SomethingNew: which, token).');
+      expect(bare, isNot(contains('moon')), reason: 'no value is ever shown');
+      expect(bare, isNot(contains('hunter2-secret')), reason: 'no value is ever shown');
       expect(bare, isNot(contains(_tasks1)), reason: 'not the wire name');
     });
   });
@@ -114,5 +117,64 @@ void main() {
     expect(operation.summary, startsWith('claude is not signed in on build-host'));
     expect(operation.summary, isNot(contains('SignInNeeded')));
     operations.dispose();
+  });
+
+  // Harm: a failure of an operation that is no start, a stop or a removal, reads as a refused start, and the person
+  // looks for a start that never was.
+  test('a stop or a removal that fails is said in words that fit it, never as a start', () async {
+    final operations = Operations(saveDelay: Duration.zero);
+    final failures = <String, Object>{
+      'Stop fix': const VarlinkException('$_tasks1.NoSuchTask', <String, dynamic>{'task': 'fix'}),
+      'Remove fix': const VarlinkException('$_tasks1.VaultLocked'),
+      'Remove mend': const VarlinkException('$_tasks1.HoldsWork', <String, dynamic>{'files': 3}),
+    };
+    final ended = <Operation>[];
+    for (final MapEntry(key: title, value: failure) in failures.entries) {
+      final output = StreamController<Object>();
+      ended.add(operations.run(title: title, machine: 'build-host', output: output.stream));
+      output.addError(failure);
+      await output.close();
+    }
+    await pumpEventQueue();
+
+    for (final operation in ended) {
+      expect(operation.failed, isTrue);
+      expect(operation.summary, contains('build-host'), reason: operation.title);
+      expect(operation.summary.toLowerCase(), isNot(contains('start')), reason: operation.title);
+      expect(operation.summary, isNot(contains(_tasks1)), reason: operation.title);
+    }
+    operations.dispose();
+  });
+
+  group('the sign-ins starts were refused for', () {
+    // Harm: every refused start of one agent adds a row of its own, and Needs you fills with the same sign-in.
+    test('a second refusal for the same machine and agent adds no second row', () {
+      final needed = SignInsNeeded();
+      var made = 0;
+      SigningIn make() {
+        made++;
+        return SigningIn();
+      }
+
+      expect(needed.need('build-host', 'claude', make), isTrue);
+      expect(needed.need('build-host', 'claude', make), isTrue, reason: 'its row still stands');
+      expect(needed.need('laptop', 'claude', make), isTrue);
+      expect(made, 2, reason: 'one sign-in per machine and agent');
+      expect(needed.all, hasLength(2));
+      needed.dispose();
+    });
+
+    // Harm: a sign-in for a machine no longer watched stays offered, and its press asks a machine nobody watches.
+    test('a row is dropped once its machine is no longer watched', () {
+      final needed = SignInsNeeded();
+      needed
+        ..need('build-host', 'claude', () => SigningIn()..machine = 'build-host')
+        ..need('laptop', 'claude', () => SigningIn()..machine = 'laptop');
+
+      needed.keepOnly((machine) => machine == 'laptop');
+
+      expect(needed.all.map((each) => each.machine), ['laptop']);
+      needed.dispose();
+    });
   });
 }

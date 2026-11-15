@@ -104,11 +104,21 @@ String startRefusalWords(Object error, {required String machine}) {
       final words? => '$machine refused: ${sentence(words)}',
       null =>
         '$machine refused ($simpleName'
-            '${parameters.isEmpty ? '' : ': ${parameters.entries.map((each) => '${each.key} ${each.value}').join(', ')}'}).',
+            // The keys alone: a value the machine sent may be anything, a secret among them, and is never shown.
+            '${parameters.isEmpty ? '' : ': ${parameters.keys.join(', ')}'}).',
     },
     _ => '$said',
   };
 }
+
+/// Whether [error] is a refusal Start answered, named or typed, rather than a fault on the way to the machine.
+bool isStartRefusal(Object error) =>
+    error is VarlinkException ||
+    error is SignInNeeded ||
+    error is NoSuchDestination ||
+    error is EarlierWorkWaits ||
+    error is UpstreamUnreadable ||
+    error is StartRefused;
 
 String _task(String task) => task.isEmpty ? 'The task' : task;
 
@@ -121,9 +131,9 @@ class SignInsNeeded extends ChangeNotifier {
   List<SigningIn> get all => List.unmodifiable(_needed.values);
 
   /// Keeps the sign-in of [agent] on [machine], made by [make] where none is kept yet: a start refused again for it
-  /// adds no second.
-  void need(String machine, String agent, SigningIn Function() make) {
-    if (_needed.containsKey((machine, agent))) return;
+  /// adds no second. Answers whether its row stands now, so nothing says it is offered where it is not.
+  bool need(String machine, String agent, SigningIn Function() make) {
+    if (_needed.containsKey((machine, agent))) return true;
     final signingIn = make();
     _needed[(machine, agent)] = signingIn;
     void follow() {
@@ -135,6 +145,7 @@ class SignInsNeeded extends ChangeNotifier {
     signingIn.addListener(follow);
     notifyListeners();
     follow();
+    return identical(_needed[(machine, agent)], signingIn);
   }
 
   /// Drops every sign-in kept for a machine [watched] no longer says is watched; a sign-in that runs goes on there.

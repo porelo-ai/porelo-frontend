@@ -1055,6 +1055,17 @@ void main() {
     fleet.dispose();
   });
 
+  // Harm: a fault on the way to the machine, a timeout among them, is said as Start's refusal and swallowed, so
+  // the person reads a refusal the machine never gave.
+  test('a restart that times out is no refusal: the timeout goes on as before', () async {
+    final fleet = FleetModel(_SignInNeeded(fails: TimeoutException('Start')), machine: 'build-host');
+    await fleet.connect();
+
+    await expectLater(fleet.startAgain(fleet.tasks.single), throwsA(isA<TimeoutException>()));
+    expect(fleet.status, isNot(contains('was not started')));
+    fleet.dispose();
+  });
+
   test('connecting again does not hear the same question twice', () async {
     // A dropped tunnel reconnects; every reconnect listening once more would redraw the whole
     // frame once more for every question, for as long as the window is open.
@@ -1159,6 +1170,11 @@ void main() {
 
 /// A machine whose one project lists one task, and whose Start refuses it because its agent is not signed in.
 class _SignInNeeded extends _Machine {
+  _SignInNeeded({this.fails});
+
+  /// What Start fails with in place of its refusal, where set.
+  final Object? fails;
+
   @override
   Future<List<Project>> projects() async => <Project>[
     Project.from(const <String, dynamic>{'name': 'demo', 'file': '/srv/demo/project.yml', 'tasks': 1}),
@@ -1171,9 +1187,10 @@ class _SignInNeeded extends _Machine {
 
   @override
   Future<StartProgress> startAgain({required String project, required String task, String? repository}) async =>
-      throw startRefusalSaid(
-        const VarlinkException('org.fuin.porelo.Tasks1.SignInNeeded', <String, dynamic>{'agent': 'claude'}),
-      );
+      throw fails ??
+          startRefusalSaid(
+            const VarlinkException('org.fuin.porelo.Tasks1.SignInNeeded', <String, dynamic>{'agent': 'claude'}),
+          );
 }
 
 /// A machine whose watch fails with [error] and then ends.

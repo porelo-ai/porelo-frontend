@@ -102,8 +102,9 @@ class WindowTaskStarts {
   /// Told the task a discussion started, as the machine lists it, so the person is shown its session.
   void Function(Machine machine, Task task)? onDiscussionStarted;
 
-  /// Told the machine and the agent a start was refused for, with what to call it, so its sign-in is offered there.
-  void Function(Machine machine, FleetBackend on, String agent, String label)? onSignInNeeded;
+  /// Told the machine and the agent a start was refused for, with what to call it, so its sign-in is offered there;
+  /// answers whether *Needs you* offers it now.
+  bool Function(Machine machine, FleetBackend on, String agent, String label)? onSignInNeeded;
 
   static Machine? _noMachine(String name) => null;
 
@@ -234,10 +235,11 @@ class WindowTaskStarts {
       final refused = said is SignInNeeded ? said.labelled(await _labelOf(backend, said.agent)) : said;
       // One set of words for every start path, never the wire's type name alone.
       final words = startRefusalWords(refused, machine: machine.name);
-      final offered = refused is SignInNeeded && onSignInNeeded != null;
+      // Said only where the offer answered that its row stands.
+      final offered =
+          refused is SignInNeeded && (onSignInNeeded?.call(machine, backend, refused.agent, refused.label) ?? false);
       final shown = offered ? '$words Needs you offers its sign-in.' : words;
       _sayRefused(machine, project, story, task, words);
-      if (refused is SignInNeeded) onSignInNeeded?.call(machine, backend, refused.agent, refused.label);
       // The board reads a refusal's detail first: it carries these words, which say the machine's own within them.
       throw switch (error) {
         VarlinkException() => PlanningRefusal(

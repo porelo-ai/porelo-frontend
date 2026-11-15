@@ -140,6 +140,35 @@ void main() {
       );
     });
 
+    // Harm: the board says Needs you offers a sign-in that it does not offer, and the person looks for it in vain.
+    test('a start refused for a sign-in says Needs you offers it only where the offer answered that it does', () async {
+      final order = (await plannedOrders()).first;
+      machine.refusal = const VarlinkException('org.fuin.porelo.Tasks1.SignInNeeded', {'agent': 'claude'});
+      final told = <String>[];
+      Future<String> refusedWith(bool offered) async {
+        final hook = starts()
+          ..onSignInNeeded = (on, backend, agent, label) {
+            told.add('${on.name}/$agent/$label');
+            return offered;
+          };
+        try {
+          await hook(MockPlanningSource('planner'), 'demo', 'ST291', order);
+        } on PlanningRefusal catch (refusal) {
+          return planningFailureWords(refusal);
+        }
+        fail('Start was not refused');
+      }
+
+      final notOffered = await refusedWith(false);
+      expect(notOffered, contains('Claude Code is not signed in on laptop'));
+      expect(notOffered, isNot(contains('Needs you')));
+      // The offer was handed to Start once: the second start is another window's, with its own settings.
+      settings = Settings(MemorySettingsStore());
+      await settings.load();
+      expect(await refusedWith(true), contains('Needs you offers its sign-in'));
+      expect(told, ['laptop/claude/Claude Code', 'laptop/claude/Claude Code']);
+    });
+
     // Harm: a planner's order runs twice, as two agents on the same work.
     test('an offer handed to Start before is refused, and nothing is started again', () async {
       final order = (await plannedOrders()).first;
@@ -428,6 +457,15 @@ class _Starting extends Fake implements FleetBackend {
 
   @override
   Future<List<Task>> tasks() async => List.of(_listed);
+
+  @override
+  Future<AgentsOnTheMachine> agentsOn() async => (
+    agents: const <Agent>[
+      Agent(name: 'claude', label: 'Claude Code', binary: '', version: '', from: '', allowedDomains: <String>[]),
+    ],
+    failures: const <String, String>{},
+    shadowed: const <ShadowedAgent>[],
+  );
 
   /// Why this machine cannot start a discussion, or null where it can.
   String? noDiscussion;

@@ -680,9 +680,9 @@ class _ShellState extends State<Shell> {
 
   /// A planned start on [machine] refused because [agent] is not signed in there: its sign-in is offered under
   /// *Needs you*, asked of the machine as after a failed start, until the machine says it is signed in.
-  void _offerTheSignInAStartNeeded(Machine machine, FleetBackend on, String agent, String label) {
-    if (!mounted || !widget.machines.all.contains(machine)) return;
-    _signInsNeeded.need(machine.name, agent, () {
+  bool _offerTheSignInAStartNeeded(Machine machine, FleetBackend on, String agent, String label) {
+    if (!mounted || !widget.machines.all.contains(machine)) return false;
+    return _signInsNeeded.need(machine.name, agent, () {
       final signIn = _signInOn(SigningIn(), machine);
       unawaited(signIn.ask(on, agent: agent, label: label));
       return signIn;
