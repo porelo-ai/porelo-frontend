@@ -84,16 +84,20 @@ host): *Tokens used: at least 605 k* after less than a minute, *at least 1.5 M* 
   passed; `test/ui` 1450 passed. Skipped, each needing what a unit run has not: `live_daemon_test`,
   `live_builds_test`, `live_hand_in_test`, `live_review_test` (a running porelod), `loopback_carrier_test`'s four
   native contenders (Windows sockets only), `published_key_test` (`PORELO_PUBLISHED_KEY=1`).
+- **Against the corrected count:** porelo's `4ec6e2f98` (not pushed) says in `UsageCount` and `UsageTotals` what
+  this builds on: `missing` counts only a request whose format reports the kind and whose reply left it out, `tokens`
+  is null only where no request reported the kind, `output` includes reasoning in every format, and a total is input,
+  cache read, cache write and output, never output plus reasoning. Read against that text, no change was needed.
 - **Not checked:** the window itself was not run; no live task was read.
 
 ## To be checked
 
-- Whether Agent Core's `output` should leave reasoning out instead; the window counts it once either way. Porelo's
-  contract does not say yet that `output` holds the reasoning; the window reads it so, as agreed.
+- That porelo's `4ec6e2f98` lands on its main with the words above; until then today's contract does not say that
+  `output` holds the reasoning, and the window reads it so either way.
 - Decided for the window where the corrected count leaves it open: a cache kind's requests without a value never make
   the fact *at least*. With today's machine a format that never reports a cache write is counted missing there, so
   the window cannot tell a gap from it; a reply cut short leaves input and output out too, which says *at least*
-  already. Once porelo counts only a format's real gaps, read again whether the cache line should say *at least* of
-  its own.
+  already. With `4ec6e2f98` a cache kind's missing is a real gap; whether the cache line should say *at least* of
+  its own is to be read again once it lands.
 - Decided for the window: a reasoning count of 0 is not shown, as *of which 0 reasoning* tells nothing; the
   `requests` count is not shown.
