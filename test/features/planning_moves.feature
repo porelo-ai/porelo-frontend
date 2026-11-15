@@ -71,6 +71,15 @@ Feature: Planning moves are saved at once
         Then no planning move error is shown
         And the planning story {'ST293'} is in {'Review'}
 
+    # Harm: a move that landed elsewhere meanwhile reads as refused, and the person moves it again.
+    Scenario: A save that meets planning already showing the target state counts as done
+        Given the planning save meets a changed planning showing story {'ST293'} in {'Review'}
+        When I drag planning story {'ST293'} to {'Review'}
+        Then the planning move notice says {'Planning already shows ST293 in Review.'}
+        And no planning move error is shown
+        And planning story {'ST293'} is not being saved
+        And the planning story {'ST293'} is in {'Review'}
+
     # Harm: an unnamed refusal appears saved, or its daemon reason is hidden.
     Scenario: An unnamed refusal leaves the card where it stands with the daemon words
         Given the planning machine refuses moves with {'The board cannot be written'}

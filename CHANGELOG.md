@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - When a host's forge refuses one repository's pull requests, *Needs you* says which repository, what the forge answered and the path it was asked, and what to do, while the other repositories' pull requests still show and the refused one's stay, marked out of date; a forge that refuses your person token says to renew it on the host. An agent signed in through the Porelo-Vault reads so when you start work.
+- A move in *Planning* whose story or issue planning meanwhile shows in that state already reads as done, with the quiet note "Planning already shows … in ….", instead of the red "it was not moved".
 - A host that says your forge token is missing for its pull requests has it stored by the window, once by itself and again with *Store my forge token on … now* under *Needs you*: the window runs the command the host names, over your own login there, and shows only what came of it. A host whose vault is locked offers *Unlock the vault on …* on the same row. Once stored, the pull requests are asked for again.
 - Planning builds only the cards in view, so a board of hundreds of stories opens and folds without holding the window.
 - *My cards & keys* shows your key, its validity, your SSH agent, your organization card and your central forge keys in the page itself, with *Change my key…* there, instead of in a dialog over an empty page; *My key and card…* in the title bar opens the page.

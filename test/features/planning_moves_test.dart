@@ -26,6 +26,8 @@ import './step/no_planning_move_error_is_shown.dart';
 import './step/the_planning_save_is_partly_saved_with_story_saved_in.dart';
 import './step/the_planning_move_error_says.dart';
 import './step/the_planning_revision_changes_on_the_machine.dart';
+import './step/the_planning_save_meets_a_changed_planning_showing_story_in.dart';
+import './step/the_planning_move_notice_says.dart';
 import './step/the_planning_machine_refuses_moves_with.dart';
 import './step/i_reload_planning_moves.dart';
 import './step/the_planning_save_refuses_for_story_with.dart';
@@ -47,7 +49,6 @@ import './step/the_work_page_is_shown.dart';
 import './step/i_ask_to_close_it.dart';
 import './step/the_planning_window_close_is_canceled.dart';
 import './step/the_planning_save_times_out.dart';
-import './step/the_planning_move_notice_says.dart';
 import './step/planning_asks_before_leaving.dart';
 import './step/i_leave_planning_anyway.dart';
 import './step/i_open_story_work_for.dart';
@@ -134,6 +135,15 @@ void main() {
       await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
       await iDragPlanningStoryTo(tester, 'ST293', 'Review');
       await noPlanningMoveErrorIsShown(tester);
+      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
+    });
+    testWidgets('''A save that meets planning already showing the target state counts as done''', (tester) async {
+      await bddSetUp(tester);
+      await thePlanningSaveMeetsAChangedPlanningShowingStoryIn(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await thePlanningMoveNoticeSays(tester, 'Planning already shows ST293 in Review.');
+      await noPlanningMoveErrorIsShown(tester);
+      await planningStoryIsNotBeingSaved(tester, 'ST293');
       await thePlanningStoryIsIn(tester, 'ST293', 'Review');
     });
     testWidgets('''An unnamed refusal leaves the card where it stands with the daemon words''', (tester) async {

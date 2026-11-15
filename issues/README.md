@@ -137,12 +137,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f583"></a>[F583](F583-A-Move-Planning-Already-Shows-Is-Not-Refused.md) | XS | - | Story ST362: the window carries porelo-planner's screen at the commit where a move whose save meets a changed planning that already shows it in its target state is said as done, quietly, not refused in red. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
@@ -200,6 +194,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | S | - | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f578"></a>[F578](F578-The-Token-Hand-Over-Shows-It-Runs.md) | S | - | Story ST361: from the press of the token page's give button until the machine's answer, the page shows that the hand-over runs, offers no second press, and Close says what happens to the running hand-over. |
 | <a id="f581"></a>[F581](F581-A-Refused-Discussion-Is-Said-Once.md) | S | - | Story ST361: a refused start of Discuss an idea is said in one place, its reason first and readable, the machine's detail table folded or kept in its lines, instead of twice at once. |
+| <a id="f583"></a>[F583](F583-A-Move-Planning-Already-Shows-Is-Not-Refused.md) | XS | - | Story ST362: the window carries porelo-planner's screen at the commit where a move whose save meets a changed planning that already shows it in its target state is said as done, quietly, not refused in red. |
 | <a id="f382"></a>[F382](F382-An-Images-Settings-In-Work.md) | S | - | A button in *Work* shows which settings the task's image was built with, and where each comes from. |
 | <a id="f385"></a>[F385](F385-New-Work-Confirms-What-Was-Detected.md) | S | - | *New work* on this computer asks the same question as a first start before it writes `project.yml`. |
 | <a id="f426"></a>[F426](F426-A-Forward-Names-Where-It-Goes-And-Its-Branch.md) | S | - | A forward names the forge and repository it goes to and starts with the task's branch, or the one last used for the task, filled in and changeable. |
