@@ -905,6 +905,30 @@ void main() {
       expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
     });
 
+    // Harm: a result past what the planner takes is sent and refused whole, or one the machine would not take is
+    // handed as if empty; either leaves its issue without saying why.
+    test('a result larger than the planner or the machine takes is said as missing with why', () async {
+      final (reports, started, _) = await staged();
+      final big = jsonEncode({...analysis, 'pad': 'x' * mostStageResultBytes});
+      results[started.container] = TaskResult.from({...analysisFile, 'content': big});
+      machine.end(started.container, {'at': '2026-11-15T12:00:00Z', 'finished': true, 'result': analysisFile});
+
+      await sweeps(reports);
+
+      expect(stageResults.single.$4, isNull);
+      expect(stageResults.single.$5, 'analysis.json is larger than the planner takes (256 KiB)');
+    });
+
+    test('a result the machine would not take is said as missing with why', () async {
+      final (reports, started, _) = await staged();
+      results[started.container] = const TaskResult(name: 'analysis.json', state: ResultState.tooLarge);
+      machine.end(started.container, {'at': '2026-11-15T12:00:00Z', 'finished': true});
+
+      await sweeps(reports);
+
+      expect(stageResults.single.$5, 'analysis.json is larger than the machine takes');
+    });
+
     // Harm: work that pushes waits for a result it never writes, so its end is never reported.
     test('a task with no result file reports its end alone', () async {
       final (starts, reports) = window();
