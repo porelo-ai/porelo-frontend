@@ -29,6 +29,11 @@ board showed *Planning changes saved.* and nothing else for a long while; the bo
 analysis 0). Much later the task stood under *Work* > *Running* (*In a terminal*), its agent already asking its first
 question. The status line said *0 tasks there* while it ran.
 
+Then *Start work* for *In analysis* on the idea that came in (Unattended, one repository, one issue): the planning
+screen's dialog (porelo-planner's `StoryWorkDialog`) said *Waiting for the planner's answer…* and, under the task,
+*Waiting for Start*, every field grey and its start button off, with no mark, step or time. It waits on the window's
+start hook, the same `WindowTaskStarts` call, here `startOrdered` through `_startRunning`.
+
 ## Plan
 
 - **Today**, read in the code:
@@ -45,6 +50,10 @@ question. The status line said *0 tasks there* while it ran.
   - The board's start runs as an operation of the window's (`Operations.run` with Start's stream, titled for the
     discussion or the ordered task), opened at once; `_startRunning`'s early answer is taken from the same stream,
     so the planner still hears once the agent runs, and a refusal is said as [F586](README.md#f586) says it.
+  - The same for a task the planning screen's *Start work* dialog starts (`startOrdered`): its operation opens at
+    once beside the dialog, so the person sees the preparation while the dialog waits; the dialog's own mark and
+    words are porelo-planner's, handed to Agent Planner (an indicator while it waits on Start, and that the window
+    shows the start's progress).
   - Once the agent runs, the operation hands over to the task's session as a start from the dialog does; a
     discussion ordered by the planner after a report (no press) opens no view, its operation only listed.
   - With porelo-planner: whether a discussion running moves its idea to *In analysis* on the board (a report of its
