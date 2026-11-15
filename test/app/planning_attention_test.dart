@@ -137,8 +137,9 @@ class _Environment {
       currentProvider: () => machines.current.name,
       chosenProject: () => machines.fleet.selectedProject?.name,
     );
-    boards = PlanningBoards(client);
-    attention = Attention(machines, settings)..planning = boards;
+    attention = Attention(machines, settings);
+    boards = PlanningBoards(client, seen: attention.seen);
+    attention.planning = boards;
     await _turn();
   }
 
@@ -390,6 +391,58 @@ void main() {
     held.waiting.add(PlanningSnapshot.from(_snapshot('stopped again', stopped: true)));
     await _turn();
     expect(env.planningRows, ['reading builder/demo/item'], reason: 'its next stop is said');
+  });
+
+  // Harm: a row the person marked seen still counts on the planning board and keeps its story card saying needs you,
+  // so the board sends them back to what they already read; or a row seen hides its next stop or end.
+  test("a row seen leaves the boards' Needs you and its story's card until it is said again", () async {
+    final planning = _Planning(_snapshot('initial', stopped: true));
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    PlanStory story() => env.boards.sources.single.stories.single;
+    expect([for (final each in env.boards.needsYou) each.id], ['reading builder/demo/item']);
+    expect(env.boards.sources.single.attentionSeen(story()), isFalse);
+
+    env.attention.readingSeen(env.attention.openRows.firstWhere((row) => row.kind == AttentionKind.planning));
+    await _turn();
+    expect(env.boards.needsYou, isEmpty, reason: 'the reading was put away');
+    expect(env.boards.sources.single.attentionSeen(story()), isTrue, reason: 'its card no longer says needs you');
+    expect(env.settings.readingsPutAway, hasLength(1), reason: 'the mark stays while the board says the reading');
+
+    planning.push('demo', _snapshot('moved', stopped: true, state: 'Review'));
+    await _turn();
+    expect([for (final each in env.boards.needsYou) each.id], ['reading builder/demo/item'], reason: 'state changed');
+    expect(env.boards.sources.single.attentionSeen(story()), isFalse);
+
+    StoryWorkStatus endedAt(String at) => StoryWorkStatus.from({
+      'work': {
+        'atWork': false,
+        'tasks': [
+          {
+            'task': 'main',
+            'ended': {'at': at, 'outcome': 'BLOCKED', 'why': 'Needs a repository key.', 'answer': ''},
+          },
+        ],
+      },
+    });
+    planning.status = endedAt('2026-11-10T09:00:00Z');
+    planning.push('demo', _snapshot('ended', working: true));
+    await _turn();
+    expect([for (final each in env.boards.needsYou) each.id], ['story ended builder/demo/story']);
+    env.attention.storyEndSeen(env.attention.openRows.firstWhere((row) => row.kind == AttentionKind.planning));
+    await _turn();
+    expect(env.boards.needsYou, isEmpty, reason: "the story's end was seen");
+    expect(env.settings.endedPutAway, hasLength(1), reason: 'the mark stays while the board says the end');
+
+    planning.status = endedAt('2026-11-10T10:00:00Z');
+    planning.push('demo', _snapshot('ended again', working: true));
+    await _turn();
+    expect(
+      [for (final each in env.boards.needsYou) each.id],
+      ['story ended builder/demo/story'],
+      reason: 'a later end',
+    );
   });
 
   /// Puts away the one stopped reading [env] shows.

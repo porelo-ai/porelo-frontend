@@ -76,6 +76,16 @@ Feature: Start and decide story work from the planning board
         And I choose story work {'put the reading away'}
         Then story work proves {'reading put away'}
 
+    # Harm: a stopped reading the person saw keeps its story card saying needs you, so the board sends them back to it.
+    Scenario: A stopped reading put away leaves its story's card
+        Given story work is prepared with {'stopped reading'}
+        When I choose story work {'fold the card'}
+        Then story work proves {'card needs you'}
+        When I choose story work {'needs you'}
+        And I choose story work {'put the reading away'}
+        And I open the planning board
+        Then story work proves {'card quiet'}
+
     # Harm: an extra reading round is lost or repeated before the board confirms it.
     Scenario: One more round waits for the board echo
         Given story work is prepared with {'stopped reading without echo'}

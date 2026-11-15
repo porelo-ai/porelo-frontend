@@ -6,7 +6,15 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart'
-    show PlanningAttention, PlanningBoard, PlanningBoards, PlanningNeedsYou, PlanningProvider, PlanningPutAway;
+    show
+        PlanningAttention,
+        PlanningBoard,
+        PlanningBoards,
+        PlanningNeedsYou,
+        PlanningProvider,
+        PlanningPutAway,
+        PlanningSeen,
+        PlanningStoryEnd;
 
 import 'agent_sign_in.dart' show SigningIn;
 import 'clearance.dart';
@@ -225,6 +233,39 @@ class Attention extends ChangeNotifier {
   SignInsNeeded? _signInsNeeded;
 
   PlanningBoards? _planning;
+
+  /// What the person marked seen under Needs you, for the planning boards to leave out of their own: the same marks
+  /// this keeps, telling the boards when one is set or dropped.
+  PlanningSeen get seen => _seen;
+  late final _Seen _seen = _Seen(this);
+
+  /// The marks [_seen] last told the boards of, so they hear only a change.
+  (Set<PlanningPutAway>, Set<String>) _seenTold = (const <PlanningPutAway>{}, const <String>{});
+
+  void _tellSeen() {
+    final now = (_readingsPutAway, _endedPutAway);
+    if (setEquals(now.$1, _seenTold.$1) && setEquals(now.$2, _seenTold.$2)) return;
+    _seenTold = now;
+    _seen.marksChanged();
+  }
+
+  /// Every row the boards say needs a person, those marked seen too: what a mark is judged gone against.
+  List<PlanningNeedsYou> get _planningSaid {
+    final planning = _planning;
+    if (planning == null) return const <PlanningNeedsYou>[];
+    return <PlanningNeedsYou>[
+      for (final board in planning.sources)
+        for (final story in board.stories)
+          for (final row in PlanningBoards.storyAttention(board, story))
+            PlanningNeedsYou(
+              row.issue == null
+                  ? '$_storyEnded${planning.machineOf(board)}/${board.project}/${story.id}'
+                  : 'reading ${planning.machineOf(board)}/${board.project}/${row.issue!.id}',
+              planning.machineOf(board),
+              row,
+            ),
+    ];
+  }
 
   /// Reuses the shell's planning watches rather than opening another subscription.
   set planning(PlanningBoards? boards) {
@@ -1003,9 +1044,7 @@ class Attention extends ChangeNotifier {
   /// story's work read, so a story whose work cannot be read now keeps its mark. False for any other mark.
   bool Function(String mark) _storyEndGone() {
     final planning = _planning;
-    final current = <String>{
-      for (final entry in planning?.needsYou ?? const <PlanningNeedsYou>[]) ?_storyEndKey(entry.id, entry.attention),
-    };
+    final current = <String>{for (final entry in _planningSaid) ?_storyEndKey(entry.id, entry.attention)};
     final readWhole = <String>[
       for (final board in planning?.sources ?? const <PlanningBoard>[])
         if (board.live && board.snapshot?.complete == true && board.stories.every(board.endedCurrent))
@@ -1069,7 +1108,7 @@ class Attention extends ChangeNotifier {
   bool Function(PlanningPutAway kept) _readingGone() {
     final planning = _planning;
     final shown = <(String, String, String), Set<PlanningPutAway>>{};
-    for (final entry in planning?.needsYou ?? const <PlanningNeedsYou>[]) {
+    for (final entry in _planningSaid) {
       if (entry.attention.issue case final issue?) {
         final key = (entry.machine, entry.attention.project, issue.id);
         (shown[key] ??= <PlanningPutAway>{}).addAll([?entry.attention.putAwayOn(entry.machine)]);
@@ -1209,6 +1248,8 @@ class Attention extends ChangeNotifier {
     }
     _rememberRows();
     notifyListeners();
+    // Last, as the boards hearing it tell this again.
+    _tellSeen();
   }
 
   /// The model of a row's machine while it is watched: rows are worked out from watched machines, and a row kept as
@@ -1408,6 +1449,7 @@ class Attention extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _planning?.removeListener(_changed);
+    _seen.dispose();
     _machines.removeListener(_follow);
     _settings?.removeListener(_changed);
     _operations?.removeListener(_changed);
@@ -1422,4 +1464,21 @@ class Attention extends ChangeNotifier {
     }
     super.dispose();
   }
+}
+
+/// The window's marks of Needs you as the planning boards ask them, answered from [Attention]'s own.
+class _Seen extends ChangeNotifier implements PlanningSeen {
+  _Seen(this._attention);
+
+  final Attention _attention;
+
+  @override
+  bool putAwaySeen(PlanningPutAway row) => _attention._readingsPutAway.contains(row);
+
+  @override
+  bool endSeen(PlanningStoryEnd end) => _attention._endedPutAway.contains(
+    '${Attention._storyEnded}${end.machine}/${end.project}/${end.story} at ${end.at}',
+  );
+
+  void marksChanged() => notifyListeners();
 }

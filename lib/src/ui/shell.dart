@@ -580,7 +580,9 @@ class _ShellState extends State<Shell> {
     _hostRuns = HostRuns(widget.machines, hostAccess: widget.hostAccess, onReady: _hostReady, say: _say);
     // A read of the organization or the proven identity changes what a host admin is offered at once.
     widget.hostAccess?.addListener(_homeserversChanged);
-    _attention = Attention(widget.machines, widget.settings, widget.operations)
+    // Made before the boards, which leave out what it marks seen.
+    _attention = Attention(widget.machines, widget.settings, widget.operations);
+    _attention
       ..hostRuns = _hostRuns
       ..planning = _planning
       ..signInsNeeded = _signInsNeeded
@@ -650,13 +652,14 @@ class _ShellState extends State<Shell> {
   /// says so, and nothing else in the window asks after planning.
   ///
   /// Each board holds how a start reaches the window, so a row in Needs you can start its work again before the
-  /// planning screen was ever shown.
+  /// planning screen was ever shown, and leaves out of its cards and its Needs you what was marked seen there.
   late final _planning = switch (widget.planning) {
     final planning? => PlanningBoards(
       planning.client,
       startTask: planning.startTask,
       agents: _planningAgents!,
       wizards: const WindowPlanningWizards(),
+      seen: _attention.seen,
     ),
     null => null,
   };

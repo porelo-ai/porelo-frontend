@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F600",
   "title": "The Board Hears What Needs You Saw",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 120,
@@ -53,6 +53,38 @@ settings. Only *Needs you* and its count read them; the boards hear nothing of t
 - A changed reason or state, or a later end, is said again on the card and in the count.
 - A mark kept for the session only (no time, settings not read) counts the same while the window runs.
 
+## Built
+
+- **Against** porelo-planner `cb9d13a`, its pushed main with `PlanningSeen`, `PlanningStoryEnd`,
+  `PlanningAttention.endOn` and `PlanningBoards(seen:)`; the pin already stood there, no override.
+- **`Attention.seen`** (`lib/src/app/attention.dart`): a `PlanningSeen` answering from the marks *Seen* already
+  keeps, `readingsPutAway` for an issue's `PlanningPutAway` and `endedPutAway` (`story ended <id> at <at>`) for a
+  story's end, the session-only marks included. It tells its listeners only when those marks change, last in
+  `Attention`'s own update, so the boards and `Attention`, each listening to the other, settle after one round.
+- **Marks judged gone against every row**: a mark is dropped when the board, read whole, no longer says its row;
+  that is now read from every row the boards say (`PlanningBoards.storyAttention`), seen ones too, since the boards'
+  `needsYou` leaves seen rows out and a mark would otherwise drop itself and bring its row back.
+- **`lib/src/ui/shell.dart`**: `Attention` is made before the boards, which take `seen: _attention.seen`.
+  `PlanningScreen` takes the same boards and has no `seen` of its own. The boards' old `putAway` set is set nowhere
+  in the window.
+- **Tests:** the scenario *A stopped reading put away leaves its story's card* in `test/features/story_work.feature`
+  (folded card, its `planning-warning ST291` gone after *Seen*), and in `test/app/planning_attention_test.dart`
+  *a row seen leaves the boards' Needs you and its story's card until it is said again* (a stopped reading and a
+  story's end leave `boards.needsYou` and `attentionSeen`, a changed state or a later end brings them back, the
+  marks stay kept). The environment of that file now hands `seen` in, as the window does.
+- **Red:** the scenario without `seen` handed in: `Expected: no matching candidates, Actual: Found 1 widget with key
+  [<'planning-warning ST291'>]`; the unit test with a `PlanningSeen` answering nothing: `Expected: empty, Actual:
+  [Instance of 'PlanningNeedsYou']`. Gone-marks read from the boards' filtered `needsYou` on purpose: 6 of 12 red in
+  `planning_attention_test.dart` (marks dropped, rows back); restored from a copy.
+- **Runs (laptop, one file each):** `planning_attention_test.dart` 12 passed; `story_work_test.dart` 29 passed;
+  `planning_board_test.dart` 16 passed. `dart analyze lib test integration_test tool`: No issues found. The whole
+  suite runs on the build box at the branch's head.
+
 ## To be checked
 
-- PL149's pushed commit, cited here once pushed.
+- An unfolded card's *stopped in Reading - needs you* line is the screen's and is drawn for every stopped reading,
+  seen or not; only the folded card's warning and the raised mark follow `seen`. Whether the line should follow it
+  too is porelo-planner's to say.
+- The boards leave out an issue row with a seen `PlanningPutAway` also where its task's end is reported; the window's
+  *Seen* marks only rows without one. No such row was seen to differ in a test.
+- The reading by another model has not run.

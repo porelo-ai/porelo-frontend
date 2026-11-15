@@ -105,6 +105,16 @@ void main() {
       await iChooseStoryWork(tester, 'put the reading away');
       await storyWorkProves(tester, 'reading put away');
     });
+    testWidgets('''A stopped reading put away leaves its story's card''', (tester) async {
+      await bddSetUp(tester);
+      await storyWorkIsPreparedWith(tester, 'stopped reading');
+      await iChooseStoryWork(tester, 'fold the card');
+      await storyWorkProves(tester, 'card needs you');
+      await iChooseStoryWork(tester, 'needs you');
+      await iChooseStoryWork(tester, 'put the reading away');
+      await iOpenThePlanningBoard(tester);
+      await storyWorkProves(tester, 'card quiet');
+    });
     testWidgets('''One more round waits for the board echo''', (tester) async {
       await bddSetUp(tester);
       await storyWorkIsPreparedWith(tester, 'stopped reading without echo');
