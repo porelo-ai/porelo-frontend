@@ -50,6 +50,7 @@ class AttentionView extends StatefulWidget {
     required this.onReview,
     this.unlockFor,
     this.forgeTokens,
+    this.openVaultFor,
     this.onRemoveProject,
     this.whyNoRemoval,
     this.onSelect,
@@ -69,6 +70,10 @@ class AttentionView extends StatefulWidget {
 
   /// Stores a missing forge token on its host, or null where this window stores none.
   final HostForgeTokens? forgeTokens;
+
+  /// Opens the vault a machine's read of its pull requests found shut, and asks for them again; null where nothing
+  /// here opens it.
+  final VoidCallback? Function(Machine machine)? openVaultFor;
 
   /// Opens a removal preview on the row's machine, without changing the selected project.
   final void Function(Machine machine, Project project)? onRemoveProject;
@@ -465,7 +470,7 @@ extension on _AttentionViewState {
                       : null),
             );
           case HostPullRequestsRefused(reason: 'vault-unreadable'):
-            final unlock = widget.unlockFor?.call(on);
+            final unlock = widget.openVaultFor?.call(on);
             primary = unlockForPullRequestsCommand(
               machine: on.name,
               run: () => unlock?.call(),

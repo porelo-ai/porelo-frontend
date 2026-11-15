@@ -467,7 +467,8 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
   }
 
   /// Runs [command], a line the machine named, with standard input closed: its exit code and the last line it wrote to
-  /// standard error. What it writes to standard output is never read, so a value it prints goes nowhere.
+  /// standard error. What it writes to standard output is never parsed, logged or shown, so a value it prints goes
+  /// nowhere from here.
   Future<({int code, String said})> runOnTheMachine(List<String> command) async {
     final result = await _run(command, input: '');
     final said = '${result.stderr}'.trim().split('\n').last.trim();

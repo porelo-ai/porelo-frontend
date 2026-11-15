@@ -276,6 +276,8 @@ void main() {
   // Harm: a host whose vault is locked is said so with no way to unlock it from where it is said.
   testWidgets('a pull request read refused by a locked vault offers to unlock it', (tester) async {
     final watch = await _watched(tester);
+    // Only the unlock asks again here, not the pause after a refusal.
+    HostPullRequests.askAgainAfter = const Duration(hours: 1);
     watch.fail(
       HostPullRequestsRefused(
         const VarlinkException('org.fuin.porelo.Tasks1.HostPullRequestsRefused', <String, dynamic>{
@@ -288,7 +290,18 @@ void main() {
     final refused = find.byKey(refusedRow);
     await expandListRows(tester, within: refused);
     await World.settle(tester);
-    expect(find.descendant(of: refused, matching: find.text('Unlock the vault on elsewhere')), findsWidgets);
+    final unlock = find.descendant(of: refused, matching: find.text('Unlock the vault on elsewhere'));
+    expect(unlock, findsWidgets);
     expect(World.setup.ranOnTheMachine, isEmpty);
+    final watches = World.elsewhere.pullRequestWatches.length;
+    World.forwardsHeld.clear();
+    await tester.tap(unlock.first);
+    await World.settle(tester);
+    expect(
+      World.forwardsHeld,
+      contains('elsewhere'),
+      reason: "a host's vault opens by Core's unlock over its connection",
+    );
+    expect(World.elsewhere.pullRequestWatches.length, greaterThan(watches), reason: 'asked for again once opened');
   });
 }

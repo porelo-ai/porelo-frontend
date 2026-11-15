@@ -104,4 +104,20 @@ void main() {
     expect(await stored.store(_orchard, _missing), isNull);
     expect(stored.failed('orchard'), isNull);
   });
+
+  // Harm: a token stored after a failed run still reads as failed, sending the person after a fault that is gone; the
+  // pull requests are not asked for again after it.
+  test('a run that stores the token clears the failure before it and is told on', () async {
+    var code = 1;
+    final told = <String>[];
+    final tokens = HostForgeTokens((command) async => (code: code, said: 'refused'), onStored: (m) => told.add(m.name));
+    addTearDown(tokens.dispose);
+    await tokens.store(_orchard, _missing);
+    expect(tokens.failed(_orchard.name), 'refused');
+    expect(told, isEmpty);
+    code = 0;
+    await tokens.store(_orchard, _missing);
+    expect(tokens.failed(_orchard.name), isNull);
+    expect(told, [_orchard.name]);
+  });
 }

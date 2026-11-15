@@ -61,7 +61,8 @@ command on the host: the window stores their forge token there, and says only wh
 
 - `HostForgeTokens` (`lib/src/app/host_forge_token.dart`) runs the command a host named in `MissingHostForgeToken`
   through `onTheMachine` without a terminal, over the card's own login (`MachineSetup.runOnTheMachine`: standard input
-  closed, standard output never read, only the exit code and the last line of standard error kept). One run per
+  closed, standard output never parsed, logged or shown, only the exit code and the last line of standard error
+  kept). One run per
   machine at a time, a press while one runs joins it; the first refusal a machine says in this window's run is stored
   by itself, once. A machine this window does not reach itself, and a command the machine named that cannot be run
   (empty, or with a control character), runs nothing and says why.
@@ -69,7 +70,8 @@ command on the host: the window stores their forge token there, and says only wh
   while it runs and greys the press, and says the command's own words when it failed; the command to copy stays in
   its details. After a run that ended 0 the machine is asked for its pull requests again
   (`HostPullRequests.askAgain`), and its answer is the verdict. A refusal `vault-unreadable` offers *Unlock the vault on
-  …*, the window's own unlock of that machine.
+  …*: a host's vault is opened by Core's unlock over its connection (`Tunnels.raiseFor`, which tries the unlock again
+  on a connection that is up), any other machine's in its terminal, and the pull requests are then asked for again.
 - Tests, each seen red with a deliberate break restored from a copy: `test/app/host_forge_token_test.dart` (one run
   joined, once by itself, nothing for a machine not reached); `test/ui/needs_you_pull_request_test.dart` *a missing
   forge token is stored by the host's own command once by itself, then asked for again* (red with the store by itself
@@ -77,5 +79,13 @@ command on the host: the window stores their forge token there, and says only wh
   being stored stores nothing a second time* (red with the running state unsaid), *a pull request read refused by a
   locked vault offers to unlock it* (red with the unlock taken out). The test world's machine setup now answers lines
   run on a machine itself, so no test reaches a real host.
+- The reading by another model (Claude Sonnet) found nothing red. Taken from its yellows: the unlock first offered
+  was the terminal unlock, which a host never has, so it stood grey on every row it was for; it is now Core's unlock
+  over the connection, and *a pull request read refused by a locked vault offers to unlock it* presses it and sees the
+  connection raised and the pull requests asked again (red with the old unlock, with the raise taken out, and with the
+  ask taken out). *a run that stores the token clears the failure before it and is told on*
+  (`test/app/host_forge_token_test.dart`), red with the failure kept. Left: the press-while-running widget test passes
+  through the model's join alone, which its unit test holds; a host that first names no command it can run is not
+  stored by itself later in the same run, only by the press; a hung ssh holds the run until `MachineSetup.limit`.
 - Not built: exit 77 for a shut vault from the command waits on porelo B781; no feature scenario, the widget test runs
   the row through the shell to the machine's pull requests.

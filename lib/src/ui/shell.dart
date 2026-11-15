@@ -458,6 +458,20 @@ class _ShellState extends State<Shell> {
     onStored: (machine) => widget.machines.watching(machine)?.pullRequests.askAgain(),
   );
 
+  /// Opens the vault [machine]'s read of its pull requests found shut, then asks for them again: a host's vault by
+  /// Core's unlock over its connection, raised again where it is down, any other machine's in its terminal.
+  VoidCallback? _openVaultForPullRequests(Machine machine) {
+    if (machine.hostCard == null && unlockCommandFor(machine) == null) return null;
+    return () => unawaited(() async {
+      if (machine.hostCard != null) {
+        await widget.machines.tunnels.raiseFor(machine);
+      } else {
+        await _unlockMachine(machine);
+      }
+      if (mounted) widget.machines.watching(machine)?.pullRequests.askAgain();
+    }());
+  }
+
   /// A host that says the person's forge token is missing has it stored by itself, once in this window's run.
   void _storeMissingForgeTokens() {
     for (final row in _attention.openRows) {
@@ -6200,6 +6214,7 @@ class _ShellState extends State<Shell> {
           },
           unlockFor: _unlockFor,
           forgeTokens: _forgeTokens,
+          openVaultFor: _openVaultForPullRequests,
           onRemoveProject: (machine, project) {
             final fleet = widget.machines.watching(machine);
             if (fleet == null) return _notWatchedYet(machine);
