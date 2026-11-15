@@ -6656,18 +6656,31 @@ class _ShellState extends State<Shell> {
   Future<HandOn> _handOnDeclaredNow(String host) async {
     final done = await _tokens.run(host, () async {
       final step = _hostTokenStep(host);
-      if (!await step.handOnDeclared()) return const HandOn(HandOnOutcome.notDeclared);
-      if (step.given) return const HandOn(HandOnOutcome.handedOn);
+      final given = await step.handOnDeclared();
       final why = step.problem;
-      if (why == noTokenWaitedWords(host)) return const HandOn(HandOnOutcome.nothingWaits);
-      windowLog.warn('The token declared on this computer was not handed on to $host: $why');
-      return HandOn(HandOnOutcome.refused, words: why);
+      switch (given) {
+        case DeclaredGiving.given:
+          return const HandOn(HandOnOutcome.handedOn);
+        case DeclaredGiving.notDeclared:
+          return const HandOn(HandOnOutcome.notDeclared);
+        case DeclaredGiving.refused when why == noTokenWaitedWords(host):
+          return const HandOn(HandOnOutcome.nothingWaits);
+        case DeclaredGiving.refused:
+          windowLog.warn('The token declared on this computer was not handed on to $host: $why');
+          return HandOn(HandOnOutcome.refused, words: why);
+        case DeclaredGiving.notRun:
+          if (why != null) {
+            windowLog.info('The token declared on this computer could not be handed on to $host yet: $why');
+          }
+          return HandOn(HandOnOutcome.notRun, words: why);
+      }
     });
-    return done ?? HandOn(HandOnOutcome.refused, words: _tokens.busy(host));
+    // A press gives to the same host now: that is no answer, the wait is handed on once it ended.
+    return done ?? HandOn(HandOnOutcome.notRun, words: _tokens.busy(host));
   }
 
   /// Hands the declared token on by itself to each host this person administers that is heard waiting for it for a
-  /// project; a wait answered before is left to its rows.
+  /// project, once per wait; a wait answered before is left to its rows until the host stops reporting it.
   void _handOnDeclaredTokens() {
     final view = _organization?.view;
     if (!mounted || view == null || !view.holdsRoles || _hostConnections == null) return;
@@ -6676,10 +6689,14 @@ class _ShellState extends State<Shell> {
       if (card == null) continue;
       final host = view.hosts.where((each) => each.name == card.name).firstOrNull;
       if (host == null || !host.admins.contains(view.me)) continue;
+      final heard = _heardFrom(machine);
+      if (heard == null) continue;
       final waiting = {
-        for (final project in _heardFrom(machine)?.projects ?? const <HostProjectProgress>[])
+        for (final project in heard.projects)
           if (project.waitsForToken) project.project,
       };
+      // A project the host no longer says waits is a new wait once it says so again.
+      _declaredHandOn.heard(card.name, waiting);
       if (waiting.isEmpty) continue;
       unawaited(_declaredHandOn.forWaits(card.name, waiting));
     }

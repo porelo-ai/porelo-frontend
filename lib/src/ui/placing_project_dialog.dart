@@ -148,8 +148,8 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
     if ((_mine?.waitsForToken ?? false) && !_handed && !_handOnTried && !_giving) unawaited(_handOn());
   }
 
-  /// Hands the machine the token this computer's Porelo-Vault declares, by itself, once: where none is declared, or one
-  /// handed on did not help, the button asks as before.
+  /// Hands the machine the token this computer's Porelo-Vault declares, by itself, once: where none is declared, one
+  /// handed on did not help, now or by the window before, or it could not run, the button asks as before.
   Future<void> _handOn() async {
     final handOn = widget.connections.handOnDeclared;
     if (handOn == null) return;
@@ -169,6 +169,11 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
       if (done.outcome == HandOnOutcome.handedOn) _handed = true;
     });
     if (done.outcome != HandOnOutcome.handedOn) return;
+    // Handed on before, by the window for the same wait: the machine's word already followed it.
+    if (done.earlier) {
+      if (mounted && (_mine?.waitsForToken ?? false)) setState(_notHelped);
+      return;
+    }
     try {
       await _take(widget.connections.progress(widget.host));
     } on OrganizationRefused catch (refused) {
@@ -176,14 +181,15 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
       return;
     }
     // The hand-over ran the machine's read: a project still waiting was not helped by it, and is asked for as before.
-    if (mounted && (_mine?.waitsForToken ?? false)) {
-      setState(() {
-        _handed = false;
-        _tokenWhy =
-            '${widget.host} still waits for a token after the one your Porelo-Vault declares. Check that it may read '
-            '${widget.project}\'s repositories, then give it again.';
-      });
-    }
+    if (mounted && (_mine?.waitsForToken ?? false)) setState(_notHelped);
+  }
+
+  /// The declared token was handed on and the machine still waits: the button asks, saying so.
+  void _notHelped() {
+    _handed = false;
+    _tokenWhy =
+        '${widget.host} still waits for a token after the one your Porelo-Vault declares. Check that it may read '
+        '${widget.project}\'s repositories, then give it again.';
   }
 
   HostProjectProgress? get _mine =>

@@ -99,7 +99,7 @@ void main() {
 
   // Harm: with nothing declared, or a declared token that did not help, the person is left without the button.
   testWidgets('a declared token not found, or not helping, leaves the button as before', (tester) async {
-    for (final outcome in [HandOnOutcome.notDeclared, HandOnOutcome.handedOn]) {
+    for (final outcome in [HandOnOutcome.notDeclared, HandOnOutcome.notRun, HandOnOutcome.handedOn]) {
       final connections = FixtureConnections(['build'])..hostProgress = waiting;
       connections.handOnDeclared = (host, projects) async => HandOn(outcome);
       await open(tester, connections);
@@ -112,6 +112,26 @@ void main() {
       }
       await close(tester);
     }
+  });
+
+  // Harm: the window's own hand-over already ran and did not help, so the dialog shows a bare button, without saying
+  // that the declared token was handed on and the machine still waits.
+  testWidgets('a declared token the window already handed on says it did not help', (tester) async {
+    final connections = FixtureConnections(['build'])..hostProgress = waiting;
+    final given = <String>[];
+    final handOn = DeclaredHandOn((host) async {
+      given.add(host);
+      return const HandOn(HandOnOutcome.handedOn);
+    });
+    addTearDown(handOn.dispose);
+    // The window heard the wait first and handed the token on; the machine still says demo waits.
+    await handOn.forWaits('build', {'demo'});
+    connections.handOnDeclared = handOn.forWaits;
+    await open(tester, connections, onGiveToken: (_, {atOnce = false}) async => null);
+    expect(given, ['build'], reason: 'not handed on again for the same wait');
+    expect(find.textContaining('still waits for a token after the one your Porelo-Vault declares'), findsOneWidget);
+    expect(find.byKey(const Key('placing-project.giveToken')), findsOneWidget);
+    await close(tester);
   });
 
   // Harm: a token not given leaves a person with nothing, as the foo test's button did.

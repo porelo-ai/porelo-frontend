@@ -37,6 +37,9 @@ class FixtureOrganization implements OrganizationSource {
   /// Whether Porelo says it handed the token over.
   bool handsOver = true;
 
+  /// Hands the token on in place of this fixture, as a source of Porelo's own does; null where the fixture answers.
+  Future<bool> Function(String host)? handOver;
+
   @override
   Future<bool> handTokenTo(String host) async {
     if (refuseNext case final refused?) {
@@ -44,6 +47,7 @@ class FixtureOrganization implements OrganizationSource {
       throw refused;
     }
     handedTo.add(host);
+    if (handOver case final handOver?) return handOver(host);
     return handsOver;
   }
 
@@ -159,9 +163,16 @@ class FixtureConnections extends HostConnections {
   @override
   bool waitsForAdmission(String host) => hosts.contains(host) && admitting.contains(host);
 
+  /// The refusal the next connect gets, once, whatever else is asked before it.
+  OrganizationRefused? refuseNextConnect;
+
   @override
   Future<void> connect(String host) async {
     _ask('connect $host');
+    if (refuseNextConnect case final refused?) {
+      refuseNextConnect = null;
+      throw refused;
+    }
     // As Porelo's own connections do: what changed is told once the attempt ran, never in the asking call.
     await Future<void>.value();
     hosts.add(host);

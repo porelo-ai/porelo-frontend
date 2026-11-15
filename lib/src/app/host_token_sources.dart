@@ -30,6 +30,21 @@ enum TokenSourceState {
   failed,
 }
 
+/// What a hand-over of the declared entry, nobody pressing, came to.
+enum DeclaredGiving {
+  /// The host took the token.
+  given,
+
+  /// The hand-over ran, and Porelo or the host refused it; the step's problem says why.
+  refused,
+
+  /// The Porelo-Vault declares no token for the forge.
+  notDeclared,
+
+  /// It could not run: the host not reached, the Porelo-Vault not asked, or the step busy.
+  notRun,
+}
+
 /// One source's answer, with the words that say it.
 class TokenSourceAnswer {
   /// Keeps what [source] answered.
@@ -220,6 +235,9 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
   Future<void>? _handing;
   String? _problem;
 
+  /// Whether the last hand-over got an answer from [give], the token taken or refused, rather than failing to run.
+  bool _answered = false;
+
   /// Every source's answer, once asked.
   List<TokenSourceAnswer>? get answers => _answers;
 
@@ -274,10 +292,10 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
   }
 
   /// Hands the host the entry this computer's Porelo-Vault declares, asking that source alone and opening nothing: for
-  /// a hand-over nobody pressed, which never touches a source the person chooses on the token's page. Answers true
-  /// where the entry was found, the step given or its problem said; false where none is declared or it cannot be asked.
-  Future<bool> handOnDeclared() async {
-    if (_asking || _giving) return false;
+  /// a hand-over nobody pressed, which never touches a source the person chooses on the token's page. Answers what it
+  /// came to; [problem] says why where it was refused or could not run.
+  Future<DeclaredGiving> handOnDeclared() async {
+    if (_asking || _giving || _hearing || _given) return DeclaredGiving.notRun;
     _asking = true;
     _problem = null;
     notifyListeners();
@@ -287,14 +305,23 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
       declared = await sources.askDeclared();
     } on Exception catch (error) {
       _problem = '$host could not be reached, so no source was asked: $error';
-      return false;
+      return DeclaredGiving.notRun;
     } finally {
       _asking = false;
       notifyListeners();
     }
-    if (declared.state != TokenSourceState.found) return false;
-    await giveFrom(declared);
-    return true;
+    switch (declared.state) {
+      case TokenSourceState.none:
+        return DeclaredGiving.notDeclared;
+      case TokenSourceState.failed:
+        _problem = declared.words;
+        return DeclaredGiving.notRun;
+      case TokenSourceState.found:
+        _answered = false;
+        await giveFrom(declared);
+        if (_given) return DeclaredGiving.given;
+        return _answered ? DeclaredGiving.refused : DeclaredGiving.notRun;
+    }
   }
 
   /// Hands [answer]'s token to the host.
@@ -313,6 +340,7 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
     notifyListeners();
     try {
       final why = await give(answer);
+      _answered = true;
       _given = why == null;
       _problem = why;
     } on Exception catch (error) {
