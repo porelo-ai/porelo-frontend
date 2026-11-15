@@ -1650,6 +1650,7 @@ class _Machine extends Fake implements FleetBackend {
     required String prompt,
     String? callerKey,
     List<String> reads = const [],
+    void Function(StartEvent event)? onEvent,
   }) async {
     if (refuseNext case final words?) {
       refuseNext = null;
@@ -1685,6 +1686,7 @@ class _Machine extends Fake implements FleetBackend {
     required String prompt,
     required String result,
     String? callerKey,
+    void Function(StartEvent event)? onEvent,
   }) async {
     final container = 'porelo-$project-discussion';
     listed.removeWhere((task) => task.name == container);

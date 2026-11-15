@@ -59,6 +59,7 @@ class _Wedged implements FleetBackend {
     required String prompt,
     required String result,
     String? callerKey,
+    void Function(StartEvent event)? onEvent,
   }) => throw UnimplementedError();
 
   @override
@@ -77,6 +78,7 @@ class _Wedged implements FleetBackend {
     required String prompt,
     String? callerKey,
     List<String> reads = const [],
+    void Function(StartEvent event)? onEvent,
   }) async => throw const VarlinkDisconnected('nothing there');
 
   @override
@@ -528,6 +530,7 @@ class _Machine implements FleetBackend {
     required String prompt,
     required String result,
     String? callerKey,
+    void Function(StartEvent event)? onEvent,
   }) => throw UnimplementedError();
 
   @override
@@ -546,6 +549,7 @@ class _Machine implements FleetBackend {
     required String prompt,
     String? callerKey,
     List<String> reads = const [],
+    void Function(StartEvent event)? onEvent,
   }) async => throw const VarlinkDisconnected('nothing there');
 
   @override

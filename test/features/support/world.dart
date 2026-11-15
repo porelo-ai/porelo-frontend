@@ -706,11 +706,26 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     required String prompt,
     String? callerKey,
     List<String> reads = const [],
+    void Function(StartEvent event)? onEvent,
   }) async {
     final ordered = FakeBackend.ordered;
     if (ordered == null) throw UnimplementedError('No scenario starts an ordered task on this stand-in.');
+    await _preparing(onEvent);
     final started = await ordered();
     return StartProgress(container: started.container, exitCode: 0, action: StartAction.create);
+  }
+
+  /// What Start says while it prepares an ordered task or a discussion, told as it comes, before its agent runs.
+  List<StartEvent> startSays = const <StartEvent>[];
+
+  /// Holds such a start, once it said [startSays], until the scenario completes it; null while it goes on at once.
+  Completer<void>? startHeld;
+
+  Future<void> _preparing(void Function(StartEvent event)? onEvent) async {
+    for (final event in startSays) {
+      onEvent?.call(event);
+    }
+    if (startHeld case final held?) await held.future;
   }
 
   @override
@@ -722,12 +737,14 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     required String prompt,
     required String result,
     String? callerKey,
+    void Function(StartEvent event)? onEvent,
   }) async {
     discussed.add((project: project, agent: agent, model: model, mode: mode, prompt: prompt, result: result));
     if (discussionFails case final failure?) throw failure;
     if (discussionAnswer case final answer?) return answer;
     final ordered = FakeBackend.ordered;
     if (ordered == null) throw UnimplementedError('No scenario starts a discussion on this stand-in.');
+    await _preparing(onEvent);
     final started = await ordered();
     bringsUp(Task.from({'name': started.container, 'task': started.task, 'project': project, 'running': true}));
     return StartProgress(container: started.container, exitCode: 0, action: StartAction.create);
@@ -3226,7 +3243,8 @@ class World {
       startTask: (source, project, story, task) async {
         FakeBackend.ordered = () => mockStartTask(source, project, story, task);
         try {
-          return await starts(source, project, story, task);
+          // The planning screen's start hook: a press, as in the window.
+          return await starts.pressed(source, project, story, task);
         } finally {
           FakeBackend.ordered = null;
         }

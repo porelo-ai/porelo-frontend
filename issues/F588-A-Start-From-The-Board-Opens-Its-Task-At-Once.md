@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F588",
   "title": "A Start From The Board Opens Its Task At Once",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 12,
@@ -59,10 +59,63 @@ start hook, the same `WindowTaskStarts` call, here `startOrdered` through `_star
   - With porelo-planner: whether a discussion running moves its idea to *In analysis* on the board (a report of its
     start, or the planner's own state), said with Agent Planner before building; the window then sends what is
     agreed.
+  - Raise the `porelo_planning` pin to porelo-planner `1e66bf5984dcd7430eb29de72aebda2241a9363f`: the *Start work*
+    dialog shows a waiting mark beside *Waiting for the planner's answer…*, and a task's line reads *Waiting for
+    Start; the window shows how far it is.*
 - **Red first** (harm: a person thinks the press did nothing and presses again, starting a second discussion, or
   waits blind): a widget test that a discussion pressed on the board opens an operation at once with the stand-in's
   first step and, once the agent runs, the task's session; a test that the planner is still told once; each seen
   red.
+
+## Built
+
+- `lib/src/app/fleet_backend.dart`: `startOrdered` and `startDiscussion` take `onEvent`, told each line and step
+  Start says (and a certificate's words) as it comes, through `_startRunning` and `_startAnswered`; the early answer
+  once the agent runs is unchanged, so the planner is told once, as before.
+- `lib/src/ui/planning_embedding.dart`: `WindowTaskStarts` runs what Start says as one of the window's operations
+  (`operations`, set by the shell), titled *Discuss an idea in <project>* or *Start the <role> task of <story> in
+  <repository>*, on the machine it starts on. The operation is made at Start's first line or step: a start refused
+  before it says anything makes none and is said once, on the board, as before. It ends done once the task stands,
+  or failed in F586's words where Start refuses after it said something. `pressed` is the planning screen's start
+  hook (`plannerPlanning`'s `startTask`) and opens the operation (`openOperation`); `call`, which the reports' follow-up
+  orders use, only lists it.
+- `lib/src/ui/shell.dart`: sets `operations` and `openOperation`; *Planning* shows the operation of a start pressed
+  there over its page, the page kept built beneath (`Offstage` in a fixed `Stack`), so the *Start work* dialog goes on
+  waiting on its start and the board keeps its state; closing the operation shows the board again. Once the agent
+  runs, a discussion's session (and a *With you* task's) opens as before, which leaves the operation.
+- `pubspec.yaml`, `pubspec.lock`: `porelo_planning` pinned to `1e66bf5984dcd7430eb29de72aebda2241a9363f` with the
+  GitHub url and `path: screen` unchanged, **plus a temporary `dependency_overrides` entry** (a git url to porelo-planner's local
+  checkout, that ref, `path: screen`), left in place until the commit is on GitHub; pubspec's
+  xterm override is unchanged. The lock names the local checkout while the override stands.
+- Tests' stand-ins take `onEvent` (`test/features/support/world.dart`, `test/app/fleet_model_test.dart`,
+  `test/ui/window_task_reports_test.dart`, `test/ui/window_task_starts_test.dart`); the world's planning start hook is
+  `pressed`, as the window's, and its stand-in can say a step and hold a start (`startSays`, `startHeld`).
+- Decided: an operation is made at Start's first word, not at the press, so a refusal before Start says anything is
+  not said twice. A discussion the planner orders after a report still opens its session once its agent runs, as
+  before; only its operation is listed and not opened. No planning test read the old *Waiting for Start* words.
+
+Guards, each seen red first (break from a copy, restored, `cmp` equal, `git diff --stat` unchanged):
+
+- `test/features/planning_discussion.feature`, *A discussion pressed on the board opens its operation at once, then
+  its session* — breaks: *Planning* never shows the planned start's operation, and the discussion's start without
+  `onEvent`; red both: "Found 0 widgets with type \"OperationOutputView\"".
+- `test/features/story_work.feature`, *Start work waits on Start with its mark while the window shows how far it is*
+  — break: the old pin (`1868e5e`, pub get, then pubspec and lock put back from copies); red: "Found 0 widgets with
+  text \"Waiting for Start; the window shows how far …\"".
+- `test/ui/window_task_starts_test.dart`, *what Start says on the way runs as an operation of the window*:
+  - a pressed start opens it, done once the task stands, answered once — breaks: `open: null` (red: "Expected:
+    ['operation-1'] Actual: []"); the ordered start without `onEvent` (red: "Bad state: No element").
+  - a start nobody pressed is only listed — break: opened for every start; red: "Expected: empty Actual:
+    ['operation-1']".
+  - refused after it said something ends in the refusal's words — break: the operation not told of the refusal;
+    red: "Expected: true Actual: <false>" (`failed`).
+  - refused before it said anything makes no operation — break: a line said before Start is asked; red: "Expected:
+    empty Actual: [Instance of 'Operation']".
+- `test/app/start_ordered_test.dart`, what Start says on the way reaches the caller — break: no line forwarded; red:
+  "Expected: ['starting'] Actual: []".
+
+Not checked: the *In analysis* move of a running discussion (no word from Agent Planner here, see *To be checked*);
+the status line's *0 tasks there*; a real host; `test/ui` and `test/features` whole.
 
 ## Acceptance
 

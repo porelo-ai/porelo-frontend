@@ -128,6 +128,16 @@ Feature: Start and decide story work from the planning board
         And I choose story work {'start'}
         Then story work proves {'with you terminal'}
 
+    # Harm: the Start work dialog waits on Start with no sign that anything runs, and the person waits blind.
+    Scenario: Start work waits on Start with its mark while the window shows how far it is
+        Given the machine says {'Building the image'} while it prepares a start, and holds it
+        When I open story work for {'ST291'}
+        And I choose story work {'start'}
+        Then the Start work dialog waits on Start with its mark
+        And the operation shows {'Building the image'}
+        When the machine lets the start go on
+        Then the Start work dialog no longer waits on Start
+
     # Harm: the end of a task the window started never reaches the planner, so its story looks at work for ever.
     Scenario: The end of a task the window started reaches the planner
         When I open story work for {'ST291'}

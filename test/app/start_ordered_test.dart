@@ -147,6 +147,35 @@ void main() {
       expect(answer.output, ['starting']);
     });
 
+    // Harm: what the machine says while it prepares is read and dropped, so the person's operation shows nothing and
+    // they wait blind or press again.
+    test('what Start says on the way reaches the caller as it comes, before the answer', () async {
+      daemon.description = declares;
+      daemon.stream(
+        'Start',
+        (_) => runsOn({'step': 'AGENT', 'state': 'STARTED', 'text': 'pi runs', 'container': 'porelo-demo_porelo'}),
+        isFinal: _finalReply,
+      );
+      final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+      await backend.open();
+      final told = <StartEvent>[];
+
+      await backend
+          .startOrdered(
+            project: 'demo',
+            repository: 'porelo',
+            agent: 'claude',
+            model: 'opus',
+            mode: Mode.agent,
+            prompt: 'Work on ST1.',
+            onEvent: told.add,
+          )
+          .timeout(const Duration(seconds: 5));
+
+      expect(told.whereType<StartLine>().map((each) => each.line), ['starting']);
+      expect(told.whereType<StartStep>().map((each) => (each.step, each.state)), [('AGENT', 'STARTED')]);
+    });
+
     test('with the task the machine lists newly for the project and repository, where the step names none', () async {
       daemon.description = declares;
       var listings = 0;

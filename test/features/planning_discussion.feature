@@ -24,6 +24,17 @@ Feature: Discuss an idea with an agent from the planning board
         And I start the discussion with the agent {'other-agent'}
         Then the discussion's session is on screen
 
+    # Harm: a person thinks the press did nothing and presses again, starting a second discussion, or waits blind.
+    Scenario: A discussion pressed on the board opens its operation at once, then its session
+        Given the machine says {'Building the image'} while it prepares a start, and holds it
+        When I offer the idea {'Let the board show who is at work'} for discussion
+        And I start the discussion with the agent {'other-agent'}
+        Then the operation is open
+        And the operation shows {'Building the image'}
+        When the machine lets the start go on
+        Then the discussion's session is on screen
+        And one discussion was started
+
     # Harm: a discussion the machine refuses seems to do nothing, or is said twice, its reason behind the machine's
     # table of what it checked.
     Scenario: A discussion Start the machine refuses is said in the log, and once on the board, its reason first

@@ -590,7 +590,9 @@ class _ShellState extends State<Shell> {
     widget.planning?.starts
       ?..chooseDiscussion = _chooseDiscussion
       ..onDiscussionStarted = _discussionStarted
-      ..onSignInNeeded = _offerTheSignInAStartNeeded;
+      ..onSignInNeeded = _offerTheSignInAStartNeeded
+      ..operations = widget.operations
+      ..openOperation = _openAPlannedStart;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
@@ -675,6 +677,34 @@ class _ShellState extends State<Shell> {
         agents: fleet.backend.agentsOn,
         whyNot: fleet.backend.whyNoDiscussion,
       ),
+    );
+  }
+
+  /// Opens the operation of a start pressed on the planning screen, as a start from the start form opens its own.
+  void _openAPlannedStart(String id) {
+    if (!mounted) return;
+    _plannedStarts.add(id);
+    widget.shell.openOperation(id);
+  }
+
+  /// The operations of starts pressed on the planning screen, which *Planning* shows over its page.
+  final _plannedStarts = <String>{};
+
+  /// The planning screen, with the operation of a start pressed there over it while that is open. The screen stays
+  /// built beneath, so a dialog it opened, such as *Start work*, goes on waiting on its start.
+  Widget _planningWithItsStart() {
+    final page = _planningPage();
+    final start = switch (widget.shell.opened) {
+      OperationOpened(:final id) when _plannedStarts.contains(id) => _opened(),
+      _ => null,
+    };
+    // One shape whether or not it is open, so the screen is never built anew beneath it.
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        Offstage(offstage: start != null, child: page),
+        ?start,
+      ],
     );
   }
 
@@ -4443,7 +4473,7 @@ class _ShellState extends State<Shell> {
                               'planning',
                               Section.planning.label,
                               pageWords['planning']!,
-                              _planningPage(),
+                              _planningWithItsStart(),
                               wordsInPage: true,
                             ),
                             Section.cards => _explained(
@@ -7485,7 +7515,9 @@ class _ShellState extends State<Shell> {
     widget.planning?.starts
       ?..chooseDiscussion = null
       ..onDiscussionStarted = null
-      ..onSignInNeeded = null;
+      ..onSignInNeeded = null
+      ..operations = null
+      ..openOperation = null;
     _attention
       ..removeListener(_storeMissingForgeTokens)
       ..dispose();

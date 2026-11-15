@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/operations.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart';
 import 'package:porelo_planning/planning_fake.dart' show MockPlanningSource;
@@ -167,6 +168,81 @@ void main() {
       await settings.load();
       expect(await refusedWith(true), contains('Needs you offers its sign-in'));
       expect(told, ['laptop/claude/Claude Code', 'laptop/claude/Claude Code']);
+    });
+
+    // Harm: a person who pressed Start sees nothing while the machine prepares, and presses again or waits blind; a
+    // start nobody pressed takes the page from what the person does; the planner hears of one start twice.
+    group('what Start says on the way runs as an operation of the window', () {
+      const step = StartStep(step: 'IMAGE', state: 'RUNNING', text: 'Building the image', waitingOn: '', cause: '');
+      late Operations operations;
+      late List<String> opened;
+
+      setUp(() {
+        operations = Operations(saveDelay: Duration.zero);
+        opened = <String>[];
+        machine.says = const <StartEvent>[step, StartLine('image built')];
+      });
+
+      tearDown(() => operations.dispose());
+
+      WindowTaskStarts watched() => starts()
+        ..operations = operations
+        ..openOperation = opened.add;
+
+      test('a pressed start opens it with what Start said, done once the task stands, and answers once', () async {
+        final order = (await plannedOrders()).first;
+
+        final started = await watched().pressed(MockPlanningSource('planner'), 'demo', 'ST291', order);
+        await pumpEventQueue();
+
+        final operation = operations.all.single;
+        expect(opened, [operation.id], reason: 'opened at once, for the press');
+        expect(operation.steps['IMAGE']?.text, 'Building the image');
+        expect(operation.output, ['image built']);
+        expect(operation.state, OperationState.succeeded);
+        expect(operation.machine, 'laptop');
+        expect(started.container, 'porelo-demo-${order.repository}');
+        expect(machine.started, hasLength(1), reason: 'one start, answered once');
+      });
+
+      test('a start nobody pressed is only listed', () async {
+        final order = (await plannedOrders()).first;
+
+        await watched()(MockPlanningSource('planner'), 'demo', 'ST291', order);
+        await pumpEventQueue();
+
+        expect(operations.all, hasLength(1));
+        expect(opened, isEmpty, reason: 'a start the planner ordered after a report opens nothing');
+      });
+
+      test('a start refused after it said something ends its operation in the refusal\'s words', () async {
+        final order = (await plannedOrders()).first;
+        machine.refusal = const VarlinkException('org.fuin.porelo.Tasks1.SignInNeeded', {'agent': 'claude'});
+
+        await expectLater(
+          watched().pressed(MockPlanningSource('planner'), 'demo', 'ST291', order),
+          throwsA(isA<PlanningRefusal>()),
+        );
+        await pumpEventQueue();
+
+        final operation = operations.all.single;
+        expect(operation.failed, isTrue);
+        expect(operation.summary, startsWith('Claude Code is not signed in on laptop'));
+      });
+
+      test('a start refused before it said anything makes no operation: the board alone says it', () async {
+        final order = (await plannedOrders()).first;
+        machine
+          ..says = const <StartEvent>[]
+          ..refusal = const VarlinkException('org.fuin.porelo.Tasks1.VaultLocked');
+
+        await expectLater(
+          watched().pressed(MockPlanningSource('planner'), 'demo', 'ST291', order),
+          throwsA(isA<PlanningRefusal>()),
+        );
+
+        expect(operations.all, isEmpty);
+      });
     });
 
     // Harm: a planner's order runs twice, as two agents on the same work.
@@ -397,6 +473,9 @@ class _Starting extends Fake implements FleetBackend {
   VarlinkException? refusal;
   final _listed = <Task>[];
 
+  /// What Start says on the way, before it answers.
+  List<StartEvent> says = const <StartEvent>[];
+
   @override
   String get label => 'laptop';
 
@@ -410,7 +489,9 @@ class _Starting extends Fake implements FleetBackend {
     required String prompt,
     String? callerKey,
     List<String> reads = const [],
+    void Function(StartEvent event)? onEvent,
   }) async {
+    says.forEach(onEvent ?? (_) {});
     if (refusal case final refusal?) throw refusal;
     started.add({
       'project': project,
@@ -439,6 +520,7 @@ class _Starting extends Fake implements FleetBackend {
     required String prompt,
     required String result,
     String? callerKey,
+    void Function(StartEvent event)? onEvent,
   }) async {
     if (refusal case final refusal?) throw refusal;
     discussed.add({

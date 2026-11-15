@@ -14,6 +14,11 @@ import './step/i_choose_story_work.dart';
 import './step/i_resolve_the_story_reading_with.dart';
 import './step/the_planning_watch_fails.dart';
 import './step/i_open_story_work_in_a_narrow_host.dart';
+import './step/the_machine_says_while_it_prepares_a_start_and_holds_it.dart';
+import './step/the_start_work_dialog_waits_on_start_with_its_mark.dart';
+import './step/the_operation_shows.dart';
+import './step/the_machine_lets_the_start_go_on.dart';
+import './step/the_start_work_dialog_no_longer_waits_on_start.dart';
 import './step/i_drop_story_on_working_state.dart';
 import './step/another_machine_offers_the_same_project_planning.dart';
 
@@ -147,6 +152,16 @@ void main() {
       await iChooseStoryWork(tester, 'with you');
       await iChooseStoryWork(tester, 'start');
       await storyWorkProves(tester, 'with you terminal');
+    });
+    testWidgets('''Start work waits on Start with its mark while the window shows how far it is''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineSaysWhileItPreparesAStartAndHoldsIt(tester, 'Building the image');
+      await iOpenStoryWorkFor(tester, 'ST291');
+      await iChooseStoryWork(tester, 'start');
+      await theStartWorkDialogWaitsOnStartWithItsMark(tester);
+      await theOperationShows(tester, 'Building the image');
+      await theMachineLetsTheStartGoOn(tester);
+      await theStartWorkDialogNoLongerWaitsOnStart(tester);
     });
     testWidgets('''The end of a task the window started reaches the planner''', (tester) async {
       await bddSetUp(tester);

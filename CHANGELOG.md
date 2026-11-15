@@ -19,6 +19,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A discussion or a task started from the *Planning* board opens its operation as soon as the machine says the first thing, with the preparation's steps, and the discussion's session once its agent runs; a start the planner orders after a report is only listed under operations. The *Start work* dialog shows a waiting mark while it waits on Start and says that the window shows how far it is.
 - A start refused because an agent is not signed in on its machine says which agent on which machine, on the *Planning* board, in a start's operation, a restart and the start of several agents, instead of `org.fuin.porelo.Tasks1.SignInNeeded`; a start from *Planning* also adds *Sign in to … on …* under *Needs you*, one press from that machine's sign-in, until the machine says the agent is signed in. Start's other refusals read in words the same way.
 - When a host's forge refuses one repository's pull requests, *Needs you* says which repository, what the forge answered and the path it was asked, and what to do, while the other repositories' pull requests still show and the refused one's stay, marked out of date; a forge that refuses your person token says to renew it on the host. An agent signed in through the Porelo-Vault reads so when you start work.
 - A move in *Planning* whose story or issue planning meanwhile shows in that state already reads as done, with the quiet note "Planning already shows … in ….", instead of the red "it was not moved".

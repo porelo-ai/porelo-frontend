@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:porelo_planning/porelo_planning.dart'
     show
@@ -19,12 +21,13 @@ import 'package:porelo_planning/porelo_planning.dart'
 import '../app/fleet_backend.dart';
 import '../app/links.dart' as links;
 import '../app/machines.dart';
+import '../app/operations.dart';
 import '../app/planner.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
 import '../app/start_refusals.dart';
 import '../app/window_log.dart';
-import '../client/models.dart' show AgentEnded, Mode, Task;
+import '../client/models.dart' show AgentEnded, Mode, StartEvent, Task;
 import '../client/porelo_client.dart' show FeatureNotSupported, StartProgress;
 import '../wire/varlink_exception.dart';
 import 'planning_reports.dart';
@@ -106,6 +109,12 @@ class WindowTaskStarts {
   /// answers whether *Needs you* offers it now.
   bool Function(Machine machine, FleetBackend on, String agent, String label)? onSignInNeeded;
 
+  /// Where a start's progress runs as one of the window's operations; none where nothing shows it.
+  Operations? operations;
+
+  /// Opens an operation, by its id, for a start the person pressed.
+  void Function(String id)? openOperation;
+
   static Machine? _noMachine(String name) => null;
 
   final _startedOn = <(String, String), Machine>{};
@@ -125,11 +134,28 @@ class WindowTaskStarts {
   /// over every repository of the project, read only, as no story's task.
   ///
   /// A refusal, by the machine or for want of one, is a [PlanningRefusal] in the machine's words.
-  Future<PlanningTaskStarted> call(PlanningSource source, String project, String story, PlanningTaskOrder task) async {
+  ///
+  /// What Start says on the way runs as one of the window's [operations], listed only: a start the planner ordered after
+  /// a report was pressed by nobody.
+  Future<PlanningTaskStarted> call(PlanningSource source, String project, String story, PlanningTaskOrder task) =>
+      _keptWhileStarting(source, project, story, task, pressed: false);
+
+  /// Starts [task] as [call] does, for a press on the planning screen: its operation opens as soon as Start says the
+  /// first thing, as a start from the start form does, so the person sees how far it is.
+  Future<PlanningTaskStarted> pressed(PlanningSource source, String project, String story, PlanningTaskOrder task) =>
+      _keptWhileStarting(source, project, story, task, pressed: true);
+
+  Future<PlanningTaskStarted> _keptWhileStarting(
+    PlanningSource source,
+    String project,
+    String story,
+    PlanningTaskOrder task, {
+    required bool pressed,
+  }) async {
     final offer = task.offer;
     if (offer != null) _starting.add(offer);
     try {
-      return await _start(source, project, story, task);
+      return await _start(source, project, story, task, pressed: pressed);
     } finally {
       if (offer != null) _starting.remove(offer);
     }
@@ -144,8 +170,9 @@ class WindowTaskStarts {
     PlanningSource source,
     String project,
     String story,
-    PlanningTaskOrder task,
-  ) async {
+    PlanningTaskOrder task, {
+    required bool pressed,
+  }) async {
     final machine = machineFor(project);
     if (machine == null) {
       const words = 'No watched machine to start the task on. Watch the machine that carries the project.';
@@ -157,6 +184,15 @@ class WindowTaskStarts {
       throw PlanningRefusal('NotWatchedYet', {'detail': words}, words);
     }
     final discussion = task.role == 'DISCUSSION';
+    final shown = _StartShown(
+      operations,
+      title: discussion
+          ? 'Discuss an idea in $project'
+          : 'Start the ${task.role.toLowerCase()} task of $story'
+                '${task.repository == null ? '' : ' in ${task.repository}'}',
+      machine: machine.name,
+      open: pressed ? openOperation : null,
+    );
     final Future<StartProgress> Function() start;
     switch ((discussion, task.repository, task.result)) {
       case (true, _, final result?):
@@ -188,6 +224,7 @@ class WindowTaskStarts {
           prompt: task.prompt,
           result: result,
           callerKey: task.offer,
+          onEvent: shown.add,
         );
       case (false, final repository?, _):
         start = () => backend.startOrdered(
@@ -199,6 +236,7 @@ class WindowTaskStarts {
           prompt: task.prompt,
           callerKey: task.offer,
           reads: task.reads,
+          onEvent: shown.add,
         );
       default:
         final words = 'The planner ordered a ${task.role} task this window cannot start.';
@@ -238,23 +276,24 @@ class WindowTaskStarts {
       // Said only where the offer answered that its row stands.
       final offered =
           refused is SignInNeeded && (onSignInNeeded?.call(machine, backend, refused.agent, refused.label) ?? false);
-      final shown = offered ? '$words Needs you offers its sign-in.' : words;
+      final told = offered ? '$words Needs you offers its sign-in.' : words;
       _sayRefused(machine, project, story, task, words);
+      shown.refused(refused);
       // The board reads a refusal's detail first: it carries these words, which say the machine's own within them.
       throw switch (error) {
         VarlinkException() => PlanningRefusal(
           error.simpleName,
-          {...error.parameters, 'detail': shown},
-          shown,
+          {...error.parameters, 'detail': told},
+          told,
           error.isMethodNotFound,
         ),
         SignInNeeded(:final agent, :final running) => PlanningRefusal('SignInNeeded', {
           'agent': agent,
           'running': ?running,
-          'detail': shown,
-        }, shown),
+          'detail': told,
+        }, told),
         // The window's refusals of a start, each already in words.
-        _ => PlanningRefusal('StartRefused', {'detail': shown}, shown),
+        _ => PlanningRefusal('StartRefused', {'detail': told}, told),
       };
     }
     final container = answer.container ?? '';
@@ -266,8 +305,11 @@ class WindowTaskStarts {
           : '${machine.name} answered Start with ${answer.action?.name ?? 'no action'} and exit code '
                 '${answer.exitCode ?? 'none'}, starting no task.';
       _sayRefused(machine, project, story, task, words);
+      shown.refused(_Said(words));
       throw PlanningRefusal('StartRefused', {'detail': words}, words);
     }
+    // Its agent runs: the operation has done its part, and the task's own session takes over.
+    shown.done();
     _startedOn[(project, container)] = machine;
     // Start answers the container alone; the task's name within the project is what the machine lists for it.
     final listed = (await backend.tasks()).where((each) => each.name == container).firstOrNull;
@@ -395,7 +437,7 @@ EmbeddedPlanning plannerPlanning(LocalPlanner planner, Machines machines) {
   planner.addListener(reports.sweep);
   return EmbeddedPlanning(
     planner,
-    startTask: starts.call,
+    startTask: starts.pressed,
     startedOn: starts.startedOn,
     reports: reports,
     starts: starts,
@@ -565,4 +607,57 @@ String reasonFirst(List<String> printed) {
   ];
   if (lines.length < 2) return lines.join();
   return '${lines.last} — ${lines.take(lines.length - 1).join(' · ')}';
+}
+
+/// A start's progress as one of the window's operations, made once Start says its first line or step: a start
+/// refused before it says anything is said where it was asked for, once, and makes no operation.
+class _StartShown {
+  _StartShown(this.operations, {required this.title, required this.machine, this.open});
+
+  final Operations? operations;
+  final String title;
+  final String machine;
+
+  /// Opens the operation once made, for a start the person pressed; null for one nobody pressed.
+  final void Function(String id)? open;
+
+  StreamController<Object>? _output;
+
+  void add(StartEvent event) {
+    final run = operations;
+    if (run == null) return;
+    var output = _output;
+    if (output == null) {
+      output = _output = StreamController<Object>();
+      final operation = run.run(title: title, machine: machine, output: output.stream);
+      open?.call(operation.id);
+    }
+    output.add(event);
+  }
+
+  /// Ends the operation as failed, in the words every start path says [refusal] in.
+  void refused(Object refusal) {
+    final output = _output;
+    if (output == null) return;
+    _output = null;
+    output.addError(refusal);
+    unawaited(output.close());
+  }
+
+  /// Ends the operation as done.
+  void done() {
+    final output = _output;
+    _output = null;
+    unawaited(output?.close());
+  }
+}
+
+/// A refusal already in words.
+class _Said implements Exception {
+  const _Said(this.words);
+
+  final String words;
+
+  @override
+  String toString() => words;
 }

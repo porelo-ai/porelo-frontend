@@ -286,7 +286,8 @@ abstract class FleetBackend {
   ///
   /// [callerKey] is kept with the task from its creation and listed with it, so a window that ended before it heard
   /// Start's answer finds the task again; a machine that keeps none is started without it. [reads] names the tasks
-  /// whose landed work the task reads; a machine that cannot hand it refuses with `FeatureNotSupported`.
+  /// whose landed work the task reads; a machine that cannot hand it refuses with `FeatureNotSupported`. [onEvent] is
+  /// told each line and step Start says on the way, as they come, so a person sees how far it is.
   Future<StartProgress> startOrdered({
     required String project,
     required String repository,
@@ -296,6 +297,7 @@ abstract class FleetBackend {
     required String prompt,
     String? callerKey,
     List<String> reads = const [],
+    void Function(StartEvent event)? onEvent,
   });
 
   /// Starts a discussion a planner ordered: every repository of [project] read only, nothing writable and nothing
@@ -309,6 +311,7 @@ abstract class FleetBackend {
     required String prompt,
     required String result,
     String? callerKey,
+    void Function(StartEvent event)? onEvent,
   });
 
   /// Why this machine cannot start a discussion ([startDiscussion]), in words, or null where it can.
@@ -884,10 +887,12 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     required String prompt,
     String? callerKey,
     List<String> reads = const [],
+    void Function(StartEvent event)? onEvent,
   }) => _startRunning(
     project: project,
     repository: repository,
     callerKey: callerKey,
+    onEvent: onEvent,
     () => _opened().start(
       project: project,
       repository: repository,
@@ -911,9 +916,11 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     required String prompt,
     required String result,
     String? callerKey,
+    void Function(StartEvent event)? onEvent,
   }) => _startRunning(
     project: project,
     callerKey: callerKey,
+    onEvent: onEvent,
     () => _opened().start(
       project: project,
       callerKey: callerKey,
@@ -937,6 +944,7 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     required String project,
     String? repository,
     String? callerKey,
+    void Function(StartEvent event)? onEvent,
   }) async {
     // What stood before, so a task the start made is told from it; where the list cannot be read, only a step that
     // names its container answers early.
@@ -949,6 +957,7 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     return _startAnswered(
       start(),
       project: project,
+      onEvent: onEvent,
       agentRuns: (named) async {
         if (named != null) return named;
         final stood = before;
@@ -987,6 +996,7 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     required String project,
     String? task,
     Future<String?> Function(String? named)? agentRuns,
+    void Function(StartEvent event)? onEvent,
   }) async {
     var last = const StartProgress();
     final printed = <String>[];
@@ -994,9 +1004,22 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     final replies = start.transform(startRefusalsSaid);
     await for (final progress in replies) {
       final asked = progress.certify;
-      if (asked != null) printed.add(await _certified(asked, certifying, project: project, task: task));
+      if (asked != null) {
+        final words = await _certified(asked, certifying, project: project, task: task);
+        printed.add(words);
+        onEvent?.call(StartLine(words));
+      }
       final line = progress.line;
       if (line != null) printed.add(line);
+      // Told as they come, as a start from the start form shows them.
+      if (onEvent != null) {
+        if (line != null) onEvent(StartLine(line));
+        for (final each in progress.output) {
+          onEvent(StartLine(each));
+        }
+        if (progress.step case final step?) onEvent(step);
+        progress.steps.forEach(onEvent);
+      }
       last = progress;
       if ((agentRuns, progress.step) case (final runs?, StartStep(step: 'AGENT', state: 'STARTED', :final container))) {
         if (await runs(container) case final made?) {
