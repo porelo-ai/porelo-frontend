@@ -15,15 +15,15 @@ typedef HandIdea = Future<String> Function(
   PlannerProjects? projects,
 });
 
-/// Why the planner did not save an idea, in words: its own where it gave some.
-class IdeaNotSaved implements Exception {
+/// Why the planner did not save what the window handed it, in words: its own where it gave some.
+class PlannerDidNotSave implements Exception {
   /// Takes the words, the faults the planner named, and whether trying again later may save it.
-  const IdeaNotSaved(this.words, {this.faults = const [], this.transient = false});
+  const PlannerDidNotSave(this.words, {this.faults = const [], this.transient = false});
 
   /// What went wrong, for a person.
   final String words;
 
-  /// The faults the planner named in the idea, each starting with the field it names.
+  /// The faults the planner named in what was handed, each starting with the field it names.
   final List<String> faults;
 
   /// Whether the planner could not be asked, or could not save it now, so a later try may save it.
@@ -31,6 +31,12 @@ class IdeaNotSaved implements Exception {
 
   @override
   String toString() => faults.isEmpty ? words : '$words ${faults.join('; ')}';
+}
+
+/// Why the planner did not save an idea.
+class IdeaNotSaved extends PlannerDidNotSave {
+  /// Takes the words, the faults the planner named, and whether trying again later may save it.
+  const IdeaNotSaved(super.words, {super.faults, super.transient});
 }
 
 /// The most bytes a hand-in's body may have.
@@ -57,6 +63,33 @@ Future<String> handIdea(
   if (utf8.encode(jsonEncode(body)).length > mostIdeaBytes) {
     throw const IdeaNotSaved('the idea is larger than the planner takes (64 KiB)');
   }
+  try {
+    final (status, answer) = await postToPlanner(
+      project,
+      ['projects', project, 'ideas'],
+      body,
+      runtimeDirectory: runtimeDirectory,
+      projects: projects,
+      within: within,
+    );
+    return ideaAnswered(status, answer);
+  } on PlannerDidNotSave catch (refusal) {
+    throw IdeaNotSaved(refusal.words, faults: refusal.faults, transient: refusal.transient);
+  }
+}
+
+/// Sends [body] as `POST` to [path] of the planner of this account, signed through [callOwnPlanner], and answers its
+/// status and body. A planner that was not given [project] since it started (`NoSuchProject`) is given it, with the
+/// repository [projects] names, as `PUT /projects/{project}`, and is asked once more, as the board's reads do. A planner
+/// that cannot be asked is a [PlannerDidNotSave], transient where a later try may reach it.
+Future<(int, String)> postToPlanner(
+  String project,
+  List<String> path,
+  Map<String, Object?> body, {
+  String? runtimeDirectory,
+  PlannerProjects? projects,
+  Duration within = const Duration(seconds: 30),
+}) async {
   Future<(int, String)> send(String method, List<String> path, Map<String, Object?> json) async {
     final answer = await callOwnPlanner(
       method,
@@ -70,28 +103,27 @@ Future<String> handIdea(
   }
 
   try {
-    final ideas = ['projects', project, 'ideas'];
-    var (status, answer) = await send('POST', ideas, body);
+    var (status, answer) = await send('POST', path, body);
     if (projects != null && status == 404 && _title(answer) == 'NoSuchProject') {
       final PlannerProject given;
       try {
         given = await projects(project);
       } on Object {
-        throw IdeaNotSaved('no watched machine names the repository of $project yet', transient: true);
+        throw PlannerDidNotSave('no watched machine names the repository of $project yet', transient: true);
       }
       final told = await send('PUT', ['projects', project], {'repository': given.repository, 'branch': ?given.branch});
-      if (told.$1 < 200 || told.$1 > 299) return ideaAnswered(told.$1, told.$2);
-      (status, answer) = await send('POST', ideas, body);
+      if (told.$1 < 200 || told.$1 > 299) return told;
+      (status, answer) = await send('POST', path, body);
     }
-    return ideaAnswered(status, answer);
+    return (status, answer);
   } on PlannerNotProven catch (notProven) {
-    throw IdeaNotSaved(notProven.description);
+    throw PlannerDidNotSave(notProven.description);
   } on PlanningRefusal catch (refusal) {
     throw switch (refusal.name) {
-      'NoAddress' || 'BadAddress' => const IdeaNotSaved('no planner is running for this account', transient: true),
-      'TimedOut' => IdeaNotSaved('the planner did not answer within ${within.inSeconds} s', transient: true),
-      'PlannerUnreachable' => IdeaNotSaved('$refusal', transient: true),
-      _ => IdeaNotSaved('$refusal'),
+      'NoAddress' || 'BadAddress' => const PlannerDidNotSave('no planner is running for this account', transient: true),
+      'TimedOut' => PlannerDidNotSave('the planner did not answer within ${within.inSeconds} s', transient: true),
+      'PlannerUnreachable' => PlannerDidNotSave('$refusal', transient: true),
+      _ => PlannerDidNotSave('$refusal'),
     };
   }
 }
@@ -123,14 +155,26 @@ String ideaAnswered(int status, String body) {
   if (status == 404 && problem['title'] != 'NoSuchProject') {
     throw const IdeaNotSaved('this planner cannot take ideas; it needs a newer planner');
   }
+  throw IdeaNotSaved(
+    plannerWords(status, problem),
+    faults: faultsIn(problem),
+    transient: status == 503 || status == 504,
+  );
+}
+
+/// The planner's own words for a refusal it answered with [status], from its problem body [problem].
+String plannerWords(int status, Map<String, dynamic> problem) {
   final detail = problem['detail'] ?? problem['title'];
-  final words = detail is String ? detail : 'the planner answered $status';
+  return detail is String ? detail : 'the planner answered $status';
+}
+
+/// The faults a planner's problem body names, each starting with the field it names; none where it names none.
+List<String> faultsIn(Map<String, dynamic> problem) {
   final parameters = problem['parameters'];
-  final faults = parameters is Map<String, dynamic> && parameters['faults'] is List<dynamic>
+  return parameters is Map<String, dynamic> && parameters['faults'] is List<dynamic>
       ? [
           for (final fault in parameters['faults'] as List<dynamic>)
             if (fault is String) fault,
         ]
       : const <String>[];
-  throw IdeaNotSaved(words, faults: faults, transient: status == 503 || status == 504);
 }
