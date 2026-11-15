@@ -113,6 +113,11 @@ then moved the issue to *Analyzed* on central, whose issue held no plan and no s
   after the project was given (red without it). Yellows left: another 404 reads "needs a newer planner" also for a
   task the planner does not know; the bound is the file's text, the body is re-encoded; the planner's faults are
   said as it words them; an offer an earlier build kept reports its end with no hand-in.
+- **Planner's bound** (its room post of 10:49Z, PL141 at porelo-planner `5ed01f2`): the hand-in's body may have
+  266240 bytes, the file's 262144 and 4096 for the rest; a larger body is answered 401 as an unsigned call. The window
+  measures the body as it sends it, a result past it is handed in as missing, and `handStageResult` never sends one
+  (test *a body past the planner's bound is never sent…*, red with the bound off); `missing` is cut to 300 characters
+  (red uncut: `Actual: <500>`). A 404 `TaskNotAnswered` is the planner's refusal in its words (red without it).
 - **Runs:** `dart analyze` No issues found; the touched files green on the new pin. `test/ui` and
   `test/features` not run whole.
 - **Not done:** the Plan's feature scenario. The planner's `MockPlanningSource` serves no stage order and the

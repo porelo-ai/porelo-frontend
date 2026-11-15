@@ -187,6 +187,40 @@ void main() {
     );
   });
 
+  // Harm: a body past the planner's bound is answered as an unsigned call, taken for a planner not proven, and handed
+  // in again for ever; or a long line of why there is none is refused.
+  test('a body past the planner\'s bound is never sent, and a long why is cut to 300 characters', () async {
+    await expectLater(
+      handStageResult(
+        'demo',
+        'pi',
+        offer,
+        result: {...result, 'pad': 'x' * mostStageResultBody},
+        runtimeDirectory: runtime.path,
+      ),
+      throwsArgumentError,
+    );
+    expect(planner.calls, isEmpty);
+
+    await handStageResult('demo', 'pi', offer, missing: 'w' * 500, runtimeDirectory: runtime.path);
+    final why = (jsonDecode(planner.calls.single.$3) as Map<String, dynamic>)['missing'] as String;
+    expect(why.length, mostMissingCharacters);
+  });
+
+  // Harm: a task the planner does not know reads as a planner too old, or is handed in again for ever.
+  test('a task the planner does not know is its refusal, in its words', () async {
+    planner.answer = (404, jsonEncode({'title': 'TaskNotAnswered', 'detail': 'No task pi is answered for demo.'}));
+
+    await expectLater(
+      handStageResult('demo', 'pi', offer, result: result, runtimeDirectory: runtime.path),
+      throwsA(
+        isA<StageResultNotSaved>()
+            .having((refusal) => refusal.words, 'words', 'No task pi is answered for demo.')
+            .having((refusal) => refusal.transient, 'transient', isFalse),
+      ),
+    );
+  });
+
   // Harm: a planner not running loses the result instead of having it handed in once it runs.
   test('no planner running is a failure to try again later', () async {
     await File('${runtime.path}/porelo-planner/planner.json').delete();

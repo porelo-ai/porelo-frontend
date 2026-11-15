@@ -25,6 +25,13 @@ class StageResultNotSaved extends PlannerDidNotSave {
 /// The most bytes a stage's result file may have, as the planner takes it.
 const mostStageResultBytes = 262144;
 
+/// The most bytes the hand-in's body may have: the file and 4096 for its offer and the JSON around it. The planner
+/// answers a larger body as an unsigned call, so it is never sent.
+const mostStageResultBody = mostStageResultBytes + 4096;
+
+/// The most characters of the line that says why there is no result.
+const mostMissingCharacters = 300;
+
 /// The planner's `POST /projects/{project}/tasks/{task}/result`, signed as every call to it is: the body
 /// `{"offer": ..., "result": <the file's object>}`, or `{"offer": ..., "missing": "<why>"}` where the task left none.
 ///
@@ -43,7 +50,13 @@ Future<void> handStageResult(
   if ((result == null) == (missing == null)) {
     throw ArgumentError('A stage hands in either its result or why it has none.');
   }
-  final body = <String, Object?>{'offer': offer, 'result': ?result, 'missing': ?missing};
+  final why = missing == null || missing.length <= mostMissingCharacters
+      ? missing
+      : '${missing.substring(0, mostMissingCharacters - 1)}…';
+  final body = <String, Object?>{'offer': offer, 'result': ?result, 'missing': ?why};
+  if (utf8.encode(jsonEncode(body)).length > mostStageResultBody) {
+    throw ArgumentError('A stage result over $mostStageResultBody bytes is handed in as missing, never sent.');
+  }
   final (int, String) answered;
   try {
     answered = await postToPlanner(
@@ -74,6 +87,9 @@ void stageResultAnswered(int status, String body) {
     json = null;
   }
   final problem = json is Map<String, dynamic> ? json : const <String, dynamic>{};
+  if (status == 404 && problem['title'] == 'TaskNotAnswered') {
+    throw StageResultNotSaved(plannerWords(status, problem), faults: faultsIn(problem));
+  }
   if ((status == 404 || status == 405) && problem['title'] != 'NoSuchProject') {
     throw const StageResultNotSaved('this planner cannot take a stage\'s result; it needs a newer planner');
   }

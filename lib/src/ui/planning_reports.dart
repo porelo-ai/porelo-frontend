@@ -831,7 +831,14 @@ class WindowTaskReports {
       } on FormatException {
         json = null;
       }
-      (result, missing) = json is Map<String, Object?> ? (json, null) : (null, '$name holds no JSON object');
+      (result, missing) = switch (json) {
+        // Measured as it is sent: the object written again as JSON may be longer than the file was.
+        final Map<String, Object?> object
+            when utf8.encode(jsonEncode({'offer': kept.offer, 'result': object})).length > mostStageResultBody =>
+          (null, '$name is larger than the planner takes (256 KiB)'),
+        final Map<String, Object?> object => (object, null),
+        _ => (null, '$name holds no JSON object'),
+      };
     }
     try {
       await handResult(
