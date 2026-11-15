@@ -16,6 +16,7 @@ import 'package:porelo_frontend/src/ui/planning_reports.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
 import 'package:porelo_frontend/src/app/planner_ideas.dart';
+import 'package:porelo_frontend/src/app/planner_stage_results.dart';
 
 import 'window_task_starts_test.dart' show discussionOrder, plannedOrders;
 
@@ -35,6 +36,8 @@ void main() {
   late Object? takeFails;
   late List<Object> handAnswers;
   late Map<String, TaskResult> results;
+  late List<(String, String, String, Map<String, Object?>?, String?)> stageResults;
+  late List<Object> stageAnswers;
 
   Future<Settings> loaded() async {
     final again = Settings(store);
@@ -80,6 +83,10 @@ void main() {
       watched: () => [on.name],
       ideaPlanner: () => reached?.call() ?? true ? (_provider, planner) : null,
       repositoryOf: (name, task) => name == on.name && task.repository.isNotEmpty ? task.repository : null,
+      handResult: (project, task, offer, {result, missing, runtimeDirectory, projects}) async {
+        stageResults.add((project, task, offer, result, missing));
+        if (stageAnswers.isNotEmpty) throw stageAnswers.removeAt(0);
+      },
       handIssue: handIssue ?? issueFromIdea,
       now: now ?? DateTime.now,
     );
@@ -100,6 +107,8 @@ void main() {
     takeFails = null;
     handAnswers = [];
     results = {};
+    stageResults = [];
+    stageAnswers = [];
   });
 
   // Harm: the planner never learns that a task it ordered runs, or learns it for another machine or task.
@@ -738,6 +747,178 @@ void main() {
   });
 
   // Harm: a report refused only because no watched machine had named the project's repository yet is never sent.
+  group('an ended planned stage', () {
+    const analysis = {
+      'format': 'porelo-stage-result-1',
+      'kind': 'ANALYSIS',
+      'issues': [
+        {'id': 'PI68', 'plan': 'Read the docs against the code.', 'size': 'S', 'sizeWhy': 'One module.'},
+      ],
+    };
+    final analysisFile = {'name': 'analysis.json', 'state': 'handed', 'bytes': 10};
+
+    /// A started stage whose order named `analysis.json`, as the planner orders one, and its reports.
+    Future<(WindowTaskReports, PlanningTaskStarted, List<String>)> staged({
+      DateTime Function()? now,
+      bool Function()? reached,
+    }) async {
+      final (starts, reports) = window(now: now, reached: reached);
+      final problems = <String>[];
+      reports.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
+      final started = await starts(planner, 'demo', 'ST366', (await plannedOrders()).first);
+      await reports.idle;
+      final kept = settings.plannedOffer('laptop', started.container)!;
+      await settings.rememberPlanningOffer(
+        machine: kept.machine,
+        container: kept.container,
+        offer: kept.offer,
+        provider: kept.provider,
+        project: kept.project,
+        story: kept.story,
+        task: kept.task,
+        run: kept.run,
+        result: 'analysis.json',
+      );
+      await settings.planningOfferReported('laptop', started.container, started: true);
+      return (reports, started, problems);
+    }
+
+    Future<void> sweeps(WindowTaskReports reports) async {
+      for (var change = 0; change < 3; change++) {
+        reports.sweep();
+        await reports.idle;
+      }
+    }
+
+    List<PlanningTaskEvent> events() => [for (final call in planner.calls) call.event];
+
+    // Harm: the planner moves the issue on an end before it has what the stage produced, or never gets it; or gets it
+    // twice, or changed, or under another task or offer.
+    test('hands its result once, unchanged, before its end is reported', () async {
+      final (reports, started, problems) = await staged();
+      results[started.container] = TaskResult.from({...analysisFile, 'content': jsonEncode(analysis)});
+      machine.end(started.container, {'at': '2026-11-15T11:00:00Z', 'finished': true, 'result': analysisFile});
+
+      await sweeps(reports);
+
+      final offer = settings.plannedOffer('laptop', started.container)!;
+      final (project, task, handedOffer, result, missing) = stageResults.single;
+      expect((project, task, handedOffer, missing), ('demo', started.task, offer.offer, null));
+      expect(result, analysis);
+      expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+      expect(problems, isEmpty);
+
+      final (_, again) = window(kept: await loaded());
+      await sweeps(again);
+      expect(stageResults, hasLength(1), reason: 'a result the planner has is not handed again after a restart');
+    });
+
+    // Harm: a stage's end is reported while the planner could not be reached for its result, so the issue moves on
+    // with nothing saved; or the result is never handed once it can be.
+    test('keeps its end back while the planner cannot take its result, and hands both once it can', () async {
+      final (reports, started, problems) = await staged();
+      results[started.container] = TaskResult.from({...analysisFile, 'content': jsonEncode(analysis)});
+      machine.end(started.container, {'at': '2026-11-15T11:00:00Z', 'finished': true, 'result': analysisFile});
+      stageAnswers
+        ..add(const StageResultNotSaved('no planner is running for this account', transient: true))
+        ..add(const StageResultNotSaved('no planner is running for this account', transient: true));
+
+      for (var change = 0; change < 2; change++) {
+        reports.sweep();
+        await reports.idle;
+      }
+      expect(events(), [PlanningTaskEvent.started], reason: 'no end before the result is saved');
+      expect(problems, hasLength(1), reason: 'a planner not reached is said once');
+
+      await sweeps(reports);
+      expect(stageResults, hasLength(3));
+      expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+    });
+
+    // Harm: a result the planner saved is handed again while its end waits for a planner not reached, also after a
+    // restart.
+    test('a result saved while its end could not be told is not handed again', () async {
+      var reached = true;
+      final (reports, started, _) = await staged(reached: () => reached);
+      results[started.container] = TaskResult.from({...analysisFile, 'content': jsonEncode(analysis)});
+      machine.end(started.container, {'at': '2026-11-15T11:00:00Z', 'finished': true, 'result': analysisFile});
+      reached = false;
+
+      await sweeps(reports);
+      expect(stageResults, hasLength(1));
+      expect(events(), [PlanningTaskEvent.started], reason: 'the end waits for the planner');
+
+      final (_, again) = window(kept: await loaded());
+      await sweeps(again);
+      reached = true;
+      await sweeps(again);
+      expect(stageResults, hasLength(1));
+      expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+    });
+
+    // Harm: a refused result keeps the end back for ever, or is refused in silence.
+    test('a refused result says the planner\'s faults, and its end is still reported', () async {
+      final (reports, started, problems) = await staged();
+      results[started.container] = TaskResult.from({...analysisFile, 'content': jsonEncode(analysis)});
+      machine.end(started.container, {'at': '2026-11-15T11:00:00Z', 'finished': true, 'result': analysisFile});
+      stageAnswers.add(
+        const StageResultNotSaved('The analysis is not saved.', faults: ['issues[0].size: not one of XS, S, M, L, XL']),
+      );
+
+      await sweeps(reports);
+
+      expect(stageResults, hasLength(1));
+      expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+      expect(problems.single, contains('issues[0].size: not one of XS, S, M, L, XL'));
+    });
+
+    // Harm: a stage that wrote no result leaves its issue waiting for ever; or one the machine had not yet taken at the
+    // end is said missing.
+    test('a result missing past its settling is said as missing with why', () async {
+      var at = DateTime.utc(2026, 11, 15, 11);
+      final (reports, started, problems) = await staged(now: () => at);
+      results[started.container] = const TaskResult(name: 'analysis.json', state: ResultState.missing);
+      machine.end(started.container, {'at': '2026-11-15T11:00:00Z', 'finished': true});
+
+      await sweeps(reports);
+      expect(stageResults, isEmpty, reason: 'looked at again until it settles');
+      expect(events(), [PlanningTaskEvent.started]);
+
+      at = at.add(const Duration(minutes: 2));
+      await sweeps(reports);
+      expect(stageResults.single.$4, isNull);
+      expect(stageResults.single.$5, 'it wrote no analysis.json');
+      expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+      expect(problems.single, contains('ended with no result'));
+    });
+
+    // Harm: a result that is no JSON object is handed as if it were one, or leaves its issue waiting for ever.
+    test('a result that is no JSON object is said as missing with why', () async {
+      final (reports, started, _) = await staged();
+      results[started.container] = TaskResult.from({...analysisFile, 'content': '[1, 2]'});
+      machine.end(started.container, {'at': '2026-11-15T12:00:00Z', 'finished': true, 'result': analysisFile});
+
+      await sweeps(reports);
+
+      expect(stageResults.single.$4, isNull);
+      expect(stageResults.single.$5, 'analysis.json holds no JSON object');
+      expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+    });
+
+    // Harm: work that pushes waits for a result it never writes, so its end is never reported.
+    test('a task with no result file reports its end alone', () async {
+      final (starts, reports) = window();
+      final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+      await reports.idle;
+      machine.end(started.container, {'at': '2026-11-15T11:00:00Z', 'finished': true});
+
+      await sweeps(reports);
+
+      expect(stageResults, isEmpty);
+      expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+    });
+  });
+
   group('an ended discussion', () {
     const idea = {
       'story': {'title': 'Night lights', 'gain': 'Less glare.', 'test': 'The lights dim.', 'priority': 3},

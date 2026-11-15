@@ -9,6 +9,7 @@ import '../app/fleet_backend.dart' show PoreloBackend;
 import '../app/outcome_words.dart' show removeWords;
 import '../app/planner.dart' show plannerProjectOf;
 import '../app/planner_ideas.dart';
+import '../app/planner_stage_results.dart';
 import '../app/settings.dart';
 import '../app/window_log.dart';
 import '../client/models.dart' show AgentEnded, ProposedIdea, ResultState, Task, TaskResult, defaultProject;
@@ -142,6 +143,7 @@ class WindowTaskReports {
     this.takeIdeaOn = _noTaking,
     this.resultOf = _noResult,
     this.hand = handIdea,
+    this.handResult = handStageResult,
     this.runtimeDirectory,
     this.projects,
     this.watched = _noMachines,
@@ -228,6 +230,9 @@ class WindowTaskReports {
   /// How an ended discussion's idea is handed to the planner.
   final HandIdea hand;
 
+  /// How what an ended planned stage produced is handed to the planner, before its end is reported.
+  final HandStageResult handResult;
+
   /// Where the planner writes its address file, the account's own when null.
   final String? runtimeDirectory;
 
@@ -291,6 +296,17 @@ class WindowTaskReports {
 
   /// Whether a planner not reached for an idea was said since the last idea that went through.
   bool _ideaUnreachedSaid = false;
+
+  /// When each planned stage was first seen ended with its result file missing, by offer and end, so it is looked at
+  /// again until [missingSettles] passed.
+  final _resultMissingSince = <(String, String), DateTime>{};
+
+  /// Stage ends whose result could not be read from the machine in this window's life, by offer and end, so it is
+  /// said once and not tried on every change of the machine; the next start of the window tries once more.
+  final _resultsNotRead = <(String, String)>{};
+
+  /// Whether a planner not reached for a stage's result was said since the last one that went through.
+  bool _resultUnreachedSaid = false;
 
   /// Ideas of tasks the planner could not take in this window's life, by machine, run and id, so they are not tried on
   /// every change of a machine; the next start of the window tries once more.
@@ -401,6 +417,11 @@ class WindowTaskReports {
       }
       final landed = plannedLandings(task);
       if (task.agentEnded case final ended? when plannedEndKey(ended) != kept.ended) {
+        // A planned stage's end is reported only once the planner has what it produced: it moves the issue on that.
+        if (kept.result != null && kept.resultHanded != plannedEndKey(ended)) {
+          if (!await _handStageResult(kept, plannedEndKey(ended))) continue;
+          kept = settings.plannedOffer(kept.machine, kept.container) ?? kept;
+        }
         await _quietly(
           kept,
           () => _deliver(kept, PlanningTaskEvent.ended, ended: plannedTaskEnded(ended, landed: landed)),
@@ -755,6 +776,92 @@ class WindowTaskReports {
         _sayIdea(kept, 'The discussion ${kept.container} was handed in, but could not be removed: $error');
       }
     }
+  }
+
+  /// Hands what [kept]'s planned stage produced at [end] to the planner: its result file's object, or one line of why
+  /// there is none. Answers whether the planner has it now, saved or refused, so the end may be reported; a planner
+  /// not reached, a result still missing so soon after the end, or one that could not be read answers false.
+  Future<bool> _handStageResult(PlannedOffer kept, String end) async {
+    final name = kept.result!;
+    if (_resultsNotRead.contains((kept.offer, end))) return false;
+    final TaskResult read;
+    try {
+      read = await resultOf(kept.machine, kept.container);
+    } on Object catch (error) {
+      _resultsNotRead.add((kept.offer, end));
+      _sayLogged(
+        kept.provider,
+        kept.project,
+        'The $name of ${kept.container} could not be read from ${kept.machine}: $error',
+      );
+      return false;
+    }
+    if (read.state == ResultState.missing) {
+      // The machine takes the file at the end; a listing may show the end before it did.
+      if (!_resultMissingSince.containsKey((kept.offer, end))) Timer(missingSettles, sweep);
+      final first = _resultMissingSince.putIfAbsent((kept.offer, end), now);
+      if (now().difference(first) < missingSettles) return false;
+    }
+    _resultMissingSince.remove((kept.offer, end));
+    final content = read.content;
+    final Map<String, Object?>? result;
+    final String? missing;
+    if (read.state != ResultState.handed || content == null) {
+      (result, missing) = (
+        null,
+        switch (read.state) {
+          ResultState.missing => 'it wrote no $name',
+          ResultState.tooLarge => '$name is larger than the machine takes',
+          ResultState.unreadable => '$name could not be read as text',
+          _ => '$name was not handed back',
+        },
+      );
+    } else if (utf8.encode(content).length > mostStageResultBytes) {
+      (result, missing) = (null, '$name is larger than the planner takes (256 KiB)');
+    } else {
+      Object? json;
+      try {
+        json = jsonDecode(content);
+      } on FormatException {
+        json = null;
+      }
+      (result, missing) = json is Map<String, Object?> ? (json, null) : (null, '$name holds no JSON object');
+    }
+    try {
+      await handResult(
+        kept.project!,
+        kept.task!,
+        kept.offer,
+        result: result,
+        missing: missing,
+        runtimeDirectory: runtimeDirectory,
+        projects: projects,
+      );
+      _resultUnreachedSaid = false;
+      if (missing != null) {
+        _sayLogged(kept.provider, kept.project, 'The task ${kept.container} ended with no result: $missing.');
+      }
+    } on StageResultNotSaved catch (refusal) {
+      if (refusal.transient) {
+        if (!_resultUnreachedSaid) {
+          _resultUnreachedSaid = true;
+          _sayLogged(
+            kept.provider,
+            kept.project,
+            'The $name of ${kept.container} is not handed in yet: ${refusal.words}',
+          );
+        }
+        return false;
+      }
+      final faults = [for (final fault in refusal.faults) fault.endsWith('.') ? ' $fault' : ' $fault.'].join();
+      _sayLogged(
+        kept.provider,
+        kept.project,
+        'The planner did not save the $name of ${kept.container}: ${refusal.words}$faults',
+      );
+    }
+    await settings.planningOfferReported(kept.machine, kept.container, resultHanded: end);
+    return true;
   }
 
   /// Says that [kept]'s discussion left no idea to hand in at [end], once.
