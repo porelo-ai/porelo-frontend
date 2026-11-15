@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F589",
   "title": "A Planned Task Says What It Works On",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 18,
