@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F591",
   "title": "A Planned Stage Hands Its Result To The Planner",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 11,
@@ -60,6 +60,59 @@ then moved the issue to *Analyzed* on central, whose issue held no plan and no s
 
 - The tests above, each seen red first; `test/ui` and `test/features` green.
 
+## Built
+
+- **Contracts**, as their owners named them: the hand-in and the order in Agent Planner's room post of 2026-11-15
+  10:12Z and the agreed `result-format.md` (format `porelo-stage-result-1`, 262144 bytes, `{offer, result}` or
+  `{offer, missing}`, the result before the `ended` report, idempotent per offer); the order's `result` and `given`
+  in porelo-planner `a38e057` (PL143's screen part); Start's `readOnly` and `given` in porelo `4cb4a81bb` (B791's
+  contract).
+- **Pin:** `porelo_planning` at `a38e057ca726dfecd8d90776862fda83dc59f73a`, with a temporary `dependency_overrides`
+  entry to the planner's local clone at the same ref (the `xterm` override kept); `pubspec.lock` names that clone.
+  Both go once the planner pushes the commit: the override is removed and the lock resolved from the forge.
+- **Hand-in** (`lib/src/app/planner_stage_results.dart`): `handStageResult` posts signed to
+  `/projects/{project}/tasks/{task}/result`; 2xx saved; 422 a `StageResultNotSaved` with the planner's faults; 404
+  `NoSuchProject` gives the project and asks once more; 503, 504 and no planner are transient; another 404 or 405 says
+  the planner needs to be newer. The POST, the project's PUT and the refusal words are shared with ideas
+  (`postToPlanner`, `plannerWords`, `faultsIn` in `lib/src/app/planner_ideas.dart`).
+- **Start** (`lib/src/ui/planning_embedding.dart`, `lib/src/app/fleet_backend.dart`,
+  `lib/src/client/porelo_client.dart`): an order whose MAIN or BUILDER task names a result is started with
+  `readOnly`, `result` and `given` (name to text); a machine whose Start declares neither `readOnly` nor `given` is
+  refused with `FeatureNotSupported` before anything is sent. `PlannedOffer` and `PendingStart` keep the result file,
+  so a start found again by its key keeps it too.
+- **End** (`lib/src/ui/planning_reports.dart`): before an end is reported, a stage's result is read from the machine
+  and handed in: missing is looked at again for `missingSettles`, then sent as `missing`; too large for the machine
+  or the planner, unreadable, or no JSON object is sent as `missing` with one line why. The end follows once the
+  planner answered, saved or refused; a refusal is said with its faults. A transient one keeps the end back, is said
+  once and tried on the next sweep; a hand-in saved while the end could not be told is not sent again
+  (`resultHanded`), also across a restart. One whose file could not be read from the machine is said once and not
+  tried again in this window's life.
+- **Departure from the Plan:** a refused result still lets its end be reported: the planner moves the issue on the
+  saved result, not on the end, as the agreed format says. The window removes no planned stage's task.
+- **Tests**, each seen red by a deliberate break, then restored from a copy:
+  - `test/app/planner_stage_results_test.dart` (new, six): red with the path `results`, without `missing` in the
+    body, with 503 not transient, with a 200 not taken as saved.
+  - `test/app/planning_offers_test.dart`: the result file and its hand-in kept across a restart (red without
+    `result` written: `Actual: (null, the end)`); a stored path dropped (red unchecked: `Actual: '/etc/passwd'`).
+  - `test/ui/window_task_reports_test.dart`, group *an ended planned stage* (nine): hands once before the end (red
+    without the hand-in kept: the end ahead of it); keeps the end back while not reached (red); a saved result not
+    handed again while its end waits (red without `resultHanded`); refused with faults; missing after settling (red
+    with no settling); no JSON object, over the planner's bound, over the machine's (each red); work that pushes
+    reports its end alone; a stage found again by its key (red without the result in `PendingStart`, in its JSON or
+    from the order).
+  - `test/app/start_ordered_test.dart`: a stage's Start carries `readOnly`, `result`, `given` (red without each); a
+    machine without `readOnly` or `given` is never asked (red without the check).
+  - `test/ui/window_task_starts_test.dart` *a stage starts read only with its result file and given issues…*,
+    through `PlanningTaskOrder.from` on the new pin: red without `given`, `readOnly` or the kept result. On the old pin
+    the order itself is refused ("Only a discussion hands back a result."), read in its code, not run.
+- **Runs:** `dart analyze` No issues found; the six files above green together (122) on the new pin. `test/ui` and
+  `test/features` not run whole.
+- **Not done:** the Plan's feature scenario. The planner's `MockPlanningSource` serves no stage order and the
+  features' world hands nothing to a planner, so a scenario needs a stand-in for both; left to
+  [F585](README.md#f585)'s end-to-end scenario or an issue of its own.
+
 ## To be checked
 
 - Agent Planner's and Agent Core's issue numbers for their parts, cited here once filed.
+- Agent Planner's PL141 hand-in route is built on its branch, not yet handed over; the window was tested against a
+  stand-in of the agreed answers, not the planner itself.
