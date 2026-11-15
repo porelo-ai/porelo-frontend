@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F588",
   "title": "A Start From The Board Opens Its Task At Once",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 12,

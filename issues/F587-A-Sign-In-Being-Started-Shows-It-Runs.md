@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F587",
   "title": "A Sign-In Being Started Shows It Runs",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 13,
