@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F597",
   "title": "Start Work Closes Once Its Start Is Under Way",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 117,

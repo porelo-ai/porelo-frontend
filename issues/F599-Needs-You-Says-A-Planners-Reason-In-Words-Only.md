@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F599",
   "title": "Needs You Says A Planner's Reason In Words Only",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "High",
   "rank": 119,

@@ -115,9 +115,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f523"></a>[F523](F523-Work-Moving-On-By-Itself-Played-Through-On-The-VM.md) | M | - | Story ST314, the planner moves work on from state to state by itself, played once on the test VM in the window as a person would, for ST347's gathered story run: DONE work set to Reading with its reader started unasked, an OK reading set to Review, a blocking one stopped under Needs you and reworked once the person chooses Rework, a failed task kept with a warning. |
 | <a id="f596"></a>[F596](F596-A-Declared-Token-Goes-To-A-Hosts-New-Project-By-Itself.md) | S | - | Where a host this person administers waits for their forge token for a project, and this computer's Porelo-Vault declares a token for that forge and organization, the window hands it on by itself, once per wait, as the setup's token step already can; it asks only where no declared token is found or one handed on did not help. |
-| <a id="f597"></a>[F597](F597-Start-Work-Closes-Once-Its-Start-Is-Under-Way.md) | S | - | The Planning board's Start work dialog closes once its start is under way, the operation in front carrying the task's progress and any refusal and the planner's answer landing on the board; the dialog stays only for what must be answered before the start begins. |
 | <a id="f598"></a>[F598](F598-A-Planned-Task-Names-No-Stage-Its-Order-Does-Not-Say.md) | XS | - | A planned task's tile and row name a stage only where its order says one (a result file for In analysis or Estimation, a reader's role for Reading), and otherwise say only its issues and story, instead of Implementing for a task started from the board for In analysis. |
-| <a id="f599"></a>[F599](F599-Needs-You-Says-A-Planners-Reason-In-Words-Only.md) | XS | - | A planning row under Needs you says why it needs the person in a sentence only, never the planner's code in capitals (SAVE_REFUSED, STOPPED) as a line of its own; the window carries porelo-planner's screen at the commit that drops it, the code kept for the log. |
 | <a id="f600"></a>[F600](F600-The-Board-Hears-What-Needs-You-Saw.md) | S | - | A planning row marked Seen under Needs you leaves the story card's needs you and the Planning count too: the window passes its seen marks to porelo-planner's boards as PlanningSeen, which answers for an issue's put-away reading and for a story's end at its time, and tells the boards when a mark changes. |
 | <a id="f601"></a>[F601](F601-A-Read-Only-Task-Says-Nothing-Of-A-Gate.md) | XS | - | A task the machine lists as read only, or a planned stage that writes no code, shows no Commits at the gate fact and no build line on its tile and row, as it has no gate and pushes nothing. |
 | <a id="f603"></a>[F603](F603-An-Issues-Task-Is-Found-On-The-Machine-It-Ran-On.md) | XS | - | The Planning issue page's Open task finds a planned task on the machine the window started it on, as its kept offer names, instead of saying This window does not know task pi-2 on this machine for a task that ran on a host. |
@@ -152,6 +150,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f597"></a>[F597](F597-Start-Work-Closes-Once-Its-Start-Is-Under-Way.md) | S | - | The Planning board's Start work dialog closes once its start is under way, the operation in front carrying the task's progress and any refusal and the planner's answer landing on the board; the dialog stays only for what must be answered before the start begins. |
+| <a id="f599"></a>[F599](F599-Needs-You-Says-A-Planners-Reason-In-Words-Only.md) | XS | - | A planning row under Needs you says why it needs the person in a sentence only, never the planner's code in capitals (SAVE_REFUSED, STOPPED) as a line of its own; the window carries porelo-planner's screen at the commit that drops it, the code kept for the log. |
 
 ## Review
 
