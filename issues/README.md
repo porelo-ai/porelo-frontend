@@ -120,7 +120,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f599"></a>[F599](F599-Needs-You-Says-A-Planners-Reason-In-Words-Only.md) | XS | - | A planning row under Needs you says why it needs the person in a sentence only, never the planner's code in capitals (SAVE_REFUSED, STOPPED) as a line of its own; the window carries porelo-planner's screen at the commit that drops it, the code kept for the log. |
 | <a id="f600"></a>[F600](F600-The-Board-Hears-What-Needs-You-Saw.md) | S | - | A planning row marked Seen under Needs you leaves the story card's needs you and the Planning count too: the window passes its seen marks to porelo-planner's boards as PlanningSeen, which answers for an issue's put-away reading and for a story's end at its time, and tells the boards when a mark changes. |
 | <a id="f601"></a>[F601](F601-A-Read-Only-Task-Says-Nothing-Of-A-Gate.md) | XS | - | A task the machine lists as read only, or a planned stage that writes no code, shows no Commits at the gate fact and no build line on its tile and row, as it has no gate and pushes nothing. |
-| <a id="f602"></a>[F602](F602-Tokens-Used-Says-Input-And-Output-Apart-From-Cache.md) | S | - | A task's Tokens used says the input and output tokens a person can judge, and the cache read and written apart and named, instead of one sum of every kind that reaches 1.5 M within a minute, reasoning counted once and at least shown only for a real gap. |
 | <a id="f603"></a>[F603](F603-An-Issues-Task-Is-Found-On-The-Machine-It-Ran-On.md) | XS | - | The Planning issue page's Open task finds a planned task on the machine the window started it on, as its kept offer names, instead of saying This window does not know task pi-2 on this machine for a task that ran on a host. |
 | <a id="f604"></a>[F604](F604-A-Reported-Start-Warns-No-Move-Of-Its-Story.md) | S | - | A start the window handed on stops counting as one the planner does not report yet once the window reported it started, or it ended, so a later move of its story warns only of tasks at work, instead of Stop the tasks and move for tasks long ended. |
 | <a id="f605"></a>[F605](F605-Start-Work-Knows-Which-Agents-Are-Signed-In-There.md) | XS | - | The window tells porelo-planner's Start work, for each agent it lists, whether that agent is signed in on the machine the task goes to and, where not, why in the window's words, so the dialog can preselect an agent that is ready (PL155). |
@@ -153,6 +152,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f602"></a>[F602](F602-Tokens-Used-Says-Input-And-Output-Apart-From-Cache.md) | S | - | A task's Tokens used says the input and output tokens a person can judge, and the cache read and written apart and named, instead of one sum of every kind that reaches 1.5 M within a minute, reasoning counted once and at least shown only for a real gap. |
 
 ## Review
 

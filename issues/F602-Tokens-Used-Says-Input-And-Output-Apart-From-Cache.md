@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F602",
   "title": "Tokens Used Says Input And Output Apart From Cache",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 122,
