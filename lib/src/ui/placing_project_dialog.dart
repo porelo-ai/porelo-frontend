@@ -229,25 +229,30 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
     return AlertDialog(
       key: const Key('placing-project'),
       title: Text('Putting ${widget.project} on ${widget.host}'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (carried)
-            Row(
-              key: const Key('placing-project.done'),
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.check, size: Sizes.mark, color: StateColours.of(scheme).working),
-                const SizedBox(width: Space.small),
-                const Text('Done · '),
-                Flexible(child: Text(_words, key: const Key('placing-project.words'))),
-              ],
-            )
-          else
-            Text(_words, key: const Key('placing-project.words')),
-          if (_tokenWhy case final why?) Text(why, key: const Key('placing-project.tokenWhy')),
-        ],
+      content: SizedBox(
+        width: Sizes.dialog,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (carried)
+                Row(
+                  key: const Key('placing-project.done'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check, size: Sizes.mark, color: StateColours.of(scheme).working),
+                    const SizedBox(width: Space.small),
+                    const Text('Done · '),
+                    Flexible(child: Text(_words, key: const Key('placing-project.words'))),
+                  ],
+                )
+              else
+                Text(_words, key: const Key('placing-project.words')),
+              if (_tokenWhy case final why?) Text(why, key: const Key('placing-project.tokenWhy')),
+            ],
+          ),
+        ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),

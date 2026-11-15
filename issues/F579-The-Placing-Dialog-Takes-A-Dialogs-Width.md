@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F579",
   "title": "The Placing Dialog Takes A Dialog's Width",
-  "state": "Backlog",
+  "state": "Review",
   "size": "XS",
   "priority": "Low",
   "rank": 100,
@@ -29,3 +29,15 @@ wrapped at a dialog's width.
 ## Acceptance
 
 - In the debug build the dialog stands at the token page's width, at 1280 wide and at 390 wide.
+
+## Built
+
+- `lib/src/ui/placing_project_dialog.dart`: the dialog's content stands in `SizedBox(width: Sizes.dialog)` with a
+  `SingleChildScrollView` inside, as the token page's does, so its paragraph wraps at a dialog's width and a tall
+  one scrolls.
+- No new test, as planned. `test/ui/placing_project_dialog_test.dart`, `test/ui/organization_carry_choice_test.dart`
+  and `test/ui/organization_host_pages_test.dart` pass (147 tests); `dart analyze lib` finds no issues.
+- The reading by another model (Claude Sonnet) found nothing red: nothing in the content needs a bounded height, and at
+  390 wide the dialog's insets clamp the width as on the token page. Left as a style choice: a plain scroll view, as
+  the token page has, with no scrollbar always shown (`DialogScroll` is for dialogs with fields).
+- Not seen in the debug build, at 1280 or 390 wide: the acceptance stays to be checked there.

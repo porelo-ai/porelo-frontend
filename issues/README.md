@@ -134,7 +134,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f545"></a>[F545](F545-The-Window-Asks-Before-Clearing-A-Host-Vault-On-Windows.md) | S | - | On Windows, a host vault another key opened is cleared and made anew with the person's key only after their yes on the card, asked by the window. |
 | <a id="f321"></a>[F321](F321-Send-The-Terminal-Input-Fix-Upstream.md) | S | - | The terminal input fix offered upstream, and this repository's copy of `xterm` dropped once a release holds it. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
-| <a id="f579"></a>[F579](F579-The-Placing-Dialog-Takes-A-Dialogs-Width.md) | XS | - | Story ST361: the dialog `Putting <project> on <machine>` stands as wide as the window's other dialogs, its words wrapping there, instead of across almost the whole window. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
@@ -205,6 +204,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f546"></a>[F546](F546-The-Window-Reads-Task-Containers-In-Both-Name-Shapes.md) | S | - | The window, its stand-in machine and the walk steps take a task container's name in both of porelod's shapes, `porelo_<task>` for project porelo and `porelo-<project>_<task>` for every other project, and judge a new task's name against the shape it will get. |
 | <a id="f541"></a>[F541](F541-Each-Repository-Of-Default-Says-Where-It-Is-And-Can-Be-Taken-Out.md) | M | [F540](README.md#f540) | Each repository row on the page of default shows its upstream, the checkout's path or the remote's address, and offers to take it out of default as the command line does: its mirror stays, and each deploy key forgotten is said. |
 | <a id="f547"></a>[F547](F547-The-Window-Signs-Its-Own-Calls-To-The-Planner.md) | S | - | The window's own calls to porelo-planner, handing in an idea and setting the planner's log level, go through the planning screen's signed call, so a planner that refuses bearer tokens still takes them, and a planner that cannot prove itself is named in the window's log, not trusted. |
+| <a id="f579"></a>[F579](F579-The-Placing-Dialog-Takes-A-Dialogs-Width.md) | XS | - | Story ST361: the dialog `Putting <project> on <machine>` stands as wide as the window's other dialogs, its words wrapping there, instead of across almost the whole window. |
 
 ## Rework
 
