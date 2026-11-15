@@ -9,6 +9,7 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlanningBoard,
         PlanningClient,
         PlanningHost,
+        PlanningModel,
         PlanningPlace,
         PlanningRefusal,
         PlanningSource,
@@ -27,7 +28,7 @@ import '../app/settings.dart';
 import '../app/shell_model.dart';
 import '../app/start_refusals.dart';
 import '../app/window_log.dart';
-import '../client/models.dart' show AgentEnded, Mode, StartEvent, Task;
+import '../client/models.dart' show Agent, AgentEnded, Mode, StartEvent, Task;
 import '../client/porelo_client.dart' show FeatureNotSupported, StartProgress;
 import '../wire/varlink_exception.dart';
 import 'planning_reports.dart';
@@ -605,8 +606,19 @@ class MachinePlanningAgents implements PlanningAgents {
       final backend = machines.watching(machine)?.backend;
       if (backend == null) throw StateError('${machine.name} is not answering yet: it is being opened.');
       final listed = await backend.agentsOn();
+      final models = await Future.wait([for (final agent in listed.agents) _modelsOf(backend, agent)]);
       return PlanningAgentList([
-        for (final agent in listed.agents) PlanningAgent(agent.name, choice: StartAgentChoice(agent: agent)),
+        for (final (index, agent) in listed.agents.indexed)
+          PlanningAgent(
+            agent.name,
+            choice: StartAgentChoice(agent: agent),
+            unready: agent.found == 'NOT_SIGNED_IN'
+                ? '${agent.label.isEmpty ? agent.name : agent.label} is not signed in on ${machine.name}; its row under '
+                      'Agents on that machine signs it in.'
+                : null,
+            models: models[index],
+            efforts: agent.efforts,
+          ),
       ], listed.failures);
     } on VarlinkException catch (error) {
       // In the planning screen's words, so a refusal reads there as every other refusal does.
@@ -614,6 +626,19 @@ class MachinePlanningAgents implements PlanningAgents {
     } on FeatureNotSupported catch (error) {
       throw PlanningUnsupported(error.toString());
     }
+  }
+}
+
+/// The models [agent]'s provider offers on [backend]'s machine, to choose from; none where no provider was found for
+/// it or the machine cannot list them, and the person types the model.
+Future<List<PlanningModel>> _modelsOf(FleetBackend backend, Agent agent) async {
+  if (agent.foundProvider.isEmpty) return const [];
+  try {
+    final offered = await backend.modelsOn(agent.foundProvider, agent: agent.name);
+    return [for (final model in offered.models) PlanningModel(model.id, label: model.label)];
+  } on Object {
+    // An older machine, a provider not answering or refusing the credential: the model is typed.
+    return const [];
   }
 }
 

@@ -222,6 +222,15 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     return (agents: theAgentsItHas, failures: theAgentsItCannotRead, shadowed: theAgentsItNeverUses);
   }
 
+  /// The models each provider offers the machine, by provider; one not named offers none it can list.
+  Map<String, List<OfferedModel>> theModelsItOffers = const <String, List<OfferedModel>>{};
+
+  @override
+  Future<OfferedModels> modelsOn(String provider, {String? agent}) async => switch (theModelsItOffers[provider]) {
+    final models? => (models: models, from: 'provider'),
+    null => (models: const <OfferedModel>[], from: 'none'),
+  };
+
   /// How long the machine takes to say which agents it has.
   Duration agentsTake = Duration.zero;
 

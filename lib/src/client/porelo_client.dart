@@ -525,6 +525,18 @@ class PoreloClient {
     );
   }
 
+  /// The models [provider] offers this machine, for [agent] where the provider is that agent's own sign-in.
+  Future<OfferedModels> models(String provider, {String? agent}) async {
+    final reply = await _call('Models', <String, dynamic>{'provider': provider, 'agent': ?agent});
+    final models = reply['models'];
+    return (
+      models: models is List
+          ? models.whereType<Map<String, dynamic>>().map(OfferedModel.from).where((each) => each.id.isNotEmpty).toList()
+          : <OfferedModel>[],
+      from: reply['from'] is String ? reply['from']! as String : 'none',
+    );
+  }
+
   /// What the vault holds, without any of it.
   Future<VaultState> credentials() async => VaultState.from(await _call('Credentials'));
 

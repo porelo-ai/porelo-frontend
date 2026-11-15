@@ -205,6 +205,10 @@ abstract class FleetBackend {
   /// another copy.
   Future<AgentsOnTheMachine> agentsOn();
 
+  /// The models [provider] offers the machine, for [agent] where the provider is its own sign-in. Throws
+  /// [FeatureNotSupported] from a Porelo older than the list.
+  Future<OfferedModels> modelsOn(String provider, {String? agent});
+
   /// Every project on it.
   ///
   /// Asked for, never derived from the task list: a project that has never run anything would be
@@ -749,6 +753,9 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
 
   @override
   Future<AgentsOnTheMachine> agentsOn() => _opened().agents();
+
+  @override
+  Future<OfferedModels> modelsOn(String provider, {String? agent}) => _opened().models(provider, agent: agent);
 
   @override
   Future<List<Project>> projects() => _opened().projects();

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart';
@@ -36,6 +37,49 @@ void main() {
     // The planning screen chose the board's project itself; neither the place nor Work names it.
     final offered = await MachinePlanningAgents(machines, _PathPlanner(source)).on(source);
     expect(offered.agents.map((each) => each.name), ['an-agent', 'other-agent']);
+  });
+
+  // Harm: Start work preselects an agent that cannot work on the machine, or offers models and efforts it refuses.
+  test('each agent says whether it is ready there, and the models and efforts the machine lists', () async {
+    Agent agent(String name, String found, {String provider = '', List<String>? efforts}) => Agent.from({
+      'name': name,
+      'label': name,
+      'binary': '/usr/bin/$name',
+      'version': '1',
+      'from': '',
+      'allowedDomains': const <String>[],
+      'found': found,
+      'foundProvider': provider,
+      'efforts': ?efforts,
+    });
+    final backend = FakeBackend(const [])
+      ..theAgentsItHas = [
+        agent('signed', 'SIGNED_IN', provider: 'anthropic', efforts: const ['low', 'high']),
+        agent('out', 'NOT_SIGNED_IN', efforts: const []),
+        agent('unsure', 'CANNOT_SAY'),
+      ]
+      ..theModelsItOffers = const {
+        'anthropic': [OfferedModel(id: 'model-one', label: 'Model One')],
+      };
+    final machines = Machines(Settings(MemorySettingsStore()), reach: (_) => backend, tunnels: FakeTunnels());
+    addTearDown(machines.dispose);
+    final source = _Source();
+
+    final offered = await MachinePlanningAgents(
+      machines,
+      _PathPlanner(source),
+      project: () => 'foo-project',
+    ).on(source);
+    final byName = {for (final each in offered.agents) each.name: each};
+
+    expect(byName['signed']!.unready, isNull);
+    expect(byName['signed']!.models.map((each) => (each.id, each.label)), [('model-one', 'Model One')]);
+    expect(byName['signed']!.efforts, ['low', 'high']);
+    expect(byName['out']!.unready, contains('not signed in'));
+    expect(byName['out']!.efforts, isEmpty, reason: 'an agent that takes no effort lists none');
+    expect(byName['out']!.models, isEmpty, reason: 'no provider was found to ask');
+    expect(byName['unsure']!.unready, isNull, reason: 'cannot say is never read as signed out');
+    expect(byName['unsure']!.efforts, isNull, reason: 'an older machine does not say its efforts');
   });
 
   test('a refusal of the agents says which part of the machine is not known', () async {

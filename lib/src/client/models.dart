@@ -1349,8 +1349,13 @@ class Agent {
   /// The paths found on the machine.
   final List<String> foundPaths;
 
+  /// The reasoning efforts it takes, in its definition's order; empty where it takes none, null from a Porelo older
+  /// than the field, where they are not known.
+  final List<String>? efforts;
+
   /// Constructor taking every field.
   const Agent({
+    this.efforts,
     this.found = '',
     this.foundProvider = '',
     this.foundVia,
@@ -1393,8 +1398,39 @@ class Agent {
     foundProvider: _string(map, 'foundProvider'),
     foundVia: _optional(map, 'foundVia'),
     foundPaths: _strings(map, 'foundPaths'),
+    efforts: map['efforts'] is List ? _strings(map, 'efforts') : null,
   );
 }
+
+/// One model a provider offers a machine, for a start's model.
+class OfferedModel {
+  /// Constructor taking every field.
+  const OfferedModel({required this.id, required this.label, this.efforts});
+
+  /// Reads one from a reply.
+  factory OfferedModel.from(Map<String, dynamic> map) {
+    final id = _string(map, 'id');
+    final label = _string(map, 'label');
+    return OfferedModel(
+      id: id,
+      label: label.isEmpty ? id : label,
+      efforts: map['efforts'] is List ? _strings(map, 'efforts') : null,
+    );
+  }
+
+  /// The id a start's model takes.
+  final String id;
+
+  /// What a person is shown for it; the id where the provider names none.
+  final String label;
+
+  /// The efforts the provider says the model takes; null where it does not say.
+  final List<String>? efforts;
+}
+
+/// The models a provider offers a machine, and which list answered: `provider`, `agent`, or `none` where neither can
+/// be asked there, with no models.
+typedef OfferedModels = ({List<OfferedModel> models, String from});
 
 /// How an agent's sign-in hands its answer back, as its definition's `login.flow` names it.
 enum LoginFlow {

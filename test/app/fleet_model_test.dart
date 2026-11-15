@@ -317,6 +317,9 @@ class _Wedged implements FleetBackend {
       (agents: const <Agent>[], failures: const <String, String>{}, shadowed: const <ShadowedAgent>[]);
 
   @override
+  Future<OfferedModels> modelsOn(String provider, {String? agent}) async => throw const FeatureNotSupported('Models');
+
+  @override
   Future<Panicked> panic({bool? dryRun}) async =>
       const Panicked(tasks: <PanickedTask>[], surviving: <String>[], previewed: false);
 
@@ -787,6 +790,9 @@ class _Machine implements FleetBackend {
   @override
   Future<AgentsOnTheMachine> agentsOn() async =>
       (agents: const <Agent>[], failures: const <String, String>{}, shadowed: const <ShadowedAgent>[]);
+
+  @override
+  Future<OfferedModels> modelsOn(String provider, {String? agent}) async => throw const FeatureNotSupported('Models');
 
   @override
   Future<Panicked> panic({bool? dryRun}) async =>
