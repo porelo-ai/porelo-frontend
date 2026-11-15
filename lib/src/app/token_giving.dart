@@ -25,6 +25,19 @@ class TokenGiving extends ChangeNotifier {
     }
   }
 
+  /// Runs [job] for [host] as a giving of its own, never beside another to the same machine; answers what it answered,
+  /// or null where one runs already.
+  Future<T?> run<T>(String host, Future<T> Function() job) async {
+    if (!_giving.add(host)) return null;
+    notifyListeners();
+    try {
+      return await job();
+    } finally {
+      _giving.remove(host);
+      if (!_disposed) notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
     _disposed = true;

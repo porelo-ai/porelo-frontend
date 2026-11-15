@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../app/declared_hand_on.dart';
 import '../app/host_progress.dart';
 import '../app/organization_source.dart';
 import 'organization_token_words.dart';
@@ -61,6 +62,10 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
 
   /// Whether the token was given from here: the machine has it, even while it has not yet read it.
   bool _handed = false;
+
+  /// Whether the declared token is being handed on by itself, and whether that was tried once in this dialog.
+  bool _handingOn = false;
+  bool _handOnTried = false;
   bool _asking = false;
   int _quietAsks = 0;
   int _nextQuiet = 1;
@@ -140,6 +145,45 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
       _lastRefusal = null;
     });
     if (_ended) _timer?.cancel();
+    if ((_mine?.waitsForToken ?? false) && !_handed && !_handOnTried && !_giving) unawaited(_handOn());
+  }
+
+  /// Hands the machine the token this computer's Porelo-Vault declares, by itself, once: where none is declared, or one
+  /// handed on did not help, the button asks as before.
+  Future<void> _handOn() async {
+    final handOn = widget.connections.handOnDeclared;
+    if (handOn == null) return;
+    _handOnTried = true;
+    setState(() => _handingOn = true);
+    final HandOn done;
+    try {
+      done = await handOn(widget.host, {widget.project});
+    } on Exception {
+      if (mounted) setState(() => _handingOn = false);
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _handingOn = false;
+      if (done case HandOn(outcome: HandOnOutcome.refused, :final words?)) _tokenWhy = words;
+      if (done.outcome == HandOnOutcome.handedOn) _handed = true;
+    });
+    if (done.outcome != HandOnOutcome.handedOn) return;
+    try {
+      await _take(widget.connections.progress(widget.host));
+    } on OrganizationRefused catch (refused) {
+      if (mounted) setState(() => _lastRefusal = refused.words);
+      return;
+    }
+    // The hand-over ran the machine's read: a project still waiting was not helped by it, and is asked for as before.
+    if (mounted && (_mine?.waitsForToken ?? false)) {
+      setState(() {
+        _handed = false;
+        _tokenWhy =
+            '${widget.host} still waits for a token after the one your Porelo-Vault declares. Check that it may read '
+            '${widget.project}\'s repositories, then give it again.';
+      });
+    }
   }
 
   HostProjectProgress? get _mine =>
@@ -206,6 +250,9 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
         '${widget.host} did not take ${widget.project}${why == null ? '' : ': $why'}. Its page says what to do.',
       _ when mine?.hasNoAddress == true =>
         '${widget.project} has no address yet: its Project Admin creates its Git repository first, and ${widget.host} takes it then.',
+      _ when _handingOn =>
+        'Handing on the token your Porelo-Vault declares for ${organizationForgeName(widget.view)} to '
+            '${widget.host}…',
       _ when _handed && _lastRefusal != null => '${widget.host} did not answer: $_lastRefusal It goes on by itself.',
       _ when _wantsToken && _handed =>
         '${widget.host} has your token and takes ${widget.project} when it next reads the organization, within five '
@@ -256,7 +303,11 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
-        if (_stopped == null && !_ended && (_giving || _wantsToken && !_handed) && widget.onGiveToken != null)
+        if (_stopped == null &&
+            !_ended &&
+            !_handingOn &&
+            (_giving || _wantsToken && !_handed) &&
+            widget.onGiveToken != null)
           FilledButton(
             key: const Key('placing-project.giveToken'),
             onPressed: _giving ? null : () => unawaited(_give()),

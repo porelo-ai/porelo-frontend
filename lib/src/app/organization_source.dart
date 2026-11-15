@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart' show Project;
 
+import 'declared_hand_on.dart';
 import 'host_progress.dart';
 
 /// How a person's card stands in the organization.
@@ -807,7 +808,7 @@ class OrganizationKey {
 /// A refusal in the store's own words, or no answer at all.
 class OrganizationRefused implements Exception {
   /// Keeps the words; [answered] is false where no answer came, so the same id is asked again.
-  const OrganizationRefused(this.words, {this.answered = true, this.reason, this.entry});
+  const OrganizationRefused(this.words, {this.answered = true, this.reason, this.entry, this.exitCode});
 
   /// The sentence shown.
   final String words;
@@ -820,6 +821,9 @@ class OrganizationRefused implements Exception {
 
   /// The entry a project admin writes, where the reason is `by-hand` and Porelo gave it.
   final String? entry;
+
+  /// The exit code Porelo's command line ended with, where it ran and refused; null otherwise.
+  final int? exitCode;
 
   @override
   String toString() => words;
@@ -865,6 +869,10 @@ abstract interface class OrganizationSource {
 abstract class HostConnections extends ChangeNotifier {
   /// Whether this computer is connected to [host].
   bool connected(String host);
+
+  /// Hands a host the token this computer's Porelo-Vault declares, by itself, for the projects heard waiting for it,
+  /// once per wait (see [DeclaredHandOn]); null where this window does not.
+  Future<HandOn> Function(String host, Set<String> waiting)? handOnDeclared;
 
   /// The forwarded forge URL from [host]'s card while connected, or `null` where none is held.
   String? forgeUrl(String host) => null;

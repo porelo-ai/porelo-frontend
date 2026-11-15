@@ -144,12 +144,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f596"></a>[F596](F596-A-Declared-Token-Goes-To-A-Hosts-New-Project-By-Itself.md) | S | - | Where a host this person administers waits for their forge token for a project, and this computer's Porelo-Vault declares a token for that forge and organization, the window hands it on by itself, once per wait, as the setup's token step already can; it asks only where no declared token is found or one handed on did not help. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
@@ -165,6 +159,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f524"></a>[F524](F524-A-Tasks-Clipboard-Write-Follows-A-Copy-The-Person-Made.md) | M | - | A task's OSC 52 write never reaches this computer's clipboard without a word, not even as the answer to a copy the person made: the silent path this issue planned is dropped for asking every time. |
 | <a id="f527"></a>[F527](F527-A-Silent-Copy-Matches-What-The-Person-Actually-Saw.md) | S | - | No task write to the clipboard is silent: every OSC 52 write, also one of exactly the text the person just dragged across, is held and asked about in the bar under the terminal. |
 | <a id="f531"></a>[F531](F531-A-Windows-Cards-Daemon-Calls-Are-Bounded.md) | M | - | On Windows the ssh processes the window starts for one host's card, for its daemon as well as for its forge and homeserver, stay within caps the person can name, as the carrier's own connections already do. |
+| <a id="f596"></a>[F596](F596-A-Declared-Token-Goes-To-A-Hosts-New-Project-By-Itself.md) | S | - | Where a host this person administers waits for their forge token for a project, and this computer's Porelo-Vault declares a token for that forge and organization, the window hands it on by itself, once per wait, as the setup's token step already can; it asks only where no declared token is found or one handed on did not help. |
 | <a id="f597"></a>[F597](F597-Start-Work-Closes-Once-Its-Start-Is-Under-Way.md) | S | - | The Planning board's Start work dialog closes once its start is under way, the operation in front carrying the task's progress and any refusal and the planner's answer landing on the board; the dialog stays only for what must be answered before the start begins. |
 | <a id="f598"></a>[F598](F598-A-Planned-Task-Names-No-Stage-Its-Order-Does-Not-Say.md) | XS | - | A planned task's tile and row name a stage only where its order says one (a result file for In analysis or Estimation, a reader's role for Reading), and otherwise say only its issues and story, instead of Implementing for a task started from the board for In analysis. |
 | <a id="f599"></a>[F599](F599-Needs-You-Says-A-Planners-Reason-In-Words-Only.md) | XS | - | A planning row under Needs you says why it needs the person in a sentence only, never the planner's code in capitals (SAVE_REFUSED, STOPPED) as a line of its own; the window carries porelo-planner's screen at the commit that drops it, the code kept for the log. |

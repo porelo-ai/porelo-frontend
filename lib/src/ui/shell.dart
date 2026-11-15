@@ -35,6 +35,7 @@ import '../app/credential_carry.dart';
 import '../app/fleet_backend.dart';
 import '../app/room_setup.dart';
 import '../app/fleet_model.dart';
+import '../app/declared_hand_on.dart';
 import '../app/host_token.dart';
 import '../app/run_here.dart';
 import '../app/task_certifying.dart';
@@ -55,7 +56,7 @@ import '../app/tunnel.dart';
 import '../app/vault.dart';
 import '../app/vault_devices.dart' show sitsAtTheMachine;
 import '../app/widening.dart';
-import '../app/window_log.dart' show LogLevel, windowLogFile;
+import '../app/window_log.dart' show LogLevel, windowLog, windowLogFile;
 import '../app/work_held.dart';
 import '../app/gate.dart';
 import '../app/host_readiness.dart';
@@ -615,6 +616,11 @@ class _ShellState extends State<Shell> {
     _organization?.addListener(_askHostsOnce);
     _hostConnections?.addListener(_askHostsOnce);
     _hostConnections?.listedOn = _listedOn;
+    // What a host says it waits for is heard through its connection; the organization says whose host it is.
+    _hostConnections?.addListener(_handOnDeclaredTokens);
+    _organization?.addListener(_handOnDeclaredTokens);
+    _hostConnections?.handOnDeclared = _declaredHandOn.forWaits;
+    _declaredHandOn.addListener(_homeserversChanged);
     _tokens.addListener(_homeserversChanged);
     _centralReleases.addListener(_homeserversChanged);
     if (_organization?.view case final view?) _hostConnections?.askOnce(view);
@@ -6624,7 +6630,7 @@ class _ShellState extends State<Shell> {
         forge: organizationForgeName(view),
         repository: view?.address,
         address: organizationKeptTokenAddress(view),
-        declarations: readThisComputersDeclarations,
+        declarations: () => readThisComputersDeclarations(localBackend: widget.thisComputer()),
         hasKept: _forges.hasToken,
         secrets: () => centralToken(widget.settings.secretsFile, desk.environment),
       ),
@@ -6640,6 +6646,44 @@ class _ShellState extends State<Shell> {
 
   /// The row's *Give it your token…*, never twice at once to one machine: see [_giveHostTokenNow].
   Future<String?> _giveHostToken(String host, {bool atOnce = false}) => _tokens.give(host, atOnce: atOnce);
+
+  /// The token this computer's Porelo-Vault declares, handed on by itself where a host this person administers waits
+  /// for it for a project, once per wait.
+  late final _declaredHandOn = DeclaredHandOn(_handOnDeclaredNow);
+
+  /// Hands [host] the declared token without the token's page, as one of [_tokens]: where none is declared, nothing
+  /// opens and the rows ask as before.
+  Future<HandOn> _handOnDeclaredNow(String host) async {
+    final done = await _tokens.run(host, () async {
+      final step = _hostTokenStep(host);
+      if (!await step.handOnDeclared()) return const HandOn(HandOnOutcome.notDeclared);
+      if (step.given) return const HandOn(HandOnOutcome.handedOn);
+      final why = step.problem;
+      if (why == noTokenWaitedWords(host)) return const HandOn(HandOnOutcome.nothingWaits);
+      windowLog.warn('The token declared on this computer was not handed on to $host: $why');
+      return HandOn(HandOnOutcome.refused, words: why);
+    });
+    return done ?? HandOn(HandOnOutcome.refused, words: _tokens.busy(host));
+  }
+
+  /// Hands the declared token on by itself to each host this person administers that is heard waiting for it for a
+  /// project; a wait answered before is left to its rows.
+  void _handOnDeclaredTokens() {
+    final view = _organization?.view;
+    if (!mounted || view == null || !view.holdsRoles || _hostConnections == null) return;
+    for (final machine in widget.machines.all) {
+      final card = machine.hostCard;
+      if (card == null) continue;
+      final host = view.hosts.where((each) => each.name == card.name).firstOrNull;
+      if (host == null || !host.admins.contains(view.me)) continue;
+      final waiting = {
+        for (final project in _heardFrom(machine)?.projects ?? const <HostProjectProgress>[])
+          if (project.waitsForToken) project.project,
+      };
+      if (waiting.isEmpty) continue;
+      unawaited(_declaredHandOn.forWaits(card.name, waiting));
+    }
+  }
 
   /// Asks each connected machine its Machine Admin may ask how far it has come, once, and shows what it said.
   void _askHostsOnce() {
@@ -6692,9 +6736,15 @@ class _ShellState extends State<Shell> {
     return said != null && (said.waitsForToken || said.hasNoAddress) ? said : null;
   }
 
-  /// [_waitOn] in words beside the project, or null.
-  String? _waitWords(Machine machine, String project) =>
-      waitingWords(_waitOn(machine, project), organizationForgeName(_organization?.view));
+  /// [_waitOn] in words beside the project, or null; while the declared token is handed on by itself, that.
+  String? _waitWords(Machine machine, String project) {
+    final wait = _waitOn(machine, project);
+    final forge = organizationForgeName(_organization?.view);
+    if (wait != null && wait.waitsForToken && _declaredHandOn.running(machine.hostCard!.name)) {
+      return "handing your $forge token on from this computer's Porelo-Vault";
+    }
+    return waitingWords(wait, forge);
+  }
 
   /// Why work cannot start in [project] on [machine] while it waits, or null: none where the machine has taken some
   /// of it, whose rows each say whether work starts in them.
@@ -6799,6 +6849,8 @@ class _ShellState extends State<Shell> {
           try {
             return handedOverWords(host, declared, handedOver: await _organization!.source.handTokenTo(host));
           } on OrganizationRefused catch (refused) {
+            // The host takes a token only while a project of it waits for one.
+            if (refused.exitCode == noTokenWaitedExit) return noTokenWaitedWords(host);
             return '$host was given no token: ${refused.words}';
           }
         case TokenSourceAnswer(source: TokenSource.kept) when address != null:
@@ -7588,6 +7640,11 @@ class _ShellState extends State<Shell> {
     }
     _organization?.removeListener(_askHostsOnce);
     _hostConnections?.removeListener(_askHostsOnce);
+    _organization?.removeListener(_handOnDeclaredTokens);
+    _hostConnections?.removeListener(_handOnDeclaredTokens);
+    if (_hostConnections?.handOnDeclared == _declaredHandOn.forWaits) _hostConnections?.handOnDeclared = null;
+    _declaredHandOn.removeListener(_homeserversChanged);
+    _declaredHandOn.dispose();
     _tokens.dispose();
     if (widget.hostConnections == null) _hostConnections?.dispose();
     _organization?.dispose();

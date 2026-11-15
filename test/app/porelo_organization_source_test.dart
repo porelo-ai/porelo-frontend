@@ -1410,4 +1410,14 @@ void main() {
     answer = (_) => (code: 69, out: jsonEncode({'reason': 'unavailable', 'words': 'No token is declared.'}), err: '');
     await expectLater(source.handTokenTo('build'), throwsA(isA<OrganizationRefused>()));
   });
+
+  // Harm: a host that waits for no token is said to have refused one, so a hand-over nobody pressed says a problem.
+  test('a host refusing a token it does not wait for keeps the exit code that says so', () async {
+    answer = (_) =>
+        (code: 65, out: jsonEncode({'reason': 'refused-state', 'words': 'no project waits for a token'}), err: '');
+    await expectLater(
+      source.handTokenTo('build'),
+      throwsA(isA<OrganizationRefused>().having((refused) => refused.exitCode, 'exitCode', 65)),
+    );
+  });
 }

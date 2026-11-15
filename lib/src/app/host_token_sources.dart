@@ -105,6 +105,9 @@ class HostTokenSources {
   /// Asks every source, and answers each one's answer in the order they are offered.
   Future<List<TokenSourceAnswer>> ask() async => [await _declared(), await _kept(), _secrets()];
 
+  /// Asks only this computer's Porelo-Vault for the entry it declares, the one source handed on without a choice.
+  Future<TokenSourceAnswer> askDeclared() => _declared();
+
   Future<TokenSourceAnswer> _declared() async {
     final organization = repository;
     if (organization == null) {
@@ -266,6 +269,30 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
         ?.where((each) => each.source == TokenSource.declared && each.state == TokenSourceState.found)
         .firstOrNull;
     if (declared == null) return false;
+    await giveFrom(declared);
+    return true;
+  }
+
+  /// Hands the host the entry this computer's Porelo-Vault declares, asking that source alone and opening nothing: for
+  /// a hand-over nobody pressed, which never touches a source the person chooses on the token's page. Answers true
+  /// where the entry was found, the step given or its problem said; false where none is declared or it cannot be asked.
+  Future<bool> handOnDeclared() async {
+    if (_asking || _giving) return false;
+    _asking = true;
+    _problem = null;
+    notifyListeners();
+    final TokenSourceAnswer declared;
+    try {
+      await connect();
+      declared = await sources.askDeclared();
+    } on Exception catch (error) {
+      _problem = '$host could not be reached, so no source was asked: $error';
+      return false;
+    } finally {
+      _asking = false;
+      notifyListeners();
+    }
+    if (declared.state != TokenSourceState.found) return false;
     await giveFrom(declared);
     return true;
   }

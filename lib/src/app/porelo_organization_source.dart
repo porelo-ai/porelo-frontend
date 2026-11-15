@@ -110,6 +110,7 @@ class PoreloOrganizationSource implements OrganizationSource, ReadsKeptFirst, Fo
       answered: !mayHaveMade,
       reason: refusal?['reason'] is String ? refusal!['reason']! as String : null,
       entry: _entry(refusal?['entry']),
+      exitCode: ran.code,
     );
   }
 

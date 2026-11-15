@@ -76,3 +76,9 @@ String declaredTokenWords(String host, String forge, String where, Connection de
 /// What is said once Porelo handed the declared token on, or did not.
 String? handedOverWords(String host, Connection declared, {required bool handedOver}) =>
     handedOver ? null : '$host was given no token: Porelo did not hand on the one declared for ${declared.match}.';
+
+/// Porelo's exit code where the host refuses a token because no project of it waits for one: nothing to do.
+const noTokenWaitedExit = 65;
+
+/// What a hand-over says where [host] waits for no token.
+String noTokenWaitedWords(String host) => '$host waits for no token now, so nothing was handed on.';

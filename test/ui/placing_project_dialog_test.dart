@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/declared_hand_on.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/ui/placing_project_dialog.dart';
@@ -61,6 +62,56 @@ void main() {
     expect(words(tester), 'build carries demo.');
     expect(find.byKey(const Key('placing-project.giveToken')), findsNothing);
     await close(tester);
+  });
+
+  // Harm: a person whose Porelo-Vault declares the token is asked for it again for every project put on the host.
+  testWidgets('a machine waiting for the token is handed the declared one without a press, and says so', (
+    tester,
+  ) async {
+    final connections = FixtureConnections(['build'])..hostProgress = waiting;
+    final handedOn = <String>[];
+    final release = Completer<void>();
+    connections.handOnDeclared = (host, projects) async {
+      handedOn.add('$host ${projects.join(',')}');
+      await release.future;
+      connections.hostProgress = carried;
+      return const HandOn(HandOnOutcome.handedOn);
+    };
+    final pressed = <String>[];
+    await open(
+      tester,
+      connections,
+      onGiveToken: (host, {atOnce = false}) async {
+        pressed.add(host);
+        return null;
+      },
+    );
+    expect(handedOn, ['build demo'], reason: 'handed on as soon as the project was heard waiting');
+    expect(words(tester), contains('Handing on the token your Porelo-Vault declares'));
+    expect(find.byKey(const Key('placing-project.giveToken')), findsNothing, reason: 'no button while it runs');
+    release.complete();
+    await tester.pump();
+    await tester.pump();
+    expect(words(tester), 'build carries demo.');
+    expect(pressed, isEmpty);
+    await close(tester);
+  });
+
+  // Harm: with nothing declared, or a declared token that did not help, the person is left without the button.
+  testWidgets('a declared token not found, or not helping, leaves the button as before', (tester) async {
+    for (final outcome in [HandOnOutcome.notDeclared, HandOnOutcome.handedOn]) {
+      final connections = FixtureConnections(['build'])..hostProgress = waiting;
+      connections.handOnDeclared = (host, projects) async => HandOn(outcome);
+      await open(tester, connections);
+      expect(find.byKey(const Key('placing-project.giveToken')), findsNothing, reason: 'no give without a hook');
+      await close(tester);
+      await open(tester, connections, onGiveToken: (_, {atOnce = false}) async => null);
+      expect(find.byKey(const Key('placing-project.giveToken')), findsOneWidget, reason: '$outcome');
+      if (outcome == HandOnOutcome.handedOn) {
+        expect(find.textContaining('still waits for a token after the one your Porelo-Vault declares'), findsOneWidget);
+      }
+      await close(tester);
+    }
   });
 
   // Harm: a token not given leaves a person with nothing, as the foo test's button did.
