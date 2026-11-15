@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -161,7 +163,7 @@ void main() {
       'porelo host forge-token',
     );
     expect(find.textContaining('MissingHostForgeToken'), findsNothing);
-    expect(World.terminals, isEmpty, reason: 'the store command is shown, never run');
+    expect(World.terminals, isEmpty, reason: 'no terminal is opened for the store command');
 
     await tester.pump(const Duration(seconds: 1));
     World.elsewhere.pullRequestWatches.last.fail(
@@ -199,5 +201,94 @@ void main() {
     await World.settle(tester);
     expect(find.descendant(of: refused, matching: find.byType(CommandToCopy)), findsNothing);
     expect(find.descendant(of: refused, matching: find.textContaining('command below')), findsNothing);
+  });
+
+  MissingHostForgeToken missing() => MissingHostForgeToken(
+    const VarlinkException('org.fuin.porelo.Tasks1.MissingHostForgeToken', <String, dynamic>{
+      'credential': 'forge.person',
+      'storeCommand': <String>['porelo', 'host', 'forge-token'],
+    }),
+  );
+  const refusedRow = ValueKey<String>('attention-row pull requests refused elsewhere/foo');
+  const storeIt = 'Store my forge token on elsewhere now';
+
+  // Harm: every pull request waiting for the person on a host stays unseen until they run by hand a command the host
+  // names and the window could run itself, or the host is given new tokens again and again, each revoking the last.
+  testWidgets('a missing forge token is stored by the host\'s own command once by itself, then asked for again', (
+    tester,
+  ) async {
+    final watch = await _watched(tester);
+    final watches = World.elsewhere.pullRequestWatches.length;
+    watch.fail(missing());
+    await World.settle(tester);
+
+    expect(World.setup.ranOnTheMachine, hasLength(1), reason: 'stored by itself, the first time the host says so');
+    expect(World.setup.ranOnTheMachine.single.first, 'ssh');
+    expect(World.setup.ranOnTheMachine.single.join(' '), contains("'porelo host forge-token'"));
+    expect(World.elsewhere.pullRequestWatches.length, greaterThan(watches), reason: 'asked again once stored');
+
+    World.elsewhere.pullRequestWatches.last.fail(missing());
+    await World.settle(tester);
+    expect(World.setup.ranOnTheMachine, hasLength(1), reason: 'by itself only once in the window\'s run');
+
+    final refused = find.byKey(refusedRow);
+    await expandListRows(tester, within: refused);
+    await World.settle(tester);
+    World.setup.onTheMachine = (_) async => (code: 1, said: 'the forge refused to mint a token for hana');
+    await tester.tap(find.descendant(of: refused, matching: find.text(storeIt)).first);
+    await World.settle(tester);
+    expect(World.setup.ranOnTheMachine, hasLength(2), reason: 'the press stores it again');
+    expect(
+      find.descendant(of: refused, matching: find.textContaining('the forge refused to mint a token for hana')),
+      findsWidgets,
+    );
+
+    World.setup.onTheMachine = (_) async => (code: 0, said: '');
+    await tester.tap(find.descendant(of: refused, matching: find.text(storeIt)).first);
+    await World.settle(tester);
+    World.elsewhere.pullRequestWatches.last.answer(<HostPullRequest>[_made]);
+    await World.settle(tester);
+    expect(_row(1), findsOneWidget, reason: 'the machine\'s answer after the run is the verdict');
+    expect(find.descendant(of: refused, matching: find.text('Forge token missing')), findsNothing);
+  });
+
+  // Harm: a second run while one stores the token mints another and revokes the first.
+  testWidgets('a press while the token is being stored stores nothing a second time', (tester) async {
+    final held = Completer<({int code, String said})>();
+    final watch = await _watched(tester);
+    World.setup.onTheMachine = (_) => held.future;
+    watch.fail(missing());
+    await World.settle(tester);
+    expect(World.setup.ranOnTheMachine, hasLength(1));
+
+    final refused = find.byKey(refusedRow);
+    await expandListRows(tester, within: refused);
+    await World.settle(tester);
+    expect(find.descendant(of: refused, matching: find.text('Storing the token')), findsWidgets);
+    final press = find.descendant(of: refused, matching: find.text(storeIt));
+    if (press.evaluate().isNotEmpty) await tester.tap(press.first, warnIfMissed: false);
+    await World.settle(tester);
+    expect(World.setup.ranOnTheMachine, hasLength(1));
+    held.complete((code: 0, said: ''));
+    await World.settle(tester);
+  });
+
+  // Harm: a host whose vault is locked is said so with no way to unlock it from where it is said.
+  testWidgets('a pull request read refused by a locked vault offers to unlock it', (tester) async {
+    final watch = await _watched(tester);
+    watch.fail(
+      HostPullRequestsRefused(
+        const VarlinkException('org.fuin.porelo.Tasks1.HostPullRequestsRefused', <String, dynamic>{
+          'reason': 'vault-unreadable',
+          'message': 'the vault is locked',
+        }),
+      ),
+    );
+    await World.settle(tester);
+    final refused = find.byKey(refusedRow);
+    await expandListRows(tester, within: refused);
+    await World.settle(tester);
+    expect(find.descendant(of: refused, matching: find.text('Unlock the vault on elsewhere')), findsWidgets);
+    expect(World.setup.ranOnTheMachine, isEmpty);
   });
 }

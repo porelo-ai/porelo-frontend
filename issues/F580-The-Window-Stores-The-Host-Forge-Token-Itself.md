@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F580",
   "title": "The Window Stores The Host Forge Token Itself",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 14,
@@ -56,3 +56,26 @@ command on the host: the window stores their forge token there, and says only wh
 - porelo is to answer a shut vault from `porelo host forge-token` with its own exit code, 77, every other refusal
   staying 69, and to name `--if-forge` in the command; the window reads 77 for that command alone and is built once
   that stands in porelo.
+
+## Built
+
+- `HostForgeTokens` (`lib/src/app/host_forge_token.dart`) runs the command a host named in `MissingHostForgeToken`
+  through `onTheMachine` without a terminal, over the card's own login (`MachineSetup.runOnTheMachine`: standard input
+  closed, standard output never read, only the exit code and the last line of standard error kept). One run per
+  machine at a time, a press while one runs joins it; the first refusal a machine says in this window's run is stored
+  by itself, once. A machine this window does not reach itself, and a command the machine named that cannot be run
+  (empty, or with a control character), runs nothing and says why.
+- *Needs you* (`attention_view.dart`): the refused row offers *Store my forge token on … now*, says *Storing the token*
+  while it runs and greys the press, and says the command's own words when it failed; the command to copy stays in
+  its details. After a run that ended 0 the machine is asked for its pull requests again
+  (`HostPullRequests.askAgain`), and its answer is the verdict. A refusal `vault-unreadable` offers *Unlock the vault on
+  …*, the window's own unlock of that machine.
+- Tests, each seen red with a deliberate break restored from a copy: `test/app/host_forge_token_test.dart` (one run
+  joined, once by itself, nothing for a machine not reached); `test/ui/needs_you_pull_request_test.dart` *a missing
+  forge token is stored by the host's own command once by itself, then asked for again* (red with the store by itself
+  taken out, the ask again taken out, the once-only taken out, or the failure unsaid), *a press while the token is
+  being stored stores nothing a second time* (red with the running state unsaid), *a pull request read refused by a
+  locked vault offers to unlock it* (red with the unlock taken out). The test world's machine setup now answers lines
+  run on a machine itself, so no test reaches a real host.
+- Not built: exit 77 for a shut vault from the command waits on porelo B781; no feature scenario, the widget test runs
+  the row through the shell to the machine's pull requests.

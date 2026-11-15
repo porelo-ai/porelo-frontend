@@ -19,6 +19,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A host that says your forge token is missing for its pull requests has it stored by the window, once by itself and again with *Store my forge token on … now* under *Needs you*: the window runs the command the host names, over your own login there, and shows only what came of it. A host whose vault is locked offers *Unlock the vault on …* on the same row. Once stored, the pull requests are asked for again.
 - Planning builds only the cards in view, so a board of hundreds of stories opens and folds without holding the window.
 - *My cards & keys* shows your key, its validity, your SSH agent, your organization card and your central forge keys in the page itself, with *Change my key…* there, instead of in a dialog over an empty page; *My key and card…* in the title bar opens the page.
 - *Planning*'s first-time words stand under the board's head and a story's or an issue's breadcrumb, not above them, and the page shown when no board is read keeps its *i*.

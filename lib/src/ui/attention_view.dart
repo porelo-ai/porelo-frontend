@@ -14,6 +14,7 @@ import '../app/attention.dart';
 import '../app/commands.dart';
 import '../app/settings.dart' show RanOutQuestion;
 import '../app/fleet_model.dart';
+import '../app/host_forge_token.dart';
 import '../app/host_pull_requests.dart';
 import '../app/machines.dart';
 import '../app/operations.dart';
@@ -48,6 +49,7 @@ class AttentionView extends StatefulWidget {
     required this.actionsFor,
     required this.onReview,
     this.unlockFor,
+    this.forgeTokens,
     this.onRemoveProject,
     this.whyNoRemoval,
     this.onSelect,
@@ -64,6 +66,9 @@ class AttentionView extends StatefulWidget {
 
   /// The same machine-specific unlock path used by work.unlock, or null when unavailable.
   final VoidCallback? Function(Machine machine)? unlockFor;
+
+  /// Stores a missing forge token on its host, or null where this window stores none.
+  final HostForgeTokens? forgeTokens;
 
   /// Opens a removal preview on the row's machine, without changing the selected project.
   final void Function(Machine machine, Project project)? onRemoveProject;
@@ -144,7 +149,7 @@ class _AttentionViewState extends State<AttentionView> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.attention,
+    animation: Listenable.merge([widget.attention, ?widget.forgeTokens]),
     builder: (context, _) {
       final rows = widget.attention.openRows;
       final resolved = widget.attention.recentlyResolved;
@@ -433,6 +438,40 @@ extension on _AttentionViewState {
             : 'Not answered';
         subtitle = each.action;
         icon = Icons.key_off_outlined;
+        final on = each.machine;
+        switch (each.refusal) {
+          case final MissingHostForgeToken missing when widget.forgeTokens != null:
+            final tokens = widget.forgeTokens!;
+            final running = tokens.running(on.name);
+            final failed = tokens.failed(on.name);
+            if (running) {
+              state = 'Storing the token';
+              subtitle =
+                  'Storing your forge token on ${on.name} now; the pull requests are asked for once it is stored.';
+            } else if (failed != null) {
+              subtitle = 'Storing your forge token on ${on.name} failed: $failed';
+            }
+            primary = storeForgeTokenCommand(
+              machine: on.name,
+              run: () => unawaited(tokens.store(on, missing)),
+              unavailable:
+                  reason ??
+                  (running
+                      ? 'it is being stored on ${on.name} now'
+                      : missing.storeCommand.isEmpty
+                      ? '${on.name} named no command for it that can be run from here'
+                      : HostForgeTokens.commandFor(on, missing) == null
+                      ? "this window does not reach ${on.name}'s own login"
+                      : null),
+            );
+          case HostPullRequestsRefused(reason: 'vault-unreadable'):
+            final unlock = widget.unlockFor?.call(on);
+            primary = unlockForPullRequestsCommand(
+              machine: on.name,
+              run: () => unlock?.call(),
+              unavailable: reason ?? (unlock == null ? 'this vault cannot be unlocked from here' : null),
+            );
+        }
       case AttentionKind.operation:
         final operation = row.value as Operation;
         title = operation.title;

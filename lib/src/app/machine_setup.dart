@@ -466,6 +466,14 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     return said.isEmpty ? 'It ended with exit code ${result.exitCode}.' : said;
   }
 
+  /// Runs [command], a line the machine named, with standard input closed: its exit code and the last line it wrote to
+  /// standard error. What it writes to standard output is never read, so a value it prints goes nowhere.
+  Future<({int code, String said})> runOnTheMachine(List<String> command) async {
+    final result = await _run(command, input: '');
+    final said = '${result.stderr}'.trim().split('\n').last.trim();
+    return (code: result.exitCode, said: said);
+  }
+
   /// Why logging in as root on [host] with the key at [keyFile] failed, or null when it worked.
   Future<String?> loginAsRoot(String host, String keyFile) async {
     final login = await _run(<String>[

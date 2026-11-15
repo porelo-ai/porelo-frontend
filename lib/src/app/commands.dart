@@ -1839,6 +1839,24 @@ Command _attentionRowCommand({
   String? unavailable,
 }) => Command(id: id, label: label, group: 'Needs you', home: Home.attentionRow, run: run, unavailable: unavailable);
 
+/// Stores the person's forge token on the row's host by the command the host named for it.
+Command storeForgeTokenCommand({required String machine, required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(
+      id: 'pullRequests.storeToken',
+      label: 'Store my forge token on $machine now',
+      run: run,
+      unavailable: unavailable,
+    );
+
+/// Unlocks the row's host vault, which a read of its pull requests found locked.
+Command unlockForPullRequestsCommand({required String machine, required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(
+      id: 'pullRequests.unlock',
+      label: 'Unlock the vault on $machine',
+      run: run,
+      unavailable: unavailable,
+    );
+
 /// Retries only the homeserver forward named by the row.
 Command retryAttentionForwardCommand({required VoidCallback run, String? unavailable}) =>
     _attentionRowCommand(id: 'messages.retryForward', label: 'Try again', run: run, unavailable: unavailable);

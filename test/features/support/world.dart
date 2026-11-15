@@ -4183,6 +4183,18 @@ class FakeMachineSetup extends MachineSetup {
   /// The home whose `~/.ssh` the keys go to.
   final Directory home;
 
+  /// Every line run on a machine as the machine named it, in order; none reaches a real machine.
+  final ranOnTheMachine = <List<String>>[];
+
+  /// What a line run on a machine answers; held open while it is not completed.
+  Future<({int code, String said})> Function(List<String> command) onTheMachine = (_) async => (code: 0, said: '');
+
+  @override
+  Future<({int code, String said})> runOnTheMachine(List<String> command) {
+    ranOnTheMachine.add(command);
+    return onTheMachine(command);
+  }
+
   /// What logging in as root answers, or null for a login that works.
   String? rootLoginFails;
 

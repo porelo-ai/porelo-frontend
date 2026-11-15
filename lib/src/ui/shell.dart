@@ -17,6 +17,8 @@ import '../app/homeserver_forwards.dart';
 import '../app/host_check_run.dart';
 import '../app/host_access.dart';
 import '../app/host_progress.dart' show HostProgress, HostProjectProgress, HostRepositoryProgress;
+import '../app/host_forge_token.dart';
+import '../app/host_pull_requests.dart' show PullRequestsRefusedRow;
 import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/forge.dart';
@@ -450,6 +452,21 @@ class _ShellState extends State<Shell> {
   late final Attention _attention;
   late final HostRuns _hostRuns;
 
+  /// Stores a forge token a host says is missing, by the command the host names; what it refused is asked again.
+  late final _forgeTokens = HostForgeTokens(
+    widget.machines.setup.runOnTheMachine,
+    onStored: (machine) => widget.machines.watching(machine)?.pullRequests.askAgain(),
+  );
+
+  /// A host that says the person's forge token is missing has it stored by itself, once in this window's run.
+  void _storeMissingForgeTokens() {
+    for (final row in _attention.openRows) {
+      if (row.value case PullRequestsRefusedRow(:final machine, refusal: final MissingHostForgeToken missing)) {
+        _forgeTokens.heard(machine, missing);
+      }
+    }
+  }
+
   /// The host `main`s brought to central from a project's page, and what each said last.
   final _centralReleases = CentralReleases();
 
@@ -545,7 +562,8 @@ class _ShellState extends State<Shell> {
     widget.hostAccess?.addListener(_homeserversChanged);
     _attention = Attention(widget.machines, widget.settings, widget.operations)
       ..hostRuns = _hostRuns
-      ..planning = _planning;
+      ..planning = _planning
+      ..addListener(_storeMissingForgeTokens);
     if (widget.planning?.reports case final reports?) {
       reports.onProblem = _planningReportProblem;
       reports.onFollowUps = _storyWorkStarted;
@@ -6181,6 +6199,7 @@ class _ShellState extends State<Shell> {
             if (run != null) unawaited(_openHostRun(run));
           },
           unlockFor: _unlockFor,
+          forgeTokens: _forgeTokens,
           onRemoveProject: (machine, project) {
             final fleet = widget.machines.watching(machine);
             if (fleet == null) return _notWatchedYet(machine);
@@ -7450,7 +7469,10 @@ class _ShellState extends State<Shell> {
       ?..chooseDiscussion = null
       ..onDiscussionStarted = null
       ..onStartRefused = null;
-    _attention.dispose();
+    _attention
+      ..removeListener(_storeMissingForgeTokens)
+      ..dispose();
+    _forgeTokens.dispose();
     _planning?.dispose();
     widget.machines.pauseAutomaticRetries();
     widget.shell.removeListener(_followTreeTool);
