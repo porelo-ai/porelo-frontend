@@ -137,6 +137,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f582"></a>[F582](F582-A-Refused-Repository-Says-Its-Status-And-Path.md) | S | - | Story ST362: a host's pull-request read refused for one repository says which, with the forge's status and the path asked, while the others' pull requests still show; a refused person token says it must be renewed; an agent signed in through the Porelo-Vault says so on the start dialog. |
+
 ## Review
 
 | # | Size | Blocked by | What it covers |
