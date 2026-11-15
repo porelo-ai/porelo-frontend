@@ -6,17 +6,18 @@
   "id": "F606",
   "title": "Start Work Shown As The Window's Wizard",
   "state": "Backlog",
-  "size": "M",
+  "size": "S",
   "priority": "High",
   "rank": 126,
   "blockedBy": [],
-  "covers": "Start work on the Planning board runs as the window's own wizard, through porelo-planner's PlanningWizards hook: a step per question with room to read each field, a review where every step's answers can be changed, the machine the task goes to named with why another cannot be used, ready agents, and models and efforts per agent once porelo lists them."
+  "covers": "Start work on the Planning board runs as the window's own wizard, through porelo-planner's PlanningWizards hook: a step per question with room to read each field, a review where every step's answers can be changed, ready agents, and the models and efforts porelo lists per agent."
 }
 ```
 
-**Why this size.** M: a hook mapping the screen's step types onto `Wizard` (`lib/src/ui/wizard.dart`) with its
-handle's `goBackTo`, a *Change* beside each step in every wizard's review, the machine step's answers, and the pin
-raised to PL157's screen; scenarios through the whole wizard and the window's other wizards' reviews.
+**Why this size.** S, as the operator set it: the window's `Wizard` exists and the screen splits its own panels
+(PL157). The window's part is the `PlanningWizards.show` hook onto `Wizard` (`lib/src/ui/wizard.dart`) with its
+handle's `goBackTo`, a *Change* beside each step in every wizard's review, and the agent list's members PL157 asks
+(readiness, [F605](README.md#f605); models and efforts as porelo lists them); the pin raised to PL157's screen.
 
 **What must be true.** A person starting work from the board goes through the same kind of wizard as when adding a
 machine or a project: one question at a time, fields that read, and a last step listing every answer with *Change*
@@ -30,6 +31,9 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
 
 ## Plan
 
+- **Scope**, as the operator set it (Coordinator, room 2026-11-15 16:06Z): the hook, *Change* per step and the agent
+  list's members; the machine step stays the screen's own (`StoryWork.changeMachine`), with nothing new from the
+  window.
 - **Contract**, as Agent Planner named it (room, 2026-11-15 15:52Z; PL156's design in porelo-planner `604ee70`, the
   screen's build PL157): `PlanningWizards.show(context, title:, steps:, action:)`, a hook the window passes into the
   boards beside `startTask` and `agents`. A `PlanningWizardStep` has `title`, `words`, `panel` (a builder of its own
@@ -42,10 +46,9 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
     wizard's `goBackTo`, and shows it as the window's other wizards are shown.
   - The review: a *Change* beside each step's title in `Wizard`'s review, going to that step and back to the review
     with Next; every wizard of the window gains it.
-  - The machine step's answers: which machine the task goes to (`machineFor` and `planningMachineOf` today, kept one
-    with [F603](README.md#f603)), and why one cannot be used (not watched, not answering, not carrying the project), in
-    the window's words.
-  - The agents: the readiness member, [F605](README.md#f605) (PL155), for the machine the step chose.
+  - The agents (`MachinePlanningAgents`, `lib/src/ui/planning_embedding.dart`), for the machine the screen's *Where*
+    step chose: the readiness member, [F605](README.md#f605) (PL155), and per agent the models (id, label) and
+    effort levels PL157's `PlanningAgents` asks, as porelo lists them.
   - Models: the operator's answer to PL156 (Agent Planner, room 2026-11-15 16:02Z): a person may start an agent the
     rule offers with any model. The model choice is a list of the chosen agent's models on that machine, the rule's
     marked proposed, filling a text field that can also be typed by hand; a model the agent or provider refuses fails
@@ -61,7 +64,6 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
 
 - *Start work* runs as the window's wizard, one step at a time, ending in a review with *Change* beside every step.
   Seen to fail: today's dialog.
-- The machine step names the machine the task goes to, and why another cannot be used.
 - An agent not signed in on that machine is named so; the model list is that agent's models on that machine, the
   rule's marked proposed, and a model typed by hand is started with; efforts are those B795 lists.
 - The wizard may close once the start runs on; its operation stands in front ([F597](README.md#f597)).
