@@ -1057,8 +1057,12 @@ void main() {
         await pressOrganizationAction(tester, 'replaceCard/mia');
         await tester.runAsync(() async {
           await tester.tap(find.byKey(const Key('organization-card-file')));
-          await tester.pump();
-          await Future<void>.delayed(const Duration(milliseconds: 100));
+          // The file is read for real: wait until the dialog names it, which it does once read, however slow the
+          // machine is.
+          for (var waited = 0; waited < 400 && find.text(file.path).evaluate().isEmpty; waited++) {
+            await Future<void>.delayed(const Duration(milliseconds: 25));
+            await tester.pump();
+          }
         });
         await tester.pumpAndSettle();
         return fixture;
