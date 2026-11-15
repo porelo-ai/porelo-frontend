@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F606",
   "title": "Start Work Shown As The Window's Wizard",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 126,

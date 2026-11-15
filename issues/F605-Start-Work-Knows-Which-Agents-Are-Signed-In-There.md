@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F605",
   "title": "Start Work Knows Which Agents Are Signed In There",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "High",
   "rank": 125,
