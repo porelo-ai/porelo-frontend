@@ -7020,6 +7020,7 @@ class _ShellState extends State<Shell> {
             words: repositoryOnAMachine(project: project.name, listed: each, carried: p.carried, tasks: tasks),
             carried: each.carriedHere,
             startRefused: null,
+            central: centralOnAMachine(each),
           ),
       };
     }
@@ -7060,6 +7061,12 @@ class _ShellState extends State<Shell> {
             carriedAlone: carriedAlone,
             listed: listed[name],
             forge: forge,
+          ),
+          central: centralOnTheMachine(
+            repository: name,
+            progress: said,
+            progressRead: read && progress != null,
+            listed: listed[name],
           ),
         ),
     };

@@ -6,6 +6,7 @@ import '../app/commands.dart';
 import '../app/fleet_model.dart';
 import '../app/host_progress.dart';
 import 'command_menu.dart';
+import 'expandable_list_row.dart';
 import 'organization_token_words.dart';
 import 'tokens.dart';
 import 'window_size.dart';
@@ -40,10 +41,72 @@ class StopEverywhere extends StatelessWidget {
 
 /// What a machine holds of one repository of a project: its row's words, whether it carries it (null where nobody
 /// said), and why work cannot start in it there now, where it cannot.
-typedef OnTheMachine = ({String words, bool? carried, String? startRefused});
+typedef OnTheMachine = ({String words, bool? carried, String? startRefused, CentralStanding? central});
+
+/// How a repository stands against central, for the chip at its row's end: the machine's word for it, and the words
+/// that say it.
+class CentralStanding {
+  /// Constructor taking the machine's word ([state]) and the words said for it.
+  const CentralStanding(this.state, this.words);
+
+  /// The machine's word (`ahead`, `up-to-date`, `moved-on`, `cannot-say`, `no-central` or a later one), or
+  /// `not-read` and `not-reported` where it gave none.
+  final String state;
+
+  /// What the chip says.
+  final String words;
+
+  /// Whether work on the machine waits to be brought to central.
+  bool get ahead => state == 'ahead';
+
+  /// The tone it is said in, by what it asks of the person: ahead and moved on ask a look, cannot say is an error,
+  /// and at central or a word this build does not know is quiet.
+  String get toneWords => switch (state) {
+    'ahead' || 'moved-on' => 'needs you',
+    'cannot-say' => 'failed',
+    _ => 'quiet',
+  };
+}
+
+/// How [repository] stands against central on the machine, for its row's chip, as [repositoryOnTheMachine] reads the
+/// rest: the daemon's word where it says one, the host's where it took the repository, not read where the machine was
+/// not asked; null where the machine does not carry it or nobody says anything of it.
+CentralStanding? centralOnTheMachine({
+  required String repository,
+  required HostProjectProgress? progress,
+  required bool progressRead,
+  Repository? listed,
+}) {
+  final row = progress?.repositories.where((each) => each.repository == repository).firstOrNull;
+  final host = progressRead && row?.state == 'taken' ? (row?.central ?? const HostRepositoryCentral()) : null;
+  final daemon = listed?.central;
+  // The two may disagree, one older than the other: up to date never hides what is not.
+  if (daemon != null && (daemon != 'up-to-date' || host == null || host.state == 'up-to-date')) {
+    return centralOf(listed!);
+  }
+  // One the machine does not carry has no copy of its own to stand against central, whatever the host said.
+  if (listed?.carriedHere == false) return null;
+  if (host != null) return CentralStanding(host.state, host.words);
+  if (!progressRead) return const CentralStanding('not-read', 'central: not read');
+  if (listed?.carriedHere == true) return const CentralStanding('not-reported', 'central: not reported');
+  return null;
+}
+
+/// How [listed] stands against central, as the machine whose daemon listed it says, where no organization's card
+/// names the machine; not reported where it carries it and says nothing of central.
+CentralStanding? centralOnAMachine(Repository listed) =>
+    centralOf(listed) ??
+    (listed.carriedHere == true ? const CentralStanding('not-reported', 'central: not reported') : null);
+
+/// How [repository] stands against central in [centralWords], with the daemon's word; null where it says nothing.
+CentralStanding? centralOf(Repository repository) => switch ((repository.central, centralWords(repository))) {
+  (final String state, final String words) => CentralStanding(state, words),
+  _ => null,
+};
 
 /// What a machine an organization's card names holds of [repository] of [project], for its row on the project's page
-/// opened from that machine: carried, not carried or held; its state at central; the work running in it. [progress] is
+/// opened from that machine: carried, not carried or held; the work running in it. Its state at central stands in a
+/// chip of its own ([centralOnTheMachine]). [progress] is
 /// what the machine said of the project, null where it said nothing of it; [progressRead] is false where the machine
 /// was not asked, and [tasks] null where its work was not read: each then says not read, never none. What the
 /// machine's own daemon says of it in [listed] is taken before any of these, where it says it, except that a project
@@ -58,7 +121,6 @@ String repositoryOnTheMachine({
   Repository? listed,
   String forge = 'central forge',
 }) {
-  final row = progress?.repositories.where((each) => each.repository == repository).firstOrNull;
   final held = _standing(
     repository: repository,
     progress: progress,
@@ -67,22 +129,7 @@ String repositoryOnTheMachine({
     listed: listed,
     forge: forge,
   ).words;
-  final host = progressRead && row?.state == 'taken' ? (row?.central ?? const HostRepositoryCentral()) : null;
-  final daemon = listed?.central;
-  // The two may disagree, one older than the other: up to date never hides what is not.
-  final central = daemon != null && (daemon != 'up-to-date' || host == null || host.state == 'up-to-date')
-      ? centralWords(listed!)
-      // One the machine does not carry has no copy of its own to stand against central, whatever the host said.
-      : listed?.carriedHere == false
-      ? null
-      : host != null
-      ? host.words
-      : !progressRead
-      ? 'central: not read'
-      : listed?.carriedHere == true
-      ? 'central: not reported'
-      : null;
-  return [held, ?central, workIn(project: project, repository: repository, listed: listed, tasks: tasks)].join(' · ');
+  return [held, workIn(project: project, repository: repository, listed: listed, tasks: tasks)].join(' · ');
 }
 
 /// Whether the machine carries [repository], as [repositoryOnTheMachine] words it: true where it carries or holds it,
@@ -126,7 +173,7 @@ const _waitsNot = {'taken', 'no-central', 'not-carried'};
 
 /// Carried, not carried, held or waiting, in words and as a fact, with why work cannot start there, for
 /// [repositoryOnTheMachine], [carriedOnTheMachine] and [startRefusedOnTheMachine].
-OnTheMachine _standing({
+({String words, bool? carried, String? startRefused}) _standing({
   required String repository,
   required HostProjectProgress? progress,
   required bool progressRead,
@@ -205,7 +252,8 @@ String workIn({
 }
 
 /// What the machine whose daemon listed [listed] of [project] holds of it, for its row on the project's page opened
-/// from that machine, where no organization's card names the machine: carried or not, its state at central, its work.
+/// from that machine, where no organization's card names the machine: carried or not, and its work; its state at
+/// central stands in a chip of its own ([centralOnAMachine]).
 /// What that daemon does not say is said as before: [carried] is whether the machine carries the project for this
 /// person, who has not taken it yet.
 String repositoryOnAMachine({
@@ -213,18 +261,14 @@ String repositoryOnAMachine({
   required Repository listed,
   required bool carried,
   required List<Task>? tasks,
-}) {
-  final central = centralWords(listed) ?? (listed.carriedHere == true ? 'central: not reported' : null);
-  return [
-    switch (listed.carriedHere) {
-      true when carried => 'carried, not taken yet',
-      null => carried ? 'carried, not taken yet' : 'on the machine',
-      _ => carriedWords(listed)!,
-    },
-    ?central,
-    workIn(project: project, repository: listed.name, listed: listed, tasks: tasks),
-  ].join(' · ');
-}
+}) => [
+  switch (listed.carriedHere) {
+    true when carried => 'carried, not taken yet',
+    null => carried ? 'carried, not taken yet' : 'on the machine',
+    _ => carriedWords(listed)!,
+  },
+  workIn(project: project, repository: listed.name, listed: listed, tasks: tasks),
+].join(' · ');
 
 /// Whether [repository] is carried on the machine whose daemon listed it, as that daemon says; null where it says
 /// nothing of it, as on a machine that is no host of the project, which leaves the window's earlier way.
@@ -551,6 +595,7 @@ class ProjectHeader extends StatelessWidget {
                 repositories: part,
                 onTheMachine: onTheMachine ?? const {},
                 giveToken: waits == null ? null : giveToken,
+                bringToCentral: bringToCentral,
                 // A project the machine carries and this person has not taken yet starts as the page says: the start
                 // takes it. What reads its file waits for that, and says so rather than calling it not here.
                 onStart: project.canBeActedOn || p.carried ? onStart : null,
@@ -596,6 +641,7 @@ class _Repositories extends StatelessWidget {
     required this.repositories,
     required this.onTheMachine,
     this.giveToken,
+    this.bringToCentral,
     this.onStart,
     this.startUnavailable,
     this.notHere,
@@ -614,6 +660,7 @@ class _Repositories extends StatelessWidget {
   final List<Repository> repositories;
   final Map<String, OnTheMachine> onTheMachine;
   final Command? giveToken;
+  final Command? bringToCentral;
   final void Function(String repository)? onStart;
   final String? startUnavailable;
   final String? notHere;
@@ -639,6 +686,7 @@ class _Repositories extends StatelessWidget {
             repository: repository,
             onTheMachine: onTheMachine[repository.name],
             giveToken: giveToken,
+            bringToCentral: bringToCentral,
             onStart: onStart,
             startUnavailable: startUnavailable,
             notHere: notHere,
@@ -663,6 +711,7 @@ class _RepositoryLine extends StatelessWidget {
     required this.repository,
     this.onTheMachine,
     this.giveToken,
+    this.bringToCentral,
     this.onStart,
     this.startUnavailable,
     this.notHere,
@@ -678,6 +727,10 @@ class _RepositoryLine extends StatelessWidget {
   final Repository repository;
   final OnTheMachine? onTheMachine;
   final Command? giveToken;
+
+  /// The project's *Bring it to central…*, offered in the menu of a row that is ahead of central; null where the page
+  /// offers none.
+  final Command? bringToCentral;
   final void Function(String repository)? onStart;
   final String? startUnavailable;
 
@@ -715,71 +768,102 @@ class _RepositoryLine extends StatelessWidget {
       if (repository.pending > 0) '${repository.pending} waiting at the gate',
       if (repository.behindReason.isNotEmpty) repository.behindWords,
     ].join(' · ');
-    return ListTile(
-      key: Key('repository-$name'),
-      leading: const Icon(Icons.source_outlined),
-      title: Text(name),
-      subtitle: Text(state),
-      onTap: start.available ? start.run : null,
-      trailing: CommandMenu(
-        key: Key('repository-menu $name'),
-        tooltip: 'What can be done with $name',
-        commands: [
-          start,
-          // Offered where this repository waits for it, never on one carried or not carried here.
-          if (onTheMachine?.carried == null) ?giveToken,
-          Command(
-            id: 'sync-$name',
-            label: "Ask $name's upstream how far behind it is, now",
-            group: 'Repositories',
-            home: Home.repositoryRow,
-            run: () => onSync?.call(name),
-            unavailable: onSync == null ? notHere ?? 'This repository is not on this machine.' : null,
-          ),
-          Command(
-            id: 'backups-$name',
-            label: 'Backups of $name',
-            group: 'Repositories',
-            home: Home.repositoryRow,
-            run: () => onBackups?.call(name),
-            unavailable: onBackups == null ? notHere ?? 'This repository is not on this machine.' : null,
-          ),
-          Command(
-            id: 'opens-$name',
-            label: 'Show what work in $name would open, creating nothing',
-            group: 'Repositories',
-            home: Home.repositoryRow,
-            run: () => onOpens?.call(name),
-            unavailable: onOpens == null ? notHere ?? 'This repository is not on this machine.' : null,
-          ),
-          Command(
-            id: 'reach-$name',
-            label: 'What $name may reach, on top of what the project grants',
-            group: 'Repositories',
-            home: Home.repositoryRow,
-            run: () => onReach?.call(name),
-            unavailable: onReach == null ? notHere ?? 'This repository is not on this machine.' : null,
-          ),
-          if (onTakeOut case final takeOut?)
+    final central = onTheMachine?.central;
+    final chip = central == null
+        ? null
+        : StateChip(central.words, toneWords: central.toneWords, key: Key('repository-central $name'));
+    final bring = bringToCentral;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Beside the menu where the card is wide enough, as every list row's state; under the line where it is not.
+        final beside = WindowSize.chipBeside(ListCardWidth.of(context) ?? constraints.maxWidth);
+        final menu = CommandMenu(
+          key: Key('repository-menu $name'),
+          tooltip: 'What can be done with $name',
+          commands: [
+            start,
+            // Where work waits to reach central, the project's bringing is offered on the row that says so.
+            if (central != null && central.ahead && bring != null && bring.visible) bring,
+            // Offered where this repository waits for it, never on one carried or not carried here.
+            if (onTheMachine?.carried == null) ?giveToken,
             Command(
-              id: 'take-out-$name',
-              label: 'Take it out of default',
+              id: 'sync-$name',
+              label: "Ask $name's upstream how far behind it is, now",
               group: 'Repositories',
               home: Home.repositoryRow,
-              run: () => takeOut(name),
-              unavailable: takeOutUnavailable,
+              run: () => onSync?.call(name),
+              unavailable: onSync == null ? notHere ?? 'This repository is not on this machine.' : null,
             ),
-          if (repository.limits case final limits?)
             Command(
-              id: 'limits-$name',
-              label: 'Its limits: ${limits.words}',
+              id: 'backups-$name',
+              label: 'Backups of $name',
               group: 'Repositories',
               home: Home.repositoryRow,
-              run: () {},
-              unavailable: 'Limits are set in the project repository.',
+              run: () => onBackups?.call(name),
+              unavailable: onBackups == null ? notHere ?? 'This repository is not on this machine.' : null,
             ),
-        ],
-      ),
+            Command(
+              id: 'opens-$name',
+              label: 'Show what work in $name would open, creating nothing',
+              group: 'Repositories',
+              home: Home.repositoryRow,
+              run: () => onOpens?.call(name),
+              unavailable: onOpens == null ? notHere ?? 'This repository is not on this machine.' : null,
+            ),
+            Command(
+              id: 'reach-$name',
+              label: 'What $name may reach, on top of what the project grants',
+              group: 'Repositories',
+              home: Home.repositoryRow,
+              run: () => onReach?.call(name),
+              unavailable: onReach == null ? notHere ?? 'This repository is not on this machine.' : null,
+            ),
+            if (onTakeOut case final takeOut?)
+              Command(
+                id: 'take-out-$name',
+                label: 'Take it out of default',
+                group: 'Repositories',
+                home: Home.repositoryRow,
+                run: () => takeOut(name),
+                unavailable: takeOutUnavailable,
+              ),
+            if (repository.limits case final limits?)
+              Command(
+                id: 'limits-$name',
+                label: 'Its limits: ${limits.words}',
+                group: 'Repositories',
+                home: Home.repositoryRow,
+                run: () {},
+                unavailable: 'Limits are set in the project repository.',
+              ),
+          ],
+        );
+        return ListTile(
+          key: Key('repository-$name'),
+          leading: const Icon(Icons.source_outlined),
+          title: Text(name),
+          subtitle: chip == null || beside
+              ? Text(state)
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[if (state.isNotEmpty) Text(state), chip],
+                ),
+          onTap: start.available ? start.run : null,
+          trailing: chip == null || !beside
+              ? menu
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: Space.small,
+                  children: <Widget>[
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: constraints.maxWidth * Sizes.rowSideShare),
+                      child: chip,
+                    ),
+                    menu,
+                  ],
+                ),
+        );
+      },
     );
   }
 }

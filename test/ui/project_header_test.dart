@@ -27,7 +27,7 @@ Future<void> _show(WidgetTester tester, String project, Map<String, OnTheMachine
   ),
 );
 
-const OnTheMachine _carried = (words: 'carried', carried: true, startRefused: null);
+const OnTheMachine _carried = (words: 'carried', carried: true, startRefused: null, central: null);
 
 void main() {
   // Harm: a host that names a repository default for the project default brings back the row an older Porelo answered
@@ -65,7 +65,9 @@ void main() {
               ),
               muted: false,
               menu: const [],
-              onTheMachine: const {'claude': (words: 'carried here alone', carried: true, startRefused: null)},
+              onTheMachine: const {
+                'claude': (words: 'carried here alone', carried: true, startRefused: null, central: null),
+              },
               onStart: started.add,
               onSync: (_) {},
               onBackups: (_) {},

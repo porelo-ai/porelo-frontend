@@ -18,6 +18,10 @@ HostProjectProgress _said({
   }),
 ).of('demo')!;
 
+/// How `core` stands against central on the machine, as its row's chip says it.
+CentralStanding? _central({HostProjectProgress? progress, bool progressRead = true, Repository? listed}) =>
+    centralOnTheMachine(repository: 'core', progress: progress, progressRead: progressRead, listed: listed);
+
 String _row({
   String repository = 'core',
   HostProjectProgress? progress,
@@ -38,7 +42,7 @@ String _row({
 void main() {
   // Harm: the daemon's older up to date hides what the host says now, commits ahead of central, and they are lost.
   test('an up to date from the daemon never hides the host saying it is ahead of central', () {
-    final words = _row(
+    final words = _central(
       progress: _said(
         repositories: [
           {
@@ -49,14 +53,14 @@ void main() {
         ],
       ),
       listed: const Repository(name: 'core', carriedHere: true, central: 'up-to-date', tasks: 0, running: 0),
-    );
+    )!.words;
     expect(words, contains('2 commits ahead of central'));
     expect(words, isNot(contains('at central')));
   });
 
   // Harm: an up to date from the host hides the daemon saying central moved on.
   test('an up to date from the host never hides the daemon saying central moved on', () {
-    final words = _row(
+    final words = _central(
       progress: _said(
         repositories: [
           {
@@ -67,7 +71,7 @@ void main() {
         ],
       ),
       listed: const Repository(name: 'core', carriedHere: true, central: 'moved-on', tasks: 0, running: 0),
-    );
+    )!.words;
     expect(words, contains('central moved on'));
     expect(words, isNot(contains('at central')));
   });
@@ -106,6 +110,38 @@ void main() {
     final words = _row(progressRead: false, carriedAlone: ['core']);
     expect(words, isNot(contains('carried here alone')));
     expect(words, contains('not read'));
+    expect(_central(progressRead: false)?.words, 'central: not read');
+  });
+
+  // Harm: the central state drowned in the row's grey line, so a repository ahead of central or behind it is overlooked.
+  test("the central state is never in the row's line, on a machine a card names or not", () {
+    const listed = Repository(
+      name: 'core',
+      carriedHere: true,
+      central: 'moved-on',
+      ahead: 2,
+      aheadMeasured: '2026-11-09T08:00:00Z',
+      tasks: 0,
+      running: 0,
+    );
+    final progress = _said(
+      repositories: [
+        {
+          'repository': 'core',
+          'state': 'taken',
+          'central': {'state': 'ahead', 'commits': 2},
+        },
+      ],
+    );
+    expect(_row(progress: progress), isNot(contains('central')));
+    expect(_row(listed: listed), isNot(contains('central')));
+    expect(_row(progressRead: false), isNot(contains('central')));
+    expect(
+      repositoryOnAMachine(project: 'demo', listed: listed, carried: true, tasks: const []),
+      isNot(contains('central')),
+    );
+    expect(centralOnAMachine(listed)?.words, 'central moved on');
+    expect(centralOnAMachine(const Repository(name: 'core', carriedHere: true))?.words, 'central: not reported');
   });
 
   // Harm: ahead by none reads as a count, which says nothing waits though the machine says it is ahead.

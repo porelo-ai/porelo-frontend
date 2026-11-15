@@ -141,12 +141,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f590"></a>[F590](F590-A-Repositorys-Central-State-Stands-As-Its-Own-Chip.md) | S | - | A repository's row on a project's page on a host shows how it stands against central as a state chip of its own at the row's end (at central, N ahead of central, central moved on, cannot say), toned by what it asks of the person, with Bring it to central… reachable from a row that is ahead, instead of one clause in the row's grey line. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
@@ -184,6 +178,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f440"></a>[F440](F440-Agents-Gate-And-Builds-As-Designed.md) | M | - | *Agents & providers* as designed, the gate's review with author, committer and trailer, one line per workflow on a task's tile. |
 | <a id="f442"></a>[F442](F442-Joining-A-Hosts-Room-Through-Element.md) | S | - | On a host, joining the room opens Element signed in through SSO; elsewhere the join offers the admitted logins only. |
 | <a id="f468"></a>[F468](F468-The-Work-Page-Offers-To-Take-A-Repository-Out-Of-Default.md) | S | - | The work page offers to take a repository out of `default` once a project of the organization names it. |
+| <a id="f590"></a>[F590](F590-A-Repositorys-Central-State-Stands-As-Its-Own-Chip.md) | S | - | A repository's row on a project's page on a host shows how it stands against central as a state chip of its own at the row's end (at central, N ahead of central, central moved on, cannot say), toned by what it asks of the person, with Bring it to central… reachable from a row that is ahead, instead of one clause in the row's grey line. |
 | <a id="f433"></a>[F433](F433-The-Start-Dialog-Says-How-Long-It-Runs.md) | S | - | The start dialog's modes say how long they run; an unattended run's minutes are asked and sent. |
 | <a id="f434"></a>[F434](F434-The-Gate-Fetch-And-Where-It-Went.md) | S | - | The gate's fetch line works from the person's shell; a forwarded push says where its commit stands. |
 | <a id="f399"></a>[F399](F399-Porelos-Command-Line-Reached-In-WSL-From-Windows.md) | M | - | On Windows every use of Porelo's command line runs in the WSL distribution through `wsl.exe`. |
