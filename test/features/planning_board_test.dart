@@ -43,6 +43,8 @@ import './step/the_section_shown_is.dart';
 import './step/the_machine_reports_a_stopped_run_of.dart';
 import './step/i_go_to_what_needs_a_person.dart';
 import './step/the_needs_you_row_of_offers_to_start_again.dart';
+import './step/the_machine_reports_a_run_of_whose_issue_needs_you_for.dart';
+import './step/what_needs_you_says_in_words_only.dart';
 
 void main() {
   group('''The stories of a project on a planning board''', () {
@@ -156,6 +158,18 @@ void main() {
       await theMachineReportsAStoppedRunOf(tester, 'ST291');
       await iGoToWhatNeedsAPerson(tester);
       await theNeedsYouRowOfOffersToStartAgain(tester, 'B540');
+    });
+    testWidgets('''A planning row whose findings were not saved says so in words, never its code''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineReportsARunOfWhoseIssueNeedsYouFor(tester, 'ST291', 'SAVE_REFUSED');
+      await iGoToWhatNeedsAPerson(tester);
+      await whatNeedsYouSaysInWordsOnly(tester, 'SAVE_REFUSED');
+    });
+    testWidgets('''A stopped planning row says so in words, never its code''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineReportsAStoppedRunOf(tester, 'ST291');
+      await iGoToWhatNeedsAPerson(tester);
+      await whatNeedsYouSaysInWordsOnly(tester, 'STOPPED');
     });
   });
 }

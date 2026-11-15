@@ -109,3 +109,15 @@ Feature: The stories of a project on a planning board
         When the machine reports a stopped run of {'ST291'}
         And I go to what needs a person
         Then the Needs you row of {'B540'} offers to start again
+
+    # Harm: a person cannot tell why a planning row needs them, as it shows the planner's code for programs.
+    Scenario: A planning row whose findings were not saved says so in words, never its code
+        When the machine reports a run of {'ST291'} whose issue needs you for {'SAVE_REFUSED'}
+        And I go to what needs a person
+        Then what needs you says {'SAVE_REFUSED'} in words only
+
+    # Harm: a person cannot tell why a planning row needs them, as it shows the planner's code for programs.
+    Scenario: A stopped planning row says so in words, never its code
+        When the machine reports a stopped run of {'ST291'}
+        And I go to what needs a person
+        Then what needs you says {'STOPPED'} in words only

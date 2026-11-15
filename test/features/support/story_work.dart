@@ -385,8 +385,8 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(workKey('story-work-ended ST291'), findsOneWidget);
       expect(find.text('Outcome: blocked - waiting for the repository key.'), findsOneWidget);
     case 'blocking findings first':
-      final blocking = find.text('BLOCKING: A credential would leave the task.');
-      final note = find.text('NOTE: A small concern.');
+      final blocking = find.text('Blocking: A credential would leave the task.');
+      final note = find.text('Note: A small concern.');
       expect(blocking, findsOneWidget);
       expect(note, findsOneWidget);
       expect(tester.getTopLeft(blocking).dy, lessThan(tester.getTopLeft(note).dy));

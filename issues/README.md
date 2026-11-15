@@ -156,7 +156,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f597"></a>[F597](F597-Start-Work-Closes-Once-Its-Start-Is-Under-Way.md) | S | - | The Planning board's Start work dialog closes once its start is under way, the operation in front carrying the task's progress and any refusal and the planner's answer landing on the board; the dialog stays only for what must be answered before the start begins. |
-| <a id="f599"></a>[F599](F599-Needs-You-Says-A-Planners-Reason-In-Words-Only.md) | XS | - | A planning row under Needs you says why it needs the person in a sentence only, never the planner's code in capitals (SAVE_REFUSED, STOPPED) as a line of its own; the window carries porelo-planner's screen at the commit that drops it, the code kept for the log. |
 
 ## Review
 
@@ -173,6 +172,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f524"></a>[F524](F524-A-Tasks-Clipboard-Write-Follows-A-Copy-The-Person-Made.md) | M | - | A task's OSC 52 write never reaches this computer's clipboard without a word, not even as the answer to a copy the person made: the silent path this issue planned is dropped for asking every time. |
 | <a id="f527"></a>[F527](F527-A-Silent-Copy-Matches-What-The-Person-Actually-Saw.md) | S | - | No task write to the clipboard is silent: every OSC 52 write, also one of exactly the text the person just dragged across, is held and asked about in the bar under the terminal. |
 | <a id="f531"></a>[F531](F531-A-Windows-Cards-Daemon-Calls-Are-Bounded.md) | M | - | On Windows the ssh processes the window starts for one host's card, for its daemon as well as for its forge and homeserver, stay within caps the person can name, as the carrier's own connections already do. |
+| <a id="f599"></a>[F599](F599-Needs-You-Says-A-Planners-Reason-In-Words-Only.md) | XS | - | A planning row under Needs you says why it needs the person in a sentence only, never the planner's code in capitals (SAVE_REFUSED, STOPPED) as a line of its own; the window carries porelo-planner's screen at the commit that drops it, the code kept for the log. |
 | <a id="f602"></a>[F602](F602-Tokens-Used-Says-Input-And-Output-Apart-From-Cache.md) | S | - | A task's Tokens used says the input and output tokens a person can judge, and the cache read and written apart and named, instead of one sum of every kind that reaches 1.5 M within a minute, reasoning counted once and at least shown only for a real gap. |
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | - | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
 | <a id="f462"></a>[F462](F462-A-Hosts-Central-Reason-Said-In-Words.md) | XS | - | Where the host cannot say how its copy stands against central, the row says why in words, never the daemon's token. |

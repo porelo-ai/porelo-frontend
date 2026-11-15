@@ -79,6 +79,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A planning row under *Needs you* says why it needs you in a sentence only, such as *saving its findings was refused* or *its work was stopped*, no longer the planner's code (*SAVE_REFUSED*, *STOPPED*) as a line of its own, and a finding's severity reads *Blocking* or *Note*; the window's log still names the code.
 - *Tokens used* on a row of *Work* says the input and the output apart, *12 k in · 3 k out*, and beside them the reasoning within that output and how much was read from and written to the cache, instead of one sum of every kind that reached 1.5 M within a minute with the cache, counted reasoning twice for agents that name it, and said *at least* for every task. *At least* now shows only where a reply left its input or output out; a kind an agent's format never reports is no gap.
 - A refused discussion or planned Start is said once, in the planning board's own line, no longer also in a notice across the window's foot, and its words begin with Porelo's reason rather than the table of what it checked.
 - *Putting <project> on <machine>* stands as wide as the window's other dialogs, its words wrapped there, instead of stretching across almost the whole window, and scrolls where it is taller than the window.
