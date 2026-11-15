@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F577",
   "title": "A Root Console For A Machine's Listed Admins",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 13,
@@ -43,3 +43,20 @@ one.
 
 - The guards above, each seen red; a widget test that the switch shows for a listed admin, not for others, and that
   *root* opens the terminal with the root line.
+
+## Built
+
+- `rootConsoleOffered` (`lib/src/app/ssh_console.dart`) offers the switch only where the organization's view, fresh
+  or stale, lists the person, holding roles, among the admins of the machine its card names; an owner or an
+  Organization Admin not listed, a revoked card and a machine no card names get none. The press asks it again.
+- `sshConsoleCommand(machine, asRoot: true)` logs in as `root@<host>` with the machine's own options; on Linux
+  `ownConnection` swaps the card's master for a connection of its own, and refuses a master shared in any other form.
+- The console page (`SshConsoleView`) shows *My account* / *root* to an offered person, its state its machine's own,
+  so a login chosen on one console is never carried to the next.
+- Tests: the switch's and the line's guards in `test/app/ssh_console_test.dart`, the switch, its line and the
+  carry-over in `test/ui/machine_own_pages_test.dart`; each seen red.
+- The reading by another model (Claude Sonnet) found the carry-over between machines' consoles, fixed with its test,
+  and a master shared in another form, fixed with its test. Declined: comparing the card's login with the
+  organization's login, since the card's key is the person's own card key whatever login it names, and root takes
+  that key. Noted and not built, as a yellow: a test of the press's second ask; whose key root takes changes only
+  with the machine's next follow, whatever the window offers.

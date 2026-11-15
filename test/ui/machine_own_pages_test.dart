@@ -104,6 +104,30 @@ void main() {
       expect(World.terminals.last.command.last, 'root@build', reason: 'root is the login');
     });
 
+    testWidgets('root chosen on one machine is not chosen on the next console opened', (tester) async {
+      await World.startBackend(World.work);
+      final machine = await _withTheCard(tester);
+      final spare = Machine.fromHostCard(
+        host.HostCardSsh(
+          name: 'spare',
+          address: '203.0.113.8',
+          sshPort: 22,
+          hostKey: buildHost.hostKey!,
+          login: 'hana',
+          publicKey: buildHost.hostKey!,
+        ),
+        socketPath: '/unused-spare',
+      );
+      await World.machines.add(spare);
+      await openConsole(tester, machine);
+      await tester.tap(find.descendant(of: find.byKey(const Key('ssh-console-login')), matching: find.text('root')));
+      await World.settle(tester);
+      await openConsole(tester, spare);
+      await openConsole(tester, machine);
+      final login = tester.widget<SegmentedButton<bool>>(find.byKey(const Key('ssh-console-login')));
+      expect(login.selected, {false}, reason: 'root is chosen anew on each console, never carried over');
+    });
+
     testWidgets('an Organization Admin not listed as the machine\'s admin sees no switch', (tester) async {
       await World.startBackend(World.work);
       final machine = await _withTheCard(tester, me: 'olive');

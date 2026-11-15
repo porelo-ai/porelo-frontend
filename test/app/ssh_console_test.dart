@@ -219,6 +219,10 @@ void main() {
       expect(own.where((each) => !root.contains(each)), ['ProxyCommand=false', 'orchard']);
     });
 
+    test('a master shared in a form not known here opens no root login', () {
+      expect(() => ownConnection(['-F', '/tmp/c', '-o', 'ControlMaster=no']), throwsStateError);
+    });
+
     test('on Windows differs from the own line only in the login', () {
       desk = Desk.of('windows', const {'SystemRoot': r'D:\Windows'});
       final own = sshConsoleCommand(_card);

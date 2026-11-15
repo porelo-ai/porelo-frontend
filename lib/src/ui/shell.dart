@@ -4775,6 +4775,8 @@ class _ShellState extends State<Shell> {
                       )
                     : _machineFacts(managing: true, head: head),
               MachineSection.console => SshConsoleView(
+                // Its own state per machine: a login chosen on one machine's console is never carried to the next.
+                key: ValueKey<String>('ssh-console-view ${machine.name}'),
                 machine: machine,
                 head: head,
                 settings: widget.settings,

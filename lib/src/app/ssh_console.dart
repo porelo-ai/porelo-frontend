@@ -44,10 +44,16 @@ List<String> sshConsoleCommand(Machine machine, {bool asRoot = false}) {
 
 /// [options] with a connection of their own instead of the card's master: the master's path does not name the login,
 /// so another login through it would ride the person's own connection and open their shell.
-List<String> ownConnection(List<String> options) => [
-  for (final option in options)
-    if (option == 'ProxyCommand=false') ...['ControlPath=none', '-o', 'ProxyCommand=none'] else option,
-];
+List<String> ownConnection(List<String> options) {
+  // A line that goes through the master in any other form than the one known here opens nothing, never the person's.
+  if (options.contains('ControlMaster=no') && !options.contains('ProxyCommand=false')) {
+    throw StateError('The console cannot tell how this machine’s connection is shared, so it opens no root login.');
+  }
+  return [
+    for (final option in options)
+      if (option == 'ProxyCommand=false') ...['ControlPath=none', '-o', 'ProxyCommand=none'] else option,
+  ];
+}
 
 /// Why the console of [machine] cannot be opened, in the words [sshConsoleCommand] refuses with; null where it can.
 String? sshConsoleRefusal(Machine machine, {bool asRoot = false}) {

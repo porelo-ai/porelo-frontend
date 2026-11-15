@@ -137,12 +137,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f577"></a>[F577](F577-A-Root-Console-For-A-Machines-Listed-Admins.md) | S | - | Story ST361: a machine's SSH Console offers a switch between the person's own account and root to a person the organization lists as that machine's admin, and to nobody else. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
@@ -151,6 +145,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f473"></a>[F473](F473-The-Window-Calls-The-Host-Programs-It-Has-Now.md) | S | - | Every call the window makes on a host names a program the host has now: root's org status, org refresh and person purge by /usr/sbin/porelo-host, and a project's central state from the person's own daemon there, so no machine page fails on a removed program. |
 | <a id="f557"></a>[F557](F557-A-Snapshot-Window-Sets-Up-WSL-With-Snapshots.md) | XS | - | Story ST50, a machine and a host reached from Windows: a snapshot window sets Porelo up in a WSL distribution from Porelo's snapshots repository, and a release window from its releases repository. |
 | <a id="f566"></a>[F566](F566-An-SSH-Console-On-A-Machines-Page.md) | M | - | Story ST361: a remote machine's sections offer an SSH Console below Machine Admins, a terminal in the window on that server as the person's own account, by the pinned host key and the key the window already uses for the machine. |
+| <a id="f577"></a>[F577](F577-A-Root-Console-For-A-Machines-Listed-Admins.md) | S | - | Story ST361: a machine's SSH Console offers a switch between the person's own account and root to a person the organization lists as that machine's admin, and to nobody else. |
 | <a id="f572"></a>[F572](F572-A-Credential-Carried-From-This-Computer-To-A-Host.md) | M | - | Story ST362: a remote machine's provider row offers Import from this computer, a small dialog with this computer's vault entries and the local agents' own sign-in files side by side, and carries the one chosen to the host's vault, never shown, logged or put in a command line. |
 | <a id="f575"></a>[F575](F575-A-Carried-Credential-Seen-End-To-End.md) | S | - | Story ST362: carrying a credential from this computer to a host is held by a feature scenario across two stand-in machines and checked once against porelo with B774 and B775. |
 | <a id="f509"></a>[F509](F509-A-Hosts-Browser-Address-Reaches-Only-Its-Own-Forward.md) | S | - | The forge and homeserver addresses the window gives a browser for a host's card reach only the card's own forward, on IPv6 loopback as on IPv4, never another local program that listens there. |
