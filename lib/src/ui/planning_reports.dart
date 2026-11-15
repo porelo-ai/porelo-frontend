@@ -10,6 +10,7 @@ import '../app/outcome_words.dart' show removeWords;
 import '../app/planner.dart' show plannerProjectOf;
 import '../app/planner_ideas.dart';
 import '../app/planner_stage_results.dart';
+import '../app/report_at_planner.dart';
 import '../app/settings.dart';
 import '../app/window_log.dart';
 import '../client/models.dart' show AgentEnded, ProposedIdea, ResultState, Task, TaskResult, defaultProject;
@@ -157,7 +158,6 @@ class WindowTaskReports {
     this.now = DateTime.now,
   }) {
     starts.onConfirmed = started;
-    starts.onScreenStart = _screenStarted;
   }
 
   /// The watched machines' own, reporting to [client]'s providers, starting through [starts].
@@ -327,17 +327,6 @@ class WindowTaskReports {
 
   /// Reports through the screen's run, as the screen's own client sends them.
   final _screen = _ScreenRunReports();
-
-  /// The run a report through the screen is sent for now, by source, project and story, with what marks that the
-  /// planner answered it: the run starts the answer's follow-up orders only after the planner answered.
-  (PlanningSource, String, String, void Function())? _screenReport;
-
-  void _screenStarted(PlanningSource source, String project, String story) {
-    if (_screenReport case (final reported, final ofProject, final ofStory, final answered)
-        when identical(reported, source) && ofProject == project && ofStory == story) {
-      answered();
-    }
-  }
 
   /// Completes once nothing is left to report.
   Future<void> get idle async {
@@ -940,8 +929,10 @@ class WindowTaskReports {
     final source = sourceNamed(provider);
     if (source == null) throw PlanningRefusal('PlannerUnreachable', const {}, '$provider is not reached now.');
     if (await starts.screenRunOf(kept.offer) case final run?) {
-      // A planner found again answers through another source: the run of the one gone reports nothing more.
-      if (identical(run, source)) {
+      // A planner found again answers through another source: the run of the one gone reports nothing more. Only a
+      // source that tells what came of a report at its planner is reported through, so a report is never taken for
+      // sent, or sent twice, on a guess.
+      if (identical(run, source) && source is TellsTaskReports) {
         if (await _throughTheScreen(kept, source, event, endKey, attempt, ended: ended, landed: landed)) return;
       }
       starts.notFromTheScreen(kept.offer);
@@ -981,35 +972,36 @@ class WindowTaskReports {
     List<PlanningLanding> landed = const [],
   }) async {
     final project = kept.project!, provider = kept.provider!;
-    var answered = false;
+    final at = ReportAtPlanner(kept.offer);
     Object? afterTheAnswer;
     _screen.providers = [
       PlanningProvider(name: provider, connected: true, projects: [project], source: source),
     ];
-    _screenReport = (source, project, kept.story!, () => answered = true);
     try {
-      await _screen.taskEvent(
-        project,
-        kept.task!,
-        event,
-        offer: kept.offer,
-        container: kept.container,
-        machine: kept.machine,
-        ended: ended,
-        landed: landed,
+      await at.watch(
+        () => _screen.taskEvent(
+          project,
+          kept.task!,
+          event,
+          offer: kept.offer,
+          container: kept.container,
+          machine: kept.machine,
+          ended: ended,
+          landed: landed,
+        ),
       );
     } on Object catch (error, stack) {
-      // The run refuses an offer it holds no start of before it asks the planner, as the planner refuses one it does
-      // not know: either way the source is asked as for any other task.
-      if (!answered && planningRefused(error, 'TaskEventConflict')) return false;
-      // A follow-up order the run could not start: the planner took the report all the same.
-      if (!answered) {
+      // The run refuses an offer it holds no start of for this task before it asks the planner: the source is asked
+      // as for a task the window started itself.
+      if (!at.asked && planningRefused(error, 'TaskEventConflict')) return false;
+      // Not asked for another refusal of the run's, or asked and not answered: the planner did not take the report.
+      if (!at.answered) {
         await _notTaken(kept, error, stack, attempt);
         return true;
       }
+      // The planner took the report; what the run could not start after its answer, a refusal or a start that failed
+      // before, is said, and neither the report nor its follow-ups are sent again.
       afterTheAnswer = error;
-    } finally {
-      _screenReport = null;
     }
     _unreachedSaid = false;
     if (_voided.contains(kept.offer)) return true;

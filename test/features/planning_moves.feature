@@ -249,6 +249,27 @@ Feature: Planning moves are saved at once
         And I choose story work {'start'}
         Then the reader the planner ordered of {'B540'} was started once on this machine
 
+    # Harm: a report the planner never took is kept as taken, as another task of the story was pressed meanwhile, and is
+    # never sent again.
+    Scenario: A started report refused while another task is pressed is not kept as taken
+        Given the planner holds the next started report
+        When I open story work for {'ST291'}
+        And I choose story work {'start'}
+        And another task of {'ST291'} reading {'B540'} is pressed on the board
+        And the planner refuses the held report
+        Then the start of the held report is not kept as reported
+
+    # Harm: a report the planner took is sent again, and what its answer orders started beside the board's run, when
+    # that run cannot start it.
+    Scenario: A follow-up the run refuses after a taken report sends the report once
+        When I open story work for {'ST291'}
+        And I choose story work {'start'}
+        Given the planner orders a started task of {'ST291'} reading {'B553'} after every reported start
+        When I open story work for {'ST292'}
+        And I choose story work {'start'}
+        Then each start of {'ST292'} was reported once
+        And no ordered task was started twice on this machine
+
     # Harm: the move leaves a task the planner stopped running, or ends one it did not name.
     Scenario: A confirmed move over running work ends exactly the tasks the planner stopped
         When I open story work for {'ST291'}

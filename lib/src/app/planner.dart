@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:porelo_planning/porelo_planning.dart'
     show
         HttpPlanningSource,
+        PlannerAddress,
         PlannerProject,
         PlannerProjects,
         PlanningClient,
@@ -14,13 +15,15 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlanningProvider,
         PlanningRefusal,
         PlanningTaskEnded,
-        PlanningTaskEvent;
+        PlanningTaskEvent,
+        TaskEventResolution;
 
 import '../client/models.dart' show Project, defaultProject;
 import 'machines.dart';
 import 'owned_process.dart';
 import 'planner_log_level.dart';
 import 'porelo_executable.dart';
+import 'report_at_planner.dart';
 import 'window_log.dart' show LogLevel, windowLog;
 
 /// Where the package puts the planner, which the window starts as it needs it.
@@ -75,6 +78,48 @@ const plannerInputEndWait = Duration(seconds: 3);
 
 /// Opens the planner's board reads from the address file under [runtimeDirectory], the account's own when null.
 typedef OpenPlanner = Future<HttpPlanningSource> Function(PlannerProjects projects, {String? runtimeDirectory});
+
+/// The planner this account runs, as [HttpPlanningSource.fromAddressFile] calls it, telling each task report it sends
+/// of what came of it, so a report sent through the planning screen's run is known taken or not.
+class WindowPlannerSource extends HttpPlanningSource implements TellsTaskReports {
+  /// Calls the planner at [base] under [token], as [HttpPlanningSource] does.
+  WindowPlannerSource(super.base, super.token, super.projects, {super.label, super.address});
+
+  /// Calls the planner whose address file is under [runtimeDirectory], read again before each proof.
+  static Future<HttpPlanningSource> fromAddressFile(PlannerProjects projects, {String? runtimeDirectory}) async {
+    final first = await PlannerAddress.read(runtimeDirectory: runtimeDirectory);
+    return WindowPlannerSource(
+      first.base,
+      first.token,
+      projects,
+      address: () => PlannerAddress.read(runtimeDirectory: runtimeDirectory),
+    );
+  }
+
+  @override
+  Future<TaskEventResolution> taskEvent(
+    String project,
+    String task,
+    PlanningTaskEvent event, {
+    required String offer,
+    required String container,
+    required String machine,
+    PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
+  }) => ReportAtPlanner.told(
+    offer,
+    () => super.taskEvent(
+      project,
+      task,
+      event,
+      offer: offer,
+      container: container,
+      machine: machine,
+      ended: ended,
+      landed: landed,
+    ),
+  );
+}
 
 /// What the window started for planning and ends with itself.
 abstract interface class EndsWithTheWindow {
@@ -171,7 +216,7 @@ class LocalPlanner extends ChangeNotifier
            : runtimeDirectory,
        candidates = candidates ?? plannerCandidates(Platform.environment, onWindows: onWindows ?? Platform.isWindows),
        _start = start ?? _startWithItsInput,
-       _open = open ?? HttpPlanningSource.fromAddressFile {
+       _open = open ?? WindowPlannerSource.fromAddressFile {
     _changes?.addListener(notifyListeners);
     _logLevel?.addListener(_levelChosen);
   }

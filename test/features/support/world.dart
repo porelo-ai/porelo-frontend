@@ -3279,7 +3279,7 @@ class World {
       currentProvider: () => machines.current.name,
       chosenProject: () => machines.watching(machines.current)?.selectedProject?.name,
     );
-    final starts = WindowTaskStarts.of(machines, client);
+    final starts = planningStarts = WindowTaskStarts.of(machines, client);
     final reports = WindowTaskReports.of(machines, client, starts);
     machines.addListener(reports.sweep);
     return EmbeddedPlanning(
@@ -3298,6 +3298,9 @@ class World {
       starts: starts,
     );
   }
+
+  /// The window's Start of planned tasks the last [planningOf] made, which the planning screen's start hook presses.
+  static WindowTaskStarts? planningStarts;
 
   /// What the window answered when it was asked to close, once it has.
   static Future<Object?>? closing;

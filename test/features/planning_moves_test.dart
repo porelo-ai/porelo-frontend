@@ -61,6 +61,13 @@ import './step/story_work_is_prepared_with.dart';
 import './step/planning_does_not_warn_that_moving_stops_work.dart';
 import './step/the_planner_orders_a_reader_of_after_the_next_reported_start.dart';
 import './step/the_reader_the_planner_ordered_of_was_started_once_on_this_machine.dart';
+import './step/the_planner_holds_the_next_started_report.dart';
+import './step/another_task_of_reading_is_pressed_on_the_board.dart';
+import './step/the_planner_refuses_the_held_report.dart';
+import './step/the_start_of_the_held_report_is_not_kept_as_reported.dart';
+import './step/the_planner_orders_a_started_task_of_reading_after_every_reported_start.dart';
+import './step/each_start_of_was_reported_once.dart';
+import './step/no_ordered_task_was_started_twice_on_this_machine.dart';
 import './step/the_tasks_the_planning_save_stopped_were_stopped_on_this_machine.dart';
 
 void main() {
@@ -320,6 +327,25 @@ void main() {
       await iOpenStoryWorkFor(tester, 'ST291');
       await iChooseStoryWork(tester, 'start');
       await theReaderThePlannerOrderedOfWasStartedOnceOnThisMachine(tester, 'B540');
+    });
+    testWidgets('''A started report refused while another task is pressed is not kept as taken''', (tester) async {
+      await bddSetUp(tester);
+      await thePlannerHoldsTheNextStartedReport(tester);
+      await iOpenStoryWorkFor(tester, 'ST291');
+      await iChooseStoryWork(tester, 'start');
+      await anotherTaskOfReadingIsPressedOnTheBoard(tester, 'ST291', 'B540');
+      await thePlannerRefusesTheHeldReport(tester);
+      await theStartOfTheHeldReportIsNotKeptAsReported(tester);
+    });
+    testWidgets('''A follow-up the run refuses after a taken report sends the report once''', (tester) async {
+      await bddSetUp(tester);
+      await iOpenStoryWorkFor(tester, 'ST291');
+      await iChooseStoryWork(tester, 'start');
+      await thePlannerOrdersAStartedTaskOfReadingAfterEveryReportedStart(tester, 'ST291', 'B553');
+      await iOpenStoryWorkFor(tester, 'ST292');
+      await iChooseStoryWork(tester, 'start');
+      await eachStartOfWasReportedOnce(tester, 'ST292');
+      await noOrderedTaskWasStartedTwiceOnThisMachine(tester);
     });
     testWidgets('''A confirmed move over running work ends exactly the tasks the planner stopped''', (tester) async {
       await bddSetUp(tester);

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_planning/planning_fake.dart';
 import 'package:porelo_planning/porelo_planning.dart';
+import 'package:porelo_frontend/src/app/report_at_planner.dart';
 
 import 'world.dart';
 
@@ -18,7 +21,7 @@ Map<String, dynamic> planningFixture() {
 
 /// The planning one machine serves: the screen's stand-in, which also warns of a story's running work before a move
 /// and, once the move is confirmed, stops that run and names its tasks at work, as the planner does.
-class WindowPlanningSource extends MockPlanningSource {
+class WindowPlanningSource extends MockPlanningSource implements TellsTaskReports {
   /// Takes the machine's name.
   WindowPlanningSource(super.label);
 
@@ -33,6 +36,22 @@ class WindowPlanningSource extends MockPlanningSource {
   /// where answers order none.
   Map<String, dynamic>? followUpOnStart;
 
+  /// Whether every started report's answer carries [followUpOnStart], not only the next one's.
+  bool followUpEveryStart = false;
+
+  /// Each report sent to this planner, by offer and event, in order.
+  final List<(String, PlanningTaskEvent)> reported = [];
+
+  /// Holds the next started report until completed, which answers it, or completed with an error, which the planner
+  /// refuses it with; null where reports are answered at once.
+  Completer<void>? holdNextStarted;
+
+  /// The offer of the started report [holdNextStarted] held.
+  String? heldOffer;
+
+  /// What holds that report: completed, it is answered; completed with an error, the planner refuses it with that.
+  Completer<void>? heldReport;
+
   @override
   Future<TaskEventResolution> taskEvent(
     String project,
@@ -43,7 +62,38 @@ class WindowPlanningSource extends MockPlanningSource {
     required String machine,
     PlanningTaskEnded? ended,
     List<PlanningLanding> landed = const [],
+  }) => ReportAtPlanner.told(
+    offer,
+    () => _taskEvent(
+      project,
+      task,
+      event,
+      offer: offer,
+      container: container,
+      machine: machine,
+      ended: ended,
+      landed: landed,
+    ),
+  );
+
+  Future<TaskEventResolution> _taskEvent(
+    String project,
+    String task,
+    PlanningTaskEvent event, {
+    required String offer,
+    required String container,
+    required String machine,
+    PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
   }) async {
+    reported.add((offer, event));
+    if (event == PlanningTaskEvent.started && holdNextStarted != null) {
+      final hold = holdNextStarted!;
+      holdNextStarted = null;
+      heldOffer = offer;
+      heldReport = hold;
+      await hold.future;
+    }
     final order = event == PlanningTaskEvent.started ? followUpOnStart : null;
     if (order == null) {
       return super.taskEvent(
@@ -57,7 +107,7 @@ class WindowPlanningSource extends MockPlanningSource {
         landed: landed,
       );
     }
-    followUpOnStart = null;
+    if (!followUpEveryStart) followUpOnStart = null;
     final answer = work.call('TaskEvent', {
       'project': project,
       'task': task,

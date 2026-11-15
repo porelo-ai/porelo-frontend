@@ -74,9 +74,23 @@ window handed on that the planner does not report yet; it is stopped first.* wit
 - **Direct as before:** an offer the window started itself, one kept from before this window started, one whose
   planner is now reached through another source, and one the run refuses with `TaskEventConflict` before it asks
   the planner are reported through the source and followed by the window, as today.
-- **After the answer:** where the run asks Start for a follow-up during the report (`onScreenStart` for the same
-  source, project and story), the planner took the report: it is kept as reported, and a follow-up start the run
-  could not make is said, as the window's own follow-up refusals are.
+- **The planner's answer decides (after the reading):** `_throughTheScreen` sends the report within
+  `ReportAtPlanner.watch` (`lib/src/app/report_at_planner.dart`, a zone value for the report's offer). A source that
+  is `TellsTaskReports` says through `ReportAtPlanner.told` when it asks the planner and when the planner answered;
+  the window's planner is `WindowPlannerSource` (`lib/src/app/planner.dart`), an `HttpPlanningSource` that the
+  `LocalPlanner` now opens by default. Not asked and `TaskEventConflict`: the run did not know the offer, the source
+  is asked directly. Not answered: not taken (`_notTaken`, so `TaskNotAnswered` voids the task and a lasting refusal
+  is not sent again). Answered: kept as reported, whatever the run's `follow` threw after it (a `TaskEventConflict`,
+  a replayed start failure, a failed follow-up start), which is said once; neither the report nor its follow-ups are
+  sent again. A source that does not tell is reported directly, as before this issue. The press hook
+  `onScreenStart`, which stood for the answer, is gone.
+- **Checked against porelo-planner `cb9d13a`** (`screen/lib/src/task_runs.dart`, read only): `PlanningRun.report`
+  checks the binding and throws `TaskEventConflict` before it calls `run.source.taskEvent` once, then, after the
+  answer, drops the offer from the unreported starts, `observe`s the work and awaits `run.follow`; `follow` throws a
+  `TaskEventConflict` for an offer of another run and replays a failed start's error before it asks Start, and only
+  then calls the run's `startTask`. `run.source` is the provider's source, so the call goes through
+  `WindowPlannerSource.taskEvent` in the report's zone. `http/planner_source.dart` is the same at `cb9d13a` as at the
+  pinned `c8796c6`, so the subclass's constructor and `PlannerAddress.read` hold for both.
 - **Scenarios** in `test/features/planning_moves.feature`: *A move after the started tasks ended warns of no start
   still handed on* (new step *planning does not warn that moving {id} stops work*, new condition *every started task
   ended*), and *A follow-up the planner orders after a reported start is started once* (the stand-in answers the
@@ -85,6 +99,13 @@ window handed on that the planner does not report yet; it is stopped first.* wit
   ST291'>]`. The second, on the old code, shows `planning-action-error` (the window's own start of the follow-up,
   which the stand-in serves only through the screen's hook); a second start by the window beside the run's would be
   refused as an offer already handed and shown there too (inferred from `_keptWhileStarting`, not run).
+- **Scenarios after the reading:** *A started report refused while another task is pressed is not kept as taken*
+  (the stand-in holds the started report, the board's hook is pressed for another task of ST291, the planner then
+  refuses the report) and *A follow-up the run refuses after a taken report sends the report once* (after ST291's
+  start the planner orders one of ST291's started offers after every start; ST292 is started). New steps in
+  `test/features/step/`, the stand-in records each report and can hold one, `World.planningStarts` is the hook.
+- **Red after the reading**, on the code before the fix: the first `Expected: false Actual: <true>` (kept as
+  reported); the second `Expected: an object with length of <1> ... Which: has length of <2>` (the report sent again).
 - **Runs:** `dart analyze lib test integration_test tool` No issues found. `planning_moves_test`, `story_work_test`,
   `window_task_reports_test`, `window_task_starts_test`: 147 passed. `test/features` whole: 987 passed.
   `test/ui` whole: 1445 passed, 1 failed: *a window that reaches its planner shows the planning screen in place of
@@ -94,11 +115,11 @@ window handed on that the planner does not report yet; it is stopped first.* wit
   whole `flutter test` suite) at `5f5c3e7`: BUILD SUCCESS, 4634 passed, 37 skipped, 0 failed, the placeholder test above
   included, so its failure is this laptop's alone. The same at `aea0709`, with every issue of the branch: BUILD SUCCESS,
   4640 passed, 37 skipped, 0 failed.
+- **Runs after the reading** (laptop, one file at a time): `planning_moves_test` 28, `story_work_test` 27,
+  `window_task_reports_test` 70, `window_task_starts_test` 25, all passed; analyze No issues found.
 
 ## To be checked
 
 - A start still truly unreported (the planner not reached for its started report) is warned of by the screen's run
   as before; no scenario of the window's isolates that local warning, since the stand-in's preview warns of the run
   at work itself.
-- A report whose run replays an offer whose start failed earlier throws that start's error without asking Start
-  again; the window then takes the report as not taken and sends it again on its next start.

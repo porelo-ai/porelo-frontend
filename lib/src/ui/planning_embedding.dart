@@ -154,7 +154,6 @@ class WindowTaskStarts {
     final offer = task.offer;
     final returned = Completer<void>();
     if (offer != null) _fromTheScreen[offer] = (source, returned.future);
-    onScreenStart?.call(source, project, story);
     try {
       return await _keptWhileStarting(source, project, story, task, pressed: true);
     } on Object {
@@ -167,9 +166,6 @@ class WindowTaskStarts {
   }
 
   final _fromTheScreen = <String, (PlanningSource, Future<void>)>{};
-
-  /// Told each start the planning screen's run asks for, with its source, project and story.
-  void Function(PlanningSource source, String project, String story)? onScreenStart;
 
   /// The source of the screen's run that handed [offer] to Start in this window's life, once that run holds what
   /// Start answered; null where the window asked Start itself, or before this window started.
