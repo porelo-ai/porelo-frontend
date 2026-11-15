@@ -155,6 +155,9 @@ class _WizardState extends State<Wizard> {
   bool _asking = false;
   bool _checking = false;
   String? _failed;
+
+  /// Whether the question shown was reached by *Change* in the review, so Next goes back to the review.
+  bool _changing = false;
   final _panel = GlobalKey();
   late final List<List<String>> _initial;
 
@@ -171,6 +174,14 @@ class _WizardState extends State<Wizard> {
     final index = widget.goBackTo?.value;
     if (index == null || !mounted || index >= widget.steps.length) return;
     _startedActions.clear();
+    _changing = false;
+    _go(index);
+  }
+
+  /// The review's *Change* beside [index]'s answers: that question, and the review again on Next.
+  void _change(int index) {
+    if (_busy || _checking || index >= widget.steps.length) return;
+    _changing = true;
     _go(index);
   }
 
@@ -309,6 +320,7 @@ class _WizardState extends State<Wizard> {
   Future<void> _back() async {
     if (_index == 0 || _checking || _actionRuns) return;
     if (_busy && !await _confirm('back')) return;
+    _changing = false;
     if (mounted) _go(_index - 1);
   }
 
@@ -343,6 +355,12 @@ class _WizardState extends State<Wizard> {
         if (mounted) setState(() => _checking = false);
       }
       if (!mounted || !accepted || _index != shownIndex || _reason != null) return;
+    }
+    // A question reached by Change goes back to the review, which checks every answer again before the start.
+    if (_changing && _index < widget.steps.length) {
+      _changing = false;
+      _go(widget.steps.length);
+      return;
     }
     final last = widget.steps.length + widget.actionSteps.length;
     if (_index == last) {
@@ -429,8 +447,18 @@ class _WizardState extends State<Wizard> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               spacing: Space.small,
                               children: [
-                                for (final step in widget.steps) ...[
-                                  Text(step.title, style: Theme.of(context).textTheme.titleSmall),
+                                for (final (index, step) in widget.steps.indexed) ...[
+                                  Row(
+                                    children: [
+                                      Expanded(child: Text(step.title, style: Theme.of(context).textTheme.titleSmall)),
+                                      if (!_busy)
+                                        TextButton(
+                                          key: Key('wizard-change-$index'),
+                                          onPressed: _checking ? null : () => _change(index),
+                                          child: const Text('Change'),
+                                        ),
+                                    ],
+                                  ),
                                   for (final line in step.summary()) Text(line),
                                 ],
                               ],

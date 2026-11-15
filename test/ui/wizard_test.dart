@@ -244,4 +244,46 @@ void main() {
     await tap(tester, 'wizard-leave');
     expect(find.byKey(const Key('wizard-confirm-leave')), findsOneWidget);
   });
+
+  // Harm: a wrong answer seen in the review can be corrected only by stepping back through every later step.
+  testWidgets('the review offers Change beside each step, and Next goes back to the review', (tester) async {
+    await open(tester);
+    await tester.enterText(find.byKey(const Key('first')), 'one');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('second')), 'two');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    expect(find.byKey(const Key('wizard-change-0')), findsOneWidget);
+    expect(find.byKey(const Key('wizard-change-1')), findsOneWidget);
+    await tap(tester, 'wizard-change-0');
+    expect(find.byKey(const Key('first')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('first')), 'uno');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    expect(
+      find.byKey(const Key('wizard-start')),
+      findsOneWidget,
+      reason: 'Next after a Change goes back to the review',
+    );
+    expect(find.text('uno'), findsOneWidget);
+    expect(find.text('two'), findsOneWidget);
+    expect(starts, 0);
+  });
+
+  // Harm: a Change that skips the review's own checks lets an emptied answer reach the start.
+  testWidgets('an answer emptied through Change holds Next on its step', (tester) async {
+    await open(tester);
+    await tester.enterText(find.byKey(const Key('first')), 'one');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('second')), 'two');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    await tap(tester, 'wizard-change-1');
+    await tester.enterText(find.byKey(const Key('second')), '');
+    await tester.pump();
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+    expect(find.text('Give a second value before going on.'), findsOneWidget);
+  });
 }
