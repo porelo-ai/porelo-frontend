@@ -1042,35 +1042,53 @@ class Usage {
   /// The whole task's counts.
   final UsageTotals totals;
 
-  /// Every token reported, or null where the machine has no record to read.
-  int? get tokens => state == 'available' ? totals.tokens : null;
-
-  /// Whether some requests reported no count, so [tokens] is a lower bound.
-  bool get partly => totals.partly;
+  /// The counts, or null where the machine has no record to read.
+  UsageTotals? get read => state == 'available' ? totals : null;
 }
 
 /// One group's reported counts, each kind of token apart.
+///
+/// [input] is without the cache in every format, and [cacheRead] and [cacheWrite] are apart from it. [output] holds
+/// the reasoning in every format and [reasoning] is the part of it a format names, so a sum never adds both.
 class UsageTotals {
-  /// Constructor taking the counts.
-  const UsageTotals(this.counts);
+  /// Constructor taking every kind.
+  const UsageTotals({
+    required this.input,
+    required this.cacheRead,
+    required this.cacheWrite,
+    required this.output,
+    required this.reasoning,
+  });
 
   /// Reads one from a reply.
-  factory UsageTotals.from(Map<String, dynamic> map) => UsageTotals(<UsageCount>[
-    for (final kind in const <String>['input', 'cacheRead', 'cacheWrite', 'output', 'reasoning'])
-      UsageCount.from(_object(map, kind)),
-  ]);
+  factory UsageTotals.from(Map<String, dynamic> map) => UsageTotals(
+    input: UsageCount.from(_object(map, 'input')),
+    cacheRead: UsageCount.from(_object(map, 'cacheRead')),
+    cacheWrite: UsageCount.from(_object(map, 'cacheWrite')),
+    output: UsageCount.from(_object(map, 'output')),
+    reasoning: UsageCount.from(_object(map, 'reasoning')),
+  );
 
-  /// Input, cache read, cache write, output and reasoning.
-  final List<UsageCount> counts;
+  /// The input not read from the cache.
+  final UsageCount input;
 
-  /// The sum of what was reported, or null where no count was.
-  int? get tokens {
-    final reported = <int>[for (final count in counts) ?count.tokens];
-    return reported.isEmpty ? null : reported.reduce((a, b) => a + b);
-  }
+  /// The input read from the cache.
+  final UsageCount cacheRead;
 
-  /// Whether requests went unreported for any kind of token.
-  bool get partly => counts.any((count) => count.missing > 0);
+  /// The input written to the cache.
+  final UsageCount cacheWrite;
+
+  /// The output, reasoning within it.
+  final UsageCount output;
+
+  /// The part of [output] a format names as reasoning.
+  final UsageCount reasoning;
+
+  /// Whether some reply left its input or output out, so they are a lower bound.
+  ///
+  /// Every format reports both. Only those two are asked: a format that never names reasoning or a cache write leaves
+  /// no gap, though a machine may count its requests as missing them.
+  bool get partly => input.missing > 0 || output.missing > 0;
 }
 
 /// One kind of token: how many were reported, and by how many requests they were not.

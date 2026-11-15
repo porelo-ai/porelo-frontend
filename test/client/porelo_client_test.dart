@@ -48,8 +48,9 @@ void main() {
     );
   });
 
-  // Harm: the page would say fewer tokens than the task used, or a number for a task with no record.
-  test('what a task used is summed over its kinds, and an empty record says no number', () async {
+  // Harm: the page would read one kind of token as another, call a count exact that replies left out, or say a number
+  // for a task with no record.
+  test('what a task used is read kind by kind, and an empty record says no number', () async {
     Map<String, dynamic> used(String state) => <String, dynamic>{
       'usage': <String, dynamic>{
         'state': state,
@@ -57,9 +58,9 @@ void main() {
           'requests': 3,
           'input': <String, dynamic>{'tokens': 100, 'missing': 0},
           'cacheRead': <String, dynamic>{'tokens': 20, 'missing': 0},
-          'cacheWrite': <String, dynamic>{'missing': 3},
-          'output': <String, dynamic>{'tokens': 3, 'missing': 0},
-          'reasoning': <String, dynamic>{'missing': 0},
+          'cacheWrite': <String, dynamic>{'tokens': 7, 'missing': 0},
+          'output': <String, dynamic>{'tokens': 3, 'missing': 1},
+          'reasoning': <String, dynamic>{'missing': 3},
         },
         'models': <Object>[],
         'agents': <Object>[],
@@ -69,10 +70,19 @@ void main() {
     };
     daemon.method('Usage', (parameters) => used(parameters['task'] == 'gone' ? 'absent' : 'available'));
     final client = await connect();
-    final usage = await client.usage('here');
-    expect(usage.tokens, 123);
-    expect(usage.partly, isTrue, reason: 'three requests reported no cache write');
-    expect((await client.usage('gone')).tokens, isNull);
+    final usage = (await client.usage('here')).read!;
+    expect(
+      <int?>[
+        usage.input.tokens,
+        usage.cacheRead.tokens,
+        usage.cacheWrite.tokens,
+        usage.output.tokens,
+        usage.reasoning.tokens,
+      ],
+      <int?>[100, 20, 7, 3, null],
+    );
+    expect(usage.partly, isTrue, reason: 'one request reported no output');
+    expect((await client.usage('gone')).read, isNull);
   });
 
   // Harm: an older machine's refusal of an unknown method would break the row it was read for.

@@ -122,10 +122,10 @@ Feature: A tab per running agent, the one place terminals are
 
     # Harm: a wrong or missing count of what work spent.
     Scenario: an unfolded row says what its work used, as its machine reads it
-        Given the work {'porelo-billing-shell'} has used {184000} tokens
+        Given the work {'porelo-billing-shell'} has used {184000} tokens in and {2000} out
         When I go to the list of work
         And I open the tile {'porelo-billing-shell'}
-        Then the fact {'tokens'} of {'porelo-billing-shell'} says {'184 k'}
+        Then the fact {'tokens'} of {'porelo-billing-shell'} says {'184 k in · 2 k out'}
 
     # Harm: a refusal from an older machine read as zero, or a call for every row whether opened or not.
     Scenario: a machine older than what work used says nothing of it, and is asked only when unfolded

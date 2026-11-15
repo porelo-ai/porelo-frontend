@@ -153,12 +153,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f602"></a>[F602](F602-Tokens-Used-Says-Input-And-Output-Apart-From-Cache.md) | S | - | A task's Tokens used says the input and output tokens a person can judge, and the cache read and written apart and named, instead of one sum of every kind that reaches 1.5 M within a minute, reasoning counted once and at least shown only for a real gap. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
@@ -174,6 +168,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f524"></a>[F524](F524-A-Tasks-Clipboard-Write-Follows-A-Copy-The-Person-Made.md) | M | - | A task's OSC 52 write never reaches this computer's clipboard without a word, not even as the answer to a copy the person made: the silent path this issue planned is dropped for asking every time. |
 | <a id="f527"></a>[F527](F527-A-Silent-Copy-Matches-What-The-Person-Actually-Saw.md) | S | - | No task write to the clipboard is silent: every OSC 52 write, also one of exactly the text the person just dragged across, is held and asked about in the bar under the terminal. |
 | <a id="f531"></a>[F531](F531-A-Windows-Cards-Daemon-Calls-Are-Bounded.md) | M | - | On Windows the ssh processes the window starts for one host's card, for its daemon as well as for its forge and homeserver, stay within caps the person can name, as the carrier's own connections already do. |
+| <a id="f602"></a>[F602](F602-Tokens-Used-Says-Input-And-Output-Apart-From-Cache.md) | S | - | A task's Tokens used says the input and output tokens a person can judge, and the cache read and written apart and named, instead of one sum of every kind that reaches 1.5 M within a minute, reasoning counted once and at least shown only for a real gap. |
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | - | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
 | <a id="f462"></a>[F462](F462-A-Hosts-Central-Reason-Said-In-Words.md) | XS | - | Where the host cannot say how its copy stands against central, the row says why in words, never the daemon's token. |
 | <a id="f466"></a>[F466](F466-A-Taken-Repository-Stays-Carried-While-Another-Waits.md) | S | - | A repository the host has taken reads carried while the project waits for the token for another. |

@@ -1888,7 +1888,7 @@ class _WorkFactsState extends State<_WorkFacts> {
   static const Duration _readEvery = Duration(seconds: 30);
 
   /// What it used in words; null until the machine answered, and for a machine that says nothing.
-  String? _tokens;
+  ({String used, String? beside})? _tokens;
 
   Timer? _reading;
 
@@ -1920,10 +1920,10 @@ class _WorkFactsState extends State<_WorkFacts> {
     final task = widget.tile.task;
     if (task == null) return;
     try {
-      final usage = await widget.tile.fleet.backend.usage(task.name);
-      final tokens = usage.tokens;
+      final usage = (await widget.tile.fleet.backend.usage(task.name)).read;
+      final tokens = usage == null ? null : usageInWords(usage);
       if (!mounted || tokens == null) return;
-      setState(() => _tokens = '${usage.partly ? 'at least ' : ''}${tokensInWords(tokens)}');
+      setState(() => _tokens = tokens);
     } on Object {
       // An older machine, or one not answering now: the fact stays unsaid. It is a view onto the work.
     }
@@ -1935,7 +1935,7 @@ class _WorkFactsState extends State<_WorkFacts> {
     final text = Theme.of(context).textTheme;
     final repository = widget.tile.fleet.projectOf(task)?.repositoryOf(task) ?? task.repository;
     final started = task.startedAt;
-    Widget fact(String key, String label, String value) => ConstrainedBox(
+    Widget fact(String key, String label, String value, {String? beside}) => ConstrainedBox(
       constraints: const BoxConstraints(minWidth: Sizes.workFact),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1943,6 +1943,7 @@ class _WorkFactsState extends State<_WorkFacts> {
         children: <Widget>[
           Text(label, style: text.labelSmall),
           Text(value, key: ValueKey<String>('tile-fact $key'), style: text.bodyMedium),
+          if (beside != null) Text(beside, key: ValueKey<String>('tile-fact $key beside'), style: text.bodySmall),
         ],
       ),
     );
@@ -1960,7 +1961,7 @@ class _WorkFactsState extends State<_WorkFacts> {
             'Started',
             task.running && started != null ? clockTime(started.toIso8601String()) : 'not said',
           ),
-          fact('tokens', 'Tokens used', _tokens ?? 'not said'),
+          fact('tokens', 'Tokens used', _tokens?.used ?? 'not said', beside: _tokens?.beside),
           fact(
             'gate',
             'Commits at the gate',
@@ -1974,6 +1975,32 @@ class _WorkFactsState extends State<_WorkFacts> {
       ),
     );
   }
+}
+
+/// What a task used as a person judges it: its fresh input and its output, and beside them the reasoning within that
+/// output and the cache apart; null where no kind was reported at all.
+({String used, String? beside})? usageInWords(UsageTotals totals) {
+  final input = totals.input.tokens;
+  final output = totals.output.tokens;
+  final read = totals.cacheRead.tokens;
+  final written = totals.cacheWrite.tokens;
+  if (input == null && output == null && read == null && written == null) return null;
+  final reasoning = totals.reasoning.tokens;
+  final cache = <String>[
+    if (read != null) '${tokensInWords(read)} read',
+    if (written != null) '${tokensInWords(written)} written',
+  ];
+  final beside = <String>[
+    if (reasoning != null && reasoning > 0) 'of which ${tokensInWords(reasoning)} reasoning',
+    if (cache.isNotEmpty) 'cache ${cache.join(', ')}',
+  ];
+  return (
+    used:
+        '${totals.partly ? 'at least ' : ''}'
+        '${input == null ? 'input not said' : '${tokensInWords(input)} in'} · '
+        '${output == null ? 'output not said' : '${tokensInWords(output)} out'}',
+    beside: beside.isEmpty ? null : beside.join('; '),
+  );
 }
 
 /// A count of tokens as a person reads it.

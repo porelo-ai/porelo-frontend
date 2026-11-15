@@ -561,6 +561,71 @@ void main() {
     });
   });
 
+  group('tokens used', () {
+    ({String used, String? beside}) said(WidgetTester tester) {
+      final beside = find.byKey(const ValueKey<String>('tile-fact tokens beside'));
+      return (
+        used: tester.widget<Text>(find.byKey(const ValueKey<String>('tile-fact tokens'))).data!,
+        beside: beside.evaluate().isEmpty ? null : tester.widget<Text>(beside).data,
+      );
+    }
+
+    Future<({String used, String? beside})> reads(WidgetTester tester, Usage usage) async {
+      await theApp(tester);
+      await toSection(tester, Section.work);
+      World.backend.usages[other] = usage;
+      await toTheTile(tester, other);
+      await World.settle(tester);
+      return said(tester);
+    }
+
+    // Harm: the cache an agent reads its context from on every request swells the one number a person judges the
+    // task's cost by, to 1.5 M within a minute, and every task reads as only a lower bound.
+    testWidgets('a task reading from the cache says its input and output apart from the cache', (tester) async {
+      // An agent whose format reports no reasoning, from a machine that counts that as missing on every request.
+      final used = await reads(
+        tester,
+        _usage(
+          input: (12000, 0),
+          cacheRead: (1500000, 0),
+          cacheWrite: (40000, 0),
+          output: (3000, 0),
+          reasoning: (null, 20),
+        ),
+      );
+      expect(used.used, '12 k in · 3 k out', reason: 'no reply left its input or output out');
+      expect(used.beside, 'cache 1.5 M read, 40 k written');
+    });
+
+    // Harm: reasoning counted twice, once inside the output and once again beside it. A format that reports no cache
+    // write, as a machine counts it missing on every request and as one that does not.
+    for (final missing in <int>[20, 0]) {
+      testWidgets('reasoning is part of the output, never added to it, cache write missing $missing', (tester) async {
+        final used = await reads(
+          tester,
+          _usage(
+            input: (12000, 0),
+            cacheRead: (600000, 0),
+            cacheWrite: (null, missing),
+            output: (3000, 0),
+            reasoning: (1000, 0),
+          ),
+        );
+        expect(used.used, '12 k in · 3 k out');
+        expect(used.beside, 'of which 1 k reasoning; cache 600 k read');
+      });
+    }
+
+    // Harm: a count some replies left out read as exact.
+    testWidgets('a reply that left its input or output out makes it a lower bound', (tester) async {
+      final used = await reads(
+        tester,
+        _usage(input: (12000, 2), cacheRead: (5000, 2), cacheWrite: (null, 0), output: (3000, 2), reasoning: (null, 0)),
+      );
+      expect(used.used, 'at least 12 k in · 3 k out');
+    });
+  });
+
   group('the finder', () {
     // Harm: the finder goes to a menu that is not on screen, and nothing seems to happen.
     testWidgets('a command of a row goes to the list from Running', (tester) async {
@@ -576,12 +641,35 @@ void main() {
   });
 }
 
-Usage _used(int total) => Usage.from(<String, dynamic>{
-  'state': 'available',
-  'totals': <String, dynamic>{
-    'input': <String, dynamic>{'tokens': total, 'missing': 0},
-  },
-});
+Usage _used(int total) => _usage(
+  input: (total, 0),
+  cacheRead: (null, 0),
+  cacheWrite: (null, 0),
+  output: (total ~/ 10, 0),
+  reasoning: (null, 0),
+);
+
+/// A task's usage as a machine answers it, each kind's tokens (null where no request reported any) and missing.
+Usage _usage({
+  required (int?, int) input,
+  required (int?, int) cacheRead,
+  required (int?, int) cacheWrite,
+  required (int?, int) output,
+  required (int?, int) reasoning,
+}) {
+  Map<String, dynamic> count((int?, int) kind) => <String, dynamic>{'tokens': ?kind.$1, 'missing': kind.$2};
+  return Usage.from(<String, dynamic>{
+    'state': 'available',
+    'totals': <String, dynamic>{
+      'requests': 20,
+      'input': count(input),
+      'cacheRead': count(cacheRead),
+      'cacheWrite': count(cacheWrite),
+      'output': count(output),
+      'reasoning': count(reasoning),
+    },
+  });
+}
 
 /// A machine that answers and has not listed its work yet.
 class _HeldList extends FakeBackend {

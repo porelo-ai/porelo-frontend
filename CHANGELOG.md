@@ -79,6 +79,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *Tokens used* on a row of *Work* says the input and the output apart, *12 k in · 3 k out*, and beside them the reasoning within that output and how much was read from and written to the cache, instead of one sum of every kind that reached 1.5 M within a minute with the cache, counted reasoning twice for agents that name it, and said *at least* for every task. *At least* now shows only where a reply left its input or output out; a kind an agent's format never reports is no gap.
 - A refused discussion or planned Start is said once, in the planning board's own line, no longer also in a notice across the window's foot, and its words begin with Porelo's reason rather than the table of what it checked.
 - *Putting <project> on <machine>* stands as wide as the window's other dialogs, its words wrapped there, instead of stretching across almost the whole window, and scrolls where it is taller than the window.
 - On a machine's *Give … your … token, once* page, the give button shows a spinner and *Handing the token to <machine>…* from the press until the machine answers, and the page says while the machine is asked what it says now that it has the token. A line above *Close* says that the hand-over goes on after the page closes; it now really does, and the machine's row stays busy until it ended, where before a close during the run lost the machine's answer, so its row could keep saying it waits for its token.

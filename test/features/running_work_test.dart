@@ -46,7 +46,7 @@ import './step/the_console_says.dart';
 import './step/the_console_has_a_switch_to_follow_it.dart';
 import './step/i_choose_from_the_menu_of_the_tile.dart';
 import './step/i_follow_its_log_again.dart';
-import './step/the_work_has_used_tokens.dart';
+import './step/the_work_has_used_tokens_in_and_out.dart';
 import './step/the_fact_of_says.dart';
 import './step/what_used_was_not_asked_for.dart';
 
@@ -177,10 +177,10 @@ void main() {
     });
     testWidgets('''an unfolded row says what its work used, as its machine reads it''', (tester) async {
       await bddSetUp(tester);
-      await theWorkHasUsedTokens(tester, 'porelo-billing-shell', 184000);
+      await theWorkHasUsedTokensInAndOut(tester, 'porelo-billing-shell', 184000, 2000);
       await iGoToTheListOfWork(tester);
       await iOpenTheTile(tester, 'porelo-billing-shell');
-      await theFactOfSays(tester, 'tokens', 'porelo-billing-shell', '184 k');
+      await theFactOfSays(tester, 'tokens', 'porelo-billing-shell', '184 k in · 2 k out');
     });
     testWidgets('''a machine older than what work used says nothing of it, and is asked only when unfolded''', (
       tester,
