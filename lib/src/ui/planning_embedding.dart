@@ -660,7 +660,8 @@ class MachinePlanningAgents implements PlanningAgents {
                 ? '${agent.label.isEmpty ? agent.name : agent.label} is not signed in on ${machine.name}; its row under '
                       'Agents on that machine signs it in.'
                 : null,
-            models: models[index],
+            models: models[index].models,
+            modelsWhy: models[index].why,
             efforts: agent.efforts,
           ),
       ], listed.failures);
@@ -675,23 +676,37 @@ class MachinePlanningAgents implements PlanningAgents {
 
 /// The models [agent]'s provider offers on [backend]'s machine, to choose from; none where no provider was found for
 /// it or the machine cannot list them, and the person types the model.
-/// A machine that cannot list them, a provider that refuses or does not answer within [wait], is written to the
-/// window's log with why.
-Future<List<PlanningModel>> _modelsOf(FleetBackend backend, Agent agent, String machine, Duration wait) async {
-  if (agent.foundProvider.isEmpty) return const [];
+/// A machine that cannot list them, a provider that refuses or does not answer within [wait], is said with why, under
+/// the model field and in the window's log.
+Future<({List<PlanningModel> models, String? why})> _modelsOf(
+  FleetBackend backend,
+  Agent agent,
+  String machine,
+  Duration wait,
+) async {
+  if (agent.foundProvider.isEmpty) return (models: const <PlanningModel>[], why: null);
   try {
     final offered = await backend.modelsOn(agent.foundProvider, agent: agent.name).timeout(wait);
-    return [for (final model in offered.models) PlanningModel(model.id, label: model.label)];
+    return (models: [for (final model in offered.models) PlanningModel(model.id, label: model.label)], why: null);
   } on FeatureNotSupported {
     // An older machine lists no models: the model is typed, as before.
-    return const [];
+    return (models: const <PlanningModel>[], why: null);
   } on Object catch (error) {
-    final why = error is TimeoutException ? 'it did not answer within ${wait.inSeconds} s' : '$error';
+    final reason = switch (error) {
+      TimeoutException() => 'it did not answer within ${wait.inSeconds} s',
+      VarlinkException(:final parameters) when parameters['reason'] is String && parameters['reason'] != '' =>
+        parameters['reason'] as String,
+      _ => '$error',
+    };
     windowLog.warn(
-      'Planning: the models of ${agent.name} on $machine could not be listed, so its model is typed: $why',
+      'Planning: the models of ${agent.name} on $machine could not be listed, so its model is typed: $reason',
       machine: machine,
     );
-    return const [];
+    final name = agent.label.isEmpty ? agent.name : agent.label;
+    return (
+      models: const <PlanningModel>[],
+      why: 'The models of $name could not be listed on $machine: $reason. Type the model.',
+    );
   }
 }
 

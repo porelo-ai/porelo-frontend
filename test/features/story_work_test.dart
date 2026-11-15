@@ -15,6 +15,7 @@ import './step/i_resolve_the_story_reading_with.dart';
 import './step/the_planning_watch_fails.dart';
 import './step/i_open_story_work_in_a_narrow_host.dart';
 import './step/the_machine_cannot_list_the_models_of.dart';
+import './step/story_work_says_the_models_of_could_not_be_listed.dart';
 import './step/the_machine_says_while_it_prepares_a_start_and_holds_it.dart';
 import './step/the_start_work_dialog_is_closed_while_start_still_waits.dart';
 import './step/the_operation_shows.dart';
@@ -166,6 +167,7 @@ void main() {
       await iOpenStoryWorkFor(tester, 'ST291');
       await iChooseStoryWork(tester, 'change main agent');
       await iChooseStoryWork(tester, 'change main model');
+      await storyWorkSaysTheModelsOfCouldNotBeListed(tester, 'An Agent');
       await storyWorkProves(tester, 'main model visible');
       await iChooseStoryWork(tester, 'start');
       await storyWorkProves(tester, 'started main model visible');

@@ -131,13 +131,14 @@ Feature: Start and decide story work from the planning board
         When I choose story work {'start'}
         Then story work proves {'started main model visible'}
 
-    # Harm: a model list the machine cannot read leaves no model to choose, or holds Start.
+    # Harm: a model list the machine cannot read leaves no model to choose, holds Start, or is never said.
     Scenario: A model list the machine cannot read leaves the model typed and Start open
         Given the machine cannot list the models of {'an-agent'}
         When I open story work for {'ST291'}
         And I choose story work {'change main agent'}
         And I choose story work {'change main model'}
-        Then story work proves {'main model visible'}
+        Then story work says the models of {'An Agent'} could not be listed
+        And story work proves {'main model visible'}
         When I choose story work {'start'}
         Then story work proves {'started main model visible'}
 

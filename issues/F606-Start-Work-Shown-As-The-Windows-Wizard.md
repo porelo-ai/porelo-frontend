@@ -87,6 +87,11 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
   sign-in by subscription) leaves that agent offered with its model typed, and *Start* open: scenario *A model list
   the machine cannot read leaves the model typed and Start open*, red when the failure is not caught (no agent to
   choose).
+- **Why the list is missing** is said under the model field, after the proposal's words: *The models of <agent>
+  could not be listed on <machine>: <reason>. Type the model.*, through porelo-planner `10ae255`'s
+  `PlanningAgent.modelsWhy` (pin raised from `cce776c`), the reason Porelo's own where it gives one. Red with the
+  member left null: `Found 0 widgets with text containing RegExp: pattern=The models of An Agent could not be
+  listed…`. `story_work_test.dart` 30 passed.
 - **After the reading** (Claude Sonnet): a start that throws now says *The start failed: <why>* on the review and
   may be pressed again; *Leave* is not offered while the review's start runs, so its answer cannot be lost behind
   a confirmation. Test *a start that fails says so and may be pressed again, and Leave waits while it runs*, red
@@ -116,8 +121,6 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
 
 ## To be checked
 
-- The words that an agent's model list could not be read are written to the window's log only: `PlanningAgent` has
-  no member the *Who* step shows them in. Asked of Agent Planner (room, 2026-11-15).
 
 - After a *Change*, the review runs each step's synchronous check again, not a later step's `beforeNext` (a server
   setup's connection check): a changed host is checked again only when its own step is walked. `goBackTo` exists
