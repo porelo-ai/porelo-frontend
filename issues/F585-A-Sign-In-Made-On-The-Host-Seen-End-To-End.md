@@ -22,8 +22,8 @@ sign-in, holds as one, and an API key beside it is still carried.
 
 ## Plan
 
-- **The mock daemon** (`test/features/support/`, the stand-in `PoreloBackend`) answers the fields Agent Core shapes
-  for [F584](README.md#f584): a source that rotates, the host login's link or code and its states, and
+- **The mock daemon** (`test/features/support/`, the stand-in `PoreloBackend`) answers B785-B787 as
+  [F584](README.md#f584) cites them: a source that rotates, the host login's link or code and its states, and
   `SealCredential` refusing a rotating source.
 - **A scenario** in `test/features/carrying_a_credential.feature`: a host row's *Import from this computer…* shows a
   provider login as *Made on the host* and an API key as carried; *Sign in on the host* shows the code, the login ends
