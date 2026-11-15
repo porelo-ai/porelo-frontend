@@ -289,6 +289,10 @@ abstract class FleetBackend {
   /// Start's answer finds the task again; a machine that keeps none is started without it. [reads] names the tasks
   /// whose landed work the task reads; a machine that cannot hand it refuses with `FeatureNotSupported`. [onEvent] is
   /// told each line and step Start says on the way, as they come, so a person sees how far it is.
+  ///
+  /// A planned stage is started [readOnly], its one repository read only with no gate and nothing pushed, with
+  /// [result] the file it hands back when it ends and [given] the files it reads, name to text, as its planner holds
+  /// them now; a machine that cannot start one so refuses with `FeatureNotSupported`, never starting it writable.
   Future<StartProgress> startOrdered({
     required String project,
     required String repository,
@@ -299,6 +303,9 @@ abstract class FleetBackend {
     String? callerKey,
     List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
+    String? result,
+    bool readOnly = false,
+    Map<String, String> given = const {},
   });
 
   /// Starts a discussion a planner ordered: every repository of [project] read only, nothing writable and nothing
@@ -889,6 +896,9 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     String? callerKey,
     List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
+    String? result,
+    bool readOnly = false,
+    Map<String, String> given = const {},
   }) => _startRunning(
     project: project,
     repository: repository,
@@ -903,6 +913,9 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
       prompt: prompt,
       callerKey: callerKey,
       reads: reads.isEmpty ? null : reads,
+      result: result,
+      readOnly: readOnly ? true : null,
+      given: given.isEmpty ? null : given,
       now: true,
       certify: asksToCertify,
     ),

@@ -226,7 +226,8 @@ class WindowTaskStarts {
           callerKey: task.offer,
           onEvent: shown.add,
         );
-      case (false, final repository?, _):
+      case (false, final repository?, final result):
+        // A task that hands back a result is a planned stage: it reads its repository and pushes nothing.
         start = () => backend.startOrdered(
           project: project,
           repository: repository,
@@ -237,6 +238,8 @@ class WindowTaskStarts {
           callerKey: task.offer,
           reads: task.reads,
           onEvent: shown.add,
+          result: result,
+          readOnly: result != null,
         );
       default:
         final words = 'The planner ordered a ${task.role} task this window cannot start.';

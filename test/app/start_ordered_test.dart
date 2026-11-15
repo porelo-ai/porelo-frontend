@@ -86,6 +86,69 @@ void main() {
     expect(asked.single['callerKey'], 'offer-2');
   });
 
+  // Harm: a planned stage starts with its repository writable and a gate, or without the issues its planner gave it,
+  // or not handing back its result.
+  test('a planned stage asks for its repository read only, its result file and its given files', () async {
+    daemon.description =
+        'method Start(task: ?string, readOnly: ?bool, result: ?string, given: ?[string]string) -> (exitCode: ?int)';
+    final asked = <Map<String, dynamic>>[];
+    daemon.stream('Start', (parameters) async* {
+      asked.add(parameters);
+      yield <String, dynamic>{'container': 'porelo-demo-porelo-pi', 'exitCode': 0, 'action': 'CREATE'};
+    });
+    final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+    await backend.open();
+
+    await backend.startOrdered(
+      project: 'demo',
+      repository: 'porelo',
+      agent: 'claude',
+      model: 'opus',
+      mode: Mode.agent,
+      prompt: 'Analyse PI68.',
+      result: 'analysis.json',
+      readOnly: true,
+      given: {'PI68.md': '# PI68\n'},
+    );
+
+    expect(asked.single['readOnly'], isTrue);
+    expect(asked.single['result'], 'analysis.json');
+    expect(asked.single['given'], {'PI68.md': '# PI68\n'});
+    expect(asked.single.containsKey('allRepositories'), isFalse);
+  });
+
+  // Harm: a machine that cannot start a stage read only starts it writable, with a gate, as ordinary work.
+  test('a machine that cannot start a stage read only, or give it files, is never asked to start it', () async {
+    final asked = <Map<String, dynamic>>[];
+    daemon.stream('Start', (parameters) async* {
+      asked.add(parameters);
+      yield <String, dynamic>{'container': 'porelo-demo-porelo', 'exitCode': 0, 'action': 'CREATE'};
+    });
+    for (final (description, missing) in [
+      ('method Start(task: ?string, result: ?string, given: ?[string]string) -> (exitCode: ?int)', 'readOnly'),
+      ('method Start(task: ?string, readOnly: ?bool, result: ?string) -> (exitCode: ?int)', 'given'),
+    ]) {
+      daemon.description = description;
+      final again = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+      await again.open();
+      await expectLater(
+        again.startOrdered(
+          project: 'demo',
+          repository: 'porelo',
+          agent: 'claude',
+          model: 'opus',
+          mode: Mode.agent,
+          prompt: 'Analyse PI68.',
+          result: 'analysis.json',
+          readOnly: true,
+          given: {'PI68.md': '# PI68\n'},
+        ),
+        throwsA(isA<FeatureNotSupported>().having((error) => '$error', 'words', contains(missing))),
+      );
+    }
+    expect(asked, isEmpty);
+  });
+
   // Harm: a refused start reads as a start, or loses the words the machine gave for it.
   test('a refusal comes back with what the machine printed before it', () async {
     daemon.stream('Start', (_) async* {

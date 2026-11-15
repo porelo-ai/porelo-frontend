@@ -721,6 +721,8 @@ class PoreloClient {
     String? result,
     String? callerKey,
     List<String>? reads,
+    bool? readOnly,
+    Map<String, String>? given,
   }) async* {
     // Never dropped where the machine lacks them: without them the start would be an ordinary one, a repository
     // writable, where every repository read only and a file handed back were asked.
@@ -733,6 +735,14 @@ class PoreloClient {
     // Without them a reader would start seeing none of the work it is to read.
     if (reads != null && !await _startDeclares('reads')) {
       throw const FeatureNotSupported('Start(reads)');
+    }
+    // Without it a planned stage would get its repository writable and a gate; without them it would not read the
+    // issues as its planner holds them now.
+    if (readOnly != null && !await _startDeclares('readOnly')) {
+      throw const FeatureNotSupported('Start(readOnly)');
+    }
+    if (given != null && !await _startDeclares('given')) {
+      throw const FeatureNotSupported('Start(given)');
     }
     // Only what the caller named is sent, so the backend's own defaults stay the only defaults.
     // Restating them here would be a second place for them to drift.
@@ -768,6 +778,8 @@ class PoreloClient {
       'allRepositories': ?allRepositories,
       'result': ?result,
       'reads': ?reads,
+      'readOnly': ?readOnly,
+      'given': ?given,
       // Only a help to find the task again: a machine that keeps none starts the same task without it.
       if (callerKey != null && await _startDeclares('callerKey')) 'callerKey': callerKey,
     };

@@ -79,6 +79,9 @@ class _Wedged implements FleetBackend {
     String? callerKey,
     List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
+    String? result,
+    bool readOnly = false,
+    Map<String, String> given = const {},
   }) async => throw const VarlinkDisconnected('nothing there');
 
   @override
@@ -550,6 +553,9 @@ class _Machine implements FleetBackend {
     String? callerKey,
     List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
+    String? result,
+    bool readOnly = false,
+    Map<String, String> given = const {},
   }) async => throw const VarlinkDisconnected('nothing there');
 
   @override
