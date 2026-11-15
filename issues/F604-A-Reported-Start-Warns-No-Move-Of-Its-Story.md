@@ -14,9 +14,9 @@
 }
 ```
 
-**Why this size.** S: the window's started and ended reports reach the screen's run as its own reports do, so the
-offer leaves the run's unreported starts; tests of a move after a reported start, after an end, and while a start
-is still unreported.
+**Why this size.** S: the window's reports go through the client's `taskEvent`, as Agent Planner named, so the
+offer leaves the run's unreported starts and follow-ups start once; tests of a move after a reported start, after an
+end, and while a start is still unreported.
 
 **What must be true.** A person moving a story whose planned tasks all ended is not told that a start is still
 handed on and must be stopped; the warning stands only while a start is truly unreported or a task is at work.
@@ -41,12 +41,17 @@ window handed on that the planner does not report yet; it is stopped first.* wit
     either.
   - The window's `_plannedStarts` in `lib/src/ui/shell.dart` only says which operations stand over the board; it is
     not this warning.
+- **Agent Planner's answer** (room, 2026-11-15 15:43Z): the window delivers its reports through the client's
+  `taskEvent` (`PlanningClient.taskEvent`, the screen's `PlanningRun.report`), which binds the offer to its machine,
+  drops it from the run's unreported starts once the started event is answered, cancels the run on `SaveRefused`,
+  and starts the next tasks the answer names (`run.follow`). Calling the source directly skips all four. No second
+  call is added in porelo-planner; nothing of the planner's is built for this.
 - **Steps.**
-  - After the window delivered a `started` event, or an end, for an offer this window handed on, the screen's run
-    hears it, so the offer leaves `_unreported`: through the screen's own path where it binds the offer, or a call
-    Agent Planner names for it (to agree; the window's own delivery stays, as it carries offers kept across a
-    restart, which the screen holds no binding for, and starts the follow-ups).
-  - Raise the pin of `porelo_planning` should that need a screen change.
+  - `_deliver` (`lib/src/ui/planning_reports.dart`) reports through the client's `taskEvent` where the screen holds
+    the offer's binding, and the window's own follow-ups (`_startFollowUps`) do not start what `run.follow` starts.
+  - An offer kept across a restart, which the screen holds no binding for (`PlanningRun.report` refuses it with
+    `TaskEventConflict`), is reported as today; no run of the screen reserved it, so none warns of it.
+  - The window's `startedReported` and other kept marks follow the answer as today.
 - **Red first:** a widget test: a board start, its started report delivered by the window, then a move of the story;
   red today on the warning.
 
