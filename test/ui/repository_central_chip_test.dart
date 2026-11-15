@@ -16,9 +16,9 @@ const _states = <String, CentralStanding>{
   'later': CentralStanding('diverged', 'central: diverged'),
 };
 
-Future<void> _show(WidgetTester tester, {required Command bring}) async {
+Future<void> _show(WidgetTester tester, {required Command bring, Size size = const Size(1280, 800)}) async {
   tester.view
-    ..physicalSize = const Size(1280, 800)
+    ..physicalSize = size
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -109,5 +109,57 @@ void main() {
     await tester.tap(find.text('Bring it to central…').last);
     await tester.pump(const Duration(seconds: 1));
     expect(brought, 1);
+  });
+
+  // Harm: a row that is at central, moved on, cannot say or says a later word offers to bring work that is not there.
+  testWidgets('a row that is not ahead offers no Bring it to central…, whatever else it says', (tester) async {
+    await _show(
+      tester,
+      bring: bringToCentralCommand(ahead: const [(repository: 'ahead', commits: 2)], run: () {}),
+    );
+    for (final name in ['moved', 'unsure', 'later', 'level']) {
+      await _openMenu(tester, name);
+      expect(find.text('Bring it to central…'), findsOneWidget, reason: '$name: the head alone');
+      await tester.tapAt(Offset.zero);
+      await tester.pump(const Duration(seconds: 1));
+    }
+  });
+
+  // Harm: an ahead row whose bringing cannot run now hides it, so the person never learns why.
+  testWidgets("an ahead row's bringing that cannot run now is greyed with its reason", (tester) async {
+    var brought = 0;
+    await _show(
+      tester,
+      bring: bringToCentralCommand(
+        ahead: const [(repository: 'ahead', commits: 2)],
+        running: true,
+        run: () => brought++,
+      ),
+    );
+    expect(find.byKey(const Key('project-bring-to-central')), findsNothing, reason: 'the head shows it only to run');
+
+    await _openMenu(tester, 'ahead');
+    final entry = find.byKey(const ValueKey<String>('project.bringToCentral'));
+    expect(entry, findsOneWidget);
+    expect(tester.widget<PopupMenuItem<String>>(entry).enabled, isFalse);
+    expect(find.text('Unavailable: It is being brought to central now; wait for the answer.'), findsOneWidget);
+    await tester.tap(find.text('Bring it to central…'), warnIfMissed: false);
+    await tester.pump(const Duration(seconds: 1));
+    expect(brought, 0);
+  });
+
+  // Harm: on a phone's width the chip crowds the name out or overflows the row.
+  testWidgets("at a phone's width the chip stands under the row's line", (tester) async {
+    await _show(
+      tester,
+      bring: bringToCentralCommand(ahead: const [], run: () {}),
+      size: const Size(390, 800),
+    );
+    expect(tester.takeException(), isNull);
+    final row = find.byKey(const Key('repository-ahead'));
+    final line = find.descendant(of: row, matching: find.text('carried · no task running'));
+    final chip = find.byKey(const Key('repository-central ahead'));
+    expect(chip, findsOneWidget);
+    expect(tester.getTopLeft(chip).dy, greaterThanOrEqualTo(tester.getBottomLeft(line).dy), reason: 'under the line');
   });
 }

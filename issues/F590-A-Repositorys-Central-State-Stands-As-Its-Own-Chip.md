@@ -96,6 +96,25 @@ one grey line; *central moved on* drowned in it.
 - Not checked: the chip under the line at a phone's width is not measured by a test; `test/ui` and `test/features`
   whole.
 
+- **The reading** (Claude Sonnet): nothing red. Three tests added after it, each seen red:
+  - `test/ui/repository_central_chip_test.dart` *a row that is not ahead offers no Bring it to central…, whatever
+    else it says* (moved on, cannot say, a later word, at central). Break: offered on every row not at central. Red:
+    `Found 2 widgets with text "Bring it to central…"`.
+  - Same file, *an ahead row's bringing that cannot run now is greyed with its reason*. Break: offered only while it
+    can run. Red: `Found 0 widgets with key [<'project.bringToCentral'>]`.
+  - Same file, *at a phone's width the chip stands under the row's line* (390 wide, no exception). Break: the chip
+    always beside. Red: `Expected: a value greater than or equal to <312.0> Actual: <240.0>`.
+
 ## Acceptance
 
 - The tests above, each seen red first; `test/ui` and `test/features` green.
+
+## To be checked
+
+- The reason of *cannot say* stands only in the chip, which is cut with an ellipsis at 30% of the row, so it is read
+  whole only in its tooltip; the row has no details for it, as the plan assumed.
+- The chip is placed by `WindowSize.chipBeside` on the card's width, not `chipBesideWords` on the row's, so in a
+  narrower pane the title can be cramped beside it; no overflow is expected.
+- *Bring it to central…* in a row's menu is the project's command: it names no repository and brings every one that
+  is ahead.
+- An ahead chip on `default`, or on a project where `saysOfCentral` is false, shows with no command in its menu.
