@@ -121,6 +121,16 @@ Feature: Start and decide story work from the planning board
         When I choose story work {'start'}
         Then story work proves {'started main model visible'}
 
+    # Harm: a model list the machine cannot read leaves no model to choose, or holds Start.
+    Scenario: A model list the machine cannot read leaves the model typed and Start open
+        Given the machine cannot list the models of {'an-agent'}
+        When I open story work for {'ST291'}
+        And I choose story work {'change main agent'}
+        And I choose story work {'change main model'}
+        Then story work proves {'main model visible'}
+        When I choose story work {'start'}
+        Then story work proves {'started main model visible'}
+
     # Harm: a task started With you is never opened, or another task's terminal opens in its place.
     Scenario: With you opens the terminal of the task the window started
         When I open story work for {'ST291'}

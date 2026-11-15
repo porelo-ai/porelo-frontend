@@ -14,6 +14,7 @@ import './step/i_choose_story_work.dart';
 import './step/i_resolve_the_story_reading_with.dart';
 import './step/the_planning_watch_fails.dart';
 import './step/i_open_story_work_in_a_narrow_host.dart';
+import './step/the_machine_cannot_list_the_models_of.dart';
 import './step/the_machine_says_while_it_prepares_a_start_and_holds_it.dart';
 import './step/the_start_work_dialog_is_closed_while_start_still_waits.dart';
 import './step/the_operation_shows.dart';
@@ -142,6 +143,16 @@ void main() {
     });
     testWidgets('''A main agent model can be changed''', (tester) async {
       await bddSetUp(tester);
+      await iOpenStoryWorkFor(tester, 'ST291');
+      await iChooseStoryWork(tester, 'change main agent');
+      await iChooseStoryWork(tester, 'change main model');
+      await storyWorkProves(tester, 'main model visible');
+      await iChooseStoryWork(tester, 'start');
+      await storyWorkProves(tester, 'started main model visible');
+    });
+    testWidgets('''A model list the machine cannot read leaves the model typed and Start open''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineCannotListTheModelsOf(tester, 'an-agent');
       await iOpenStoryWorkFor(tester, 'ST291');
       await iChooseStoryWork(tester, 'change main agent');
       await iChooseStoryWork(tester, 'change main model');

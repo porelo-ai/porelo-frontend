@@ -83,6 +83,10 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
   passed over, its lines kept on the review), `start` and `canLeave`. The review has *Change* beside each step
   (`wizard-change-<i>`), and *Next* after a *Change* returns to the review. Every wizard of the window has it.
 - **Agents, models, efforts:** see [F605](README.md#f605)'s *Built*.
+- **A model list the machine cannot read** (`ModelsFailed`, for one: a provider that refuses to list models for a
+  sign-in by subscription) leaves that agent offered with its model typed, and *Start* open: scenario *A model list
+  the machine cannot read leaves the model typed and Start open*, red when the failure is not caught (no agent to
+  choose).
 - **After the reading** (Claude Sonnet): a start that throws now says *The start failed: <why>* on the review and
   may be pressed again; *Leave* is not offered while the review's start runs, so its answer cannot be lost behind
   a confirmation. Test *a start that fails says so and may be pressed again, and Leave waits while it runs*, red
@@ -111,6 +115,9 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
 - **Not checked:** the window itself was not run.
 
 ## To be checked
+
+- The words that an agent's model list could not be read are written to the window's log only: `PlanningAgent` has
+  no member the *Who* step shows them in. Asked of Agent Planner (room, 2026-11-15).
 
 - After a *Change*, the review runs each step's synchronous check again, not a later step's `beforeNext` (a server
   setup's connection check): a changed host is checked again only when its own step is walked. `goBackTo` exists
