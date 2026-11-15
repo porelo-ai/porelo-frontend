@@ -76,16 +76,16 @@ start hook, the same `WindowTaskStarts` call, here `startOrdered` through `_star
   (`operations`, set by the shell), titled *Discuss an idea in <project>* or *Start the <role> task of <story> in
   <repository>*, on the machine it starts on. The operation is made at Start's first line or step: a start refused
   before it says anything makes none and is said once, on the board, as before. It ends done once the task stands,
-  or failed in F586's words where Start refuses after it said something. `pressed` is the planning screen's start
-  hook (`plannerPlanning`'s `startTask`) and opens the operation (`openOperation`); `call`, which the reports' follow-up
-  orders use, only lists it.
+  or failed in [F586](README.md#f586)'s words where Start refuses after it said something. `pressed` is the planning
+  screen's start hook (`plannerPlanning`'s `startTask`) and opens the operation (`openOperation`); `call`, which the
+  reports' follow-up orders use, only lists it.
 - `lib/src/ui/shell.dart`: sets `operations` and `openOperation`; *Planning* shows the operation of a start pressed
   there over its page, the page kept built beneath (`Offstage` in a fixed `Stack`), so the *Start work* dialog goes on
   waiting on its start and the board keeps its state; closing the operation shows the board again. Once the agent
   runs, a discussion's session (and a *With you* task's) opens as before, which leaves the operation.
 - `pubspec.yaml`, `pubspec.lock`: `porelo_planning` pinned to `1e66bf5984dcd7430eb29de72aebda2241a9363f` with the
-  GitHub url and `path: screen` unchanged, **plus a temporary `dependency_overrides` entry** (a git url to porelo-planner's local
-  checkout, that ref, `path: screen`), left in place until the commit is on GitHub; pubspec's
+  GitHub url and `path: screen` unchanged, **plus a temporary `dependency_overrides` entry** (a git url to
+  porelo-planner's local checkout, that ref, `path: screen`), left in place until the commit is on GitHub; pubspec's
   xterm override is unchanged. The lock names the local checkout while the override stands.
 - Tests' stand-ins take `onEvent` (`test/features/support/world.dart`, `test/app/fleet_model_test.dart`,
   `test/ui/window_task_reports_test.dart`, `test/ui/window_task_starts_test.dart`); the world's planning start hook is

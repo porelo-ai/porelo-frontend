@@ -145,7 +145,7 @@ class PlannedOffer {
   /// one an earlier build kept is taken to.
   bool get writesCode => stage == null || stage == 'Implementing';
 
-  /// What it works on, for its tile and row: `PI68 of ST366, in analysis`; null where an earlier build kept no
+  /// What it works on, for its tile and row: `<issues> of <story>, in analysis`; null where an earlier build kept no
   /// issues or role.
   String? get worksOn {
     final at = stage;

@@ -29,3 +29,7 @@ test/ui/window_task_starts_test.dart
 test/ui/window_task_reports_test.dart
 test/client/planner_mock_test.dart
 test/app/planner_ideas_test.dart
+test/app/planner_stage_results_test.dart
+test/app/planning_offers_test.dart
+test/app/start_ordered_test.dart
+test/ui/planned_task_line_test.dart
