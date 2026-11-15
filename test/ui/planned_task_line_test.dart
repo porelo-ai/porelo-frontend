@@ -88,6 +88,40 @@ void main() {
     expect(said('No build yet'), findsOneWidget);
   });
 
+  /// The fact of the gate on the work's own row.
+  Finder gateFact() =>
+      find.descendant(of: tileFor(work), matching: find.byKey(const ValueKey<String>('tile-fact gate')));
+
+  // Harm: a task with no gate and nothing to push is said to have commits at a gate, or a build that has not run.
+  testWidgets('a task the machine lists as read only says nothing of a gate or a build', (tester) async {
+    await onTheWork(tester);
+    final listed = World.backend.tasksNow.firstWhere((task) => task.name == work);
+    World.backend.bringsUp(Task.from({...wire(listed), 'readOnly': true}));
+    World.backend.followBuilds(work, builds: const <Build>[], reader: 'github');
+    await World.settle(tester);
+    await unfolded(tester);
+
+    expect(said('No build yet'), findsNothing);
+    expect(gateFact(), findsNothing);
+    expect(find.descendant(of: tileFor(work), matching: find.text('Commits at the gate')), findsNothing);
+  });
+
+  // Harm: a planned stage on a machine too old to say read only is said to have commits at a gate.
+  testWidgets('a planned stage handing back a result says nothing of a gate, read only said or not', (tester) async {
+    await plannedAs(tester, role: 'MAIN', result: 'analysis.json');
+
+    expect(gateFact(), findsNothing);
+    expect(said('No build yet'), findsNothing);
+  });
+
+  // Harm: work that may push loses the fact of its gate.
+  testWidgets('work that may push says its gate as before', (tester) async {
+    await plannedAs(tester, role: 'MAIN');
+
+    expect(gateFact(), findsOneWidget);
+    expect(said('No build yet'), findsOneWidget);
+  });
+
   // Harm: work no planner ordered, or one an earlier build kept, gains a line it cannot fill, or loses its build line.
   testWidgets('work no planner ordered here says nothing more, and its build line as before', (tester) async {
     await onTheWork(tester);

@@ -85,6 +85,10 @@ class Tile {
   /// What this window keeps of the planner's order its work was started for, or null for work no planner ordered here.
   final PlannedOffer? planned;
 
+  /// Whether its work may push and so have a gate and builds: not where the machine lists it as read only, nor where
+  /// its planned stage reads or hands back a result.
+  bool get writesCode => !(task?.readOnly ?? false) && (planned?.writesCode ?? true);
+
   /// Whether what the tile says is a guess rather than something the machine knows.
   bool get inferred => demand == Demand.quiet;
 }

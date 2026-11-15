@@ -618,6 +618,7 @@ class Task {
     this.landed,
     this.ideas,
     this.ideasHeldBack = 0,
+    this.readOnly = false,
     this.handInLimit,
     this.files,
     this.builds,
@@ -652,6 +653,10 @@ class Task {
   /// How many of its ideas the machine's listing left out for room, to come in a later listing; 0 where it listed
   /// them all, and from a machine that does not say.
   final int ideasHeldBack;
+
+  /// Whether it only reads: made read only or over all repositories, with no gate and nothing it can push. False for
+  /// any other task, and from a machine that does not say.
+  final bool readOnly;
 
   /// The bytes one file handed to this task may have. Null from a machine without hand-in, which
   /// is no limit of zero.
@@ -738,6 +743,7 @@ class Task {
     ideasHeldBack: map['ideasHeldBack'] is num && (map['ideasHeldBack'] as num) > 0
         ? (map['ideasHeldBack'] as num).toInt()
         : 0,
+    readOnly: map['readOnly'] == true,
     handInLimit: map['handInLimit'] is num ? (map['handInLimit'] as num).toInt() : null,
     files: map['files'] is List
         ? (map['files'] as List).whereType<Map<String, dynamic>>().map(HandedFile.from).toList()

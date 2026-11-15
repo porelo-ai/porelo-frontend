@@ -975,7 +975,7 @@ class _CauseFacts extends StatelessWidget {
               style: text.bodySmall,
             ),
           if (task != null)
-            if (BuildsSaid.onTheTile(task, writesCode: tile.planned?.writesCode ?? true) case final said?)
+            if (BuildsSaid.onTheTile(task, writesCode: tile.writesCode) case final said?)
               _BuildLine(said, scheme, folded: false),
           if (task != null && task.phase.isNotEmpty)
             Text(task.phase, key: const Key('tile-phase'), style: text.bodySmall),
@@ -1789,7 +1789,7 @@ class WorkRow extends StatelessWidget {
               ],
             ),
             if (task != null)
-              if (BuildsSaid.onTheTile(task, writesCode: tile.planned?.writesCode ?? true) case final said?)
+              if (BuildsSaid.onTheTile(task, writesCode: tile.writesCode) case final said?)
                 _BuildLine(said, scheme, folded: folded),
             if (task != null && task.phase.isNotEmpty)
               Text(task.phase, key: const Key('tile-phase'), style: text.bodySmall),
@@ -1962,15 +1962,17 @@ class _WorkFactsState extends State<_WorkFacts> {
             task.running && started != null ? clockTime(started.toIso8601String()) : 'not said',
           ),
           fact('tokens', 'Tokens used', _tokens?.used ?? 'not said', beside: _tokens?.beside),
-          fact(
-            'gate',
-            'Commits at the gate',
-            task.online
-                ? task.atTheGate
-                : task.hasWorkWaiting
-                ? '${task.waiting}'
-                : (task.running ? 'none yet' : 'none'),
-          ),
+          // Work that only reads has no gate: nothing it does can be at one.
+          if (widget.tile.writesCode)
+            fact(
+              'gate',
+              'Commits at the gate',
+              task.online
+                  ? task.atTheGate
+                  : task.hasWorkWaiting
+                  ? '${task.waiting}'
+                  : (task.running ? 'none yet' : 'none'),
+            ),
         ],
       ),
     );

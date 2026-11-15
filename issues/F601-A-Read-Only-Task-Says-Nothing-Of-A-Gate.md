@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F601",
   "title": "A Read-Only Task Says Nothing Of A Gate",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 121,
@@ -43,3 +43,22 @@ host, both with a result file): the tile said *Commits at the gate: nothing is r
 - A `readOnly` task's tile shows no *Commits at the gate* and no build line. Seen to fail: today's tile.
 - A planned stage with a result file and no `readOnly` from an older daemon shows neither.
 - A task that may push shows both as today.
+
+## Built
+
+- **Model:** `Task.readOnly` (`lib/src/client/models.dart`), read from the list's `readOnly`, true only for a JSON
+  `true`, false where absent.
+- **Tile:** `Tile.writesCode` (`lib/src/app/attention.dart`), false where the task is `readOnly` or its planned offer
+  writes no code; `_WorkFacts` (`lib/src/ui/attention_view.dart`) leaves out *Commits at the gate* where it is false,
+  and both build lines pass it to `BuildsSaid.onTheTile`.
+- **Details:** the task pane (`lib/src/ui/panes.dart`) leaves out *At the gate* for a `readOnly` task, beyond the
+  plan, as the same fact in another place.
+- **Tests:** `test/ui/planned_task_line_test.dart`: *a task the machine lists as read only says nothing of a gate or a
+  build*, *a planned stage handing back a result says nothing of a gate, read only said or not*, *work that may push
+  says its gate as before*; `test/client/task_read_only_test.dart` for the reading. The stand-in's `wire` and
+  `withHandIn` carry `readOnly`.
+- **Red:** the read-only tile `Found 1 widget with text "No build yet"` on its row; the planned stage `Found 1 widget
+  with key [<'tile-fact gate'>]`.
+- **Runs:** `dart analyze lib test integration_test tool` No issues found. `planned_task_line_test.dart`: 8 passed;
+  with `task_read_only_test`, `online_class_test`, `work_as_designed_test`, `work_page_faults_test`,
+  `test/features/builds_test.dart`, `test/client/builds_test.dart`: 74 passed.

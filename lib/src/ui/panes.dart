@@ -167,7 +167,7 @@ class WorkDetail extends StatelessWidget {
               // An `online` task answers `0` and that is not a smaller number: nothing is ever
               // reviewed there, so it is a question the class does not have, and saying *nothing
               // is waiting* would imply somebody could be.
-              _Field(name: 'At the gate', value: task.atTheGate),
+              if (!task.readOnly) _Field(name: 'At the gate', value: task.atTheGate),
               // **The other half of the same question, and it costs a call.** What is waiting at
               // the gate comes free with the task; what never reached it runs git inside the
               // container, so it is asked when this opens and never while drawing a list.
