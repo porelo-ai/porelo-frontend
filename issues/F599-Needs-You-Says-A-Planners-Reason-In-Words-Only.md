@@ -46,7 +46,7 @@ The operator's live test (15 November, after stopping the ST366 run): the planni
 
 - An issue's planning row with `SAVE_REFUSED` says its sentence once and no `SAVE_REFUSED`. Seen to fail: today's
   row.
-- A story's row with `STOPPED` says *its work was stopped* in words, and no `STOPPED`.
+- The issue row of a stopped run (`STOPPED`) says *its work was stopped* in words, and no `STOPPED`.
 - The window's log still names the code.
 
 ## Built
@@ -65,7 +65,9 @@ The operator's live test (15 November, after stopping the ST366 run): the planni
 - **Red on the old pin** (`c8796c6`, from GitHub, no override): `Expected: no matching candidates Actual:
   _TextWidgetFinder:<Found 1 widget with text "SAVE_REFUSED"`, and the same for `"STOPPED"`. Green on `c77f5a7`.
 - **The log:** the window's own log line of a planning row (`Attention._wordsOf`) still names the reason's code;
-  unchanged.
+  unchanged, and now held by *a stopped run's row is written to the window's log with the planner's code when it
+  resolves* in `test/app/planning_attention_test.dart`: 11 passed; with the code taken out of the line it went red,
+  `Expected: contains 'STOPPED' Actual: '… Needs you: resolved (planning) story story of demo'`.
 - **Runs:** `dart analyze lib test integration_test tool` No issues found. On the new pin: `test/ui` 1450
   passed; `test/features` 986 passed and 1 failed: *Review anyway sends the current reading decision* held the
   findings' severity as the old screen wrote it, *BLOCKING:* and *NOTE:*, which the new screen says *Blocking:* and

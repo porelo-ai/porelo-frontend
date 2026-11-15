@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/attention.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/window_log.dart';
 import 'package:porelo_frontend/src/app/fleet_model.dart';
 import 'package:porelo_planning/planning_fake.dart';
 import 'package:porelo_planning/porelo_planning.dart';
@@ -170,6 +172,50 @@ class _Environment {
 }
 
 void main() {
+  // Harm: a planner row that says its reason in words only leaves no trace of the planner's own code, so what the
+  // planner answered cannot be found in the window's log afterwards.
+  test("a stopped run's row is written to the window's log with the planner's code when it resolves", () async {
+    final scratch = Directory.systemTemp.createTempSync('planning-attention-log-');
+    final before = windowLog;
+    windowLog = WindowLog('${scratch.path}/logs', keepPrivate: (_) async {});
+    addTearDown(() {
+      windowLog = before;
+      scratch.deleteSync(recursive: true);
+    });
+    final stopped = {
+      ..._snapshot('stopped'),
+      'stories': [
+        {
+          'id': 'story',
+          'state': 'Backlog',
+          'issues': [
+            {'id': 'item', 'repository': 'repo', 'state': 'Building', 'needsYou': true},
+          ],
+          'work': {
+            'run': '00000000-0000-4000-9000-0000000000aa',
+            'atWork': false,
+            'tasks': <Object>[],
+            'issues': [
+              {'issue': 'item', 'reason': 'STOPPED', 'needsYou': true, 'rounds': 0, 'roundsMost': 2},
+            ],
+          },
+        },
+      ],
+    };
+    final planning = _Planning(stopped);
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    expect(env.planningRows, isNotEmpty, reason: 'the stopped run needs the person');
+
+    planning.push('demo', _snapshot('started again'));
+    await _turn();
+    expect(env.planningRows, isEmpty, reason: 'its work no longer stops');
+    final file = File('${scratch.path}/logs/${WindowLog.fileName}');
+    final logged = file.existsSync() ? file.readAsLinesSync() : const <String>[];
+    expect(logged.where((line) => line.contains('Needs you: resolved')).single, contains('STOPPED'));
+  });
+
   // Harm: a connection replacement leaves a reading stuck or clears it before an authoritative replacement arrives.
   test('real PlanningBoards notifications retain then clear a replacement reading', () async {
     final env = _Environment();

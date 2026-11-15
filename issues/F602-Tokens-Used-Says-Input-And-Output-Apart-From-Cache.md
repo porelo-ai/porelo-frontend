@@ -76,6 +76,13 @@ host): *Tokens used: at least 605 k* after less than a minute, *at least 1.5 M* 
   Actual: 'at least 1.6 M'` (cache read in the sum, *at least* from a reasoning no reply of that format names);
   `Actual: 'at least 616 k'` and `Actual: '616 k'` (reasoning counted twice, inside the output and beside it);
   `Expected: 'at least 12 k in · 3 k out' Actual: 'at least 20 k'`. All four green after the change.
+- **Added after the reading:** an input or output nobody reported is no lower bound (`partly` asks only a kind with
+  tokens), so a task with neither never reads *at least input not said · output not said*. Three more tests in the
+  group *tokens used*: only the output with a gap reads *at least* (red with `partly` reading input alone:
+  `Expected: 'at least 12 k in · 3 k out' Actual: '12 k in · 3 k out'`); an input no request reported reads *input not
+  said* with no *at least*, and a reasoning of 0 adds no line (red with reasoning 0 shown: `Expected: null Actual:
+  'of which 0 reasoning'`); input and output nobody reported read *input not said · output not said* (red with a
+  kind nothing counted taken as a bound: `Actual: 'at least input not said · output not said'`). The group: 7 passed.
 - **Also changed:** the client test reads each kind apart and *partly* from a missing output; the scenario *an
   unfolded row says what its work used* gives input and output (step *the work {w} has used {n} tokens in and {m}
   out*) and reads *184 k in · 2 k out*.

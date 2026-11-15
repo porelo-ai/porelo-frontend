@@ -624,6 +624,35 @@ void main() {
       );
       expect(used.used, 'at least 12 k in · 3 k out');
     });
+
+    // Harm: a count some replies left out read as exact, where only the output has a gap.
+    testWidgets('a reply that left only its output out makes it a lower bound', (tester) async {
+      final used = await reads(
+        tester,
+        _usage(input: (12000, 0), cacheRead: (null, 0), cacheWrite: (null, 0), output: (3000, 2), reasoning: (null, 0)),
+      );
+      expect(used.used, 'at least 12 k in · 3 k out');
+    });
+
+    // Harm: an input no request reported read as none used.
+    testWidgets('an input no request reported is said as not said, never as 0', (tester) async {
+      final used = await reads(
+        tester,
+        _usage(input: (null, 4), cacheRead: (null, 0), cacheWrite: (null, 0), output: (3000, 0), reasoning: (0, 0)),
+      );
+      expect(used.used, 'input not said · 3 k out', reason: 'nothing counted is no lower bound');
+      expect(used.beside, isNull, reason: 'no reasoning was named and nothing was read from the cache');
+    });
+
+    // Harm: a task whose replies counted no input or output read as a lower bound of nothing.
+    testWidgets('input and output nobody reported are no lower bound', (tester) async {
+      final used = await reads(
+        tester,
+        _usage(input: (null, 4), cacheRead: (5000, 0), cacheWrite: (null, 0), output: (null, 4), reasoning: (null, 0)),
+      );
+      expect(used.used, 'input not said · output not said');
+      expect(used.beside, 'cache 5 k read');
+    });
   });
 
   group('the finder', () {

@@ -1084,11 +1084,14 @@ class UsageTotals {
   /// The part of [output] a format names as reasoning.
   final UsageCount reasoning;
 
-  /// Whether some reply left its input or output out, so they are a lower bound.
+  /// Whether the input or output counted is a lower bound, as some reply left it out; a kind nothing counted bounds
+  /// nothing.
   ///
   /// Every format reports both. Only those two are asked: a format that never names reasoning or a cache write leaves
   /// no gap, though a machine may count its requests as missing them.
-  bool get partly => input.missing > 0 || output.missing > 0;
+  bool get partly => _bounds(input) || _bounds(output);
+
+  static bool _bounds(UsageCount count) => count.tokens != null && count.missing > 0;
 }
 
 /// One kind of token: how many were reported, and by how many requests they were not.
