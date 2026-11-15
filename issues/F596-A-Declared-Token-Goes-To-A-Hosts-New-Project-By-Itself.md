@@ -163,6 +163,9 @@ setup is out: a host is set up before any project is put on it.
   `declared_hand_on_test` 3, `declared_token_hand_on_test` 6, `placing_project_dialog_test` 19, `token_giving_test` 2,
   `host_token_sources_test` 10, `organization_host_pages_test` 126, `organization_project_pages_test` 91,
   `machine_own_pages_test` 27: all passed; analyze No issues found.
+- **Box at the final code:** the build box's Maven `test` phase at `6206dd8` (both readings' fixes): BUILD SUCCESS,
+  4651 passed, 37 skipped, 0 failed (also 460 and 5 passed). `cd492be` before it: BUILD SUCCESS, 4649 passed, 37
+  skipped, 0 failed.
 
 ## To be checked
 

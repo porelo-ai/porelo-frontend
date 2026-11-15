@@ -117,6 +117,9 @@ window handed on that the planner does not report yet; it is stopped first.* wit
   4640 passed, 37 skipped, 0 failed.
 - **Runs after the reading** (laptop, one file at a time): `planning_moves_test` 28, `story_work_test` 27,
   `window_task_reports_test` 70, `window_task_starts_test` 25, all passed; analyze No issues found.
+- **Box at the final code:** the build box's Maven `test` phase at `6206dd8` (both readings' fixes): BUILD SUCCESS,
+  4651 passed, 37 skipped, 0 failed (also 460 and 5 passed). `cd492be` before it: BUILD SUCCESS, 4649 passed, 37
+  skipped, 0 failed.
 
 ## To be checked
 
