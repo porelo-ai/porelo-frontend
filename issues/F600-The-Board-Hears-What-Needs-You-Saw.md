@@ -24,10 +24,10 @@ card say *needs you*, nor the Planning count include it, until it is said again 
 ## Found
 
 Agent Planner's PL149, *a stopped run seen leaves the card*, from ST369's live test of 15 November, asked what the
-window's *Seen* sets (room, 15:19Z). The window's *Seen* (`_PlanningRow` in `lib/src/ui/attention_view.dart`) sets marks of the
-window's own in `Attention` (`lib/src/app/attention.dart`): `storyEndSeen` keeps `story ended <id> at <at>` in
-`endedPutAway`, `readingSeen` keeps a `PlanningPutAway` in `readingsPutAway`, each with a session-only set beside
-the settings. Only *Needs you* and its count read them; the boards hear nothing of them.
+window's *Seen* sets (room, 15:19Z). The window's *Seen* (`_PlanningRow` in `lib/src/ui/attention_view.dart`) sets marks
+of the window's own in `Attention` (`lib/src/app/attention.dart`): `storyEndSeen` keeps `story ended <id> at <at>` in
+`endedPutAway`, `readingSeen` keeps a `PlanningPutAway` in `readingsPutAway`, each with a session-only set beside the
+settings. Only *Needs you* and its count read them; the boards hear nothing of them.
 
 ## Plan
 

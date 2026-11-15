@@ -10,12 +10,13 @@
   "priority": "High",
   "rank": 122,
   "blockedBy": [],
-  "covers": "A task's Tokens used says the input and output tokens a person can judge, and the cache read and written apart and named, instead of one sum of every kind that reaches 1.5 M within a minute; agreed with Agent Smith on what each agent's input holds."
+  "covers": "A task's Tokens used says the input and output tokens a person can judge, and the cache read and written apart and named, instead of one sum of every kind that reaches 1.5 M within a minute, reasoning counted once and at least shown only for a real gap."
 }
 ```
 
 **Why this size.** S: the tile's one number becomes input and output with cache named apart, from the totals porelo
-already sends; what each agent's `input` holds is agreed first, and tests of each kind's sum and of *at least*.
+already sends, reasoning counted once and *at least* only for a real gap; tests of each kind's sum and of
+*at least*.
 
 **What must be true.** A person reading *Tokens used* can tell what the task cost them in fresh input and output,
 and sees how much was read from or written to the cache without it swelling that number.
@@ -30,24 +31,32 @@ host): *Tokens used: at least 605 k* after less than a minute, *at least 1.5 M* 
 
 - **Today**, read in the code: `UsageTotals.tokens` (`lib/src/client/models.dart`) sums every kind porelo's `Usage`
   reports (`input`, `cacheRead`, `cacheWrite`, `output`, `reasoning`), and `_WorkFacts`
-  (`lib/src/ui/attention_view.dart`) shows that sum, *at least* where any kind has requests that reported no value. An agent reading its context from
-  the cache on each request makes `cacheRead` the bulk of it.
-- **To agree with Agent Smith** before building: for each agent porelo runs (claude, pi, codex, opencode), whether
-  `input` excludes what `cacheRead` and `cacheWrite` count (as Anthropic's usage does) or includes them (as OpenAI's
-  prompt tokens do), and whether `reasoning` is counted inside `output`. The window sums only what is apart.
+  (`lib/src/ui/attention_view.dart`) shows that sum, *at least* where any kind has requests that reported no
+  value. An agent reading its context from the cache on each request makes `cacheRead` the bulk of it.
+- **Agreed with Agent Smith** (room, 2026-11-15 15:37Z, read in porelo's `UsageReading` and `UsageSums`):
+  - `input` is without the cache in every format: Anthropic's `input_tokens` is so, and porelo subtracts the cached
+    part from OpenAI's prompt or input tokens. `cacheRead` and `cacheWrite` are apart.
+  - `output` holds the reasoning in the OpenAI formats (codex, pi and omp over openrouter), and `reasoning` is its
+    part again; claude never reports `reasoning`, its thinking is inside `output`. So today's sum counts reasoning
+    twice for codex, pi and omp.
+  - Claude never reports `reasoning`, the OpenAI formats never report `cacheWrite`: `partly` is true for every task,
+    so *at least* always shows. A kind a format never reports is no gap; a failed or cut stream nulls every kind.
 - **Steps.**
-  - `UsageTotals` gives fresh input (input less cache where the agent counts it inside), output (with reasoning where
-    apart), and cache read and written.
+  - `UsageTotals` gives input, output (reasoning within it, never added), cache read and cache written; a total, if
+    shown, is input + output + cache read + cache written.
   - The fact reads *12 k in · 3 k out*, with *cache 1.5 M read, 40 k written* beside it in smaller words or its
-    tooltip; *at least* only on the kind that missed a value.
+    tooltip, and *of which N reasoning* where reasoning is reported.
+  - *At least* only where `input` or `output` has requests that reported no value, which every format reports; a
+    missing `reasoning` or `cacheWrite` is no gap.
 - **Red first:** a test of the fact with the live run's shape (cache read far above input), red today on one sum.
 
 ## Acceptance
 
 - *Tokens used* says input and output apart from cache, and names the cache. Seen to fail: today's one sum.
-- *At least* stands only beside a kind that had requests without a value.
-- An agent whose input includes the cache does not count it twice.
+- *At least* shows only where input or output had requests without a value; not for a claude task that reported
+  both on every request.
+- Reasoning is counted once, inside output, for an agent that reports it apart too.
 
 ## To be checked
 
-- Agent Smith's answer on each agent's fields, cited here.
+- Whether Agent Core's `output` should leave reasoning out instead; the window counts it once either way.
