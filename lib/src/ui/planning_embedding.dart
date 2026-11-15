@@ -22,6 +22,7 @@ import '../app/machines.dart';
 import '../app/planner.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
+import '../app/start_refusals.dart';
 import '../app/window_log.dart';
 import '../client/models.dart' show AgentEnded, Mode, Task;
 import '../client/porelo_client.dart' show FeatureNotSupported, StartProgress;
@@ -100,6 +101,9 @@ class WindowTaskStarts {
 
   /// Told the task a discussion started, as the machine lists it, so the person is shown its session.
   void Function(Machine machine, Task task)? onDiscussionStarted;
+
+  /// Told the machine and the agent a start was refused for, with what to call it, so its sign-in is offered there.
+  void Function(Machine machine, FleetBackend on, String agent, String label)? onSignInNeeded;
 
   static Machine? _noMachine(String name) => null;
 
@@ -224,15 +228,32 @@ class WindowTaskStarts {
     final StartProgress answer;
     try {
       answer = await start();
-    } on VarlinkException catch (error) {
-      await _refused(task.offer);
-      _sayRefused(machine, project, story, task, error.toString());
-      throw PlanningRefusal(error.simpleName, error.parameters, error.toString(), error.isMethodNotFound);
     } on Exception catch (error) {
       await _refused(task.offer);
-      _sayRefused(machine, project, story, task, '$error');
-      // The window's refusals of a start, each already in words.
-      throw PlanningRefusal('StartRefused', {'detail': '$error'}, '$error');
+      final said = startRefusalSaid(error);
+      final refused = said is SignInNeeded ? said.labelled(await _labelOf(backend, said.agent)) : said;
+      // One set of words for every start path, never the wire's type name alone.
+      final words = startRefusalWords(refused, machine: machine.name);
+      final offered = refused is SignInNeeded && onSignInNeeded != null;
+      final shown = offered ? '$words Needs you offers its sign-in.' : words;
+      _sayRefused(machine, project, story, task, words);
+      if (refused is SignInNeeded) onSignInNeeded?.call(machine, backend, refused.agent, refused.label);
+      // The board reads a refusal's detail first: it carries these words, which say the machine's own within them.
+      throw switch (error) {
+        VarlinkException() => PlanningRefusal(
+          error.simpleName,
+          {...error.parameters, 'detail': shown},
+          shown,
+          error.isMethodNotFound,
+        ),
+        SignInNeeded(:final agent, :final running) => PlanningRefusal('SignInNeeded', {
+          'agent': agent,
+          'running': ?running,
+          'detail': shown,
+        }, shown),
+        // The window's refusals of a start, each already in words.
+        _ => PlanningRefusal('StartRefused', {'detail': shown}, shown),
+      };
     }
     final container = answer.container ?? '';
     if (container.isEmpty || !_started(answer)) {
@@ -306,6 +327,15 @@ class WindowTaskStarts {
   /// No task stands for [offer]: nothing is left to find again.
   Future<void> _refused(String? offer) async {
     if (offer != null) await settings.forgetPendingStart(offer);
+  }
+
+  /// What the machine's `Agents` answer calls [agent], or empty where it does not answer or label it.
+  static Future<String> _labelOf(FleetBackend backend, String agent) async {
+    try {
+      return (await backend.agentsOn()).agents.where((each) => each.name == agent).firstOrNull?.label ?? '';
+    } on Exception {
+      return '';
+    }
   }
 
   static Future<DiscussionChoice?> _asOrdered(Machine machine, String project, PlanningTaskOrder task) async =>

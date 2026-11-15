@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart' show PlanningAttention, StoryWorkAttentionView;
 
+import '../app/agent_sign_in.dart';
 import '../app/builds.dart';
 import '../app/granting.dart';
 import '../app/host_runs.dart';
@@ -30,6 +31,7 @@ import 'organization_token_words.dart';
 import 'filtered_list_section.dart';
 import 'gate_view.dart' show WhoMadeIt;
 import 'page_explanation.dart';
+import 'sign_in_panel.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 
@@ -481,6 +483,19 @@ extension on _AttentionViewState {
               unavailable: reason ?? (unlock == null ? 'this vault cannot be unlocked from here' : null),
             );
         }
+      case AttentionKind.signIn:
+        final signingIn = row.value as SigningIn;
+        title = 'Sign in to ${signingIn.who} on ${signingIn.machine}';
+        state = signingIn.waiting ? 'Signing in' : 'Not signed in';
+        resolvedState = 'Signed in';
+        subtitle = 'A start was refused for it. Sign in on ${signingIn.machine}, then start again.';
+        icon = Icons.login;
+        primary = signInFromNeedsYouCommand(
+          machine: signingIn.machine,
+          run: () => unawaited(signingIn.signIn()),
+          unavailable: reason ?? signingIn.whySignInCannot,
+        );
+        primaryKey = const Key('needs-you-sign-in');
       case AttentionKind.operation:
         final operation = row.value as Operation;
         title = operation.title;
@@ -836,6 +851,35 @@ extension on _AttentionViewState {
                   const SizedBox(height: Space.small),
                   CommandToCopy(command: command),
                 ],
+              ],
+            ),
+          ),
+        );
+      case AttentionKind.signIn:
+        final signingIn = row.value as SigningIn;
+        return Card(
+          key: ValueKey<String>('sign-in-needed ${row.id}'),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.normal),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: Space.small,
+              children: <Widget>[
+                NeedsMachine(row.machine),
+                Text(
+                  resolved
+                      ? '${signingIn.machine} says ${signingIn.who} is signed in there.'
+                      : '${signingIn.who} is not signed in on ${signingIn.machine}, so a start there was refused. '
+                            'Sign it in there, then start again.',
+                ),
+                // A login whose reply comes back to the machine itself cannot be made from here over ssh.
+                if (signingIn.refusal == 'LOOPBACK_OVER_SSH')
+                  Text(
+                    'This sign-in is made at ${signingIn.machine} itself, or carried from this computer with '
+                    '“Import from this computer…” under Agents & providers of ${signingIn.machine}.',
+                    key: ValueKey<String>('sign-in-at-the-host ${row.id}'),
+                  ),
+                if (!resolved) SignInPanel(signingIn: signingIn, keyed: 'needs-you'),
               ],
             ),
           ),

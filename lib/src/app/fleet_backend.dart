@@ -9,6 +9,7 @@ import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFilesRefused
 
 import 'outcome_words.dart' show resumedFromWords, startedFromWords;
 import 'owned_process.dart';
+import 'start_refusals.dart' show startRefusalSaid;
 import 'task_certifying.dart';
 
 /// Core's public result, independent of SSH authentication or daemon readiness.
@@ -1498,25 +1499,11 @@ class StartRefused implements Exception {
   };
 }
 
-/// Turns `Start`'s named refusals into exceptions that say them in words: `NoSuchDestination` into
-/// [NoSuchDestination], `EarlierWorkWaits` into [EarlierWorkWaits], `UpstreamUnreadable` into
-/// [UpstreamUnreadable]. Any other error passes as it came.
+/// Turns `Start`'s named refusals into exceptions that say them in words ([startRefusalSaid]): `NoSuchDestination`,
+/// `EarlierWorkWaits`, `UpstreamUnreadable` and `SignInNeeded`. Any other error passes as it came.
 final StreamTransformer<StartProgress, StartProgress> startRefusalsSaid =
     StreamTransformer<StartProgress, StartProgress>.fromHandlers(
-      handleError: (error, stack, sink) => sink.addError(switch (error) {
-        VarlinkException(simpleName: 'NoSuchDestination') => NoSuchDestination('${error.parameters['name'] ?? ''}'),
-        VarlinkException(simpleName: 'EarlierWorkWaits') => EarlierWorkWaits(
-          '${error.parameters['task'] ?? ''}',
-          commit: '${error.parameters['commit'] ?? ''}',
-          subject: '${error.parameters['subject'] ?? ''}',
-        ),
-        VarlinkException(simpleName: 'UpstreamUnreadable') => UpstreamUnreadable(
-          '${error.parameters['cause'] ?? ''}',
-          detail: '${error.parameters['detail'] ?? ''}',
-          fix: '${error.parameters['fix'] ?? ''}',
-        ),
-        _ => error,
-      }, stack),
+      handleError: (error, stack, sink) => sink.addError(startRefusalSaid(error), stack),
     );
 
 /// Start refused because the task's earlier work still waits at the gate, before anything was

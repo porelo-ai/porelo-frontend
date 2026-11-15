@@ -36,6 +36,19 @@ Feature: Discuss an idea with an agent from the planning board
         And the planning board says {'porelo: no-homeserver: porelo names no homeserver'} once, its reason first
         And no notice says a Start was refused
 
+    # Harm: a person reads a type name and does not know that a sign-in is missing, or where, nor reaches it.
+    Scenario: A discussion Start refused for a sign-in names the agent and machine, and Needs you signs it in
+        Given the machine refuses the discussion's Start because {'other-agent'} is not signed in
+        When I offer the idea {'Let the board show who is at work'} for discussion
+        And I start the discussion with the agent {'other-agent'}
+        Then the planning board says {'Another Agent is not signed in on this machine'} in words
+        When I go to what needs a person
+        Then what needs a person offers to sign in to {'Another Agent'} on {'this machine'}
+        When I press {'Sign in on this machine'}
+        And I close the terminal of the sign-in
+        And the sign-in ends as {'SIGNED_IN'}
+        Then what needs a person no longer offers to sign in to {'Another Agent'} on {'this machine'}
+
     # Harm: a discussion the person turned away is logged and noticed as the machine's refusal.
     Scenario: A discussion Start turned away is neither logged as refused nor noticed
         Given the window's log is kept

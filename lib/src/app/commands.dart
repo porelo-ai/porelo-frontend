@@ -1848,6 +1848,10 @@ Command storeForgeTokenCommand({required String machine, required VoidCallback r
       unavailable: unavailable,
     );
 
+/// Signs an agent in on the row's machine, where a start was refused for want of its sign-in.
+Command signInFromNeedsYouCommand({required String machine, required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'signIn.needed', label: 'Sign in on $machine', run: run, unavailable: unavailable);
+
 /// Unlocks the row's host vault, which a read of its pull requests found locked.
 Command unlockForPullRequestsCommand({required String machine, required VoidCallback run, String? unavailable}) =>
     _attentionRowCommand(

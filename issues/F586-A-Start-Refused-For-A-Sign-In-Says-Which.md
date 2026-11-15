@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F586",
   "title": "A Start Refused For A Sign-In Says Which",
-  "state": "Implementing",
+  "state": "Review",
   "size": "M",
   "priority": "High",
   "rank": 14,
@@ -61,3 +61,70 @@ helpers were made (`15-task.varlink`).
 
 - The tests above, each seen red first; `test/ui` and `test/features` green; a feature scenario in
   `test/features/planning_discussion.feature` beside the refused start's.
+
+## Built
+
+- `lib/src/app/start_refusals.dart` (new): `SignInNeeded` (agent, running, the label from the machine's `Agents`
+  answer), `startRefusalSaid` (the one mapping of Start's named errors to typed refusals, now also used by
+  `startRefusalsSaid` in `fleet_backend.dart`), `startRefusalWords(error, machine:)`, the one set of words: SignInNeeded
+  ("<agent> is not signed in on <machine>, so nothing was started. Sign it in there, then start again."; with
+  `running`, that a sign-in already runs there), VaultLocked, FirstStartRefused, UnknownHostKey, BranchTaken,
+  ContainerNameTaken, AlreadyStarting, MadeWithAnother, NoSuchTask, MethodNotFound, the typed EarlierWorkWaits,
+  UpstreamUnreadable and NoSuchDestination as before, an unknown error by its detail, message or reason, and without
+  any as "<machine> refused (<Name>: key value, …)", never the wire's name alone. The refusals only a task's MCP socket
+  answers (ChildLimitReached and the rest) are not worded: the window never starts through that socket, and they fall
+  to the unknown branch. `SignInsNeeded` keeps one `SigningIn` per machine and agent and drops it once its
+  `signedIn` says so, or once its machine is no longer watched.
+- `lib/src/app/operations.dart`: an operation's failure ends with `startRefusalWords(error, machine:)` instead of
+  `'$error'`; the words for VaultLocked and NoSuchTask are neutral, as every operation's error passes through it.
+- `lib/src/app/start_work.dart`: the press labels a SignInNeeded with the form's agent label.
+- `lib/src/ui/planning_embedding.dart`: `WindowTaskStarts` takes any refused start through the same words (the
+  label asked of `agentsOn`, the agent's name where it does not answer); the `PlanningRefusal` carries them as its
+  `detail`, which the board reads first, and on SignInNeeded adds "Needs you offers its sign-in." and calls the new
+  `onSignInNeeded`.
+- `lib/src/ui/shell.dart`: `onSignInNeeded` puts the machine's sign-in (`_signInOn(SigningIn())`, asked as after a
+  failed start) into `SignInsNeeded`; dropped with forgotten machines and on dispose.
+- `lib/src/app/attention.dart`, `lib/src/ui/attention_view.dart`, `lib/src/app/commands.dart`: a new row kind
+  `signIn` (id `sign in <machine>/<agent>`), titled *Sign in to <agent> on <machine>*, its primary command
+  *Sign in on <machine>* (`signIn.needed`) starting the machine's sign-in and its terminal; opened, it shows the
+  `SignInPanel` and, where the machine refused a `LOOPBACK_OVER_SSH` sign-in, that it is made at the machine itself or
+  carried with "Import from this computer…" under its Agents & providers. Resolved, it reads *Signed in* under
+  *Recently resolved*.
+- `lib/src/app/fleet_model.dart`: a work tile's restart (`startAgain`) refused by Start is said in the same words; a
+  typed refusal (EarlierWorkWaits, UpstreamUnreadable, NoSuchDestination, now SignInNeeded) escaped it uncaught before.
+- `lib/src/app/start_agents.dart`: a refused row of *Start agents* takes the same words, labelled.
+- Start paths checked: the Planning board's ordered start and *Discuss an idea* (from the board and from a project,
+  both `WindowTaskStarts`); the start dialog (*Work*, a project's *Tasks*), *Recreate* and *Show what … would open*,
+  all `Operations.run`; a work tile's *Start it again* (`FleetModel.startAgain`); *Start agents*. The machine's own
+  printed refusals (exit codes with lines) keep their path through `reasonFirst` and `startWords`.
+- Decided: the *Needs you* row comes only from a Planning start; the start dialog keeps its `SignInPanel` on the
+  operation. A row is dropped only by its own sign-in's answer (or its machine forgotten), not by a sign-in made
+  elsewhere; the next refused start of the same agent adds no second row.
+
+Guards, each seen red first (break from a copy, restored, `cmp` equal, `git diff --stat` unchanged):
+
+- `test/app/start_refusals_test.dart`
+  - missing sign-in names agent and machine / every other refusal in its own words — break: `startRefusalWords`
+    skips `startRefusalSaid`; red: "Expected: contains 'claude is not signed in on build-host' Actual: 'build-host
+    refused (SignInNeeded: agent claude).'" and "Expected: not contains 'EarlierWorkWaits'".
+  - the label — break: `who` ignores the label; red: "Expected: a string starting with 'Claude Code is not signed
+    in on build-host' Actual: 'claude is not signed in …'".
+  - through Start's stream — break: the mapping's SignInNeeded case renamed; red: "emitted !
+    org.fuin.porelo.Tasks1.SignInNeeded {agent: claude}".
+  - unknown refusal — breaks: detail branch and no-detail branch to `'$said'`; red: "Actual:
+    'org.fuin.porelo.Tasks1.SomethingNew {detail: The moon is in the way}'" and "Expected: contains 'build-host
+    refused' Actual: 'org.fuin.porelo.Tasks1.SomethingNew {which: moon}'".
+  - an operation refused for a sign-in — break: `onError` back to `'$error'`; red: "Expected: a string starting
+    with 'claude is not signed in on build-host' Actual: 'claude is not signed in on the machine, …'".
+- `test/app/fleet_model_test.dart`, a restart refused for a missing sign-in — break: the catch narrowed to
+  `UnsupportedError`; red: the refusal escaped `FleetModel.startAgain` uncaught.
+- `test/features/planning_discussion.feature`, *A discussion Start refused for a sign-in names the agent and
+  machine, and Needs you signs it in* — breaks: the words back to `error.toString()` (red: "Expected: contains
+  'Another Agent is not signed in on this machine' Actual: 'org.fuin.porelo.Tasks1.SignInNeeded {agent:
+  other-agent} …'"); `onSignInNeeded` not called (red: "Found 0 widgets with text \"Sign in to Another Agent on this
+  machine\""); `SignInsNeeded` never drops (red: "Expected: no matching candidates Actual: Found 1 widget with key
+  'needs-you-sign-in'").
+- `test/ui/window_task_starts_test.dart`: the VaultLocked expectation reads the window's words now.
+
+Not checked: the remote-host row's LOOPBACK note has no test (words only); a real host's SignInNeeded was not
+replayed (no VM, no window); `test/ui` and `test/features` were not run whole.

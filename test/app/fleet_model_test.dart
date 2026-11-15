@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/fleet_model.dart';
+import 'package:porelo_frontend/src/app/start_refusals.dart';
 
 /// A backend that is reachable and useless: the socket opens and nothing is ever answered.
 class _Wedged implements FleetBackend {
@@ -1040,6 +1041,20 @@ void main() {
     refusing.dispose();
   });
 
+  // Harm: a work tile's restart refused for a missing sign-in fails without a word, or says the wire's type name, and
+  // the person does not know which agent needs signing in, or where.
+  test('a restart refused for a missing sign-in says which agent on which machine', () async {
+    final fleet = FleetModel(_SignInNeeded(), machine: 'build-host');
+    await fleet.connect();
+    final task = fleet.tasks.single;
+
+    await fleet.startAgain(task);
+
+    expect(fleet.status, contains('claude is not signed in on build-host'));
+    expect(fleet.status, isNot(contains('SignInNeeded')));
+    fleet.dispose();
+  });
+
   test('connecting again does not hear the same question twice', () async {
     // A dropped tunnel reconnects; every reconnect listening once more would redraw the whole
     // frame once more for every question, for as long as the window is open.
@@ -1140,6 +1155,25 @@ void main() {
     expect(backend.projectsRead, greaterThan(before));
     fleet.dispose();
   });
+}
+
+/// A machine whose one project lists one task, and whose Start refuses it because its agent is not signed in.
+class _SignInNeeded extends _Machine {
+  @override
+  Future<List<Project>> projects() async => <Project>[
+    Project.from(const <String, dynamic>{'name': 'demo', 'file': '/srv/demo/project.yml', 'tasks': 1}),
+  ];
+
+  @override
+  Future<List<Task>> tasks() async => <Task>[
+    Task.from(const <String, dynamic>{'name': 'porelo-demo-fix', 'task': 'fix', 'project': 'demo'}),
+  ];
+
+  @override
+  Future<StartProgress> startAgain({required String project, required String task, String? repository}) async =>
+      throw startRefusalSaid(
+        const VarlinkException('org.fuin.porelo.Tasks1.SignInNeeded', <String, dynamic>{'agent': 'claude'}),
+      );
 }
 
 /// A machine whose watch fails with [error] and then ends.

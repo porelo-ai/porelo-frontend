@@ -724,6 +724,7 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     String? callerKey,
   }) async {
     discussed.add((project: project, agent: agent, model: model, mode: mode, prompt: prompt, result: result));
+    if (discussionFails case final failure?) throw failure;
     if (discussionAnswer case final answer?) return answer;
     final ordered = FakeBackend.ordered;
     if (ordered == null) throw UnimplementedError('No scenario starts a discussion on this stand-in.');
@@ -731,6 +732,9 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     bringsUp(Task.from({'name': started.container, 'task': started.task, 'project': project, 'running': true}));
     return StartProgress(container: started.container, exitCode: 0, action: StartAction.create);
   }
+
+  /// What Start refuses a discussion with, as the machine sends it, where set, instead of starting one.
+  Object? discussionFails;
 
   /// What Start answers a discussion with, where set, instead of starting one.
   StartProgress? discussionAnswer;

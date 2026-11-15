@@ -135,7 +135,7 @@ void main() {
         throwsA(
           isA<PlanningRefusal>()
               .having((refusal) => refusal.name, 'name', 'VaultLocked')
-              .having(planningFailureWords, 'words', contains('The vault is locked.')),
+              .having(planningFailureWords, 'words', contains('The vault on laptop is locked')),
         ),
       );
     });

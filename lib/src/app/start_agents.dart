@@ -8,6 +8,7 @@ import 'commands.dart' show whyNotStart;
 import 'fleet_backend.dart';
 import 'missing_credentials.dart' show MissingCredentialWords;
 import 'quiet_after_dispose.dart';
+import 'start_refusals.dart' show SignInNeeded, startRefusalWords;
 import 'task_names.dart';
 
 /// How far one repository's start has got.
@@ -577,7 +578,7 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
         } on Exception catch (refused) {
           row
             ..state = AgentStart.refused
-            ..refusal = _words(refused, lastLine);
+            ..refusal = _words(refused, lastLine, machine: machine.label, agents: agents);
         }
         if (opening == _opened) notifyListeners();
       }
@@ -596,10 +597,14 @@ class StartAgents extends ChangeNotifier with QuietAfterDispose {
         : 'The machine could not say whether work can start (${refusal.simpleName}).';
   }
 
-  static String _words(Exception refused, String? lastLine) {
+  static String _words(Exception refused, String? lastLine, {required String machine, required List<Agent> agents}) {
     final said = switch (refused) {
       VarlinkException(:final parameters) when parameters['message'] is String => parameters['message'] as String,
-      _ => '$refused',
+      SignInNeeded(:final agent) => startRefusalWords(
+        refused.labelled(agents.where((each) => each.name == agent).firstOrNull?.label ?? ''),
+        machine: machine,
+      ),
+      _ => startRefusalWords(refused, machine: machine),
     };
     // The final reply carries only a code; what was printed before it is why.
     return refused is OperationFailed && lastLine != null ? '$said $lastLine' : said;

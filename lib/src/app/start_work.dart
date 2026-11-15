@@ -6,6 +6,7 @@ import 'package:porelo_frontend/client.dart';
 import 'agent_sign_in.dart';
 import 'fleet_backend.dart';
 import 'quiet_after_dispose.dart';
+import 'start_refusals.dart' show SignInNeeded;
 import 'task_names.dart';
 import 'templates.dart';
 
@@ -904,7 +905,18 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
       fromACheckout: checkout != null,
       agent: agentToRun,
       signsIn: signIn.served == true,
-      send: _startOn(on),
+      send: _labelled(_startOn(on)),
+    );
+  }
+
+  /// [send], its refusal for a missing sign-in calling the agent as the machine's `Agents` labels it.
+  Stream<StartEvent> Function() _labelled(Stream<StartEvent> Function() send) {
+    final labels = {for (final each in agents) each.name: each.label};
+    return () => send().transform(
+      StreamTransformer<StartEvent, StartEvent>.fromHandlers(
+        handleError: (error, stack, sink) =>
+            sink.addError(error is SignInNeeded ? error.labelled(labels[error.agent] ?? '') : error, stack),
+      ),
     );
   }
 

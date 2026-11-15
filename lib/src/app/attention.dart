@@ -8,6 +8,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart'
     show PlanningAttention, PlanningBoard, PlanningBoards, PlanningNeedsYou, PlanningProvider, PlanningPutAway;
 
+import 'agent_sign_in.dart' show SigningIn;
 import 'clearance.dart';
 import 'fleet_model.dart';
 import 'host_pull_requests.dart';
@@ -15,6 +16,7 @@ import 'machines.dart';
 import 'operations.dart';
 import 'organization_source.dart';
 import 'settings.dart';
+import 'start_refusals.dart' show SignInsNeeded;
 import 'window_log.dart';
 
 /// Why a tile sits where it does. Earlier is more urgent.
@@ -115,6 +117,9 @@ enum AttentionKind {
   /// A host forge's pull requests cannot be read: a forge token is missing, or the machine refused.
   pullRequestsRefused,
 
+  /// A start was refused because an agent is not signed in on its machine.
+  signIn,
+
   /// A person's operation failed.
   operation,
 
@@ -199,6 +204,17 @@ class Attention extends ChangeNotifier {
   }
 
   HostRuns? _hostRuns;
+
+  /// The sign-ins starts were refused for, each a row until its machine says the agent is signed in.
+  SignInsNeeded? get signInsNeeded => _signInsNeeded;
+  set signInsNeeded(SignInsNeeded? needed) {
+    _signInsNeeded?.removeListener(_changed);
+    _signInsNeeded = needed;
+    needed?.addListener(_changed);
+    _changed();
+  }
+
+  SignInsNeeded? _signInsNeeded;
 
   PlanningBoards? _planning;
 
@@ -382,6 +398,14 @@ class Attention extends ChangeNotifier {
           row,
         );
       }
+    }
+    for (final signingIn in _signInsNeeded?.all ?? const <SigningIn>[]) {
+      yield AttentionRow(
+        AttentionKind.signIn,
+        'sign in ${signingIn.machine}/${signingIn.agent}',
+        signingIn.machine,
+        signingIn,
+      );
     }
     final causes = this.causes;
     for (final cause in causes.where((cause) => cause.demand == Demand.question)) {
@@ -590,6 +614,7 @@ class Attention extends ChangeNotifier {
       final HostStop stop => '${stop.project} server: ${stop.text}',
       final PullRequestRow each => 'pull request ${each.request.title} of ${each.project.name}',
       final PullRequestsRefusedRow each => each.words,
+      final SigningIn each => 'sign in to ${each.who} on ${each.machine}',
       final PlanningAttention planning =>
         'story ${planning.story.id} of ${planning.project}'
             '${planning.ended == null ? '' : ', its work ended'}${planning.reason.isEmpty ? '' : ': ${planning.reason}'}',
@@ -1371,6 +1396,7 @@ class Attention extends ChangeNotifier {
     _settings?.removeListener(_changed);
     _operations?.removeListener(_changed);
     _hostRuns?.removeListener(_changed);
+    _signInsNeeded?.removeListener(_changed);
     _connections?.removeListener(_changed);
     _tokensOf?.removeListener(_changed);
     _homeservers?.removeListener(_changed);

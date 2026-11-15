@@ -47,6 +47,7 @@ import '../app/authentication.dart';
 import '../app/backups.dart';
 import '../app/emergency_stop.dart';
 import '../app/missing_credentials.dart';
+import '../app/start_refusals.dart' show SignInsNeeded;
 import '../app/start_agents.dart';
 import '../app/start_work.dart';
 import '../app/templates.dart';
@@ -499,6 +500,9 @@ class _ShellState extends State<Shell> {
   /// start**, only the sign-in.
   final _signInsAfterAFailedStart = <String, SigningIn>{};
 
+  /// The sign-ins a planned start was refused for, offered under *Needs you* until the machine says signed in.
+  final _signInsNeeded = SignInsNeeded();
+
   /// What waits on the end of a start to offer its sign-in, by operation: taken off when the window goes.
   final _waitsForAFailedStart = <String, VoidCallback>{};
 
@@ -577,6 +581,7 @@ class _ShellState extends State<Shell> {
     _attention = Attention(widget.machines, widget.settings, widget.operations)
       ..hostRuns = _hostRuns
       ..planning = _planning
+      ..signInsNeeded = _signInsNeeded
       ..addListener(_storeMissingForgeTokens);
     if (widget.planning?.reports case final reports?) {
       reports.onProblem = _planningReportProblem;
@@ -584,7 +589,8 @@ class _ShellState extends State<Shell> {
     }
     widget.planning?.starts
       ?..chooseDiscussion = _chooseDiscussion
-      ..onDiscussionStarted = _discussionStarted;
+      ..onDiscussionStarted = _discussionStarted
+      ..onSignInNeeded = _offerTheSignInAStartNeeded;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
@@ -670,6 +676,17 @@ class _ShellState extends State<Shell> {
         whyNot: fleet.backend.whyNoDiscussion,
       ),
     );
+  }
+
+  /// A planned start on [machine] refused because [agent] is not signed in there: its sign-in is offered under
+  /// *Needs you*, asked of the machine as after a failed start, until the machine says it is signed in.
+  void _offerTheSignInAStartNeeded(Machine machine, FleetBackend on, String agent, String label) {
+    if (!mounted || !widget.machines.all.contains(machine)) return;
+    _signInsNeeded.need(machine.name, agent, () {
+      final signIn = _signInOn(SigningIn(), machine);
+      unawaited(signIn.ask(on, agent: agent, label: label));
+      return signIn;
+    });
   }
 
   /// A discussion the person started is shown at once: its session open under *Running*, as a task started by hand.
@@ -3021,6 +3038,7 @@ class _ShellState extends State<Shell> {
   /// Leaves the waits on sign-ins of a machine no longer watched: their connections close, and the sign-ins go on
   /// on the machine.
   void _leaveTheSignInsOfForgottenMachines() {
+    _signInsNeeded.keepOnly((name) => widget.machines.all.any((each) => each.name == name));
     bool forgotten(SigningIn signIn) {
       final on = signIn.on;
       return on != null && !widget.machines.all.any((each) => identical(widget.machines.watching(each)?.backend, on));
@@ -7466,10 +7484,12 @@ class _ShellState extends State<Shell> {
     }
     widget.planning?.starts
       ?..chooseDiscussion = null
-      ..onDiscussionStarted = null;
+      ..onDiscussionStarted = null
+      ..onSignInNeeded = null;
     _attention
       ..removeListener(_storeMissingForgeTokens)
       ..dispose();
+    _signInsNeeded.dispose();
     _forgeTokens.dispose();
     _planning?.dispose();
     widget.machines.pauseAutomaticRetries();

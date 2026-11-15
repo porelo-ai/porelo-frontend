@@ -7,6 +7,7 @@ import 'package:porelo_frontend/src/app/desk.dart';
 
 import '../client/models.dart';
 import 'fleet_backend.dart';
+import 'start_refusals.dart' show startRefusalWords;
 import 'window_log.dart';
 
 /// Where a long operation got to.
@@ -385,8 +386,10 @@ class Operations extends ChangeNotifier {
       onError: (Object error) => _finish(
         operation,
         OperationState.failed,
-        // Failure is reported as failure and in words, never as a silent stop.
-        error is OperationFailed && error.exitCode == 69 && operation.steps.isNotEmpty ? '' : '$error',
+        // Failure is reported as failure and in words, never as a silent stop nor as the wire's type name.
+        error is OperationFailed && error.exitCode == 69 && operation.steps.isNotEmpty
+            ? ''
+            : startRefusalWords(error, machine: machine.isEmpty ? 'the machine' : machine),
       ),
       onDone: () {
         // onError already settled it; a stream may do both.

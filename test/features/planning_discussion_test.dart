@@ -19,6 +19,14 @@ import './step/the_machine_refuses_the_discussions_start_with_exit_saying.dart';
 import './step/the_windows_log_says.dart';
 import './step/the_planning_board_says_once_its_reason_first.dart';
 import './step/no_notice_says_a_start_was_refused.dart';
+import './step/the_machine_refuses_the_discussions_start_because_is_not_signed_in.dart';
+import './step/the_planning_board_says_in_words.dart';
+import './step/i_go_to_what_needs_a_person.dart';
+import './step/what_needs_a_person_offers_to_sign_in_to_on.dart';
+import './step/i_press.dart';
+import './step/i_close_the_terminal_of_the_signin.dart';
+import './step/the_signin_ends_as.dart';
+import './step/what_needs_a_person_no_longer_offers_to_sign_in_to_on.dart';
 import './step/the_windows_log_says_nothing_of.dart';
 
 void main() {
@@ -66,6 +74,21 @@ void main() {
         await noNoticeSaysAStartWasRefused(tester);
       },
     );
+    testWidgets('''A discussion Start refused for a sign-in names the agent and machine, and Needs you signs it in''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await theMachineRefusesTheDiscussionsStartBecauseIsNotSignedIn(tester, 'other-agent');
+      await iOfferTheIdeaForDiscussion(tester, 'Let the board show who is at work');
+      await iStartTheDiscussionWithTheAgent(tester, 'other-agent');
+      await thePlanningBoardSaysInWords(tester, 'Another Agent is not signed in on this machine');
+      await iGoToWhatNeedsAPerson(tester);
+      await whatNeedsAPersonOffersToSignInToOn(tester, 'Another Agent', 'this machine');
+      await iPress(tester, 'Sign in on this machine');
+      await iCloseTheTerminalOfTheSignin(tester);
+      await theSigninEndsAs(tester, 'SIGNED_IN');
+      await whatNeedsAPersonNoLongerOffersToSignInToOn(tester, 'Another Agent', 'this machine');
+    });
     testWidgets('''A discussion Start turned away is neither logged as refused nor noticed''', (tester) async {
       await bddSetUp(tester);
       await theWindowsLogIsKept(tester);
