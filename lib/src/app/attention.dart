@@ -781,6 +781,7 @@ class Attention extends ChangeNotifier {
             demand: Demand.question,
             task: fleet.tasks.where((task) => task.name == settled.task).firstOrNull,
             settled: settled,
+            planned: _settings?.plannedOffer(machine.name, settled.task),
           ),
         );
         if (open.containsKey(row.id) || !_outcomesKept.add(keyOf(machine.name, settled))) continue;

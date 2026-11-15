@@ -958,6 +958,12 @@ void main() {
 
       expect(stageResults.single.$3, order.offer);
       expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+      final kept = (await loaded()).plannedOffer('laptop', 'porelo-demo-porelo')!;
+      expect(
+        (kept.role, kept.worksOn),
+        ('MAIN', 'PI68 of ST366, in analysis'),
+        reason: 'its row says what it works on',
+      );
     });
 
     // Harm: a machine that cannot answer for a moment, as right after it is reached again, holds the stage's end back

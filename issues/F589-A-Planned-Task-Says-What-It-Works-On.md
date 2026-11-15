@@ -74,9 +74,18 @@ start · on <host> · working*, and below it *No build yet* / *Running the agent
 - Not checked: a real order of a stage reaches the row only with the planner's PL143 screen (pinned in
   [F591](README.md#f591)); here the offer is kept directly. *Rework* is not told from *Implementing*: no order says it.
 
+- **After the reading** by another model (Claude Sonnet). Red, fixed: a role or issues this build cannot keep threw
+  after Start had made the task, so its end went unreported; now they are dropped and the offer kept (test *a role or
+  issues that cannot be kept are dropped, and the offer is kept*, red with the throw back). Yellows fixed: a start
+  found again by its key keeps role and issues (`PendingStart`), tested in *a stage found again by its key after a
+  restart…* (red without them, `Actual: (null, null)`); a ran-out question's tile carries its offer too (no test).
+
 ## To be checked
 
 - Whether the task should carry the issue's name instead of the repository's (*pi*): that name is Start's, so
   Agent Core and Agent Planner say whether an order names one; the window then shows it.
 - With Agent Core, whether a task that may not push names a `buildReader` at all.
 - *Rework*: whether an order can say that its task reworks, so its row says *rework* rather than *implementing*.
+- From the reading, left: the running view's tabs (`lib/src/ui/running_view.dart`) carry no offer, read only as tabs;
+  no test of `cause-works-on`, of a stage with a build already, or of an older entry's row; a role this build does
+  not know reads as *Implementing*.

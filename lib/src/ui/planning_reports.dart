@@ -489,6 +489,8 @@ class WindowTaskReports {
           task: task.task,
           run: task.run,
           result: pending.result,
+          role: pending.role,
+          issues: pending.issues,
         );
       }
     }

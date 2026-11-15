@@ -39,6 +39,8 @@ class PendingStart {
     required this.story,
     this.discussion = false,
     this.result,
+    this.role,
+    this.issues = const [],
   });
 
   /// The offer, which is also the task's key, and the machine it was handed to Start on.
@@ -53,6 +55,12 @@ class PendingStart {
 
   /// The file a planned stage hands back, kept with its task once found again; null for work that pushes.
   final String? result;
+
+  /// The order's role and issues, kept with its task once found again so its row says what it works on.
+  final String? role;
+
+  /// The issues the order's task works on.
+  final List<String> issues;
 }
 
 /// A task this window started for a planner's offer, kept by its machine and container with what a report needs.
@@ -1071,10 +1079,10 @@ class Settings extends ChangeNotifier {
     if (ended != null && !_validEnd(ended)) throw ArgumentError('An end must be a short line.');
     if (run != null && !_validLabel(run)) throw ArgumentError('A run must be a short name.');
     if (result != null && !_validResultName(result)) throw ArgumentError('A result must be a plain file name.');
-    if (role != null && !_validRole(role)) throw ArgumentError('A role must be a short upper-case word.');
-    if (issues.length > _mostIssues || !issues.every(_validLabel)) {
-      throw ArgumentError('At most $_mostIssues issues, each a short name, can be kept.');
-    }
+    // Only said on the task's row: a role or issues this build cannot keep are dropped, never let refuse the keeping
+    // of a task Start has already made, whose end would then go unreported.
+    final keptRole = role != null && _validRole(role) ? role : null;
+    final keptIssues = issues.length <= _mostIssues && issues.every(_validLabel) ? issues : const <String>[];
     _planningOffers[(machine, container)] = PlannedOffer(
       machine: machine,
       container: container,
@@ -1086,8 +1094,8 @@ class Settings extends ChangeNotifier {
       ended: ended,
       run: run,
       result: result,
-      role: role,
-      issues: List.unmodifiable(issues),
+      role: keptRole,
+      issues: List.unmodifiable(keptIssues),
     );
     _kept(offer);
     await _write();
@@ -1411,6 +1419,16 @@ class Settings extends ChangeNotifier {
               final String result when _validResultName(result) => result,
               _ => null,
             },
+            role: switch (value['role']) {
+              final String role when _validRole(role) => role,
+              _ => null,
+            },
+            issues: switch (value['issues']) {
+              final List<dynamic> issues
+                  when issues.length <= _mostIssues && issues.every((each) => each is String && _validLabel(each)) =>
+                List.unmodifiable(issues.cast<String>()),
+              _ => const [],
+            },
           );
           if (_handedOffers.contains(offer) && _validPending(kept)) _pendingStarts[offer] = kept;
         }
@@ -1456,6 +1474,8 @@ class Settings extends ChangeNotifier {
           'story': pending.story,
           'discussion': pending.discussion,
           'result': ?pending.result,
+          'role': ?pending.role,
+          if (pending.issues.isNotEmpty) 'issues': pending.issues,
         },
     ],
     'discussions': [

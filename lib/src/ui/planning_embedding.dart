@@ -265,6 +265,8 @@ class WindowTaskStarts {
             story: story,
             discussion: discussion,
             result: discussion ? null : task.result,
+            role: discussion ? null : task.role,
+            issues: discussion ? const [] : task.issues,
           ),
           null => null,
         },

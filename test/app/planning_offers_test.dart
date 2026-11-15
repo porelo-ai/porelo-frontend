@@ -184,6 +184,29 @@ void main() {
     }
   });
 
+  // Harm: a role or issues this build cannot keep refuse the keeping of a task Start already made, so its end is never
+  // reported.
+  test('a role or issues that cannot be kept are dropped, and the offer is kept', () async {
+    final store = MemorySettingsStore();
+    final settings = await loaded(store);
+
+    await settings.rememberPlanningOffer(
+      machine: 'laptop',
+      container: 'porelo-demo-pi',
+      offer: 'offer-1',
+      provider: 'porelo-planner',
+      project: 'demo',
+      story: 'ST366',
+      task: 'pi',
+      role: 'main; rm',
+      issues: ['PI68', 'x' * 500],
+    );
+
+    final kept = (await loaded(store)).plannedOffer('laptop', 'porelo-demo-pi')!;
+    expect((kept.offer, kept.role, kept.reportable), ('offer-1', null, true));
+    expect(kept.issues, isEmpty);
+  });
+
   // Harm: a stored result name that is a path reaches the machine's result read.
   test('a stored result that is no plain file name is dropped on load', () async {
     final store = MemorySettingsStore({
