@@ -36,6 +36,8 @@ import './step/the_planning_move_error_no_longer_says.dart';
 import './step/i_fold_the_planning_phase.dart';
 import './step/planning_start_was_requested_for_in.dart';
 import './step/i_unfold_closed_planning_states.dart';
+import './step/planning_warns_that_carries_issues_along_whose_files_are_deleted.dart';
+import './step/planning_issues_of_are_in.dart';
 import './step/i_hold_planning_story_over.dart';
 import './step/the_planning_drop_hint_names.dart';
 import './step/i_drop_the_planning_story.dart';
@@ -210,6 +212,19 @@ void main() {
       await iDragPlanningStoryTo(tester, 'ST293', 'Finished');
       await planningStoryIsNotBeingSaved(tester, 'ST293');
       await thePlanningStoryIsIn(tester, 'ST293', 'Finished');
+    });
+    testWidgets('''A story finished takes its issues in Review along, said with their files deleted''', (tester) async {
+      await bddSetUp(tester);
+      await iSearchPlanningFor(tester, 'ST10');
+      await iUnfoldClosedPlanningStates(tester);
+      await iDragPlanningStoryTo(tester, 'ST10', 'Finished');
+      await planningWarnsThatCarriesIssuesAlongWhoseFilesAreDeleted(tester, 'ST10');
+      await iConfirmThePlanningMove(tester);
+      await noPlanningMoveWarningIsShown(tester);
+      await planningStoryIsNotBeingSaved(tester, 'ST10');
+      await thePlanningStoryIsIn(tester, 'ST10', 'Finished');
+      await iExpandPlanningStoryIssues(tester, 'ST10');
+      await planningIssuesOfAreIn(tester, 'HO12 BT24 BT25', 'ST10', 'Finished');
     });
     testWidgets('''Hover names the destination''', (tester) async {
       await bddSetUp(tester);

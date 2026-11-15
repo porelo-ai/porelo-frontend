@@ -19,6 +19,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A story moved to *Finished* on the *Planning* board takes its issues in *Review* along in the same move, after the warning, which now says their files are deleted as each is closed; the board shows the story and those issues in *Finished*.
 - A task a planner ordered says on its row which issues of which story it works on and at which stage, *<issue> of <story>, in analysis*; an analysis, an estimate or a reader shows no *No build yet* until it has pushed, and implementing work keeps its build line as before.
 - A planned stage (*In analysis*, *Estimation*) is started with its repository read only, no gate and nothing pushed, and with its issues as the planner holds them; at its end the window hands its `analysis.json` or `estimate.json` to the planner, or one line of why there is none, and reports the end only once the planner answered. A refused result is said with the planner's faults; a planner not reached is tried again.
 - A repository's row on a project's page shows how it stands against central (at central, N commits ahead of central, central moved on, cannot say) as a state chip of its own at the row's end, toned by what it asks of the person, instead of one clause in the row's grey line; a row that is ahead offers *Bring it to central…* in its menu.

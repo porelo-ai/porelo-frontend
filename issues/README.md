@@ -207,6 +207,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f546"></a>[F546](F546-The-Window-Reads-Task-Containers-In-Both-Name-Shapes.md) | S | - | The window, its stand-in machine and the walk steps take a task container's name in both of porelod's shapes, `porelo_<task>` for project porelo and `porelo-<project>_<task>` for every other project, and judge a new task's name against the shape it will get. |
 | <a id="f541"></a>[F541](F541-Each-Repository-Of-Default-Says-Where-It-Is-And-Can-Be-Taken-Out.md) | M | [F540](README.md#f540) | Each repository row on the page of default shows its upstream, the checkout's path or the remote's address, and offers to take it out of default as the command line does: its mirror stays, and each deploy key forgotten is said. |
 | <a id="f547"></a>[F547](F547-The-Window-Signs-Its-Own-Calls-To-The-Planner.md) | S | - | The window's own calls to porelo-planner, handing in an idea and setting the planner's log level, go through the planning screen's signed call, so a planner that refuses bearer tokens still takes them, and a planner that cannot prove itself is named in the window's log, not trusted. |
+| <a id="f594"></a>[F594](F594-A-Story-Finished-On-The-Board-Takes-Its-Issues-In-Review.md) | XS | - | Story ST365: the window carries porelo-planner's screen at the commit where a story moved to Finished on the board carries its issues in the last done state along, the board shows them and the story in Finished, and the move's warning says their files are deleted. |
 
 ## Rework
 

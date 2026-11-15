@@ -145,6 +145,19 @@ Feature: Planning moves are saved at once
         Then planning story {'ST293'} is not being saved
         And the planning story {'ST293'} is in {'Finished'}
 
+    # Harm: a story finished on the board leaves its issues in Review, or the person is not told their files go.
+    Scenario: A story finished takes its issues in Review along, said with their files deleted
+        When I search planning for {'ST10'}
+        And I unfold closed planning states
+        And I drag planning story {'ST10'} to {'Finished'}
+        Then planning warns that {'ST10'} carries issues along whose files are deleted
+        When I confirm the planning move
+        Then no planning move warning is shown
+        And planning story {'ST10'} is not being saved
+        And the planning story {'ST10'} is in {'Finished'}
+        When I expand planning story issues {'ST10'}
+        Then planning issues {'HO12 BT24 BT25'} of {'ST10'} are in {'Finished'}
+
     # Harm: a missing target hint makes a drop ambiguous.
     Scenario: Hover names the destination
         When I hold planning story {'ST293'} over {'Review'}
