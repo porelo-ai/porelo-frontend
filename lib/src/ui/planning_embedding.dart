@@ -359,6 +359,9 @@ class WindowTaskStarts {
         run: listed?.run,
         // A planned stage hands its result file in before its end is reported.
         result: task.result,
+        // What the task works on, for its tile and row.
+        role: task.role,
+        issues: task.issues,
       );
       if (settings.plannedOffer(machine.name, container) case final kept?) onConfirmed?.call(kept);
     }

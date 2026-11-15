@@ -131,6 +131,59 @@ void main() {
     );
   });
 
+  // Harm: after a restart a planned task no longer says which issues it works on, or at which stage; or an entry an
+  // earlier build kept reads as a stage it never was.
+  test('a planned task keeps its role and issues across a restart; an older entry has none', () async {
+    final store = MemorySettingsStore({
+      'planningOffers': [
+        {
+          'machine': 'laptop',
+          'container': 'porelo-demo-old',
+          'offer': 'offer-0',
+          'provider': 'porelo-planner',
+          'project': 'demo',
+          'story': 'ST1',
+          'task': 'old',
+        },
+        {
+          'machine': 'laptop',
+          'container': 'porelo-demo-bad',
+          'offer': 'offer-9',
+          'provider': 'porelo-planner',
+          'project': 'demo',
+          'story': 'ST1',
+          'task': 'bad',
+          'role': 'main; rm',
+          'issues': ['PI68', 7],
+        },
+      ],
+    });
+    final settings = await loaded(store);
+    await settings.rememberPlanningOffer(
+      machine: 'laptop',
+      container: 'porelo-demo-pi',
+      offer: 'offer-1',
+      provider: 'porelo-planner',
+      project: 'demo',
+      story: 'ST366',
+      task: 'pi',
+      result: 'analysis.json',
+      role: 'MAIN',
+      issues: ['PI68', 'PI69'],
+    );
+
+    final again = await loaded(store);
+    final kept = again.plannedOffer('laptop', 'porelo-demo-pi')!;
+    expect((kept.role, kept.stage, kept.worksOn), ('MAIN', 'In analysis', 'PI68, PI69 of ST366, in analysis'));
+    expect(kept.issues, ['PI68', 'PI69']);
+    expect(kept.writesCode, isFalse);
+    for (final older in ['porelo-demo-old', 'porelo-demo-bad']) {
+      final entry = again.plannedOffer('laptop', older)!;
+      expect((entry.role, entry.stage, entry.worksOn, entry.writesCode), (null, null, null, true), reason: older);
+      expect(entry.issues, isEmpty, reason: older);
+    }
+  });
+
   // Harm: a stored result name that is a path reaches the machine's result read.
   test('a stored result that is no plain file name is dropped on load', () async {
     final store = MemorySettingsStore({

@@ -73,6 +73,8 @@ class PlannedOffer {
     this.landedReported = false,
     this.result,
     this.resultHanded,
+    this.role,
+    this.issues = const [],
   });
 
   /// The machine's name, as the window shows it.
@@ -114,6 +116,35 @@ class PlannedOffer {
   /// after that. Null while none was.
   final String? resultHanded;
 
+  /// The order's role (`MAIN`, `BUILDER`, `READER`), or null where an earlier build kept none.
+  final String? role;
+
+  /// The issues the order's task works on, in the order's order; none where an earlier build kept none.
+  final List<String> issues;
+
+  /// The stage the task works at, in the board's word: `In analysis` and `Estimation` for a stage that hands back
+  /// its analysis or estimate, `Reading` for a reader, `Implementing` for work that pushes; null where an earlier
+  /// build kept no role.
+  String? get stage => switch ((role, result)) {
+    (null, _) => null,
+    (_, 'analysis.json') => 'In analysis',
+    (_, 'estimate.json') => 'Estimation',
+    ('READER', _) => 'Reading',
+    _ => 'Implementing',
+  };
+
+  /// Whether its task writes code that is pushed and built; a stage that reads or hands back a result does not, and
+  /// one an earlier build kept is taken to.
+  bool get writesCode => stage == null || stage == 'Implementing';
+
+  /// What it works on, for its tile and row: `PI68 of ST366, in analysis`; null where an earlier build kept no
+  /// issues or role.
+  String? get worksOn {
+    final at = stage;
+    if (at == null || issues.isEmpty || story == null) return null;
+    return '${issues.join(', ')} of $story, ${at.toLowerCase()}';
+  }
+
   /// Whether it can be reported: an earlier build kept no project or task for it.
   bool get reportable => provider != null && project != null && story != null && task != null;
 
@@ -133,6 +164,8 @@ class PlannedOffer {
         landedReported: landedReported ?? this.landedReported,
         result: result,
         resultHanded: resultHanded ?? this.resultHanded,
+        role: role,
+        issues: issues,
       );
 }
 
@@ -1025,6 +1058,8 @@ class Settings extends ChangeNotifier {
     String? ended,
     String? run,
     String? result,
+    String? role,
+    List<String> issues = const [],
   }) async {
     if (!_validOffer(machine, container, offer)) {
       throw ArgumentError('A machine, a container and an offer of at most 200 characters must be given.');
@@ -1036,6 +1071,10 @@ class Settings extends ChangeNotifier {
     if (ended != null && !_validEnd(ended)) throw ArgumentError('An end must be a short line.');
     if (run != null && !_validLabel(run)) throw ArgumentError('A run must be a short name.');
     if (result != null && !_validResultName(result)) throw ArgumentError('A result must be a plain file name.');
+    if (role != null && !_validRole(role)) throw ArgumentError('A role must be a short upper-case word.');
+    if (issues.length > _mostIssues || !issues.every(_validLabel)) {
+      throw ArgumentError('At most $_mostIssues issues, each a short name, can be kept.');
+    }
     _planningOffers[(machine, container)] = PlannedOffer(
       machine: machine,
       container: container,
@@ -1047,6 +1086,8 @@ class Settings extends ChangeNotifier {
       ended: ended,
       run: run,
       result: result,
+      role: role,
+      issues: List.unmodifiable(issues),
     );
     _kept(offer);
     await _write();
@@ -1249,6 +1290,12 @@ class Settings extends ChangeNotifier {
 
   static bool _validEnd(String value) => value.length <= 400 && !value.contains(RegExp(r'[\x00-\x1f]'));
 
+  /// The most issues one planned task keeps.
+  static const _mostIssues = 64;
+
+  /// A role as an order names it.
+  static bool _validRole(String value) => RegExp(r'^[A-Z]{1,32}$').hasMatch(value);
+
   /// A result file's name as an order names it: a plain file name, never a path.
   static bool _validResultName(String value) => RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$').hasMatch(value);
 
@@ -1267,6 +1314,8 @@ class Settings extends ChangeNotifier {
           final run = value['run'];
           final result = value['result'];
           final resultHanded = value['resultHanded'];
+          final role = value['role'];
+          final issues = value['issues'];
           _planningOffers[(machine, container)] = PlannedOffer(
             machine: machine,
             container: container,
@@ -1281,6 +1330,14 @@ class Settings extends ChangeNotifier {
             landedReported: reportable && value['landedReported'] == true,
             result: reportable && result is String && _validResultName(result) ? result : null,
             resultHanded: reportable && resultHanded is String && _validEnd(resultHanded) ? resultHanded : null,
+            role: reportable && role is String && _validRole(role) ? role : null,
+            issues:
+                reportable &&
+                    issues is List<dynamic> &&
+                    issues.length <= _mostIssues &&
+                    issues.every((issue) => issue is String && _validLabel(issue))
+                ? List.unmodifiable(issues.cast<String>())
+                : const [],
           );
         }
       }
@@ -1379,6 +1436,8 @@ class Settings extends ChangeNotifier {
             if (kept.landedReported) 'landedReported': true,
             'result': ?kept.result,
             'resultHanded': ?kept.resultHanded,
+            'role': ?kept.role,
+            if (kept.issues.isNotEmpty) 'issues': kept.issues,
           },
         },
     ],

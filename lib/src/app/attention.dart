@@ -61,6 +61,7 @@ class Tile {
     this.task,
     this.questions = const <Prompt>[],
     this.settled,
+    this.planned,
   });
 
   /// Which machine it belongs to. On the tile, never a mode of the window.
@@ -80,6 +81,9 @@ class Tile {
 
   /// The last question about this work that was answered or ran out, or null.
   final Prompt? settled;
+
+  /// What this window keeps of the planner's order its work was started for, or null for work no planner ordered here.
+  final PlannedOffer? planned;
 
   /// Whether what the tile says is a guess rather than something the machine knows.
   bool get inferred => demand == Demand.quiet;
@@ -465,8 +469,14 @@ class Attention extends ChangeNotifier {
 
   List<Tile> _causesOf(Tile tile) {
     final task = tile.task;
-    Tile cause(Demand demand, [List<Prompt> questions = const <Prompt>[]]) =>
-        Tile(machine: tile.machine, fleet: tile.fleet, demand: demand, task: task, questions: questions);
+    Tile cause(Demand demand, [List<Prompt> questions = const <Prompt>[]]) => Tile(
+      machine: tile.machine,
+      fleet: tile.fleet,
+      demand: demand,
+      task: task,
+      questions: questions,
+      planned: tile.planned,
+    );
     return <Tile>[
       for (final question in tile.questions) cause(Demand.question, <Prompt>[question]),
       if (task != null && tile.questions.isEmpty && task.activity == Activity.waiting && !_answeredSince(tile))
@@ -1250,6 +1260,7 @@ class Attention extends ChangeNotifier {
             task: task,
             questions: questions,
             settled: settled.where((each) => each.task == task.name).firstOrNull,
+            planned: _settings?.plannedOffer(machine.name, task.name),
           ),
         );
       }

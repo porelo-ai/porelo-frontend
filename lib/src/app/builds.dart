@@ -10,12 +10,16 @@ abstract final class BuildsSaid {
   /// What a work tile says about builds, or null when there is nothing to say: a headline that
   /// stands out, and the commit, the jobs and the age under it: the build is a step that matters, and
   /// the jobs are only extra.
-  static BuildLine? onTheTile(Task task, {DateTime? now}) {
+  ///
+  /// A task that writes no code ([writesCode] false: a planned stage that reads or hands back a result) has no build
+  /// line until it has pushed, so it never reads as a build that has not run.
+  static BuildLine? onTheTile(Task task, {DateTime? now, bool writesCode = true}) {
     final reader = task.buildReader;
     if (reader == null || reader.isEmpty) return null;
     final problem = task.buildProblem ?? '';
     if (problem.isNotEmpty) return BuildLine(BuildLook.none, 'Builds not followed', problem);
     final latest = task.builds?.firstOrNull;
+    if (latest == null && !writesCode) return null;
     if (latest == null) {
       return BuildLine(BuildLook.none, 'No build yet', 'no push yet; its builds are read from $reader');
     }

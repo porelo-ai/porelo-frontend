@@ -965,6 +965,8 @@ class _CauseFacts extends StatelessWidget {
             outcome == null ? TileWords._headline(tile) : TileWords._settledWords(outcome),
             key: const Key('cause-sentence'),
           ),
+          if (tile.planned?.worksOn case final worksOn?)
+            Text(worksOn, key: const Key('cause-works-on'), style: text.bodySmall),
           // A question can come before the list names its work; said, so nobody looks for it in Work.
           if (task == null && outcome == null)
             Text(
@@ -973,7 +975,8 @@ class _CauseFacts extends StatelessWidget {
               style: text.bodySmall,
             ),
           if (task != null)
-            if (BuildsSaid.onTheTile(task) case final said?) _BuildLine(said, scheme, folded: false),
+            if (BuildsSaid.onTheTile(task, writesCode: tile.planned?.writesCode ?? true) case final said?)
+              _BuildLine(said, scheme, folded: false),
           if (task != null && task.phase.isNotEmpty)
             Text(task.phase, key: const Key('tile-phase'), style: text.bodySmall),
           ...TileSaid.of(context, tile, onTheRow: false),
@@ -1746,6 +1749,15 @@ class WorkRow extends StatelessWidget {
                                         ),
                                       ],
                                     ),
+                                    // What a planned task works on, which its name, the machine's, does not say.
+                                    if (tile.planned?.worksOn case final worksOn?)
+                                      Text(
+                                        worksOn,
+                                        key: const Key('tile-works-on'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: text.bodySmall,
+                                      ),
                                     if (!beside) state,
                                   ],
                                 ),
@@ -1777,7 +1789,8 @@ class WorkRow extends StatelessWidget {
               ],
             ),
             if (task != null)
-              if (BuildsSaid.onTheTile(task) case final said?) _BuildLine(said, scheme, folded: folded),
+              if (BuildsSaid.onTheTile(task, writesCode: tile.planned?.writesCode ?? true) case final said?)
+                _BuildLine(said, scheme, folded: folded),
             if (task != null && task.phase.isNotEmpty)
               Text(task.phase, key: const Key('tile-phase'), style: text.bodySmall),
             // Folded too: its pushes begin to be refused, and nothing else would say it is coming.
