@@ -64,3 +64,6 @@ machine* for a task that ran on the host. Agent Planner asked whose the line is:
   second `Actual: 'This window does not know task pi-2 on this machine.'`.
 - **Runs:** `dart analyze lib test integration_test tool` No issues found. `planning_story_test.dart`: 48 passed;
   `test/features/planning*_test.dart` with `story_work_test.dart`: 124 passed.
+- **Box:** the build box's Maven `test` phase (format check, `dart analyze --fatal-infos`, `porelo_host`'s tests and the
+  whole `flutter test` suite) at `5f5c3e7`: BUILD SUCCESS, 4634 passed, 37 skipped, 0 failed. The same at `aea0709`,
+  with every issue of the branch: BUILD SUCCESS, 4640 passed, 37 skipped, 0 failed.

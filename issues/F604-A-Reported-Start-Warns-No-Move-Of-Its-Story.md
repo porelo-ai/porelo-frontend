@@ -90,6 +90,11 @@ window handed on that the planner does not report yet; it is stopped first.* wit
   `test/ui` whole: 1445 passed, 1 failed: *a window that reaches its planner shows the planning screen in place of
   the line* (`planning_placeholder_test.dart`), which fails the same on the unchanged code in this worktree.
 
+- **Box:** the build box's Maven `test` phase (format check, `dart analyze --fatal-infos`, `porelo_host`'s tests and the
+  whole `flutter test` suite) at `5f5c3e7`: BUILD SUCCESS, 4634 passed, 37 skipped, 0 failed, the placeholder test above
+  included, so its failure is this laptop's alone. The same at `aea0709`, with every issue of the branch: BUILD SUCCESS,
+  4640 passed, 37 skipped, 0 failed.
+
 ## To be checked
 
 - A start still truly unreported (the planner not reached for its started report) is warned of by the screen's run
@@ -97,4 +102,3 @@ window handed on that the planner does not report yet; it is stopped first.* wit
   at work itself.
 - A report whose run replays an offer whose start failed earlier throws that start's error without asking Start
   again; the window then takes the report as not taken and sends it again on its next start.
-- `planning_placeholder_test.dart`'s failure above, red on `main` in this worktree: its cause was not looked into.

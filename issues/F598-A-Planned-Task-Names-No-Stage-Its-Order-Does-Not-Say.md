@@ -71,6 +71,7 @@ task is expected.
   `planner_test`, which start or reach a local planner over a socket; `planner_ideas_test` and `planner_test` fail
   the same with `lib/` as on the branch's base.
 
-## To be checked
-
-- Why the planner process and socket tests in `test/app` fail in this worktree's environment, on the base too.
+- **Box:** the build box's Maven `test` phase (format check, `dart analyze --fatal-infos`, `porelo_host`'s tests and the
+  whole `flutter test` suite) at `5f5c3e7`: BUILD SUCCESS, 4634 passed, 37 skipped, 0 failed, the planner tests above
+  included, so their failures are this laptop's alone. The same at `aea0709`, with every issue of the branch: BUILD
+  SUCCESS, 4640 passed, 37 skipped, 0 failed.

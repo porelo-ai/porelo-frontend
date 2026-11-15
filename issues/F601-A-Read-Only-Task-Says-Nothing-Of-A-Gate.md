@@ -62,3 +62,6 @@ host, both with a result file): the tile said *Commits at the gate: nothing is r
 - **Runs:** `dart analyze lib test integration_test tool` No issues found. `planned_task_line_test.dart`: 8 passed;
   with `task_read_only_test`, `online_class_test`, `work_as_designed_test`, `work_page_faults_test`,
   `test/features/builds_test.dart`, `test/client/builds_test.dart`: 74 passed.
+- **Box:** the build box's Maven `test` phase (format check, `dart analyze --fatal-infos`, `porelo_host`'s tests and the
+  whole `flutter test` suite) at `5f5c3e7`: BUILD SUCCESS, 4634 passed, 37 skipped, 0 failed. The same at `aea0709`,
+  with every issue of the branch: BUILD SUCCESS, 4640 passed, 37 skipped, 0 failed.

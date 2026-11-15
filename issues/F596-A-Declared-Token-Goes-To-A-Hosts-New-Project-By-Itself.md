@@ -122,6 +122,9 @@ setup is out: a host is set up before any project is put on it.
   `organization_carry_choice_test` 6, `repository_on_the_machine_test` 18, `porelo_organization_source_test --plain-name
   token` 2: all passed.
 
+- **Box:** the build box's Maven `test` phase (format check, `dart analyze --fatal-infos`, `porelo_host`'s tests and the
+  whole `flutter test` suite) at `aea0709`: BUILD SUCCESS, 4640 passed, 37 skipped, 0 failed.
+
 ## To be checked
 
 - A project not reached in the 300 s pass stays waiting and is not handed on again by itself: its row and the placing
