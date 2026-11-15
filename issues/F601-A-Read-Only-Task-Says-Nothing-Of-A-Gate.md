@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F601",
   "title": "A Read-Only Task Says Nothing Of A Gate",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "High",
   "rank": 121,

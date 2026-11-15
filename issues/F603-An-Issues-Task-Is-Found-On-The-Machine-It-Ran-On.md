@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F603",
   "title": "An Issue's Task Is Found On The Machine It Ran On",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "High",
   "rank": 123,

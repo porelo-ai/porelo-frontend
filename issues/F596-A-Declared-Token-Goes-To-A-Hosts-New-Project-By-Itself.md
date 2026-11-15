@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F596",
   "title": "A Declared Token Goes To A Host's New Project By Itself",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 116,

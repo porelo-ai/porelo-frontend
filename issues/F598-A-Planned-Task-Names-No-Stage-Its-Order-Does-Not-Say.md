@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F598",
   "title": "A Planned Task Names No Stage Its Order Does Not Say",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "High",
   "rank": 118,

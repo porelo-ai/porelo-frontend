@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F604",
   "title": "A Reported Start Warns No Move Of Its Story",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 124,
