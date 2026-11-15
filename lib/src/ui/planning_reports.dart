@@ -396,28 +396,47 @@ class WindowTaskReports {
     }
   }
 
-  /// Stops [container] on [machine], forgets its offer and, once it is stopped, reports the end of [kept]'s task to
-  /// [source] after the reports before it; a stop that fails reports nothing, so the planner still names the task.
+  /// Stops [container] on [machine] where it still runs and, once it stands stopped, reports the end of [kept]'s task
+  /// to [source] after the reports before it. The offer is kept until the planner took that end, so a later Stop, which
+  /// names the task again, stops or ends what is still left; a task the window keeps no reportable offer for is
+  /// forgotten once stopped.
   Future<void> _stopAndEnd(Machine machine, String container, PlannedOffer? kept, PlanningSource? source) async {
-    try {
-      await stopOn(machine, container);
-    } on Object catch (error) {
-      _say(kept?.provider ?? (source == null ? null : starts.providerOf(source)), kept?.project, error);
+    final listed = tasksOn(machine.name)?.where((each) => each.name == container).firstOrNull;
+    // A stop asked again of a task already stopped only tells its end.
+    if (listed == null || listed.running) {
+      try {
+        await stopOn(machine, container);
+      } on Object catch (error) {
+        _say(kept?.provider ?? (source == null ? null : starts.providerOf(source)), kept?.project, error);
+        return;
+      }
+    }
+    if (kept == null || !kept.reportable || source == null) {
       await settings.forgetPlanningOffer(machine.name, container);
       return;
     }
-    await settings.forgetPlanningOffer(machine.name, container);
-    if (kept == null || !kept.reportable || source == null || !_endsTold.add(kept.offer)) return;
+    if (!_endsWaiting.add(kept.offer)) return;
     // Queued, so it follows a start's report still waiting for its answer: an end before its start is refused.
-    unawaited(_queued(() => _endStopped(kept, source)));
+    unawaited(
+      _queued(() async {
+        try {
+          await _endStopped(kept, source);
+        } finally {
+          _endsWaiting.remove(kept.offer);
+        }
+      }),
+    );
   }
 
-  /// The offers whose task the window stopped and reported ended, so their end is told once.
-  final _endsTold = <String>{};
+  /// The offers whose stopped task's end waits to be told, so it is told once.
+  final _endsWaiting = <String>{};
 
   /// Reports that the window stopped [kept]'s task: with how its agent ended where the machine lists a new end, else
-  /// now, unfinished. The answer's orders belong to a stopped run and are not started.
+  /// now, unfinished. The answer's orders belong to a stopped run and are not started. The offer is forgotten once the
+  /// planner took the end or holds nothing to end; one it could not be told keeps the offer for the next Stop.
   Future<void> _endStopped(PlannedOffer kept, PlanningSource source) async {
+    final current = settings.plannedOffer(kept.machine, kept.container);
+    if (current == null || current.offer != kept.offer) return;
     final listed = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
     final ended = switch (listed?.agentEnded) {
       final ended? when plannedEndKey(ended) != kept.ended => plannedTaskEnded(ended, landed: plannedLandings(listed!)),
@@ -440,11 +459,19 @@ class WindowTaskReports {
         ended: ended,
       );
     } on PlanningRefusal catch (refusal) {
-      // The planner holds nothing of the task any more: there is nothing to end.
-      if (refusal.name != 'TaskNotAnswered') _say(kept.provider, kept.project, refusal);
+      // The planner holds nothing of the task any more, or never heard it started (its start's report was dropped by
+      // the stop, or never taken): there is nothing to end, and no error.
+      final nothingToEnd =
+          refusal.name == 'TaskNotAnswered' || refusal.name == 'TaskEventConflict' && !current.startedReported;
+      if (!nothingToEnd) {
+        _say(kept.provider, kept.project, refusal);
+        if (_transient(refusal) || refusal.name != 'TaskEventConflict') return;
+      }
     } on Object catch (error) {
       _say(kept.provider, kept.project, error);
+      return;
     }
+    await settings.forgetPlanningOffer(kept.machine, kept.container);
   }
 
   Future<void> _sweepNow() async {
@@ -1071,10 +1098,9 @@ class WindowTaskReports {
     if (error is PlanningRefusal) {
       if (error.name == 'TaskNotAnswered') return _voidTask(kept);
       if (!_transient(error)) _refused.add(attempt);
-      // The planner offered the task and its start was answered with a refusal, which halts the run while the planner
-      // may hold the task started: the task stops and its end is told, so the story can start again. A conflict binds
-      // nothing, and the task is kept.
-      if (event == PlanningTaskEvent.started && !_transient(error) && error.name != 'TaskEventConflict') {
+      // The planner's save of the start was refused, which halts the run while it holds the task started: the task
+      // stops and its end is told, so the story can start again. Any other refusal halts nothing, and the task is kept.
+      if (event == PlanningTaskEvent.started && _haltsTheRun.contains(error.name)) {
         _voided.add(kept.offer);
         if (starts.machineNamed(kept.machine) case final machine?) {
           await _stopAndEnd(machine, kept.container, kept, source);
@@ -1185,6 +1211,10 @@ class WindowTaskReports {
 
   static String _endKey(PlanningTaskEnded ended) =>
       plannedEndKey(AgentEnded(at: ended.at, finished: ended.finished, unpushed: ended.unpushed));
+
+  /// The planner's refusals of a save of its board, which halt the run when a task's start is reported: the store's
+  /// own (a board moved on, a push only partly made, a move it cannot save), each of which only a save throws.
+  static const _haltsTheRun = {'StaleRevision', 'PartlySaved', 'MoveNotAllowed'};
 
   // The planner did not answer at all, or was not asked since no watched machine named the project's repository yet; a
   // later change of a machine tries again.

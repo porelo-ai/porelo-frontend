@@ -29,6 +29,7 @@ void main() {
   late _Machine machine;
   late _Planner planner;
   late List<(Machine, String)> stopped;
+  late Object? stopFails;
   late List<(String, String, List<(PlanningTaskOrder, PlanningTaskStarted)>)> shown;
   late List<(String, String, Map<String, Object?>)> handed;
   late List<(String, String)> removed;
@@ -65,7 +66,13 @@ void main() {
       starts: starts,
       sourceNamed: (name) => name == _provider && (reached?.call() ?? true) ? planner : null,
       tasksOn: (name) => name == on.name ? machine.listed : null,
-      stopOn: (machine, container) async => stopped.add((machine, container)),
+      stopOn: (machine, container) async {
+        if (stopFails case final error?) {
+          stopFails = null;
+          throw error;
+        }
+        stopped.add((machine, container));
+      },
       removeOn: (machine, container) async => removed.add((machine, container)),
       takeIdeaOn: (machine, container, id) async {
         if (takeFails case final error?) throw error;
@@ -100,6 +107,7 @@ void main() {
     machine = _Machine();
     planner = _Planner();
     stopped = [];
+    stopFails = null;
     shown = [];
     handed = [];
     removed = [];
@@ -578,13 +586,119 @@ void main() {
     expect((await loaded()).planningOffer('laptop', started.container), isNull);
   });
 
+  // Harm: a stop that failed leaves the task running and started at the planner, and no later Stop reaches it.
+  test('a stop that failed keeps the offer, and the next Stop stops the task and ends it', () async {
+    final (starts, reports) = window();
+    final problems = <String>[];
+    reports.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
+    final order = (await plannedOrders()).first;
+    final started = await starts(planner, 'demo', 'ST291', order);
+    await reports.idle;
+    stopFails = StateError('laptop did not answer.');
+
+    await reports.stop(planner, 'demo', 'ST291', [started]);
+    await reports.idle;
+    expect(stopped, isEmpty);
+    expect(planner.calls.map((call) => call.event), [
+      PlanningTaskEvent.started,
+    ], reason: 'nothing stopped, nothing ended');
+    expect((await loaded()).planningOffer('laptop', started.container), order.offer, reason: 'kept for the next Stop');
+
+    await reports.stop(planner, 'demo', 'ST291', [started]);
+    await reports.idle;
+    expect(stopped, [(_laptop, started.container)]);
+    expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+    expect((await loaded()).planningOffer('laptop', started.container), isNull);
+    expect(problems, hasLength(1));
+  });
+
+  // Harm: an end the planner did not take is lost, so the task stays started there and its story cannot start again.
+  test('an end the planner did not take keeps the offer, and the next Stop tells it again', () async {
+    final (starts, reports) = window();
+    final order = (await plannedOrders()).first;
+    final started = await starts(planner, 'demo', 'ST291', order);
+    await reports.idle;
+    planner.answers.add(const PlanningRefusal('TimedOut', {}, 'The planner did not answer in time.'));
+
+    await reports.stop(planner, 'demo', 'ST291', [started]);
+    await reports.idle;
+    expect((await loaded()).planningOffer('laptop', started.container), order.offer, reason: 'kept for the next Stop');
+
+    machine.end(started.container, {'at': 'the end', 'finished': false});
+    await reports.stop(planner, 'demo', 'ST291', [started]);
+    await reports.idle;
+    expect(stopped, [(_laptop, started.container)], reason: 'a task already stopped is not stopped again');
+    expect(planner.calls.map((call) => call.event), [
+      PlanningTaskEvent.started,
+      PlanningTaskEvent.ended,
+      PlanningTaskEvent.ended,
+    ]);
+    expect((await loaded()).planningOffer('laptop', started.container), isNull);
+  });
+
+  // Harm: a person is told of an error where the planner simply holds nothing of the task any more.
+  test('an end the planner no longer answers for is not said, and the offer goes', () async {
+    final (starts, reports) = window();
+    final problems = <Object>[];
+    reports.onProblem = (provider, project, error) => problems.add(error);
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+    planner.answers.add(const PlanningRefusal('TaskNotAnswered', {}, 'The planner no longer answers for this task.'));
+
+    await reports.stop(planner, 'demo', 'ST291', [started]);
+    await reports.idle;
+
+    expect(problems, isEmpty);
+    expect((await loaded()).planningOffer('laptop', started.container), isNull);
+  });
+
+  // Harm: a person is told of an error for the end of a task whose start the stop took over before the planner heard
+  // it, or the end goes before its start.
+  test('a Stop while the start waits for its answer tells the end after it, quietly where none started', () async {
+    final (starts, reports) = window();
+    final problems = <Object>[];
+    reports.onProblem = (provider, project, error) => problems.add(error);
+    planner.hold = Completer<void>();
+    planner.answers
+      ..add(_answer(const []))
+      ..add(const PlanningRefusal('TaskEventConflict', {}, 'The task has not started or already ended differently.'));
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await pumpEventQueue();
+
+    await reports.stop(planner, 'demo', 'ST291', [started]);
+    planner.hold!.complete();
+    await reports.idle;
+
+    expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+    expect(problems, isEmpty);
+    expect((await loaded()).planningOffer('laptop', started.container), isNull);
+  });
+
+  // Harm: the person's running agent is stopped for a refusal that halts nothing.
+  for (final refusal in const [
+    PlanningRefusal('TimedOut', {}, 'The planner did not answer in time.'),
+    PlanningRefusal('InvalidSettings', {}, 'The report was not valid.'),
+    PlanningRefusal('TaskEventConflict', {}, 'The offer does not match this task.'),
+  ]) {
+    test('a start refused with ${refusal.name} stops nothing and ends nothing', () async {
+      final (starts, reports) = window();
+      planner.answers.add(refusal);
+      final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+      await reports.idle;
+
+      expect(stopped, isEmpty);
+      expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started]);
+      expect(settings.planningOffer('laptop', started.container), isNotNull);
+    });
+  }
+
   // Harm: a task whose start the planner refused after offering it stays started there, so its story can never be
   // started again; or it runs on unreported, or its end is told twice.
   test('a start the planner refused is stopped and its end reported once', () async {
     final (starts, reports) = window();
     final problems = <String>[];
     reports.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
-    planner.answers.add(const PlanningRefusal('SaveRefused', {}, 'The board could not be saved.'));
+    planner.answers.add(const PlanningRefusal('StaleRevision', {}, 'The board could not be saved.'));
     final order = (await plannedOrders()).first;
 
     final started = await starts(planner, 'demo', 'ST291', order);

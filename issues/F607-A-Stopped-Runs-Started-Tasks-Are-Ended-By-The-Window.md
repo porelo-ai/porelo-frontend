@@ -56,30 +56,49 @@ Planner, room 2026-11-15 16:23Z).
   `STARTED` as at work and takes an `ENDED` report for such an offer, also one halted by a refused `STARTED` save, and
   whose screen hands every task at work to `PlanningTaskChanges.stop`.
 - **(a)** `WindowTaskReports.stop` (`lib/src/ui/planning_reports.dart`) stops each task on the machine it was started
-  on and forgets its offer as before; once the stop went through, it reports the task's end through the kept offer,
-  queued behind a start's report still waiting, so the planner never hears an end before a start. The end is the
-  agent's own where the machine lists a new one, else now, unfinished, *The window stopped the task.* A stop that
-  fails reports nothing, so a later Stop names the task again; a forgotten offer and a set of ends told keep it to
-  one end. `TaskNotAnswered` to that end is quiet: the planner holds nothing to end.
-- **(c)** A `STARTED` report the planner answers with a refusal that is neither transient, `TaskNotAnswered` (already
-  stopped and voided) nor `TaskEventConflict` (it binds nothing; the task is kept, as before) stops the task and
-  reports its end the same way, once; the refusal is still said. A Start that fails inside the window, before any
-  `STARTED` report, reports no end: the planner holds such an offer `OFFERED`, and its core refuses an `ENDED` for
-  an offer that has not started.
-- **Tests** in `test/ui/window_task_reports_test.dart`: *a stop stops each task on the machine it was started on,
-  reports its end once and forgets its offer* (a second Stop of the same task and the agent's later end tell
-  nothing more) and *a start the planner refused is stopped and its end reported once*; *a new offer in the container
-  of a stopped task is reported* now expects the first task's end between the two starts.
-- **Red:** (a) `Which: at location [1]` of the calls, only `PlanningTaskEvent.started` sent; (c) `Expected:
-  [(Machine, String):(Instance of 'Machine', porelo-demo-porelo)]  Actual: []`, nothing stopped.
-- **Runs (laptop, one file each):** `window_task_reports_test.dart` 71 passed; `window_task_starts_test.dart` 25
+  on, where the machine does not list it stopped already, then reports its end through the kept offer, queued behind
+  a start's report still waiting, so the planner never hears an end before a start. The end is the agent's own where
+  the machine lists a new one, else now, unfinished, *The window stopped the task.*
+  - The offer is forgotten only once the planner took the end, answered `TaskNotAnswered` (it holds nothing of the
+    task), or `TaskEventConflict` for a task whose start it was never heard to take (the stop dropped the start's
+    report, or the planner never took it): those two are not said. A stop that fails, or an end not taken for another
+    reason, is said and keeps the offer, so the next Stop, which names the task again, stops or ends what is left;
+    after a restart of the window too, since the offer is kept in the settings. One end waits at a time per offer.
+- **(c)** A `STARTED` report refused with one of the store's save refusals, `StaleRevision`, `PartlySaved` or
+  `MoveNotAllowed`, stops the task and reports its end the same way; the refusal is still said. cb9d13a's
+  `WorkRun.report` gives the halted save no name of its own: `save` marks the run halted and rethrows the store's
+  `StoreException`, which the app names by its kind (`Problems`). These three are the kinds only a save throws; the
+  reads before it can throw `Unreachable` or `Unreadable`, which halt nothing, and so do `InvalidSettings`,
+  `WorkRecordUnavailable`, `TaskEventConflict` and the transient refusals, which keep the task as before. A Start that
+  fails inside the window, before any `STARTED` report, reports no end: the planner holds that offer `OFFERED` and
+  refuses an end for it.
+- **Tests** in `test/ui/window_task_reports_test.dart`:
+  - *a stop stops each task on the machine it was started on, reports its end once and forgets its offer*;
+  - *a start the planner refused is stopped and its end reported once* (`StaleRevision`);
+  - *a stop that failed keeps the offer, and the next Stop stops the task and ends it*;
+  - *an end the planner did not take keeps the offer, and the next Stop tells it again*;
+  - *an end the planner no longer answers for is not said, and the offer goes*;
+  - *a Stop while the start waits for its answer tells the end after it, quietly where none started*;
+  - *a start refused with TimedOut / InvalidSettings / TaskEventConflict stops nothing and ends nothing*;
+  - *a new offer in the container of a stopped task is reported* now expects the first task's end between the starts.
+- **Red:**
+  - before any change: (a) `Which: at location [1]` of the calls, only `PlanningTaskEvent.started` sent; (c)
+    `Expected: [(Machine, String):(Instance of 'Machine', porelo-demo-porelo)]  Actual: []`;
+  - the follow-up tests against the first version of this change: a failed stop and a failed end `Expected:
+    '00000000-0000-4000-8000-000000000000'  Actual: <null>` (offer forgotten); the Stop beside a waiting start
+    `Expected: empty  Actual: [PlanningRefusal:The task has not started or already ended differently.]`; a start refused
+    with `InvalidSettings` `Expected: empty  Actual: [(Machine, String):(Instance of 'Machine', porelo-demo-porelo)]`.
+    The `TaskNotAnswered`, `TimedOut` and `TaskEventConflict` cases held already and guard what stays.
+- **Runs (laptop, one file each):** `window_task_reports_test.dart` 78 passed; `window_task_starts_test.dart` 25
   passed; `story_work_test.dart` 29 passed; `planning_moves_test.dart` 24 passed. `dart analyze lib test
-  integration_test tool`: No issues found. The whole suite runs on the build box at the branch's head.
+  integration_test tool`: No issues found.
 
 ## To be checked
 
-- The name the planner's refusal carries when its `STARTED` save is refused and the run halted was not seen live;
-  the window ends the task on any refusal but the three above.
+- Which of the three save refusals the live run met was not seen; a halted save that the app names otherwise keeps the
+  task running, and the next Stop ends it through (a).
+- After a restart of the window, a start whose report was refused may be reported again; the planner then answers
+  `TaskNotAnswered` for a halted run, and the window stops the task and forgets its offer without an end.
 - Whether a Start that fails inside the window after the offer was handed should reach the planner in another way is
   porelo-planner's to say: today it keeps that offer `OFFERED` and refuses an end for it.
-- The reading by another model has not run.
+- The reading by another model found the points above fixed here; its reading of this fix has not run.
