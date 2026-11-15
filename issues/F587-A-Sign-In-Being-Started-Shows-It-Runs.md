@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F587",
   "title": "A Sign-In Being Started Shows It Runs",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 13,
@@ -49,6 +49,36 @@ button grey, with no mark, step or time, for a long while, then went on.
   failed while the machine still builds): a widget test that a start the stand-in holds shows the mark, the
   sentence and a time that moves with the clock, and the log hint after two minutes; a model test that a start the
   stand-in answers after the single call's deadline still ends started; each seen red.
+
+## Built
+
+- `lib/src/client/porelo_client.dart`: `PoreloClient.signInStartWithin` (15 minutes, its doc says why: the first
+  start builds the login image, for which the contract names no bound). `agentSignInStart` opens a connection of its
+  own as a call that may wait long (`RelayUse.stream()`, as the wait does, so on Windows it takes a stream's place
+  rather than one of a call's) and calls `AgentSignInStart` under that deadline instead of `answerWithin`;
+  `MethodNotFound` still becomes `FeatureNotSupported`, `SignInRefused` still its own error.
+- `lib/src/app/agent_sign_in.dart`: `SigningIn` takes an optional clock (the system's by default), notes when a
+  start begins, and answers `startingFor`, the time the start that is out has run, null while none is.
+- `lib/src/ui/sign_in_panel.dart`: `SignInPanel` is stateful; while `starting` it shows the window's progress mark
+  (`Sizes.mark`, `Sizes.spinnerStroke`), the sentence of the plan, the time so far (*1 min 5 s so far.*), ticking
+  every second through a timer that runs only while a start is out (as *Needs you* keeps its countdown moving), and
+  from `SignInPanel.lookFurtherAfter` (two minutes) on *If this does not move, <machine>'s log says why.* Every other
+  state, and the grey *Sign in* with its reason, is as before.
+- **The log hint is words only**: the window has no view of a machine's own log (it opens a task's logs, by task
+  name, and nothing of `porelod`'s), so there is no *Open the log* to reach from the panel. The stand-ins needed no
+  change: the features' `FakeBackend` already holds a start (`signInStartHeld`), and the model test's backends
+  answer at once.
+- Guards, each seen red:
+  - `test/client/agent_sign_in_test.dart` *a start is not cut by the deadline of a single call* (over the mock
+    daemon, the level at which the deadline lives, in place of the model test the plan names: a stand-in for
+    `FleetBackend` has no deadline). Break: the call under `answerWithin` again. Red: `Disconnected:
+    org.fuin.porelo.Tasks1.AgentSignInStart was not answered within 0 seconds`.
+  - `test/ui/sign_in_starting_test.dart` *a start that is out shows the mark, the time so far as it moves, and where
+    to look after two minutes*. Break 1: the ticker never started. Red: `Found 0 widgets with text "1 min 5 s so
+    far."`. Break 2: the mark replaced by an empty box. Red: `Found 0 widgets with type "CircularProgressIndicator"`.
+    Break 3: the hint after four minutes. Red: `Found 0 widgets with text "If this does not move, gorge's log says`.
+- Not checked: a real first sign-in against a machine that builds its login image; `test/ui` and `test/features`
+  whole (only the files named in the hand-over ran).
 
 ## Acceptance
 

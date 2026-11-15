@@ -12,7 +12,7 @@ import 'tokens.dart';
 ///
 /// The login runs in a container on the machine: the person follows its link and pastes its code in a terminal
 /// attached to it there, never into this program.
-class SignInPanel extends StatelessWidget {
+class SignInPanel extends StatefulWidget {
   /// Constructor taking the sign-in, why *Sign in* waits on something else ([busy]), and what opens a shut vault.
   const SignInPanel({required this.signingIn, this.busy, this.onOpenTheVault, this.keyed = 'start', super.key});
 
@@ -28,10 +28,44 @@ class SignInPanel extends StatelessWidget {
   /// What its controls' keys begin with, so two panels on one screen are told apart.
   final String keyed;
 
+  /// How long a start runs before the panel says where to look when it does not move.
+  static const lookFurtherAfter = Duration(minutes: 2);
+
+  @override
+  State<SignInPanel> createState() => _SignInPanelState();
+}
+
+class _SignInPanelState extends State<SignInPanel> {
+  SigningIn get signingIn => widget.signingIn;
+  String? get busy => widget.busy;
+  Future<void> Function()? get onOpenTheVault => widget.onOpenTheVault;
+  String get keyed => widget.keyed;
+
+  // The time a start has run is said to the second, so it ticks while a start is out.
+  Timer? _ticker;
+
+  void _keepTicking(bool wanted) {
+    if (wanted && _ticker == null) {
+      _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else if (!wanted && _ticker != null) {
+      _ticker!.cancel();
+      _ticker = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: signingIn,
     builder: (context, _) {
+      _keepTicking(signingIn.starting);
       final signIn = signInCommand(signingIn, busy: busy);
       final import = importTheSignInCommand(signingIn, busy: busy);
       final anyway = signInAnywayCommand(signingIn, busy: busy);
@@ -50,7 +84,7 @@ class SignInPanel extends StatelessWidget {
             if (signingIn.asking)
               Text('Asking ${signingIn.machine} whether ${signingIn.who} is signed in there…')
             else if (signingIn.starting)
-              Text('Starting the sign-in to ${signingIn.who} on ${signingIn.machine}…')
+              _starting(context, signingIn.startingFor ?? Duration.zero)
             else if (signingIn.importing)
               Text('Importing the sign-in of ${signingIn.who} found on ${signingIn.machine}…'),
             if (signingIn.words case final words?) Text(words, key: Key('$keyed-sign-in-words')),
@@ -115,4 +149,38 @@ class SignInPanel extends StatelessWidget {
       );
     },
   );
+
+  /// The start that is out: the mark, what the machine likely does, the time so far and, once it is long, where to
+  /// look.
+  Widget _starting(BuildContext context, Duration since) {
+    final machine = signingIn.machine;
+    final seconds = since.inSeconds.remainder(60);
+    final time = since.inMinutes == 0 ? '$seconds s' : '${since.inMinutes} min $seconds s';
+    return Row(
+      key: Key('$keyed-sign-in-starting'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: Space.small,
+      children: <Widget>[
+        const SizedBox.square(
+          dimension: Sizes.mark,
+          child: CircularProgressIndicator(strokeWidth: Sizes.spinnerStroke),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: Space.tight,
+            children: <Widget>[
+              Text(
+                '$machine is preparing the sign-in to ${signingIn.who}; the first sign-in on a machine builds its '
+                'login container, which can take a few minutes.',
+              ),
+              Text('$time so far.', key: Key('$keyed-sign-in-starting-for')),
+              if (since >= SignInPanel.lookFurtherAfter)
+                Text("If this does not move, $machine's log says why.", key: Key('$keyed-sign-in-look-further')),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }

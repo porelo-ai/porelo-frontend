@@ -142,12 +142,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f587"></a>[F587](F587-A-Sign-In-Being-Started-Shows-It-Runs.md) | S | - | While a machine starts an agent's sign-in, which the first time builds its login image, the sign-in panel shows a progress mark, what the machine does, the time so far and what to do if it does not answer, and the start waits as long as the machine may take, instead of one sentence beside a grey button. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
@@ -156,6 +150,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f473"></a>[F473](F473-The-Window-Calls-The-Host-Programs-It-Has-Now.md) | S | - | Every call the window makes on a host names a program the host has now: root's org status, org refresh and person purge by /usr/sbin/porelo-host, and a project's central state from the person's own daemon there, so no machine page fails on a removed program. |
 | <a id="f557"></a>[F557](F557-A-Snapshot-Window-Sets-Up-WSL-With-Snapshots.md) | XS | - | Story ST50, a machine and a host reached from Windows: a snapshot window sets Porelo up in a WSL distribution from Porelo's snapshots repository, and a release window from its releases repository. |
 | <a id="f588"></a>[F588](F588-A-Start-From-The-Board-Opens-Its-Task-At-Once.md) | M | - | A discussion or a task started from the Planning board takes the start dialog's way: its operation opens at once with the preparation's steps, then the task's terminal; the board shows the story in analysis while it runs; and the counts the window says agree with what runs. |
+| <a id="f587"></a>[F587](F587-A-Sign-In-Being-Started-Shows-It-Runs.md) | S | - | While a machine starts an agent's sign-in, which the first time builds its login image, the sign-in panel shows a progress mark, what the machine does, the time so far and what to do if it does not answer, and the start waits as long as the machine may take, instead of one sentence beside a grey button. |
 | <a id="f586"></a>[F586](F586-A-Start-Refused-For-A-Sign-In-Says-Which.md) | M | - | A start the machine refuses with SignInNeeded says in words which agent on which machine needs a sign-in, on the Planning board, a start's operation and every other start path, and leads to where that sign-in is made, instead of the raw error org.fuin.porelo.Tasks1.SignInNeeded {agent: claude}. |
 | <a id="f509"></a>[F509](F509-A-Hosts-Browser-Address-Reaches-Only-Its-Own-Forward.md) | S | - | The forge and homeserver addresses the window gives a browser for a host's card reach only the card's own forward, on IPv6 loopback as on IPv4, never another local program that listens there. |
 | <a id="f508"></a>[F508](F508-A-Tasks-Clipboard-Write-Asks-First.md) | M | - | A task's write to this computer's clipboard through OSC 52 is never silent: every write is held and asked about in its own terminal's view, with a preview of what would be written. |

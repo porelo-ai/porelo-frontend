@@ -532,17 +532,32 @@ class PoreloClient {
   Future<List<AgentSignIn>> agentSignIns() async =>
       AgentSignIn.allIn(await _call('AgentSignIns', const <String, dynamic>{}));
 
+  /// How long [agentSignInStart] may go unanswered: the machine answers once the login container runs, and the
+  /// first sign-in on a machine builds its login image before that, for which the contract names no bound.
+  static const Duration signInStartWithin = Duration(minutes: 15);
+
   /// Starts [agent]'s own login here, or answers the one that runs already: never a second. [force] signs in
   /// although the machine's own agent directory holds a sign-in; [remote] says the person reaches this machine from
   /// another one.
+  ///
+  /// **On a connection of its own, under [signInStartWithin] rather than the single call's deadline**, so a first
+  /// sign-in is not cut off while the machine still builds its login image.
   Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) async {
+    final connection = await backend.open(use: const RelayUse.stream());
     try {
       return SignInStarted.from(
-        await _call('AgentSignInStart', <String, dynamic>{'agent': agent, 'force': ?force, 'remote': ?remote}),
+        await connection.call('$interfaceName.AgentSignInStart', <String, dynamic>{
+          'agent': agent,
+          'force': ?force,
+          'remote': ?remote,
+        }, signInStartWithin),
       );
     } on VarlinkException catch (refusal) {
+      if (refusal.isMethodNotFound) throw const FeatureNotSupported('AgentSignInStart');
       if (refusal.simpleName == 'SignInRefused') throw SignInRefused(refusal);
       rethrow;
+    } finally {
+      await connection.close();
     }
   }
 

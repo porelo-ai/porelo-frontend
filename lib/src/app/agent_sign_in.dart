@@ -15,6 +15,11 @@ import 'quiet_after_dispose.dart';
 /// **Nothing starts on it either**: [onSignedIn] is told once the machine says the credential is stored, so whoever
 /// owns this asks again whether work can start; a start is always the person's press.
 class SigningIn extends ChangeNotifier with QuietAfterDispose {
+  /// Constructor taking the clock the time a start runs is read from, the system's where none is given.
+  SigningIn({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
+
+  final DateTime Function() _clock;
+
   /// The machine it signs in on, by the backend it asks; null until [ask] or [take].
   FleetBackend? get on => _on;
   FleetBackend? _on;
@@ -57,6 +62,11 @@ class SigningIn extends ChangeNotifier with QuietAfterDispose {
 
   /// Whether a sign-in is being started.
   bool starting = false;
+
+  /// How long the start that is out has run, or null while none is: the machine's first one builds its login image.
+  Duration? get startingFor => starting ? _clock().difference(_startedAt ?? _clock()) : null;
+
+  DateTime? _startedAt;
 
   /// Whether the sign-in the machine found is being imported.
   bool importing = false;
@@ -325,6 +335,7 @@ class SigningIn extends ChangeNotifier with QuietAfterDispose {
     // The same turn: a wait already out is kept, and only leaving or forgetting drops an answer.
     final turn = _turn;
     starting = true;
+    _startedAt = _clock();
     refusal = null;
     words = null;
     notifyListeners();

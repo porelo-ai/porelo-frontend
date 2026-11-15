@@ -139,6 +139,26 @@ void main() {
     expect((await waited).single.stored, isTrue);
   });
 
+  // Harm: a first sign-in, whose start answers only once the machine built its login image, is cut off as failed
+  // while the machine goes on building.
+  test('a start is not cut by the deadline of a single call', () async {
+    final answer = Completer<Map<String, dynamic>>();
+    daemon.method('AgentSignInStart', (_) => answer.future);
+    const deadline = Duration(milliseconds: 200);
+    final client = await connect(answerWithin: deadline);
+
+    final started = client.agentSignInStart('claude');
+    // Past the deadline of a single call before the machine answers.
+    await Future<void>.delayed(deadline * 3);
+    answer.complete(<String, dynamic>{
+      'container': 'porelo-login-claude',
+      'started': true,
+      'attach': <String>['podman', 'attach', 'porelo-login-claude'],
+    });
+
+    expect((await started).container, 'porelo-login-claude');
+  });
+
   // Harm: a wait of up to 30 minutes holds the machine's connection, so nothing else is answered meanwhile, or its
   // connection outlives the wait that was left.
   test('a wait has a connection of its own, and leaving it closes that connection', () async {
