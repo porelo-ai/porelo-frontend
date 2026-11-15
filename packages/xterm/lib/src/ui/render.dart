@@ -233,6 +233,14 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   /// Height of the entire terminal is expected to be a multiple of this value.
   double get lineHeight => _painter.cellSize.height;
 
+  /// Scrolls the view by [pixels] within its scrollback; true where it moved.
+  bool scrollBy(double pixels) {
+    final to = (_scrollOffset + pixels).clamp(0.0, _maxScrollExtent);
+    if (to == _scrollOffset) return false;
+    _offset.jumpTo(to);
+    return true;
+  }
+
   /// Get the top-left corner of the cell at [cellOffset] in pixels.
   Offset getOffset(CellOffset cellOffset) {
     final row = cellOffset.y;
@@ -292,8 +300,12 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
 
   /// Selects characters in the terminal that starts from [from] to [to]. At
   /// least one cell is selected even if [from] and [to] are same.
-  void selectCharacters(Offset from, [Offset? to]) {
-    final fromPosition = getCellOffset(from);
+  void selectCharacters(Offset from, [Offset? to]) =>
+      selectCharactersFrom(getCellOffset(from), to);
+
+  /// Selects from the cell [fromPosition], wherever the view has scrolled
+  /// since, to the cell under [to], or that cell alone without [to].
+  void selectCharactersFrom(CellOffset fromPosition, [Offset? to]) {
     if (to == null) {
       _controller.setSelection(
         _terminal.buffer.createAnchorFromOffset(fromPosition),

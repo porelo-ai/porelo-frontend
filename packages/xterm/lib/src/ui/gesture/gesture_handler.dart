@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
+import 'package:xterm/src/core/buffer/cell_offset.dart';
 import 'package:xterm/src/core/mouse/button.dart';
 import 'package:xterm/src/core/mouse/button_state.dart';
 import 'package:xterm/src/terminal_view.dart';
@@ -56,6 +58,14 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
   RenderTerminal get renderTerminal => terminalView.renderTerminal;
 
   DragStartDetails? _lastDragStartDetails;
+
+  /// The cell a mouse selection started at, which stays where it is in the
+  /// buffer while the view scrolls under the drag.
+  CellOffset? _dragAnchor;
+
+  /// Scrolls the view while a selection is dragged past its top or bottom
+  /// edge, as other terminals do, so it reaches lines out of view.
+  Timer? _edgeScroll;
 
   LongPressStartDetails? _lastLongPressStartDetails;
 
@@ -231,9 +241,47 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
       return;
     }
 
-    details.kind == PointerDeviceKind.mouse
-        ? renderTerminal.selectCharacters(details.localPosition)
-        : renderTerminal.selectWord(details.localPosition);
+    if (details.kind == PointerDeviceKind.mouse) {
+      _dragAnchor = renderTerminal.getCellOffset(details.localPosition);
+      renderTerminal.selectCharactersFrom(_dragAnchor!);
+    } else {
+      renderTerminal.selectWord(details.localPosition);
+    }
+  }
+
+  /// How far past the view's top (negative) or bottom (positive) edge [at]
+  /// lies, in lines to scroll at a time; zero inside it.
+  int _pastTheEdge(Offset at) {
+    final height = renderTerminal.size.height;
+    if (at.dy < 0) return -1;
+    if (at.dy > height) return 1;
+    return 0;
+  }
+
+  /// Starts or stops scrolling under a selection dragged past an edge.
+  void _followTheEdge() {
+    final at = _lastDragPosition;
+    if (_dragAnchor == null || at == null || _pastTheEdge(at) == 0) {
+      _edgeScroll?.cancel();
+      _edgeScroll = null;
+      return;
+    }
+    _edgeScroll ??= Timer.periodic(const Duration(milliseconds: 50), (_) {
+      final now = _lastDragPosition;
+      final anchor = _dragAnchor;
+      if (!mounted || now == null || anchor == null) return;
+      final lines = _pastTheEdge(now);
+      if (lines == 0) return;
+      if (renderTerminal.scrollBy(lines * renderTerminal.lineHeight)) {
+        renderTerminal.selectCharactersFrom(anchor, now);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _edgeScroll?.cancel();
+    super.dispose();
   }
 
   void onDragUpdate(DragUpdateDetails details) {
@@ -253,10 +301,16 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
       }
       return;
     }
-    renderTerminal.selectCharacters(
-      _lastDragStartDetails!.localPosition,
-      details.localPosition,
-    );
+    final anchor = _dragAnchor;
+    if (anchor == null) {
+      renderTerminal.selectCharacters(
+        _lastDragStartDetails!.localPosition,
+        details.localPosition,
+      );
+      return;
+    }
+    renderTerminal.selectCharactersFrom(anchor, details.localPosition);
+    _followTheEdge();
   }
 
   void onDragEnd(DragEndDetails details) => _endDrag();
@@ -277,5 +331,8 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
     _leftPressReported = false;
     _dragIsProgram = false;
     _lastDragPosition = null;
+    _dragAnchor = null;
+    _edgeScroll?.cancel();
+    _edgeScroll = null;
   }
 }
