@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F607",
   "title": "A Stopped Run's Started Tasks Are Ended By The Window",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 127,

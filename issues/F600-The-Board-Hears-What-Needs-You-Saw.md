@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F600",
   "title": "The Board Hears What Needs You Saw",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 120,
