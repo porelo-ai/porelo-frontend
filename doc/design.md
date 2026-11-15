@@ -237,6 +237,13 @@ The packaging requirement is met and retired; this is what it is made of.
   `THIRD-PARTY-NOTICES`, installed to `/usr/share/doc/porelo-frontend/` and named in the deb's `copyright`, and as a
   second license file under `/usr/share/licenses/porelo-frontend/` for the rpm, since Fedora has no shared license
   directory; a `NOTICES.Z` that is not gzip, not UTF-8 or empty stops the packaging.
+- **The collection a package carries** follows its channel: a release build carries porelo-host's pinned release
+  collection and refuses a snapshot one; a snapshot build reads porelo-host's rolling `snapshot` pre-release's
+  `latest.json` once, checks its version, file and digest, fetches that file as strictly as a release, and compiles
+  the three into its `porelo-host`, whose `--collection-info` names them. `tool/host_collection.sh` makes the choice
+  for the Linux job, the Windows job and the Windows trial. The collection is installed 0644, so the window, running
+  as the person, reads the check it holds, and a collection missing, unreadable or not the pinned one is said as
+  which.
 - **The channel a host installs from** follows the `porelo-host` that prepares it: only a plain
   `<major>.<minor>.<patch>`, compiled in from a tag, installs from `releases`; a snapshot, a pre-release or a build
   with no version installs from `snapshots`, and `--distribution` wins. A window run from source passes
@@ -328,6 +335,21 @@ Before Porelo is taken off or a rental returned, the dialog reads, by `org statu
 administration or a project on the machine, and who is locked with a purge day. The host purges only a person locked,
 listed in no project, no Machine Admin and past their purge day, so only those are offered: the person confirms the
 removal of exactly those named accounts and all they hold, and every other account is named with why it is not offered.
+
+**A host's wait for its first token is one word per host, true to the machine.** It comes from what the host said as
+root (`org status`, asked once per connection, on *Refresh* and after a token given here), from what the last
+*Connect* heard, and from a setup that just prepared the host; a failed read or a lost connection keeps it. The
+machine's own Porelo, whose `Projects` answer is read on every push of its work, on the quiet refresh and on
+*Refresh*, has the last word: its `hostState` replaces a kept word that says otherwise, though never by `cannot-say`.
+`HostConnections.heard` does that reconciling for every page that shows the wait, with the list of the one machine
+whose card is the organization's machine under this person's login. A wait is kept only for the machine the
+organization names now, by address, port and host key, and only for its Machine Admin; a token given logs in as root
+once, however many pages listen.
+
+While a machine's setup runs, its row offers the protocol alone, as its button does; the removals, which would race
+the setup, come back once it ended or failed. A wizard step whose work goes on after the wizard leaves without
+asking, and offers no *Back* while its action runs. Until the run's first line comes, the protocol says *Waiting for
+the first line*. A start whose caller has just read the organization starts `up` without reading it again.
 Each confirmed one is purged as root before the down play (`porelo-host person purge`), and the first failure stops the
 rest, the play and the release. A
 status that cannot be read purges nothing and leaves the ordinary take-down, whose play still refuses while anyone holds a

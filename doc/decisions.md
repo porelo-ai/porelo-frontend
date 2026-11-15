@@ -76,6 +76,7 @@ taken, `git log` answers.
 | [An organization may be created at an https address, with a word that no machine can follow it](#an-organization-may-be-created-at-an-https-address) |
 | [The side bar is a folding tree, and only a leaf shows a list](#the-side-bar-is-a-folding-tree-and-only-a-leaf-shows-a-list) |
 | [The scenarios' stub agent is the newest snapshot, checked by its own digest](#the-scenarios-stub-agent-is-the-newest-snapshot-checked-by-its-own-digest) |
+| [A machine elsewhere's last device is revoked at the machine, never from the window](#a-machine-elsewheres-last-device-is-revoked-at-the-machine) |
 
 ## The interface can do what a console can
 
@@ -1054,3 +1055,15 @@ names the version and digest it took. The folder keeps the newest 20 versions, a
 
 **What it costs:** a run cannot be repeated with the same stub once a newer snapshot is published, and the digest is
 only as trustworthy as the folder that holds both it and the binary.
+
+## A machine elsewhere's last device is revoked at the machine
+
+Revoking a vault's last device leaves only the passphrase to open it, typed at the machine after every restart, and
+the entries are lost for good without it. Before that revocation the window says so in those words. On this computer
+and a WSL distribution, where the person sits, it revokes after that; on a machine elsewhere it says what it would
+cost and how to do it there (`porelo vault revoke <id>`), and offers no *Revoke*. The only way into a vault with no
+passphrase is never revoked from the window. Whether anyone still knows the passphrase nothing can say, and the
+dialog says so.
+
+**What it costs:** a person at another computer goes to the machine for the last device; what it saves is a vault
+shut for good from a window that cannot see who knows its passphrase.
