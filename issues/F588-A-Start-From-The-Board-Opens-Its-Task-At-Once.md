@@ -83,10 +83,10 @@ start hook, the same `WindowTaskStarts` call, here `startOrdered` through `_star
   there over its page, the page kept built beneath (`Offstage` in a fixed `Stack`), so the *Start work* dialog goes on
   waiting on its start and the board keeps its state; closing the operation shows the board again. Once the agent
   runs, a discussion's session (and a *With you* task's) opens as before, which leaves the operation.
-- `pubspec.yaml`, `pubspec.lock`: `porelo_planning` pinned to `1e66bf5984dcd7430eb29de72aebda2241a9363f` with the
-  GitHub url and `path: screen` unchanged, **plus a temporary `dependency_overrides` entry** (a git url to
-  porelo-planner's local checkout, that ref, `path: screen`), left in place until the commit is on GitHub; pubspec's
-  xterm override is unchanged. The lock names the local checkout while the override stands.
+- `pubspec.yaml`, `pubspec.lock`: `porelo_planning` pinned to `8beecc3e6fd49d39a7893baa0beaa58f7f544647`,
+  porelo-planner's main (its stack was squashed on the push: 8beecc3 holds 1e66bf5's screen part and
+  [F591](README.md#f591)'s), with the GitHub url and `path: screen` unchanged and the lock resolved from the forge;
+  pubspec's xterm override is unchanged. Built and tested first on the local 1e66bf5 through a temporary override.
 - Tests' stand-ins take `onEvent` (`test/features/support/world.dart`, `test/app/fleet_model_test.dart`,
   `test/ui/window_task_reports_test.dart`, `test/ui/window_task_starts_test.dart`); the world's planning start hook is
   `pressed`, as the window's, and its stand-in can say a step and hold a start (`startSays`, `startHeld`).

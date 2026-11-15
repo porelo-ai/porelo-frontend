@@ -65,11 +65,11 @@ then moved the issue to *Analyzed* on central, whose issue held no plan and no s
 - **Contracts**, as their owners named them: the hand-in and the order in Agent Planner's room post of 2026-11-15
   10:12Z and the agreed `result-format.md` (format `porelo-stage-result-1`, 262144 bytes, `{offer, result}` or
   `{offer, missing}`, the result before the `ended` report, idempotent per offer); the order's `result` and `given`
-  in porelo-planner `a38e057` (PL143's screen part); Start's `readOnly` and `given` in porelo `4cb4a81bb` (B791's
-  contract).
-- **Pin:** `porelo_planning` at `a38e057ca726dfecd8d90776862fda83dc59f73a`, with a temporary `dependency_overrides`
-  entry to the planner's local clone at the same ref (the `xterm` override kept); `pubspec.lock` names that clone.
-  Both go once the planner pushes the commit: the override is removed and the lock resolved from the forge.
+  in porelo-planner `8beecc3` (PL143's screen part, built first as the local `a38e057`, whose screen it equals);
+  Start's `readOnly` and `given` in porelo `4cb4a81bb` (B791's contract).
+- **Pin:** `porelo_planning` at `8beecc3e6fd49d39a7893baa0beaa58f7f544647`, porelo-planner's main, from the GitHub
+  url with the lock resolved from the forge (the `xterm` override kept). Built and tested on the local `a38e057`
+  through a temporary override; `git diff a38e057 8beecc3 -- screen` is empty.
 - **Hand-in** (`lib/src/app/planner_stage_results.dart`): `handStageResult` posts signed to
   `/projects/{project}/tasks/{task}/result`; 2xx saved; 422 a `StageResultNotSaved` with the planner's faults; 404
   `NoSuchProject` gives the project and asks once more; 503, 504 and no planner are transient; another 404 or 405 says
