@@ -4780,21 +4780,13 @@ class _ShellState extends State<Shell> {
                 machine: machine,
                 head: head,
                 settings: widget.settings,
-                open: openSshConsoleCommand(
-                  machine: machine.name,
-                  open: () => unawaited(_openSshConsole(machine)),
-                  // In the words the page and the console's own refusal use, and nothing is started.
-                  unavailable: sshConsoleRefusal(machine) ?? (answering ? null : '${machine.name} does not answer.'),
-                ),
-                openAsRoot: rootConsoleOffered(machine, _organization?.view)
-                    ? openRootSshConsoleCommand(
-                        machine: machine.name,
-                        open: () => unawaited(_openSshConsole(machine, asRoot: true)),
-                        unavailable:
-                            sshConsoleRefusal(machine, asRoot: true) ??
-                            (answering ? null : '${machine.name} does not answer.'),
-                      )
-                    : null,
+                commandFor: ({required asRoot}) => _sshConsoleLine(machine, asRoot: asRoot),
+                openTerminal: widget.sessions.openTerminal,
+                // In the words the page and the console's own refusal use, and nothing is started.
+                unavailable: sshConsoleRefusal(machine) ?? (answering ? null : '${machine.name} does not answer.'),
+                rootOffered: rootConsoleOffered(machine, _organization?.view),
+                rootUnavailable:
+                    sshConsoleRefusal(machine, asRoot: true) ?? (answering ? null : '${machine.name} does not answer.'),
               ),
               _ => _explainedLeaf(explanationId, _machineToolPage(machine, fleet, section, tools, head)),
             };
@@ -4852,33 +4844,13 @@ class _ShellState extends State<Shell> {
     );
   }
 
-  /// Opens a shell on [machine] in a terminal in the window, as the person's own account or, [asRoot], as root.
-  Future<void> _openSshConsole(Machine machine, {bool asRoot = false}) async {
-    final List<String> command;
-    try {
-      // Root is asked of the organization again at the press, so a role taken meanwhile opens nothing.
-      if (asRoot && !rootConsoleOffered(machine, _organization?.view)) {
-        throw StateError("Only a person listed as ${machine.name}'s admin logs in there as root.");
-      }
-      command = sshConsoleCommand(machine, asRoot: asRoot);
-    } on StateError catch (refused) {
-      _say(refused.message);
-      return;
+  /// The SSH Console's line on [machine], as root where [asRoot]: root is asked of the organization again at the press,
+  /// so a role taken meanwhile opens nothing.
+  List<String> _sshConsoleLine(Machine machine, {required bool asRoot}) {
+    if (asRoot && !rootConsoleOffered(machine, _organization?.view)) {
+      throw StateError("Only a person listed as ${machine.name}'s admin logs in there as root.");
     }
-    final login = asRoot ? 'root' : 'your own account';
-    await runInATerminal(
-      context,
-      key: const Key('ssh-console-terminal'),
-      title: asRoot ? 'Root console on ${machine.name}' : 'SSH Console on ${machine.name}',
-      explanation:
-          'A shell on ${machine.name} as $login. It logs in with the key your agent holds for it and '
-          'trusts only the host key it was pinned with. Typing exit ends it.',
-      machine: machine,
-      command: command,
-      open: widget.sessions.openTerminal,
-      stillWorking: 'The shell runs on ${machine.name}.',
-      cancel: 'Close the console',
-    );
+    return sshConsoleCommand(machine, asRoot: asRoot);
   }
 
   /// A page of [machine] while it is listed and not watched yet, as while it reconnects: nothing of it is read, and the

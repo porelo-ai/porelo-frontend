@@ -55,7 +55,10 @@ without a key file, a password prompt in the window, or trusting a key the machi
   where it is opened anyway, says why.
 - *Open the SSH console* runs `ssh <the machine's loginSshOptions> -t <its host>` (`sshConsoleCommand`) on this
   computer's pseudoterminal (ConPTY on Windows, by `openHere`), in the terminal view the window's other terminals
-  use, in a dialog over the page. No remote command follows the host, so the account's login shell starts. The
+  use, standing in the whole content area of the page with its line and *Close the console* above it, no dialog. It
+  grows and shrinks with the window, and every new size reaches the shell's pseudoterminal as rows and columns, so a
+  full-screen program there draws to the size shown. Closing it, asked first while it runs, or leaving the page ends
+  the shell. No remote command follows the host, so the account's login shell starts. The
   options are the machine's own and no others: for a card's machine its ssh config, through the card's control
   master on Linux and a connection of its own by the same config on Windows (the system's OpenSSH); no key file and
   no password option. `sshConsoleCommand` itself refuses, with a `StateError` the page says, every entry the window
@@ -72,6 +75,8 @@ without a key file, a password prompt in the window, or trusting a key the machi
   `up`, nor which. **To be recorded with Agent Machines:** per machine, whether root logs in by key after setup and
   with which persons' keys, served by `porelo org` beside the machine's admins (for example a `root` flag on each
   `hosts[].admins` row). With that, the switch shows for those persons and runs the same line with root as the login.
+- The page's tests in `test/ui/machine_own_pages_test.dart` hold that the console fills its page and a wider window gives the
+  shell more columns, and that closing it or leaving its page ends the shell, each seen red.
 - Tests: `test/app/ssh_console_test.dart` (offered or not, the exact command line, a dashed host), the console case
   of *each section of a machine reads that machine* and *the SSH Console of a machine that does not answer says so
   and starts nothing* in `test/ui/machine_sections_test.dart`, and `test/features/ssh_console.feature` against the

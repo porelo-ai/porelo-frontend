@@ -104,6 +104,44 @@ void main() {
       expect(World.terminals.last.command.last, 'root@build', reason: 'root is the login');
     });
 
+    // Harm: a shell that keeps a stale size garbles full-screen programs, an editor or top, on the machine.
+    testWidgets('the console fills its page and tells the shell each new size of the window', (tester) async {
+      await World.startBackend(World.work);
+      final machine = await _withTheCard(tester);
+      await openConsole(tester, machine);
+      await _tap(tester, 'ssh-console-open');
+      expect(find.byType(AlertDialog), findsNothing, reason: 'the console stands in its page, not in a dialog');
+      final terminal = World.terminals.last;
+      expect(terminal.sizes, isNotEmpty, reason: 'the shell is told the size it opens at');
+      int columns(String size) => int.parse(size.split('x').first);
+      final before = columns(terminal.sizes.last);
+      tester.view.physicalSize = const Size(1900, 1100);
+      addTearDown(tester.view.resetPhysicalSize);
+      await World.settle(tester);
+      expect(columns(terminal.sizes.last), greaterThan(before), reason: 'a wider window gives the shell more columns');
+    });
+
+    // Harm: an ssh left running after its console is closed or its page left holds the machine with nobody at it.
+    testWidgets('closing the console, or leaving its page, ends its shell', (tester) async {
+      await World.startBackend(World.work);
+      final machine = await _withTheCard(tester);
+      await openConsole(tester, machine);
+      await _tap(tester, 'ssh-console-open');
+      final first = World.terminals.last;
+      await _tap(tester, 'ssh-console-close');
+      await _tap(tester, 'ssh-console-close-yes');
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await World.settle(tester);
+      expect(first.closed, isTrue, reason: 'Close the console ends the shell');
+      expect(find.byKey(const Key('ssh-console-open')), findsOneWidget, reason: 'the page offers it again');
+      await _tap(tester, 'ssh-console-open');
+      final second = World.terminals.last;
+      World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+      await World.settle(tester);
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      expect(second.closed, isTrue, reason: 'leaving the page ends the shell');
+    });
+
     testWidgets('root chosen on one machine is not chosen on the next console opened', (tester) async {
       await World.startBackend(World.work);
       final machine = await _withTheCard(tester);
