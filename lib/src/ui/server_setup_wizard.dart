@@ -569,6 +569,7 @@ class HostTokenPanel extends StatelessWidget {
             const Text('No source holds a token now. Each line above says why, and what to do.'),
           if (step.problem case final problem?) Text(problem, key: const Key('token-problem')),
           if (step.given) Text('${step.host} took the token.', key: const Key('token-given')),
+          if (step.hearing) _running(Text('Asking ${step.host} what it says now that it has the token…')),
           Wrap(
             spacing: Space.small,
             runSpacing: Space.small,
@@ -576,8 +577,20 @@ class HostTokenPanel extends StatelessWidget {
               if (offered != null && !step.given)
                 FilledButton(
                   key: const Key('token-give'),
-                  onPressed: step.giving ? null : () => unawaited(step.giveFrom(offered)),
-                  child: Text('Give it the token from ${offered.name.toLowerCase()}'),
+                  onPressed: step.giving || step.asking ? null : () => unawaited(step.giveFrom(offered)),
+                  // While it runs it keeps its colour: greyed, it read as a button that had simply stopped working.
+                  style: step.giving
+                      ? FilledButton.styleFrom(
+                          disabledBackgroundColor: Theme.of(context).colorScheme.primary,
+                          disabledForegroundColor: Theme.of(context).colorScheme.onPrimary,
+                        )
+                      : null,
+                  child: step.giving
+                      ? _running(
+                          Text('Handing the token to ${step.host}…'),
+                          colour: Theme.of(context).colorScheme.onPrimary,
+                        )
+                      : Text('Give it the token from ${offered.name.toLowerCase()}'),
                 ),
               OutlinedButton(
                 key: const Key('token-ask-again'),
@@ -597,5 +610,17 @@ class HostTokenPanel extends StatelessWidget {
         ],
       );
     },
+  );
+
+  Widget _running(Widget words, {Color? colour}) => Row(
+    mainAxisSize: MainAxisSize.min,
+    spacing: Space.small,
+    children: [
+      SizedBox.square(
+        dimension: Sizes.mark,
+        child: CircularProgressIndicator(strokeWidth: Sizes.spinnerStroke, color: colour),
+      ),
+      Flexible(child: words),
+    ],
   );
 }

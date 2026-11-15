@@ -560,4 +560,44 @@ void main() {
     expect(given, [TokenSource.kept]);
     expect(find.byKey(const Key('token-given')), findsOneWidget);
   });
+
+  // Harm: a second press while the first hand-over runs hands the machine the token twice.
+  testWidgets('a press while the token is handed over gives nothing a second time', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var gives = 0;
+    final held = Completer<String?>();
+    final step = HostTokenStep(
+      host: 'orchard',
+      sources: HostTokenSources(
+        forge: 'GitHub',
+        repository: 'https://github.com/acme/porelo.git',
+        address: 'github.com',
+        declarations: () async => const [],
+        hasKept: (_) async => true,
+        secrets: () => null,
+      ),
+      connect: () async {},
+      give: (_) {
+        gives++;
+        return held.future;
+      },
+    );
+    addTearDown(step.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: HostTokenPanel(step: step)),
+      ),
+    );
+    await step.ask();
+    await World.settle(tester);
+    await _tap(tester, find.byKey(const Key('token-give')));
+    await _tap(tester, find.byKey(const Key('token-give')));
+    unawaited(step.giveFrom(step.offered!));
+    expect(gives, 1);
+    held.complete(null);
+    await World.settle(tester);
+    expect(find.byKey(const Key('token-given')), findsOneWidget);
+  });
 }

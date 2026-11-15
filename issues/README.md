@@ -144,7 +144,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f580"></a>[F580](F580-The-Window-Stores-The-Host-Forge-Token-Itself.md) | M | - | Story ST362: a person admitted to a host with a local forge never stores their forge token there by hand: the window runs the machine's own store command for it once, by itself, and Needs you offers Store it now in place of a command to copy. |
-| <a id="f578"></a>[F578](F578-The-Token-Hand-Over-Shows-It-Runs.md) | S | - | Story ST361: from the press of the token page's give button until the machine's answer, the page shows that the hand-over runs, offers no second press, and Close says what happens to the running hand-over. |
 
 ## Review
 
@@ -199,6 +198,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f204"></a>[F204](F204-The-Build-Runs-On-The-Local-Forge-As-On-The-Central-One.md) | M | - | The build green on the host's Forgejo and the central forge on the same commit, its machine asked for by kind and its registry a variable. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | - | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is; a host is [F351](README.md#f351). |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | S | - | An upstream that cannot be read said before a start, with what fixes it. |
+| <a id="f578"></a>[F578](F578-The-Token-Hand-Over-Shows-It-Runs.md) | S | - | Story ST361: from the press of the token page's give button until the machine's answer, the page shows that the hand-over runs, offers no second press, and Close says what happens to the running hand-over. |
 | <a id="f382"></a>[F382](F382-An-Images-Settings-In-Work.md) | S | - | A button in *Work* shows which settings the task's image was built with, and where each comes from. |
 | <a id="f385"></a>[F385](F385-New-Work-Confirms-What-Was-Detected.md) | S | - | *New work* on this computer asks the same question as a first start before it writes `project.yml`. |
 | <a id="f426"></a>[F426](F426-A-Forward-Names-Where-It-Goes-And-Its-Branch.md) | S | - | A forward names the forge and repository it goes to and starts with the task's branch, or the one last used for the task, filled in and changeable. |

@@ -4,6 +4,7 @@ import 'package:porelo_frontend/client.dart' show Connection;
 import 'package:porelo_host/porelo_host.dart' show CentralToken;
 
 import 'host_token.dart' show declaredOrganizationToken;
+import 'quiet_after_dispose.dart';
 
 /// Where a host's forge token can come from, in the order they are asked.
 enum TokenSource {
@@ -188,7 +189,7 @@ class HostTokenSources {
 }
 
 /// Giving one host its forge token as a step of its own: connect, ask every source, give the one the person chooses.
-class HostTokenStep extends ChangeNotifier {
+class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
   /// Gives [host] its token from [sources]; [connect] reaches the host first, [give] hands one source's token over and
   /// answers null once the host took it, or why not.
   HostTokenStep({required this.host, required this.sources, required this.connect, required this.give, this.heard});
@@ -211,7 +212,9 @@ class HostTokenStep extends ChangeNotifier {
   List<TokenSourceAnswer>? _answers;
   bool _asking = false;
   bool _giving = false;
+  bool _hearing = false;
   bool _given = false;
+  Future<void>? _handing;
   String? _problem;
 
   /// Every source's answer, once asked.
@@ -222,6 +225,9 @@ class HostTokenStep extends ChangeNotifier {
 
   /// Whether a token is being handed over.
   bool get giving => _giving;
+
+  /// Whether the host, having taken the token, is being asked what it says now.
+  bool get hearing => _hearing;
 
   /// Whether the host took a token.
   bool get given => _given;
@@ -265,8 +271,16 @@ class HostTokenStep extends ChangeNotifier {
   }
 
   /// Hands [answer]'s token to the host.
-  Future<void> giveFrom(TokenSourceAnswer answer) async {
-    if (_giving || answer.state != TokenSourceState.found) return;
+  Future<void> giveFrom(TokenSourceAnswer answer) {
+    if (_giving || _hearing || _asking || _given || answer.state != TokenSourceState.found) return Future.value();
+    return _handing = _handOver(answer);
+  }
+
+  /// Completes once the hand-over begun last has ended, the host's word after it included; at once where none was.
+  Future<void> handOverEnded() => _handing ?? Future.value();
+
+  Future<void> _handOver(TokenSourceAnswer answer) async {
+    final hear = heard;
     _giving = true;
     _problem = null;
     notifyListeners();
@@ -278,13 +292,18 @@ class HostTokenStep extends ChangeNotifier {
       _problem = '$host was given no token: $error';
     } finally {
       _giving = false;
+      _hearing = _given && hear != null;
       notifyListeners();
     }
     // What it says next is the host's own word; a host not asked now is asked by the next Refresh, as before.
-    if (_given) {
+    if (_hearing) {
       try {
-        await heard?.call();
-      } on Exception catch (_) {}
+        await hear?.call();
+      } on Exception catch (_) {
+      } finally {
+        _hearing = false;
+        notifyListeners();
+      }
     }
   }
 }

@@ -6646,22 +6646,40 @@ class _ShellState extends State<Shell> {
           content: SizedBox(
             width: Sizes.dialog,
             child: SingleChildScrollView(
-              child: HostTokenPanel(
-                step: step,
-                onSignIn: () {
-                  Navigator.of(context).pop();
-                  _showTheForges();
-                },
-                onUnlock: () async {
-                  await _unlockMachine(Machine.local());
-                  await step.ask();
-                },
+              child: ListenableBuilder(
+                listenable: step,
+                builder: (context, _) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: Space.normal,
+                  children: [
+                    HostTokenPanel(
+                      step: step,
+                      onSignIn: () {
+                        Navigator.of(context).pop();
+                        _showTheForges();
+                      },
+                      onUnlock: () async {
+                        await _unlockMachine(Machine.local());
+                        await step.ask();
+                      },
+                    ),
+                    if (step.giving || step.hearing)
+                      Text(
+                        'Close leaves the hand-over running; once it ends, $host\'s row says whether it still waits for '
+                        'its token.',
+                        key: const Key('organization.tokenPage.runsOn'),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
           actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
         ),
       );
+      // Closed while it runs, the hand-over goes on: the machine stays busy and the answer is its end's, not the close's.
+      await step.handOverEnded();
       if (step.given) return null;
       // The placing dialog follows a token as given on null: a page closed without one says so.
       return step.problem ?? (atOnce ? 'No token was given. Give it when you are ready.' : null);

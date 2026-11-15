@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart' show Connection;
 import 'package:porelo_frontend/src/app/host_token_sources.dart';
@@ -45,6 +47,90 @@ void main() {
     await step.giveFrom(found);
     expect(step.given, isTrue);
     expect(heard, 1);
+  });
+
+  // Harm: the token's page closed while the hand-over runs throws once it ends, and the machine that took the token is
+  // never asked again, so its row keeps saying it waits for one.
+  test('a step disposed while it hands the token over still has the host asked once it took it', () async {
+    var heard = 0;
+    final held = Completer<String?>();
+    final step = HostTokenStep(
+      host: 'orchard',
+      sources: _sources(declarations: () async => [_declared]),
+      connect: () async {},
+      give: (_) => held.future,
+      heard: () async => heard++,
+    );
+    await step.ask();
+    final running = step.giveFrom(step.offered!);
+    step.dispose();
+    held.complete(null);
+    await running;
+    expect(heard, 1);
+  });
+
+  // Harm: a page closed while the hand-over runs answers before it ended: the machine reads as free to be given a second
+  // token while the first is still handed over, and a hand-over refused after the close as given.
+  test('the end of a running hand-over is awaited, the host asked after it included', () async {
+    var heard = 0;
+    final held = Completer<String?>();
+    final step = HostTokenStep(
+      host: 'orchard',
+      sources: _sources(declarations: () async => [_declared]),
+      connect: () async {},
+      give: (_) => held.future,
+      heard: () async => heard++,
+    );
+    addTearDown(step.dispose);
+    await step.ask();
+    unawaited(step.giveFrom(step.offered!));
+    var ended = false;
+    unawaited(step.handOverEnded().then((_) => ended = true));
+    await pumpEventQueue();
+    expect(ended, isFalse);
+    held.complete(null);
+    await step.handOverEnded();
+    expect(ended, isTrue);
+    expect(heard, 1);
+  });
+
+  // Harm: a give while the sources are asked again, or after the host took a token, mints the host a second token
+  // and revokes the one it took.
+  test('a step asking its sources, or one whose host took a token, gives nothing more', () async {
+    var gives = 0;
+    final asking = Completer<void>();
+    final step = HostTokenStep(
+      host: 'orchard',
+      sources: _sources(declarations: () async => [_declared]),
+      connect: () => asking.future,
+      give: (_) async {
+        gives++;
+        return null;
+      },
+    );
+    addTearDown(step.dispose);
+    asking.complete();
+    await step.ask();
+    final offered = step.offered!;
+    final again = Completer<void>();
+    final stepAgain = HostTokenStep(
+      host: 'orchard',
+      sources: _sources(declarations: () async => [_declared]),
+      connect: () => again.future,
+      give: (_) async {
+        gives++;
+        return null;
+      },
+    );
+    addTearDown(stepAgain.dispose);
+    final asked = stepAgain.ask();
+    await stepAgain.giveFrom(offered);
+    expect(gives, 0, reason: 'nothing is given while the sources are asked');
+    again.complete();
+    await asked;
+    await step.giveFrom(offered);
+    await step.giveFrom(offered);
+    expect(gives, 1, reason: 'a host that took a token is given none more');
   });
 
   // Harm: the second ask for a token takes three steps where this computer's vault declares it and one press would do,
