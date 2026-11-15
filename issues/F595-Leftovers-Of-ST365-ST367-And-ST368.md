@@ -37,7 +37,8 @@ Each point is checked against the code again before it is fixed.
 
 ### From [F588](README.md#f588), a start from the board
 
-- `_plannedStarts` in the shell is never pruned: an id per start pressed on the board, for the window's life.
+- `_plannedStarts` in the shell is never pruned: an id per start pressed on the board, for the window's life. It
+  only says which operations stand over the board; the stale move warning is [F604](README.md#f604).
 - A start's final reply's output and steps may be said twice in its operation where the machine repeats them there.
 - A planner-ordered start that fails after it said something also shows as a failed operation under *Needs you*,
   beside the report's own problem.
