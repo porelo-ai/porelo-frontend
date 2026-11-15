@@ -75,3 +75,8 @@ task is expected.
   whole `flutter test` suite) at `5f5c3e7`: BUILD SUCCESS, 4634 passed, 37 skipped, 0 failed, the planner tests above
   included, so their failures are this laptop's alone. The same at `aea0709`, with every issue of the branch: BUILD
   SUCCESS, 4640 passed, 37 skipped, 0 failed.
+- **On porelo-planner `cce776c`**, stacked: the screen offers a task to open only while it is at work
+  (`atWork` and no end), else its name as text. The scenario *A task started on another machine opens there from its
+  issue* now has the planner report its task at work, as a task started there is; on the old fixture
+  `type 'Text' is not a subtype of type 'TextButton'` (build box). `planning_story_test.dart` 48 passed.
+

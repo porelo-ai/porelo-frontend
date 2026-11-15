@@ -6,7 +6,8 @@ import '../support/world.dart';
 
 /// Usage: the window started task {name} of ST291 on the other machine
 Future<void> theWindowStartedTaskOfSt291OnTheOtherMachine(WidgetTester tester, String name) async {
-  // The planner names the task as the project does; the machine names it by the container Start made.
+  // The planner names the task as the project does, at work, which alone it opens; the machine names it by the
+  // container Start made.
   final container = 'porelo-checkout_$name';
   mockStory('ST291')['work'] = {
     'tasks': [
@@ -22,13 +23,13 @@ Future<void> theWindowStartedTaskOfSt291OnTheOtherMachine(WidgetTester tester, S
         'model': 'Model',
         'role': 'MAIN',
         'since': 'instant',
-        'atWork': false,
+        'atWork': true,
         'ended': null,
       },
     ],
     'coordinator': null,
     'since': 'instant',
-    'atWork': false,
+    'atWork': true,
     'repositories': <Map<String, dynamic>>[],
     'comment': '',
     'readingRounds': 2,

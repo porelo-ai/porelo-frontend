@@ -114,4 +114,4 @@ Planner, room 2026-11-15 16:23Z).
   `TaskNotAnswered` for a halted run, and the window stops the task and forgets its offer without an end.
 - Whether a Start that fails inside the window after the offer was handed should reach the planner in another way is
   porelo-planner's to say: today it keeps that offer `OFFERED` and refuses an end for it.
-- The second reading found F607's first findings fixed and the save refusals too few, fixed here.
+- The second reading found this issue's first findings fixed and the save refusals too few, fixed here.
