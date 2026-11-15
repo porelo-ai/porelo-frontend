@@ -14,9 +14,9 @@
 }
 ```
 
-**What must be true.** What [F586](README.md#f586) to [F591](README.md#f591) and [F594](README.md#f594) left unbuilt or unchecked is kept in one place until the operator
-places each part: in an issue of its own, in a sprint, or dropped. Each point is checked against the code again
-before it is fixed.
+**What must be true.** What [F586](README.md#f586) to [F591](README.md#f591) and [F594](README.md#f594) left unbuilt or
+unchecked is kept in one place until the operator places each part: in an issue of its own, in a sprint, or dropped.
+Each point is checked against the code again before it is fixed.
 
 ## Points
 
@@ -55,9 +55,10 @@ before it is fixed.
 - Whether the task should carry the issue's name instead of the repository's (*pi*): that name is Start's, so Agent
   Core and Agent Planner say whether an order names one; the window then shows it.
 - With Agent Core: whether a task that may not push names a `buildReader` at all.
-- *Rework*: whether an order can say that its task reworks, so its row says *rework* rather than *implementing*.
+- *Rework*: whether an order can say that its task reworks, so its row says *rework*; no stage guessed meanwhile,
+  [F598](README.md#f598).
 - The running view's tabs (`lib/src/ui/running_view.dart`) carry no offer and read only as tabs; a role this build
-  does not know reads as *Implementing*.
+  does not know: [F598](README.md#f598).
 - Test gaps: `cause-works-on`, a stage with a build already, an older entry's row.
 
 ### From [F590](README.md#f590), a repository's central chip
