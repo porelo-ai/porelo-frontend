@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F590",
   "title": "A Repository's Central State Stands As Its Own Chip",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 19,

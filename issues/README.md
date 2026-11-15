@@ -123,7 +123,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | M | - | A work tile says whether an attached agent is at rest or working, from the AT_REST activity the machine serves for it. |
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | XL | - | Connect and Prepare from a Windows desktop: loopback ports the window holds itself, each connection carried over its own ssh, the daemon through the relay, no master. |
 | <a id="f589"></a>[F589](F589-A-Planned-Task-Says-What-It-Works-On.md) | S | - | A task the planner ordered says on its tile and row which issues and story it works on and at which stage (in analysis, estimation, reading, rework, implementing), and shows a build line only once a push of it can have one, instead of No build yet on an analysis. |
-| <a id="f590"></a>[F590](F590-A-Repositorys-Central-State-Stands-As-Its-Own-Chip.md) | S | - | A repository's row on a project's page on a host shows how it stands against central as a state chip of its own at the row's end (at central, N ahead of central, central moved on, cannot say), toned by what it asks of the person, with Bring it to central… reachable from a row that is ahead, instead of one clause in the row's grey line. |
 | <a id="f507"></a>[F507](F507-The-Windows-Windows-Scripts-Package-Another-App.md) | M | - | The Windows packing and install check take the app's name, version, files, manifest and start as parameters, so another repository's Windows build calls them at a pinned commit; the window's own packages stay as they are, and neither script leaves a signing key or the app's files behind. |
 | <a id="f569"></a>[F569](F569-A-Repository-Carried-Onto-Or-Off-A-Host-From-Its-Menu.md) | M | - | A not-carried repository's menu on a machine's project page offers carrying it onto that machine, and a carried one's menu offers taking it off, as the machine page's repository row already does. |
 | <a id="f515"></a>[F515](F515-A-Terminal-And-Live-List-Played-Through-On-The-VM.md) | M | - | Story ST47, a terminal and live list used together, played once on the test VM in the window as a person would, for ST347's gathered story run: a task's terminal used as an ordinary terminal, task list --watch open beside it, Ctrl-C giving the terminal back. |
@@ -141,6 +140,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f590"></a>[F590](F590-A-Repositorys-Central-State-Stands-As-Its-Own-Chip.md) | S | - | A repository's row on a project's page on a host shows how it stands against central as a state chip of its own at the row's end (at central, N ahead of central, central moved on, cannot say), toned by what it asks of the person, with Bring it to central… reachable from a row that is ahead, instead of one clause in the row's grey line. |
 
 ## Review
 
