@@ -5,19 +5,66 @@ import 'package:porelo_planning/porelo_planning.dart';
 import 'planning.dart';
 import 'planning_details.dart';
 import 'world.dart';
+
+import 'package:porelo_frontend/src/ui/wizard.dart';
+
 import '../../support/expand_list_rows.dart';
 import '../../support/planning_embedding.dart';
 
-/// The actual UI elements used by the story work scenarios.
-Finder workKey(String key) => find.byKey(Key(key));
+/// The window's wizard frame's own controls, under the names the screen's plain frame gives them.
+const _frame = <String, String>{
+  'story-work-start': 'wizard-start',
+  'story-work-cancel': 'wizard-leave',
+  'story-work-next': 'wizard-next',
+  'story-work-back': 'wizard-back',
+};
+
+/// Whether Start work shows in the window's own wizard; a narrow host shows the screen's plain frame alone.
+bool _inWindowWizard() => find.byType(Wizard).evaluate().isNotEmpty;
+
+/// The actual UI elements used by the story work scenarios, in whichever frame Start work shows.
+Finder workKey(String key) => switch (key) {
+  'story-work-dialog' => find.byType(Wizard),
+  _ when _inWindowWizard() => find.byKey(Key(_frame[key] ?? key)),
+  _ => find.byKey(Key(key)),
+};
+
+/// Walks Start work to the step that shows [key]: forward while Next goes on, then back; to the review for its start.
+/// Answers what is found, or, for the start of a frame that cannot reach its review, the Next that holds it.
+Future<Finder> workSee(WidgetTester tester, String key) async {
+  final found = workKey(key);
+  final next = workKey('story-work-next');
+  if (found.evaluate().isNotEmpty || next.evaluate().isEmpty) return found;
+  final start = workKey('story-work-start');
+  final back = workKey('story-work-back');
+  Future<bool> step(Finder control) async {
+    if (control.evaluate().isEmpty) return false;
+    if (tester.widget<ButtonStyleButton>(control).onPressed == null) return false;
+    await tester.ensureVisible(control);
+    await tester.tap(control);
+    await World.settle(tester);
+    return true;
+  }
+
+  while (found.evaluate().isEmpty && start.evaluate().isEmpty) {
+    if (!await step(next)) break;
+  }
+  if (found.evaluate().isNotEmpty) return found;
+  if (key == 'story-work-start') return next;
+  while (found.evaluate().isEmpty) {
+    if (!await step(back)) break;
+  }
+  return found;
+}
 
 /// Brings a scrollable form control into view before using it.
 Future<void> workTap(WidgetTester tester, String key) async {
-  final found = workKey(key);
+  var found = workKey(key);
   // The board builds only the cards in view, so a card's menu off screen is first walked to.
   if (found.evaluate().isEmpty && key.startsWith('planning-')) {
     await revealPlanning(tester, found);
   }
+  if (key.startsWith('story-work-')) found = await workSee(tester, key);
   expect(found, findsOneWidget);
   await tester.ensureVisible(found);
   await tester.tap(found);
@@ -26,7 +73,7 @@ Future<void> workTap(WidgetTester tester, String key) async {
 
 /// Enters a choice in the real form, then lets its validation redraw.
 Future<void> workText(WidgetTester tester, String key, String text) async {
-  final found = workKey(key);
+  final found = await workSee(tester, key);
   expect(found, findsOneWidget);
   await tester.ensureVisible(found);
   await tester.enterText(found, text);
@@ -57,7 +104,7 @@ Future<void> openNarrowWork(WidgetTester tester) async {
             height: 800,
             child: MediaQuery(
               data: const MediaQueryData(size: Size(390, 800)),
-              child: StoryWorkDialog(work),
+              child: StoryWorkWizard(work),
             ),
           ),
         ),
@@ -205,9 +252,12 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
       await workTap(tester, 'story-work-agent porelo porelo/B540/BUILDER');
       await tester.tap(find.byKey(const Key('start-agent-choice an-agent')).last);
       await World.settle(tester);
+    case 'change builder model':
+      await workText(tester, 'story-work-model porelo porelo/B540/BUILDER', 'chosen-builder-model');
     case 'comment':
       await workText(tester, 'story-work-comment', 'Use the chosen reading setup.');
     case 'refold issue rounds':
+      await workSee(tester, 'story-work-rounds');
       final perIssue = find.text('Per issue');
       await tester.ensureVisible(perIssue);
       await tester.tap(perIssue);
@@ -268,23 +318,34 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
   String cardText() => planningText(tester, workKey('planning-card ST291'));
   switch (proof) {
     case 'proposal defaults and allowed modes':
-      expect(workKey('story-work-mode UNATTENDED'), findsOneWidget);
-      expect(workKey('story-work-mode AGENT'), findsNothing);
-      expect(tester.widget<TextFormField>(workKey('story-work-rounds')).initialValue, '2');
-      expect(workKey('story-work-coordinator'), findsOneWidget);
-      expect(workKey('story-work-task porelo'), findsOneWidget);
-      expect(workKey('story-work-task porelo-host'), findsOneWidget);
+      expect(tester.widget<TextFormField>((await workSee(tester, 'story-work-rounds'))).initialValue, '2');
+      expect((await workSee(tester, 'story-work-coordinator')), findsOneWidget);
+      expect((await workSee(tester, 'story-work-task porelo')), findsOneWidget);
+      expect((await workSee(tester, 'story-work-task porelo-host')), findsOneWidget);
       expect(find.textContaining('B540, B541'), findsOneWidget);
-      expect(tester.widget<ChoiceChip>(workKey('story-work-choice porelo porelo/B540/BUILDER KEEP')).selected, isTrue);
       expect(
-        tester.widget<ChoiceChip>(workKey('story-work-choice porelo-host porelo-host/HO156/BUILDER KEEP')).selected,
+        tester
+            .widget<ChoiceChip>((await workSee(tester, 'story-work-choice porelo porelo/B540/BUILDER KEEP')))
+            .selected,
         isTrue,
       );
-      expect(find.text('The agents work unattended.'), findsOneWidget);
+      expect(
+        tester
+            .widget<ChoiceChip>((await workSee(tester, 'story-work-choice porelo-host porelo-host/HO156/BUILDER KEEP')))
+            .selected,
+        isTrue,
+      );
+      // The one mode the planner allows is no step of its own: the review says it, beside the start.
+      await workSee(tester, 'story-work-start');
+      expect(find.text('Unattended'), findsOneWidget);
+      expect(workKey('story-work-mode AGENT'), findsNothing);
       expect(find.text('Start 2 tasks'), findsOneWidget);
     case 'other machine proposal visible':
       expect(find.textContaining('Story supplied by another machine'), findsOneWidget);
-      final model = find.descendant(of: workKey('story-work-main-model porelo'), matching: find.byType(EditableText));
+      final model = find.descendant(
+        of: (await workSee(tester, 'story-work-main-model porelo')),
+        matching: find.byType(EditableText),
+      );
       expect(tester.widget<EditableText>(model).controller.text, 'other-machine-model');
     case 'drop dialog visible':
       expect(workKey('story-work-dialog'), findsOneWidget);
@@ -298,7 +359,17 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(find.text('Unavailable: work status not reported'), findsOneWidget);
     case 'start disabled':
       expect(workKey('story-work-dialog'), findsOneWidget);
-      expect(tester.widget<FilledButton>(workKey('story-work-start')).onPressed, isNull);
+      expect(tester.widget<ButtonStyleButton>((await workSee(tester, 'story-work-start'))).onPressed, isNull);
+    case 'started behind the operation':
+      // The start ran on after Start work closed: the machine runs the main task, and the board beneath, still built,
+      // holds the story with its work.
+      expect(World.backend.tasksNow.where((task) => task.name.startsWith('mock-st291-porelo-main')), isNotEmpty);
+      final card = find.descendant(
+        of: find.byKey(const Key('planning-state Backlog'), skipOffstage: false),
+        matching: find.byKey(const Key('planning-card ST291'), skipOffstage: false),
+      );
+      expect(card, findsOneWidget);
+      expect(workKey('story-work-dialog'), findsNothing);
     case 'running work visible':
       expect(workKey('story-work-dialog'), findsNothing);
       // The planner moves the story once it is told its tasks started, which the window does not tell yet.
@@ -333,7 +404,9 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
     case 'change proposal prefilled':
       expect(
         tester
-            .widget<DropdownButtonFormField<String>>(workKey('story-work-agent porelo porelo/B540/BUILDER'))
+            .widget<DropdownButtonFormField<String>>(
+              (await workSee(tester, 'story-work-agent porelo porelo/B540/BUILDER')),
+            )
             .initialValue,
         'codex',
       );
@@ -341,7 +414,7 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
         tester
             .widget<EditableText>(
               find.descendant(
-                of: workKey('story-work-model porelo porelo/B540/BUILDER'),
+                of: (await workSee(tester, 'story-work-model porelo porelo/B540/BUILDER')),
                 matching: find.byType(EditableText),
               ),
             )
@@ -353,7 +426,10 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(
         tester
             .widget<EditableText>(
-              find.descendant(of: workKey('story-work-rounds B540'), matching: find.byType(EditableText)),
+              find.descendant(
+                of: (await workSee(tester, 'story-work-rounds B540')),
+                matching: find.byType(EditableText),
+              ),
             )
             .controller
             .text,
@@ -361,15 +437,17 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       );
     case 'main model visible':
       expect(
-        tester.widget<DropdownButtonFormField<String>>(workKey('story-work-main-agent porelo')).initialValue,
+        tester
+            .widget<DropdownButtonFormField<String>>((await workSee(tester, 'story-work-main-agent porelo')))
+            .initialValue,
         'an-agent',
       );
       final editable = find.descendant(
-        of: workKey('story-work-main-model porelo'),
+        of: (await workSee(tester, 'story-work-main-model porelo')),
         matching: find.byType(EditableText),
       );
       expect(tester.widget<EditableText>(editable).controller.text, 'chosen-main-model');
-      expect(tester.widget<FilledButton>(workKey('story-work-start')).onPressed, isNotNull);
+      expect(tester.widget<FilledButton>((await workSee(tester, 'story-work-start'))).onPressed, isNotNull);
     case 'refusal and original board':
       expect(find.text('The repository cannot start on this machine.'), findsOneWidget);
       expect(cardIn('Backlog'), findsOneWidget);
@@ -382,7 +460,7 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(find.byKey(const Key('tile-last-answer')), findsWidgets);
       expect(find.text('Outcome: blocked - needs the repository key.'), findsWidgets);
     case 'ended reason visible':
-      expect(workKey('story-work-ended ST291'), findsOneWidget);
+      expect((await workSee(tester, 'story-work-ended ST291')), findsOneWidget);
       expect(find.text('Outcome: blocked - waiting for the repository key.'), findsOneWidget);
     case 'blocking findings first':
       final blocking = find.text('Blocking: A credential would leave the task.');
@@ -434,7 +512,7 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(find.text('The board changed or is no longer live.'), findsOneWidget);
     case 'reported end visible':
       // One row per issue the ended task raised, each saying how it ended.
-      expect(workKey('story-work-ended ST291'), findsWidgets);
+      expect((await workSee(tester, 'story-work-ended ST291')), findsWidgets);
       expect(find.textContaining('Outcome: blocked - the key is missing.'), findsWidgets);
     case 'with you terminal':
       expect(workKey('running-name'), findsOneWidget);
@@ -444,7 +522,7 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(workKey('terminal'), findsOneWidget);
     case 'narrow dialog usable':
       for (final key in ['story-work-task porelo', 'story-work-task porelo-host']) {
-        final name = workKey(key);
+        final name = await workSee(tester, key);
         await tester.ensureVisible(name);
         await tester.pump();
         expect(name.hitTestable(), findsOneWidget);
@@ -464,16 +542,20 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
         expect(workKey(key).hitTestable(), findsOneWidget);
       }
       await workText(tester, 'story-work-model porelo porelo/B540/BUILDER', 'narrow-builder-model');
+      await workSee(tester, 'story-work-rounds');
       final perIssue = find.text('Per issue');
       await tester.ensureVisible(perIssue);
       await tester.tap(perIssue);
       await World.settle(tester);
       await workText(tester, 'story-work-rounds B540', '6');
-      expect(workKey('story-work-rounds B540').hitTestable(), findsOneWidget);
+      expect((await workSee(tester, 'story-work-rounds B540')).hitTestable(), findsOneWidget);
       expect(
         tester
             .widget<EditableText>(
-              find.descendant(of: workKey('story-work-rounds B540'), matching: find.byType(EditableText)),
+              find.descendant(
+                of: (await workSee(tester, 'story-work-rounds B540')),
+                matching: find.byType(EditableText),
+              ),
             )
             .controller
             .text,

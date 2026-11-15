@@ -128,16 +128,28 @@ Feature: Start and decide story work from the planning board
         And I choose story work {'start'}
         Then story work proves {'with you terminal'}
 
-    # Harm: the Start work dialog waits on Start with no sign that anything runs, and the person waits blind.
-    Scenario: Start work waits on Start with its mark while the window shows how far it is
+    # Harm: Start work stays open while its start runs on by itself, and the person waits on it for nothing.
+    Scenario: Start work closes once its start is under way and the operation shows how far it is
         Given the machine says {'Building the image'} while it prepares a start, and holds it
         When I open story work for {'ST291'}
         And I choose story work {'start'}
-        Then the Start work dialog waits on Start with its mark
+        Then the Start work dialog is closed while Start still waits
         And the operation shows {'Building the image'}
-        When the machine lets the start go on
-        Then the Start work dialog no longer waits on Start
         And the operation is in front of the board
+        When the machine lets the start go on
+        Then story work proves {'started behind the operation'}
+
+    # Harm: a start refused after Start work closed is said nowhere, as the dialog that said it is gone.
+    Scenario: A start refused after Start work closed is said in its operation and under Needs you
+        Given the machine says {'Building the image'} while it prepares a start, and holds it
+        And the machine refuses the start of story work because {'codex'} is not signed in
+        When I open story work for {'ST291'}
+        And I choose story work {'start'}
+        Then the Start work dialog is closed while Start still waits
+        When the machine lets the start go on
+        Then the operation shows {'codex is not signed in on this machine, so nothing was started. Sign it in there, then start again.'}
+        When I go to what needs a person
+        Then what needs a person offers to sign in to {'codex'} on {'this machine'}
 
     # Harm: the end of a task the window started never reaches the planner, so its story looks at work for ever.
     Scenario: The end of a task the window started reaches the planner
@@ -194,13 +206,14 @@ Feature: Start and decide story work from the planning board
         When I choose story work {'open story menu'}
         Then story work proves {'start unavailable'}
 
-    # Harm: changing only an agent loses its proposed model or an unchanged Change silently starts.
+    # Harm: a Change does not begin with the proposal, or an unchanged Change silently starts. Another agent asks
+    # for its own model, as its models are its own.
     Scenario: Sub-agent Change begins with the proposal and requires a difference
         When I open story work for {'ST291'}
         And I choose story work {'change builder'}
         Then story work proves {'change proposal prefilled'}
-        When I choose story work {'comment'}
-        Then story work proves {'start disabled'}
+        And story work proves {'start disabled'}
         When I choose story work {'change builder agent'}
-        And I choose story work {'start'}
+        And I choose story work {'change builder model'}
+        And I choose story work {'comment and start'}
         Then story work proves {'running work visible'}

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F597",
   "title": "Start Work Closes Once Its Start Is Under Way",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 117,
@@ -63,6 +63,29 @@ closing it at the press is porelo-planner's.
 - A planner refusal before any start is said in the dialog, which stays; a start refused after the close is said in
   the operation and under *Needs you*.
 - The board shows the story in its new state once the planner answered, without the dialog.
+
+## Built
+
+- **Planner:** porelo-planner PL146 (`4e0a0a0`, under PL157's `6ac9894`): `StoryWork.start()` answers once the
+  planner took the order and the first start was asked, and the remaining starts and their confirmation run on the
+  board's run. Built in one commit with [F606](README.md#f606), as the pin brings both.
+- **Window:** nothing in the window's start path needed a change. `WindowTaskStarts` already makes the operation at
+  the press and brings it in front ([F588](README.md#f588)), and its `onStarted` and Start's refusal do not use the
+  dialog's context.
+- **Scenarios** (`test/features/story_work.feature`):
+  - *Start work closes once its start is under way and the operation shows how far it is* (turned round from *…
+    waits on Start with its mark…*): the wizard is closed while the stand-in machine still holds Start, the
+    operation shows the image step in front of the board, and once Start goes on the main task runs and the board
+    beneath holds the story.
+  - *A start refused after Start work closed is said in its operation and under Needs you*: Start refused as
+    `SignInNeeded` for codex, after the close. The operation says *codex is not signed in on this machine, so nothing
+    was started. Sign it in there, then start again.* and *Needs you* offers to sign codex in on this machine.
+- **Red** on porelo-planner `80d29f3` (PL157's wizard before PL146, with the same effort-key fix):
+  `Expected: no matching candidates Actual: _TypeWidgetFinder:<Found 1 widget with type "Wizard"`. Green on
+  `6ac9894`.
+- **Steps:** *the Start work dialog is closed while Start still waits*; *the machine refuses the start of story work
+  because {agent} is not signed in* (the stand-in's `orderedFails`). The two steps of the waiting dialog are gone.
+- **Runs:** see [F606](README.md#f606)'s *Built*.
 
 ## To be checked
 

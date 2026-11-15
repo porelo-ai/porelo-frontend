@@ -47,7 +47,7 @@ void main() {
                   ),
                 ],
                 changes: machine,
-                startLabel: 'Start',
+                startLabel: () => machine.value.isEmpty ? 'Start' : 'Start on ${machine.value}',
                 start: () async {
                   starts++;
                   return true;
@@ -73,6 +73,7 @@ void main() {
     expect(find.text('Unattended'), findsOneWidget);
     expect(find.byKey(const Key('wizard-change-0')), findsOneWidget);
     expect(find.byKey(const Key('wizard-change-1')), findsNothing);
+    expect(find.text('Start on build-machine'), findsOneWidget, reason: 'the start button reads its words anew');
     await tester.tap(find.byKey(const Key('wizard-start')));
     await World.settle(tester);
     expect(starts, 1);

@@ -15,11 +15,13 @@ import './step/i_resolve_the_story_reading_with.dart';
 import './step/the_planning_watch_fails.dart';
 import './step/i_open_story_work_in_a_narrow_host.dart';
 import './step/the_machine_says_while_it_prepares_a_start_and_holds_it.dart';
-import './step/the_start_work_dialog_waits_on_start_with_its_mark.dart';
+import './step/the_start_work_dialog_is_closed_while_start_still_waits.dart';
 import './step/the_operation_shows.dart';
-import './step/the_machine_lets_the_start_go_on.dart';
-import './step/the_start_work_dialog_no_longer_waits_on_start.dart';
 import './step/the_operation_is_in_front_of_the_board.dart';
+import './step/the_machine_lets_the_start_go_on.dart';
+import './step/the_machine_refuses_the_start_of_story_work_because_is_not_signed_in.dart';
+import './step/i_go_to_what_needs_a_person.dart';
+import './step/what_needs_a_person_offers_to_sign_in_to_on.dart';
 import './step/i_drop_story_on_working_state.dart';
 import './step/another_machine_offers_the_same_project_planning.dart';
 
@@ -154,16 +156,35 @@ void main() {
       await iChooseStoryWork(tester, 'start');
       await storyWorkProves(tester, 'with you terminal');
     });
-    testWidgets('''Start work waits on Start with its mark while the window shows how far it is''', (tester) async {
+    testWidgets('''Start work closes once its start is under way and the operation shows how far it is''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theMachineSaysWhileItPreparesAStartAndHoldsIt(tester, 'Building the image');
       await iOpenStoryWorkFor(tester, 'ST291');
       await iChooseStoryWork(tester, 'start');
-      await theStartWorkDialogWaitsOnStartWithItsMark(tester);
+      await theStartWorkDialogIsClosedWhileStartStillWaits(tester);
       await theOperationShows(tester, 'Building the image');
-      await theMachineLetsTheStartGoOn(tester);
-      await theStartWorkDialogNoLongerWaitsOnStart(tester);
       await theOperationIsInFrontOfTheBoard(tester);
+      await theMachineLetsTheStartGoOn(tester);
+      await storyWorkProves(tester, 'started behind the operation');
+    });
+    testWidgets('''A start refused after Start work closed is said in its operation and under Needs you''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await theMachineSaysWhileItPreparesAStartAndHoldsIt(tester, 'Building the image');
+      await theMachineRefusesTheStartOfStoryWorkBecauseIsNotSignedIn(tester, 'codex');
+      await iOpenStoryWorkFor(tester, 'ST291');
+      await iChooseStoryWork(tester, 'start');
+      await theStartWorkDialogIsClosedWhileStartStillWaits(tester);
+      await theMachineLetsTheStartGoOn(tester);
+      await theOperationShows(
+        tester,
+        'codex is not signed in on this machine, so nothing was started. Sign it in there, then start again.',
+      );
+      await iGoToWhatNeedsAPerson(tester);
+      await whatNeedsAPersonOffersToSignInToOn(tester, 'codex', 'this machine');
     });
     testWidgets('''The end of a task the window started reaches the planner''', (tester) async {
       await bddSetUp(tester);
@@ -225,10 +246,10 @@ void main() {
       await iOpenStoryWorkFor(tester, 'ST291');
       await iChooseStoryWork(tester, 'change builder');
       await storyWorkProves(tester, 'change proposal prefilled');
-      await iChooseStoryWork(tester, 'comment');
       await storyWorkProves(tester, 'start disabled');
       await iChooseStoryWork(tester, 'change builder agent');
-      await iChooseStoryWork(tester, 'start');
+      await iChooseStoryWork(tester, 'change builder model');
+      await iChooseStoryWork(tester, 'comment and start');
       await storyWorkProves(tester, 'running work visible');
     });
   });

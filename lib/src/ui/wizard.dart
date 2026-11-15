@@ -114,6 +114,7 @@ class Wizard extends StatefulWidget {
     this.goBackTo,
     this.start,
     this.canLeave,
+    this.actionWords,
     super.key,
   }) : assert(steps.length > 0),
        assert(actions == null || actionSteps.length > 0);
@@ -157,6 +158,9 @@ class Wizard extends StatefulWidget {
 
   /// Whether *Leave* is offered now; null offers it always.
   final ValueGetter<bool>? canLeave;
+
+  /// The review's start button's words, read on each redraw, in place of [action] where given.
+  final ValueGetter<String>? actionWords;
 
   @override
   State<Wizard> createState() => _WizardState();
@@ -548,7 +552,7 @@ class _WizardState extends State<Wizard> {
                       onPressed: reason == null ? () => _next(shownIndex) : null,
                       child: Text(
                         review
-                            ? widget.action
+                            ? (widget.actionWords?.call() ?? widget.action)
                             : action != null && _index == widget.steps.length + widget.actionSteps.length
                             ? 'Finish'
                             : 'Next',

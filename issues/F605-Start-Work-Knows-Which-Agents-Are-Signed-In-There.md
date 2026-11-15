@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F605",
   "title": "Start Work Knows Which Agents Are Signed In There",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 125,
@@ -49,6 +49,22 @@ to and the window's words why not; the window answers that member for each liste
 - *Start work* preselects an agent signed in on the task's machine. Seen to fail: the old pin.
 - An agent not signed in there is named with the window's words why; one the machine cannot say of is not called
   signed out.
+
+## Built
+
+- **Window:** `MachinePlanningAgents.on` (`lib/src/ui/planning_embedding.dart`) fills each `PlanningAgent`'s
+  `unready` from the machine's `found`. `SIGNED_IN` is ready. `NOT_SIGNED_IN` reads *<agent> is not signed in on
+  <machine>; its row under Agents on that machine signs it in.* `CANNOT_SAY` and an older machine's empty answer
+  stay ready (not known, never signed out), so the screen does not pass them over.
+  The same call gives the agent's models (`Models`, through `PoreloClient.models` and `FleetBackend.modelsOn`, only
+  where the agent names its provider; a refusal gives an empty list) and its efforts (`Agent.efforts`, null where
+  the machine lists none) for [F606](README.md#f606).
+- **Contract:** porelo-planner's PL155 member as built in PL157 (`unready`, a `String?`), handed over locally;
+  the window builds against porelo-planner `6ac9894` (PL146 under it), see [F606](README.md#f606)'s *Built*.
+- **Test:** `test/ui/planning_agents_test.dart`, *each agent says whether it is ready there, and the models and
+  efforts the machine lists*: one agent signed in, one not, one that cannot say. Seen red before the member was
+  filled (no words for the agent not signed in). Green: 4 passed.
+- **Not checked:** the preselection itself is the screen's (PL155, its own suite); the window adds no scenario of it.
 
 ## To be checked
 

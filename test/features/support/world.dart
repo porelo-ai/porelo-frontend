@@ -727,9 +727,13 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     final ordered = FakeBackend.ordered;
     if (ordered == null) throw UnimplementedError('No scenario starts an ordered task on this stand-in.');
     await _preparing(onEvent);
+    if (orderedFails case final failure?) throw failure;
     final started = await ordered();
     return StartProgress(container: started.container, exitCode: 0, action: StartAction.create);
   }
+
+  /// What Start refuses an ordered task with, as the machine sends it, where set, once it prepared it.
+  Object? orderedFails;
 
   /// What Start says while it prepares an ordered task or a discussion, told as it comes, before its agent runs.
   List<StartEvent> startSays = const <StartEvent>[];

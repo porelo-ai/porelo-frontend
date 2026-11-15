@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F606",
   "title": "Start Work Shown As The Window's Wizard",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 126,
@@ -69,6 +69,41 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
 - The wizard may close once the start runs on; its operation stands in front ([F597](README.md#f597)).
 - The window's other wizards show *Change* in their review too.
 
+## Built
+
+- **The hook:** `WindowPlanningWizards` (`lib/src/ui/planning_wizards.dart`) implements the screen's
+  `PlanningWizards.show(context, title:, steps:, changes:, startLabel:, start:, canCancel:)` as built in PL157, which
+  is simpler than the Plan's design: no action steps and no handle. Each `PlanningWizardStep` (`title`, `words`,
+  `panel`, `check`, `summary`, `shown`) becomes a `WizardStep`. The review's button runs `start` and closes when it
+  answers true. Its words are read on each redraw (`Wizard.actionWords`), so it says the screen's live
+  *Start <state>*. *Leave* is offered while `canCancel` says so.
+  `shell.dart` hands `wizards: const WindowPlanningWizards()` to `PlanningBoards` and `PlanningScreen`, so both
+  opening paths (a card's menu and a *Needs you* row) show it.
+- **The wizard:** `Wizard` (`lib/src/ui/wizard.dart`) gains `WizardStep.shown` (a step with nothing to choose is
+  passed over, its lines kept on the review), `start` and `canLeave`. The review has *Change* beside each step
+  (`wizard-change-<i>`), and *Next* after a *Change* returns to the review. Every wizard of the window has it.
+- **Agents, models, efforts:** see [F605](README.md#f605)'s *Built*.
+- **Planner:** porelo-planner `6ac9894` (PL157 on PL146), with the fix `dc08f22` for a duplicate effort key, which
+  this window's scenario found (two choices on one agent in one step). Built through an uncommitted local override
+  until `dc08f22` is pushed and the pin raised; the pin and lock are raised in this commit before it is pushed.
+  Because PL146 lies under PL157, [F597](README.md#f597) is built in the same commit.
+- **Tests:**
+  - `test/ui/wizard_test.dart` (14), with *the review offers Change beside each step, and Next goes back to the
+    review* and *an answer emptied through Change holds Next on its step*. Seen red before *Change*
+    existed.
+  - `test/ui/planning_wizards_test.dart`: the screen's steps in the window's wizard and the live start words.
+    Seen red by breaking `start`'s answer.
+  - `test/features/story_work.feature` walks the wizard (`workSee` in `test/features/support/story_work.dart` goes
+    Next or Back to the step that holds a field, in the window's wizard and in the screen's plain frame of a narrow
+    host).
+  - A single mode is no step of its own and is said on the review.
+  - Another agent asks for its own model: the agent's models are its own (PL157).
+  - Runs: `story_work_test.dart` and `planning_placeholder_test.dart`, 35 passed three times. The other planning and
+    wizard suites (`planning_*`, `wizard_test`, `window_task_starts_test`): passed.
+- **Not checked:** the window itself was not run.
+
 ## To be checked
 
 - PL156's, PL157's and PL158's built commits, cited here once handed over.
+- `planning_placeholder_test.dart`, *a window that reaches its planner shows the planning screen*, failed twice
+  in runs during the build (no `PlanningScreen` found) and passed in every run since. Watch it in the suite.

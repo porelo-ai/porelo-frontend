@@ -19,6 +19,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- *Start work* on the *Planning* board runs as the window's own wizard: one question a step, with room for each field, a single choice said rather than asked, and a last step listing every answer with *Change* beside it before *Start <state>*; an agent not signed in on the machine is named with why, and the model and effort lists are the agent's own on that machine.
+- *Start work* closes as soon as the planner took the order and the first start is under way; the start's operation stands in front with its steps, and a start refused after that is said in the operation and under *Needs you*.
 - The last step of the window's wizards (setting up a server, the first start, a connection, *Start agents*) lists each step's answers with *Change* beside it; *Change* opens that step, and its *Next* comes back to the review, which checks every answer again before the start.
 - A story moved to *Finished* on the *Planning* board takes its issues in *Review* along in the same move, after the warning, which now says their files are deleted as each is closed; the board shows the story and those issues in *Finished*.
 - A task a planner ordered says on its row which issues of which story it works on and at which stage, *<issue> of <story>, in analysis*; an analysis, an estimate or a reader shows no *No build yet* until it has pushed, and implementing work keeps its build line as before.

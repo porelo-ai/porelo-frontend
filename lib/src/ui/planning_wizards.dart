@@ -15,7 +15,7 @@ class WindowPlanningWizards implements PlanningWizards {
     required String title,
     required List<PlanningWizardStep> steps,
     required Listenable changes,
-    required String startLabel,
+    required String Function() startLabel,
     required Future<bool> Function() start,
     required bool Function() canCancel,
   }) async =>
@@ -24,7 +24,8 @@ class WindowPlanningWizards implements PlanningWizards {
         barrierDismissible: false,
         builder: (context) => Wizard(
           title: title,
-          action: startLabel,
+          action: startLabel(),
+          actionWords: startLabel,
           changes: changes,
           start: start,
           canLeave: canCancel,

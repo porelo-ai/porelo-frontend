@@ -84,6 +84,7 @@ import '../app/shell_model.dart';
 import '../app/planner.dart' show EndsWithTheWindow, NamesItsLog, PlanningReach, StartsWhenAsked, TakesTheLogLevel;
 import 'discussion_start_dialog.dart';
 import 'planning_embedding.dart';
+import 'planning_wizards.dart';
 
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart'
@@ -645,7 +646,12 @@ class _ShellState extends State<Shell> {
   /// Each board holds how a start reaches the window, so a row in Needs you can start its work again before the
   /// planning screen was ever shown.
   late final _planning = switch (widget.planning) {
-    final planning? => PlanningBoards(planning.client, startTask: planning.startTask, agents: _planningAgents!),
+    final planning? => PlanningBoards(
+      planning.client,
+      startTask: planning.startTask,
+      agents: _planningAgents!,
+      wizards: const WindowPlanningWizards(),
+    ),
     null => null,
   };
 
@@ -4637,6 +4643,7 @@ class _ShellState extends State<Shell> {
             onStop: _storyWorkStopped,
           ),
           agents: _planningAgents!,
+          wizards: const WindowPlanningWizards(),
           pageButton: PageExplanationButton(id: 'planning', settings: widget.settings),
           pageNote: _planningWords(),
         ),
