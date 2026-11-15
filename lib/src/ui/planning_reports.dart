@@ -488,6 +488,7 @@ class WindowTaskReports {
           story: pending.story,
           task: task.task,
           run: task.run,
+          result: pending.result,
         );
       }
     }

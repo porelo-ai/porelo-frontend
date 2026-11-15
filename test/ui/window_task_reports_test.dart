@@ -929,6 +929,37 @@ void main() {
       expect(stageResults.single.$5, 'analysis.json is larger than the machine takes');
     });
 
+    // Harm: a stage started just before the window ended is found again without its result file, so its end is
+    // reported with nothing handed in and its issue moves on with no plan saved.
+    test('a stage found again by its key after a restart still hands its result before its end', () async {
+      final (starts, _) = window();
+      final order = PlanningTaskOrder.from({
+        'offer': '00000000-0000-4000-8000-0000000005a2',
+        'repository': 'porelo',
+        'issues': ['PI68'],
+        'role': 'MAIN',
+        'agent': 'claude',
+        'model': 'opus',
+        'mode': 'AGENT',
+        'prompt': 'Analyse PI68 and write analysis.json.',
+        'result': 'analysis.json',
+      });
+      machine.hangAfterStart = true;
+      unawaited(starts(planner, 'demo', 'ST366', order));
+      await pumpEventQueue();
+      expect((await loaded()).plannedOffers, isEmpty);
+
+      final (_, reopened) = window(kept: await loaded());
+      reopened.sweep();
+      await reopened.idle;
+      results['porelo-demo-porelo'] = TaskResult.from({...analysisFile, 'content': jsonEncode(analysis)});
+      machine.end('porelo-demo-porelo', {'at': '2026-11-15T13:00:00Z', 'finished': true, 'result': analysisFile});
+      await sweeps(reopened);
+
+      expect(stageResults.single.$3, order.offer);
+      expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
+    });
+
     // Harm: work that pushes waits for a result it never writes, so its end is never reported.
     test('a task with no result file reports its end alone', () async {
       final (starts, reports) = window();

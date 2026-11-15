@@ -38,6 +38,7 @@ class PendingStart {
     required this.project,
     required this.story,
     this.discussion = false,
+    this.result,
   });
 
   /// The offer, which is also the task's key, and the machine it was handed to Start on.
@@ -49,6 +50,9 @@ class PendingStart {
 
   /// Whether it starts a discussion, which is kept as one, not as a story's task.
   final bool discussion;
+
+  /// The file a planned stage hands back, kept with its task once found again; null for work that pushes.
+  final String? result;
 }
 
 /// A task this window started for a planner's offer, kept by its machine and container with what a report needs.
@@ -1104,7 +1108,8 @@ class Settings extends ChangeNotifier {
   static bool _validPending(PendingStart pending) =>
       _validOffer(pending.machine, 'container', pending.offer) &&
       [pending.provider, pending.project].every(_validLabel) &&
-      (pending.discussion || _validLabel(pending.story));
+      (pending.discussion || _validLabel(pending.story)) &&
+      (pending.result == null || _validResultName(pending.result!));
 
   void _kept(String offer) => _pendingStarts.remove(offer);
 
@@ -1345,6 +1350,10 @@ class Settings extends ChangeNotifier {
             project: project,
             story: story,
             discussion: value['discussion'] == true,
+            result: switch (value['result']) {
+              final String result when _validResultName(result) => result,
+              _ => null,
+            },
           );
           if (_handedOffers.contains(offer) && _validPending(kept)) _pendingStarts[offer] = kept;
         }
@@ -1387,6 +1396,7 @@ class Settings extends ChangeNotifier {
           'project': pending.project,
           'story': pending.story,
           'discussion': pending.discussion,
+          'result': ?pending.result,
         },
     ],
     'discussions': [

@@ -264,6 +264,7 @@ class WindowTaskStarts {
             project: project,
             story: story,
             discussion: discussion,
+            result: discussion ? null : task.result,
           ),
           null => null,
         },
