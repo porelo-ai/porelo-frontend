@@ -129,8 +129,11 @@ List<PlanningLanding> plannedLandings(Task task) => [
 /// of its agent once, also across restarts of the window, and the planner's follow-up orders started once each. Hands
 /// each idea a task on a watched machine proposed to the planner once, as a new issue in Idea.
 ///
-/// The window reports through the provider's source rather than its planning client, because only the source's answer
-/// carries the follow-up orders the window must start itself. Reports go one at a time, in the order they arose.
+/// A task the planning screen's run handed to Start in this window's life is reported through that run, as the screen's
+/// own client reports, so the run no longer counts its start as unreported and starts the follow-up orders itself. A
+/// task the window started itself, or one kept from before this window started, is reported through the provider's
+/// source, whose answer carries the follow-up orders the window then starts. Reports go one at a time, in the order
+/// they arose.
 class WindowTaskReports {
   /// Takes where offers are kept, how a task is started, and where sources, tasks and stops are found.
   WindowTaskReports({
@@ -154,6 +157,7 @@ class WindowTaskReports {
     this.now = DateTime.now,
   }) {
     starts.onConfirmed = started;
+    starts.onScreenStart = _screenStarted;
   }
 
   /// The watched machines' own, reporting to [client]'s providers, starting through [starts].
@@ -320,6 +324,20 @@ class WindowTaskReports {
 
   /// The offers of tasks a stop took over: whatever report of them still waits is not sent, nor its answer followed.
   final _voided = <String>{};
+
+  /// Reports through the screen's run, as the screen's own client sends them.
+  final _screen = _ScreenRunReports();
+
+  /// The run a report through the screen is sent for now, by source, project and story, with what marks that the
+  /// planner answered it: the run starts the answer's follow-up orders only after the planner answered.
+  (PlanningSource, String, String, void Function())? _screenReport;
+
+  void _screenStarted(PlanningSource source, String project, String story) {
+    if (_screenReport case (final reported, final ofProject, final ofStory, final answered)
+        when identical(reported, source) && ofProject == project && ofStory == story) {
+      answered();
+    }
+  }
 
   /// Completes once nothing is left to report.
   Future<void> get idle async {
@@ -921,6 +939,13 @@ class WindowTaskReports {
     }
     final source = sourceNamed(provider);
     if (source == null) throw PlanningRefusal('PlannerUnreachable', const {}, '$provider is not reached now.');
+    if (await starts.screenRunOf(kept.offer) case final run?) {
+      // A planner found again answers through another source: the run of the one gone reports nothing more.
+      if (identical(run, source)) {
+        if (await _throughTheScreen(kept, source, event, endKey, attempt, ended: ended, landed: landed)) return;
+      }
+      starts.notFromTheScreen(kept.offer);
+    }
     final TaskEventResolution answer;
     try {
       answer = await source.taskEvent(
@@ -933,26 +958,87 @@ class WindowTaskReports {
         ended: ended,
         landed: landed,
       );
-    } on PlanningRefusal catch (refusal) {
-      if (refusal.name == 'TaskNotAnswered') return _voidTask(kept);
-      if (!_transient(refusal)) _refused.add(attempt);
-      rethrow;
-    } on Object {
-      _refused.add(attempt);
-      rethrow;
+    } on Object catch (error, stack) {
+      return _notTaken(kept, error, stack, attempt);
     }
     _unreachedSaid = false;
     // A stop took the task over while its report waited: the answer's follow-ups belong to a stopped run.
     if (_voided.contains(kept.offer)) return;
-    await settings.planningOfferReported(
-      kept.machine,
-      kept.container,
-      started: event == PlanningTaskEvent.started ? true : null,
-      ended: endKey,
-      landed: event == PlanningTaskEvent.landed || (ended?.landed.isNotEmpty ?? false) ? true : null,
-    );
+    await _reported(kept, event, endKey, ended);
     await _startFollowUps(source, provider, project, kept.story!, answer.tasks, kept.offer);
   }
+
+  /// Sends one report through the screen's run that handed [kept]'s offer to Start, which starts the answer's follow-up
+  /// orders itself. Answers false where that run does not know the offer for this task, so the report goes to the
+  /// source as for a task the window started itself.
+  Future<bool> _throughTheScreen(
+    PlannedOffer kept,
+    PlanningSource source,
+    PlanningTaskEvent event,
+    String? endKey,
+    (String, String) attempt, {
+    PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
+  }) async {
+    final project = kept.project!, provider = kept.provider!;
+    var answered = false;
+    Object? afterTheAnswer;
+    _screen.providers = [
+      PlanningProvider(name: provider, connected: true, projects: [project], source: source),
+    ];
+    _screenReport = (source, project, kept.story!, () => answered = true);
+    try {
+      await _screen.taskEvent(
+        project,
+        kept.task!,
+        event,
+        offer: kept.offer,
+        container: kept.container,
+        machine: kept.machine,
+        ended: ended,
+        landed: landed,
+      );
+    } on Object catch (error, stack) {
+      // The run refuses an offer it holds no start of before it asks the planner, as the planner refuses one it does
+      // not know: either way the source is asked as for any other task.
+      if (!answered && planningRefused(error, 'TaskEventConflict')) return false;
+      // A follow-up order the run could not start: the planner took the report all the same.
+      if (!answered) {
+        await _notTaken(kept, error, stack, attempt);
+        return true;
+      }
+      afterTheAnswer = error;
+    } finally {
+      _screenReport = null;
+    }
+    _unreachedSaid = false;
+    if (_voided.contains(kept.offer)) return true;
+    await _reported(kept, event, endKey, ended);
+    if (afterTheAnswer != null) _say(provider, project, afterTheAnswer);
+    return true;
+  }
+
+  /// A report the planner did not take: a task it no longer answers for is stopped and forgotten, a refusal that will
+  /// not change by itself is not sent again in this window's life, and either is thrown to be said.
+  Future<void> _notTaken(PlannedOffer kept, Object error, StackTrace stack, (String, String) attempt) async {
+    if (error is PlanningRefusal) {
+      if (error.name == 'TaskNotAnswered') return _voidTask(kept);
+      if (!_transient(error)) _refused.add(attempt);
+    } else {
+      _refused.add(attempt);
+    }
+    Error.throwWithStackTrace(error, stack);
+  }
+
+  /// Keeps that [kept]'s report of [event] was taken.
+  Future<void> _reported(PlannedOffer kept, PlanningTaskEvent event, String? endKey, PlanningTaskEnded? ended) =>
+      settings.planningOfferReported(
+        kept.machine,
+        kept.container,
+        started: event == PlanningTaskEvent.started ? true : null,
+        ended: endKey,
+        landed: event == PlanningTaskEvent.landed || (ended?.landed.isNotEmpty ?? false) ? true : null,
+      );
 
   /// The planner voided the task's offer: the task stops, its offer goes, and nothing of it is reported again.
   Future<void> _voidTask(PlannedOffer kept) async {
@@ -1067,4 +1153,23 @@ Future<void> removeHandedDiscussion(Machines machines, String name, String conta
     fleet.letItBe();
     throw StateError(removeWords(container, refused.result));
   }
+}
+
+/// Reports a task through the planning screen's run that handed its offer to Start, as the screen's own client does,
+/// to the one provider set before each report.
+class _ScreenRunReports with PlanningTaskReports {
+  @override
+  List<PlanningProvider> providers = const [];
+
+  @override
+  String? get currentProvider => null;
+
+  @override
+  String? get chosenProject => null;
+
+  @override
+  void addListener(void Function() listener) {}
+
+  @override
+  void removeListener(void Function() listener) {}
 }

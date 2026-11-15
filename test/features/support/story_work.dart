@@ -199,6 +199,11 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
         running: false,
         agentEnded: {'at': 'the end', 'finished': false, 'error': 'Outcome: blocked - the key is missing.'},
       );
+    case 'every started task ended':
+      for (final task in World.backend.tasksNow.where((task) => task.name.startsWith('mock-st291-')).toList()) {
+        World.theWorkIs(task.name, activity: 'ENDED', running: false, agentEnded: {'at': 'the end', 'finished': true});
+      }
+      await World.settle(tester);
     case 'stopped reading':
     case 'stopped reading without echo':
     case 'stopped reading without blocking findings':

@@ -143,8 +143,45 @@ class WindowTaskStarts {
 
   /// Starts [task] as [call] does, for a press on the planning screen: its operation opens as soon as Start says the
   /// first thing, as a start from the start form does, so the person sees how far it is.
-  Future<PlanningTaskStarted> pressed(PlanningSource source, String project, String story, PlanningTaskOrder task) =>
-      _keptWhileStarting(source, project, story, task, pressed: true);
+  ///
+  /// The screen's run calls it having reserved the offer, so that run is told the task's reports.
+  Future<PlanningTaskStarted> pressed(
+    PlanningSource source,
+    String project,
+    String story,
+    PlanningTaskOrder task,
+  ) async {
+    final offer = task.offer;
+    final returned = Completer<void>();
+    if (offer != null) _fromTheScreen[offer] = (source, returned.future);
+    onScreenStart?.call(source, project, story);
+    try {
+      return await _keptWhileStarting(source, project, story, task, pressed: true);
+    } on Object {
+      if (offer != null) _fromTheScreen.remove(offer);
+      rethrow;
+    } finally {
+      // The run keeps what Start answered only once this returned, after the microtasks it waits through.
+      Timer.run(returned.complete);
+    }
+  }
+
+  final _fromTheScreen = <String, (PlanningSource, Future<void>)>{};
+
+  /// Told each start the planning screen's run asks for, with its source, project and story.
+  void Function(PlanningSource source, String project, String story)? onScreenStart;
+
+  /// The source of the screen's run that handed [offer] to Start in this window's life, once that run holds what
+  /// Start answered; null where the window asked Start itself, or before this window started.
+  Future<PlanningSource?> screenRunOf(String offer) async {
+    final (source, returned) = _fromTheScreen[offer] ?? (null, null);
+    if (returned == null) return null;
+    await returned;
+    return source;
+  }
+
+  /// Forgets that the screen's run handed [offer] on, where its reports go past that run.
+  void notFromTheScreen(String offer) => _fromTheScreen.remove(offer);
 
   Future<PlanningTaskStarted> _keptWhileStarting(
     PlanningSource source,

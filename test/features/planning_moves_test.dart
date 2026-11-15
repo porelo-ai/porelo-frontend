@@ -57,6 +57,10 @@ import './step/i_open_story_work_for.dart';
 import './step/i_choose_story_work.dart';
 import './step/planning_warns_that_moving_stops_its_running_work.dart';
 import './step/nothing_was_stopped_on_this_machine.dart';
+import './step/story_work_is_prepared_with.dart';
+import './step/planning_does_not_warn_that_moving_stops_work.dart';
+import './step/the_planner_orders_a_reader_of_after_the_next_reported_start.dart';
+import './step/the_reader_the_planner_ordered_of_was_started_once_on_this_machine.dart';
 import './step/the_tasks_the_planning_save_stopped_were_stopped_on_this_machine.dart';
 
 void main() {
@@ -300,6 +304,22 @@ void main() {
       await noPlanningMoveWasSaved(tester);
       await nothingWasStoppedOnThisMachine(tester);
       await thePlanningStoryIsIn(tester, 'ST291', 'Backlog');
+    });
+    testWidgets('''A move after the started tasks ended warns of no start still handed on''', (tester) async {
+      await bddSetUp(tester);
+      await iOpenStoryWorkFor(tester, 'ST291');
+      await iChooseStoryWork(tester, 'start');
+      await storyWorkIsPreparedWith(tester, 'every started task ended');
+      await iDragPlanningStoryTo(tester, 'ST291', 'Review');
+      await planningDoesNotWarnThatMovingStopsWork(tester, 'ST291');
+      await planningWarnsThatCarriesIssuesAlong(tester, 'ST291');
+    });
+    testWidgets('''A follow-up the planner orders after a reported start is started once''', (tester) async {
+      await bddSetUp(tester);
+      await thePlannerOrdersAReaderOfAfterTheNextReportedStart(tester, 'B540');
+      await iOpenStoryWorkFor(tester, 'ST291');
+      await iChooseStoryWork(tester, 'start');
+      await theReaderThePlannerOrderedOfWasStartedOnceOnThisMachine(tester, 'B540');
     });
     testWidgets('''A confirmed move over running work ends exactly the tasks the planner stopped''', (tester) async {
       await bddSetUp(tester);

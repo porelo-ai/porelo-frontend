@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F604",
   "title": "A Reported Start Warns No Move Of Its Story",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 124,
@@ -60,3 +60,41 @@ window handed on that the planner does not report yet; it is stopped first.* wit
 - A move of a story whose planned start the window reported, or whose task ended, shows no *start this window handed
   on* warning. Seen to fail: the live test's move of ST366.
 - A move while a start is still unreported, or a task at work, warns as today.
+
+## Built
+
+- **Reports through the run:** `WindowTaskStarts.pressed` (`lib/src/ui/planning_embedding.dart`), the screen's start
+  hook, which only the screen's run calls after reserving the offer, keeps the offer with its source for this window's
+  life; `screenRunOf` answers that source once the hook returned and a timer later, when the run holds what Start
+  answered. `_deliver` (`lib/src/ui/planning_reports.dart`) sends the report of such an offer through
+  `PlanningTaskReports` (a small client of its own, `_ScreenRunReports`, given the one provider), so
+  `PlanningRun.report` binds the machine, drops the offer from the run's unreported starts on *started*, cancels on
+  `SaveRefused` and starts the answer's follow-ups through `run.follow`; the window's own `_startFollowUps` is not
+  called on that path.
+- **Direct as before:** an offer the window started itself, one kept from before this window started, one whose
+  planner is now reached through another source, and one the run refuses with `TaskEventConflict` before it asks
+  the planner are reported through the source and followed by the window, as today.
+- **After the answer:** where the run asks Start for a follow-up during the report (`onScreenStart` for the same
+  source, project and story), the planner took the report: it is kept as reported, and a follow-up start the run
+  could not make is said, as the window's own follow-up refusals are.
+- **Scenarios** in `test/features/planning_moves.feature`: *A move after the started tasks ended warns of no start
+  still handed on* (new step *planning does not warn that moving {id} stops work*, new condition *every started task
+  ended*), and *A follow-up the planner orders after a reported start is started once* (the stand-in answers the
+  next started report with a reader; `FakeBackend.startsOrdered` counts Start's offers).
+- **Red:** the first scenario before the change: `Found 1 widget with key [<'planning-move-warning-item RUNNING_WORK
+  ST291'>]`. The second, on the old code, shows `planning-action-error` (the window's own start of the follow-up,
+  which the stand-in serves only through the screen's hook); a second start by the window beside the run's would be
+  refused as an offer already handed and shown there too (inferred from `_keptWhileStarting`, not run).
+- **Runs:** `dart analyze lib test integration_test tool` No issues found. `planning_moves_test`, `story_work_test`,
+  `window_task_reports_test`, `window_task_starts_test`: 147 passed. `test/features` whole: 987 passed.
+  `test/ui` whole: 1445 passed, 1 failed: *a window that reaches its planner shows the planning screen in place of
+  the line* (`planning_placeholder_test.dart`), which fails the same on the unchanged code in this worktree.
+
+## To be checked
+
+- A start still truly unreported (the planner not reached for its started report) is warned of by the screen's run
+  as before; no scenario of the window's isolates that local warning, since the stand-in's preview warns of the run
+  at work itself.
+- A report whose run replays an offer whose start failed earlier throws that start's error without asking Start
+  again; the window then takes the report as not taken and sends it again on its next start.
+- `planning_placeholder_test.dart`'s failure above, red on `main` in this worktree: its cause was not looked into.

@@ -29,6 +29,53 @@ class WindowPlanningSource extends MockPlanningSource {
   /// Each run a confirmed save stopped, as the save named it.
   final List<Map<String, dynamic>> stopped = [];
 
+  /// A follow-up order the answer to the next started report carries, as the planner orders a story's next task; null
+  /// where answers order none.
+  Map<String, dynamic>? followUpOnStart;
+
+  @override
+  Future<TaskEventResolution> taskEvent(
+    String project,
+    String task,
+    PlanningTaskEvent event, {
+    required String offer,
+    required String container,
+    required String machine,
+    PlanningTaskEnded? ended,
+    List<PlanningLanding> landed = const [],
+  }) async {
+    final order = event == PlanningTaskEvent.started ? followUpOnStart : null;
+    if (order == null) {
+      return super.taskEvent(
+        project,
+        task,
+        event,
+        offer: offer,
+        container: container,
+        machine: machine,
+        ended: ended,
+        landed: landed,
+      );
+    }
+    followUpOnStart = null;
+    final answer = work.call('TaskEvent', {
+      'project': project,
+      'task': task,
+      'event': 'STARTED',
+      'offer': offer,
+      'container': container,
+      'machine': machine,
+    });
+    // A follow-up runs in the mode of the run it follows, as the planner orders it.
+    final mode = (((answer['work'] as Map)['tasks'] as List).first as Map)['mode'];
+    return TaskEventResolution.from({
+      ...answer,
+      'tasks': [
+        {...order, 'mode': mode},
+      ],
+    });
+  }
+
   @override
   Future<PlanningMovePreview> previewMoves(String project, List<PlanningMove> moves, String revision) async {
     final preview = await super.previewMoves(project, moves, revision);

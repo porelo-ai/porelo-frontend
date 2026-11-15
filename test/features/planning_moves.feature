@@ -233,6 +233,22 @@ Feature: Planning moves are saved at once
         And nothing was stopped on this machine
         And the planning story {'ST291'} is in {'Backlog'}
 
+    # Harm: a move of a story whose tasks all ended asks to stop a start the planner was told of long ago.
+    Scenario: A move after the started tasks ended warns of no start still handed on
+        When I open story work for {'ST291'}
+        And I choose story work {'start'}
+        Given story work is prepared with {'every started task ended'}
+        When I drag planning story {'ST291'} to {'Review'}
+        Then planning does not warn that moving {'ST291'} stops work
+        And planning warns that {'ST291'} carries issues along
+
+    # Harm: the reader the planner orders after a reported start is started twice, or not at all.
+    Scenario: A follow-up the planner orders after a reported start is started once
+        Given the planner orders a reader of {'B540'} after the next reported start
+        When I open story work for {'ST291'}
+        And I choose story work {'start'}
+        Then the reader the planner ordered of {'B540'} was started once on this machine
+
     # Harm: the move leaves a task the planner stopped running, or ends one it did not name.
     Scenario: A confirmed move over running work ends exactly the tasks the planner stopped
         When I open story work for {'ST291'}

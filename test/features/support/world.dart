@@ -734,6 +734,7 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     bool readOnly = false,
     Map<String, String> given = const {},
   }) async {
+    startsOrdered.add(callerKey);
     final ordered = FakeBackend.ordered;
     if (ordered == null) throw UnimplementedError('No scenario starts an ordered task on this stand-in.');
     await _preparing(onEvent);
@@ -801,6 +802,9 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
 
   /// The planning stand-in's start of the order the window hands to Start now, or null where it hands none.
   static Future<PlanningTaskStarted> Function()? ordered;
+
+  /// The offer of each ordered task Start was asked for on this machine, in order.
+  final List<String?> startsOrdered = [];
 
   /// Lists [task] as the machine would once a start has brought it up.
   void bringsUp(Task task) {
