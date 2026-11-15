@@ -392,8 +392,10 @@ without discarding its recovery record while the replacement flow runs.
   it (`lib/src/ui/planning_embedding.dart`) and answers its hooks, and its feature files run on the package's stand-in.
 - **A Start the machine refuses after the planning screen asked for it**, by a refusal, a throw or an answer with no
   container, is written to the window's log at WARN with the machine, the project, what was to start and the machine's
-  words, and shown as a notice beside the planning screen's own line. A Start turned away in the dialog, or refused by
-  the window before it asks, is neither.
+  words, and said once where it was asked for: a start pressed on the board in the board's own line, a start the
+  planner ordered after a report where a refused report is said. The words lead with Porelo's last line, its reason,
+  and the table of what it checked follows. A Start turned away in the dialog, or refused by the window before it
+  asks, is neither logged nor said.
 - **The planner is found by its address file**, `porelo-planner/planner.json` under `XDG_RUNTIME_DIR`. Only a missing
   address means none runs: the window then starts `/usr/libexec/porelo/planner`, else `porelo-planner` on an absolute
   `PATH` entry, once, and waits 20 s for its address. Every other refusal is said, and starts nothing.

@@ -101,9 +101,6 @@ class WindowTaskStarts {
   /// Told the task a discussion started, as the machine lists it, so the person is shown its session.
   void Function(Machine machine, Task task)? onDiscussionStarted;
 
-  /// Told what a refused planned Start said, so the person sees it at once, beside the planning screen's own line.
-  void Function(String words)? onStartRefused;
-
   static Machine? _noMachine(String name) => null;
 
   final _startedOn = <(String, String), Machine>{};
@@ -240,7 +237,7 @@ class WindowTaskStarts {
     final container = answer.container ?? '';
     if (container.isEmpty || !_started(answer)) {
       await _refused(task.offer);
-      final printed = answer.output.join('\n').trim();
+      final printed = reasonFirst(answer.output);
       final words = printed.isNotEmpty
           ? printed
           : '${machine.name} answered Start with ${answer.action?.name ?? 'no action'} and exit code '
@@ -295,15 +292,15 @@ class WindowTaskStarts {
     return PlanningTaskStarted(task: name, container: container);
   }
 
-  /// Writes a refused Start of [task] to the window's log and tells [onStartRefused], alike on every way Start refuses:
-  /// what the person asked for is never lost to a quiet line alone.
+  /// Writes a refused Start of [task] to the window's log, alike on every way Start refuses. The person reads it once,
+  /// where it was asked for: a start pressed on the board in the board's line, a start the planner ordered after a
+  /// report where the window says a refused report.
   void _sayRefused(Machine machine, String project, String story, PlanningTaskOrder task, String words) {
     final what = task.role == 'DISCUSSION'
         ? 'a discussion'
         : 'the ${task.role.toLowerCase()} task of $story${task.repository == null ? '' : ' in ${task.repository}'}';
     final said = 'Start of $what for $project on ${machine.name} was refused: $words';
     windowLog.warn('Planning: $said', machine: machine.name);
-    onStartRefused?.call(said);
   }
 
   /// No task stands for [offer]: nothing is left to find again.
@@ -524,4 +521,15 @@ class MachinePlanningAgents implements PlanningAgents {
       throw PlanningUnsupported(error.toString());
     }
   }
+}
+
+/// What a refused Start printed, its last line first: Porelo ends with why the task cannot start, and the lines above
+/// it (a table of what it checked) follow, so a line that shows only its beginning shows the reason.
+String reasonFirst(List<String> printed) {
+  final lines = [
+    for (final line in printed.join('\n').split('\n'))
+      if (line.trim().isNotEmpty) line.trimRight(),
+  ];
+  if (lines.length < 2) return lines.join().trim();
+  return [lines.last.trim(), ...lines.take(lines.length - 1)].join('\n');
 }

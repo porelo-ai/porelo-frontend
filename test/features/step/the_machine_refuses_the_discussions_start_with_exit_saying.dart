@@ -5,5 +5,9 @@ import '../support/world.dart';
 
 /// Usage: the machine refuses the discussion's Start with exit {78}, saying {'porelo: no-homeserver'}
 Future<void> theMachineRefusesTheDiscussionsStartWithExitSaying(WidgetTester tester, int code, String words) async {
-  World.backend.discussionAnswer = StartProgress(exitCode: code, output: [words, 'porelo: nothing was created']);
+  // As Porelo refuses: the table of what it checked first, its reason last.
+  World.backend.discussionAnswer = StartProgress(
+    exitCode: code,
+    output: ['CHECK        STATE', 'homeserver   missing', words],
+  );
 }

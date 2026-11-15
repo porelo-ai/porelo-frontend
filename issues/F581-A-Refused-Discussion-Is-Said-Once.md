@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F581",
   "title": "A Refused Discussion Is Said Once",
-  "state": "Backlog",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 61,
@@ -35,8 +35,18 @@ machine's details when they want them.
 
 - In the debug build a refused discussion shows one line under the filters, its reason first, and no panel.
 
-## To be checked
+## Built
 
-- With Agent Planner: how the board's line renders a message of several lines, and whether it offers a fold for a
-  refusal's details.
-- Which starts reach `_sayRefused` without a press on the board, so the panel stays for them.
+- What was to be checked, read in porelo-planner `8dce2dc`, the pinned screen: the board's line
+  (`planning-action-error`) shows `planningFailureWords`, on one line with no fold, the refusal's `detail` first. A
+  start pressed on the board is said there (a discussion through `discussIdea`, story work in its form); a start the
+  planner orders after a report (`PlanningRun.report` → `follow`) throws back through the window's reports, whose
+  `onProblem` puts it on the board's line or the window's status line. So no start reached `_sayRefused` without a
+  line of its own already: the window's notice was the second saying every time, and it is gone with
+  `onStartRefused`.
+- `_sayRefused` (`lib/src/ui/planning_embedding.dart`) only writes the window's log. A Start answered with no task
+  hands on `reasonFirst(output)`: Porelo's last line, its reason, first, the lines above it after.
+- The discussion scenario now reads the board's line: *A discussion Start the machine refuses is said in the log, and
+  once on the board, its reason first*, its stand-in printing a table above the reason as Porelo does. Seen red with
+  the old order, and with the notice put back and the reason first (two widgets with the words).
+- Not seen in the debug build.

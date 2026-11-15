@@ -17,9 +17,9 @@ import './step/the_discussions_session_is_on_screen.dart';
 import './step/the_windows_log_is_kept.dart';
 import './step/the_machine_refuses_the_discussions_start_with_exit_saying.dart';
 import './step/the_windows_log_says.dart';
-import './step/the_notice_of_the_refused_start_says.dart';
-import './step/the_windows_log_says_nothing_of.dart';
+import './step/the_planning_board_says_once_its_reason_first.dart';
 import './step/no_notice_says_a_start_was_refused.dart';
+import './step/the_windows_log_says_nothing_of.dart';
 
 void main() {
   group('''Discuss an idea with an agent from the planning board''', () {
@@ -48,20 +48,24 @@ void main() {
       await iStartTheDiscussionWithTheAgent(tester, 'other-agent');
       await theDiscussionsSessionIsOnScreen(tester);
     });
-    testWidgets('''A discussion Start the machine refuses is said in the log and in a notice''', (tester) async {
-      await bddSetUp(tester);
-      await theWindowsLogIsKept(tester);
-      await theMachineRefusesTheDiscussionsStartWithExitSaying(
-        tester,
-        78,
-        'porelo: no-homeserver: porelo names no homeserver',
-      );
-      await iOfferTheIdeaForDiscussion(tester, 'Let the board show who is at work');
-      await iStartTheDiscussionWithTheAgent(tester, 'other-agent');
-      await theWindowsLogSays(tester, 'Start of a discussion for checkout on this machine was refused');
-      await theWindowsLogSays(tester, 'porelo: no-homeserver: porelo names no homeserver');
-      await theNoticeOfTheRefusedStartSays(tester, 'porelo: no-homeserver: porelo names no homeserver');
-    });
+    testWidgets(
+      '''A discussion Start the machine refuses is said in the log, and once on the board, its reason first''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theWindowsLogIsKept(tester);
+        await theMachineRefusesTheDiscussionsStartWithExitSaying(
+          tester,
+          78,
+          'porelo: no-homeserver: porelo names no homeserver',
+        );
+        await iOfferTheIdeaForDiscussion(tester, 'Let the board show who is at work');
+        await iStartTheDiscussionWithTheAgent(tester, 'other-agent');
+        await theWindowsLogSays(tester, 'Start of a discussion for checkout on this machine was refused');
+        await theWindowsLogSays(tester, 'porelo: no-homeserver: porelo names no homeserver');
+        await thePlanningBoardSaysOnceItsReasonFirst(tester, 'porelo: no-homeserver: porelo names no homeserver');
+        await noNoticeSaysAStartWasRefused(tester);
+      },
+    );
     testWidgets('''A discussion Start turned away is neither logged as refused nor noticed''', (tester) async {
       await bddSetUp(tester);
       await theWindowsLogIsKept(tester);
