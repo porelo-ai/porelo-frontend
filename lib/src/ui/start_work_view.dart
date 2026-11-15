@@ -515,6 +515,11 @@ class StartAgentChoice extends StatelessWidget {
   /// **Cannot say never reads as signed out**: an agent that could not be asked may well be signed in.
   String? get _mark => switch (agent.found) {
     '' => null,
+    // The vault's credential is not a sign-in of the agent's own on the machine, and is said apart from one.
+    'SIGNED_IN' when agent.signedInThroughTheVault =>
+      agent.foundProvider.isEmpty
+          ? 'signed in through the Porelo-Vault'
+          : 'signed in through the Porelo-Vault to ${agent.foundProvider}',
     'SIGNED_IN' => agent.foundProvider.isEmpty ? 'signed in here' : 'signed in here to ${agent.foundProvider}',
     'NOT_SIGNED_IN' => 'not signed in here',
     'CANNOT_SAY' => 'cannot say whether it is signed in here',

@@ -182,6 +182,83 @@ void main() {
     expect(find.descendant(of: refused, matching: find.byType(CommandToCopy)), findsNothing);
   });
 
+  // Harm: one repository the forge refuses hides the others' pull requests or its own as if merged, or is said
+  // without which repository, what the forge answered or the path it was asked.
+  testWidgets("a refused repository is a row of its own with the forge's status and path, the others still shown", (
+    tester,
+  ) async {
+    const other = HostPullRequest(
+      repository: 'foo-2',
+      number: 7,
+      title: 'Pin the parser',
+      head: '89abcdef0123456789abcdef0123456789abcdef',
+      state: 'open',
+    );
+    final watch = await _watched(tester);
+    watch.answer(<HostPullRequest>[_made, other]);
+    await World.settle(tester);
+    watch.answer(
+      <HostPullRequest>[_made],
+      refused: const <HostPullRequestRefusal>[
+        HostPullRequestRefusal(
+          repository: 'foo-2',
+          reason: 'forge-access',
+          status: 403,
+          path: '/api/v1/repos/foo/foo-2/pulls',
+          message: 'the host forge answers 403 to /api/v1/repos/foo/foo-2/pulls',
+        ),
+      ],
+    );
+    await World.settle(tester);
+
+    expect(_row(1), findsOneWidget);
+    expect(find.descendant(of: _row(1), matching: find.textContaining('out of date')), findsNothing);
+    final kept = find.byKey(const ValueKey<String>('attention-row pull request elsewhere/foo/foo-2#7'));
+    expect(kept, findsOneWidget, reason: 'a refused repository is not its pull requests merged');
+    expect(find.descendant(of: kept, matching: find.textContaining('out of date')), findsWidgets);
+    final refused = find.byKey(const ValueKey<String>('attention-row pull requests refused elsewhere/foo/foo-2'));
+    expect(refused, findsOneWidget);
+    expect(
+      find.descendant(of: refused, matching: find.text('Pull requests of foo-2 in foo cannot be read · elsewhere')),
+      findsWidgets,
+    );
+    expect(find.descendant(of: refused, matching: find.textContaining('administrator of elsewhere')), findsWidgets);
+    await expandListRows(tester, within: refused);
+    await World.settle(tester);
+    expect(
+      find.descendant(
+        of: refused,
+        matching: find.textContaining('The forge answered HTTP 403 when asked for /api/v1/repos/foo/foo-2/pulls.'),
+      ),
+      findsWidgets,
+    );
+    expect(find.descendant(of: refused, matching: find.textContaining('not made yet')), findsWidgets);
+    expect(find.textContaining('forge-access'), findsNothing);
+  });
+
+  // Harm: a forge that refuses the person's token reads as an unknown refusal, and nobody renews it.
+  testWidgets('a refused person token is labelled so and says to renew it on the host', (tester) async {
+    final watch = await _watched(tester);
+    watch.fail(
+      HostPullRequestsRefused(
+        const VarlinkException('org.fuin.porelo.Tasks1.HostPullRequestsRefused', <String, dynamic>{
+          'reason': 'forge-token',
+          'message': 'the host forge answers 401 to /api/v1/repos/foo/foo-1/pulls: it refuses the person token',
+        }),
+      ),
+    );
+    await World.settle(tester);
+
+    final refused = find.byKey(const ValueKey<String>('attention-row pull requests refused elsewhere/foo'));
+    expect(find.descendant(of: refused, matching: find.text('Forge token refused')), findsWidgets);
+    expect(find.descendant(of: refused, matching: find.textContaining('porelo host forge-token')), findsWidgets);
+    await expandListRows(tester, within: refused);
+    await World.settle(tester);
+    expect(find.descendant(of: refused, matching: find.textContaining('refuses your person token')), findsWidgets);
+    expect(find.descendant(of: refused, matching: find.byType(CommandToCopy)), findsNothing);
+    expect(World.setup.ranOnTheMachine, isEmpty, reason: 'the machine names no command, so none is run');
+  });
+
   // Harm: a token missing reads as a refusal, or the words send the person to a command that is not shown.
   testWidgets('a missing token with no safe command is labelled as missing, with no command to copy', (tester) async {
     final watch = await _watched(tester);

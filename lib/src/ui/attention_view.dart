@@ -435,14 +435,18 @@ extension on _AttentionViewState {
         primary = _openPullRequest(each, reason);
       case AttentionKind.pullRequestsRefused:
         final each = row.value as PullRequestsRefusedRow;
-        title = 'Pull requests of ${each.project} cannot be read';
-        state = each.refusal is MissingHostForgeToken
-            ? 'Forge token missing'
-            : each.refusal is HostPullRequestsRefused
-            ? 'Refused'
-            : 'Not answered';
+        title = switch (each.repository) {
+          null => 'Pull requests of ${each.project} cannot be read',
+          final repository => 'Pull requests of $repository in ${each.project} cannot be read',
+        };
+        state = switch (each.refusal) {
+          MissingHostForgeToken() => 'Forge token missing',
+          HostPullRequestsRefused(reason: 'forge-token') => 'Forge token refused',
+          HostPullRequestsRefused() || HostPullRequestRefusal() => 'Refused',
+          _ => 'Not answered',
+        };
         subtitle = each.action;
-        icon = Icons.key_off_outlined;
+        icon = each.repository == null ? Icons.key_off_outlined : Icons.folder_off_outlined;
         final on = each.machine;
         switch (each.refusal) {
           case final MissingHostForgeToken missing when widget.forgeTokens != null:

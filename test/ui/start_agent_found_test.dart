@@ -131,6 +131,46 @@ void main() {
     );
   });
 
+  testWidgets("an agent signed in through the Porelo-Vault says so, not that it is signed in on the machine", (
+    tester,
+  ) async {
+    // Harm: a person reads a vault's credential as the agent's own sign-in on the machine, and looks for files of it
+    // there that are not, or signs in again for nothing.
+    await _open(
+      tester,
+      const Readiness(
+        ready: false,
+        outcome: StartOutcome.severalAgents,
+        agent: '',
+        provider: '',
+        credential: '',
+        detail: '',
+      ),
+      agents: <Map<String, dynamic>>[
+        <String, dynamic>{
+          'name': 'vaulted',
+          'label': 'Vaulted',
+          'found': 'SIGNED_IN',
+          'foundProvider': 'a-provider',
+          'foundVia': 'vault',
+        },
+        <String, dynamic>{'name': 'own', 'label': 'Own', 'found': 'SIGNED_IN', 'foundProvider': 'a-provider'},
+      ],
+    );
+    await tester.tap(find.byKey(const Key('start-agent')));
+    await tester.pumpAndSettle();
+
+    String words(String name) => tester
+        .widgetList<Text>(
+          find.descendant(of: find.byKey(ValueKey<String>('start-agent-choice $name')), matching: find.byType(Text)),
+        )
+        .map((each) => each.data)
+        .join(' ');
+    expect(words('vaulted'), contains('signed in through the Porelo-Vault to a-provider'));
+    expect(words('vaulted'), isNot(contains('signed in here')));
+    expect(words('own'), contains('signed in here to a-provider'));
+  });
+
   testWidgets('with no sign-in to run, the import is offered before storing a key', (tester) async {
     // Harm: a person retypes a key the machine could have copied, or never learns it could.
     var imported = 0;

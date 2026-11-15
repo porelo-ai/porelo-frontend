@@ -248,8 +248,8 @@ class MissingHostForgeToken extends VarlinkException {
 }
 
 /// The machine would not read its host forge's pull requests, and says why: [reason] (`settings`,
-/// `vault-unreadable`, `not-carried`, `forge`, `forge-answer`, `makers`, `bounds`, or one this build does not know),
-/// and [message] in words, shown as it comes.
+/// `vault-unreadable`, `not-carried`, `forge-token`, `forge`, `forge-answer`, `makers`, `bounds`, or one this build
+/// does not know), and [message] in words, shown as it comes.
 class HostPullRequestsRefused extends VarlinkException {
   /// Constructor taking the refusal as it came.
   HostPullRequestsRefused(VarlinkException refusal)

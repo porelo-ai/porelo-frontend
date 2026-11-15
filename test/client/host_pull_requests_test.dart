@@ -104,6 +104,53 @@ void main() {
     }
   });
 
+  // Harm: one repository's refusal is lost, so its pull requests vanish unexplained, or it silences the others' rows;
+  // an answer from an older machine, without the field, reads as a refusal.
+  test('a repository refused alone is read with its status and path, beside the others still answered', () async {
+    daemon.method(
+      'PullRequests',
+      (_) => <String, dynamic>{
+        'pullRequests': <Map<String, dynamic>>[row(1)],
+        'ended': <Object>[],
+        'refused': <Object?>[
+          <String, dynamic>{
+            'repository': 'foo-2',
+            'reason': 'forge-access',
+            'status': 404,
+            'path': '/api/v1/repos/foo/foo-2/pulls',
+            'message': 'the host forge answers 404',
+          },
+          <String, dynamic>{'repository': 'foo-3', 'reason': 'a-later-reason', 'status': 'five', 'path': ''},
+          <String, dynamic>{'reason': 'forge', 'status': 500},
+          'not a refusal',
+        ],
+      },
+    );
+
+    final seen = await (await connect()).pullRequests('foo');
+
+    expect(seen.open.single.repository, 'foo-1');
+    expect(seen.refused, hasLength(2));
+    final access = seen.refused.first;
+    expect(access.repository, 'foo-2');
+    expect(access.reason, 'forge-access');
+    expect(access.status, 404);
+    expect(access.path, '/api/v1/repos/foo/foo-2/pulls');
+    expect(access.message, 'the host forge answers 404');
+    final later = seen.refused.last;
+    expect(later.reason, 'a-later-reason');
+    expect(later.status, isNull);
+    expect(later.path, isNull);
+    expect(later.message, isEmpty);
+
+    final older = PullRequestsSeen.from(<String, dynamic>{
+      'pullRequests': <Map<String, dynamic>>[row(1)],
+      'ended': <Object>[],
+    });
+    expect(older.refused, isEmpty);
+    expect(older.open.single.number, 1);
+  });
+
   // Harm: the watch's changes are lost, so a merged pull request still asks the person for a merge.
   test('the watch answers every change, its ended rows with it', () async {
     final changes = StreamController<Map<String, dynamic>>();

@@ -3125,9 +3125,12 @@ class FakePullRequestWatch {
 
   final _said = StreamController<PullRequestsSeen>();
 
-  /// Says the whole list open now, and those seen to end since.
-  void answer(List<HostPullRequest> open, {List<HostPullRequest> ended = const <HostPullRequest>[]}) =>
-      _said.add(PullRequestsSeen(open: open, ended: ended));
+  /// Says the whole list open now, those seen to end since, and the repositories whose forge refused this round.
+  void answer(
+    List<HostPullRequest> open, {
+    List<HostPullRequest> ended = const <HostPullRequest>[],
+    List<HostPullRequestRefusal> refused = const <HostPullRequestRefusal>[],
+  }) => _said.add(PullRequestsSeen(open: open, ended: ended, refused: refused));
 
   /// Ends it without an error, as a final reply would.
   void end() => unawaited(_said.close());

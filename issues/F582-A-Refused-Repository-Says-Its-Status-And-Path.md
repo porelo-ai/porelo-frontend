@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F582",
   "title": "A Refused Repository Says Its Status And Path",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 15,
@@ -64,7 +64,51 @@ started.
 
 - The tests above, each seen red first; `test/ui` and `test/features` green.
 
+## Built
+
+- `lib/src/client/models.dart`: `HostPullRequestRefusal` (repository, reason kept as said, `status` only an int,
+  `path` only non-blank text, message); `PullRequestsSeen.refused` drops an entry without a repository or that is no
+  map, and is empty from an older machine. `Agent.foundVia` and `signedInThroughTheVault` (`SIGNED_IN` with `vault`).
+- `lib/src/app/host_pull_requests.dart`: each answer replaces the project's repository refusals, so one that answers
+  again leaves; a refused repository's rows are kept, stale, also on a watch's first answer. `refused` lists the whole
+  project's refusal while one stands, otherwise one entry per refused repository. `PullRequestsRefusedRow` says a
+  repository refusal with its reason in words (`forge-access`: copy not made yet or not admitted; `forge`: asked
+  again; `not-carried`: no longer carried), "The forge answered HTTP <status> when asked for <path>.", the machine's
+  words, and that the others still read; its action names the host's administrator. `forge-token` has its own
+  sentence and the action "Renew your person token on <host> with porelo host forge-token, in a terminal there.";
+  nothing is run.
+- `lib/src/app/attention.dart`: a repository refusal's row id ends in `/<repository>`.
+  `lib/src/ui/attention_view.dart`: title "Pull requests of <repository> in <project> cannot be read", state
+  "Forge token refused" for `forge-token`. `lib/src/ui/start_work_view.dart`: "signed in through the Porelo-Vault to
+  <provider>". `FakePullRequestWatch.answer` takes `refused`.
+- Tests, each seen red by a deliberate break, then restored from a copy:
+  - `test/client/host_pull_requests_test.dart` *a repository refused alone is read with its status and path…*
+    (harm: a refusal lost or silencing the others; an older answer read as a refusal). Red with `refused` not read:
+    `Expected: an object with length of <2>, Actual: []`.
+  - `test/app/host_pull_requests_test.dart` *a refused repository's rows stay, stale…* (harm: the others silenced, or
+    its rows vanish as if merged, also on a first answer). Red with rows kept only on later answers:
+    `Bad state: No element` at the check after the watch was asked again.
+  - same file, *a refused person token says it must be renewed on the host, and how* (harm: a 401 read as an unknown
+    refusal). Red without the `forge-token` sentence: `Expected: contains 'refuses your person token'`, actual "…the
+    machine refused…".
+  - `test/ui/needs_you_pull_request_test.dart` *a refused repository is a row of its own with the forge's status and
+    path…* (harm as above, said without repository, status or path). Red with the repository refusals not listed:
+    `Found 0 widgets with key [<'attention-row pull requests refused elsewhere/foo/foo-2'>]`.
+  - same file, *a refused person token is labelled so and says to renew it on the host*. Red without the state:
+    `Found 0 widgets with text "Forge token refused"`.
+  - `test/ui/start_agent_found_test.dart` *an agent signed in through the Porelo-Vault says so…* (harm: a vault's
+    credential read as the agent's own sign-in on the machine). Red with the vault branch off:
+    `Actual: 'Vaulted · signed in here to a-provider'`.
+- Not checked: `foundVia` is not in porelo's `40-agent.varlink` at `8192993dd`; it is read from Agent Core's post as
+  the Plan cites it, optional, and absent reads as before. No feature was changed; not seen in the debug build. At
+  `8192993dd` `HostPullRequestsRefused` carries only `reason` and `message`, so the item below stays open.
+
 ## To be checked
 
 - Whether porelo will name a `storeCommand` for `forge-token`, so the window can renew the token as it stores a
   missing one ([F580](README.md#f580)); until then the row says how and runs nothing.
+- The reading by another model (Claude Sonnet) found nothing red. Taken from it: the machine's words no longer end
+  in two full stops. Left as yellows: no test of two refused repositories at once, of a whole-project refusal hiding
+  the repository refusals, or of their clearing when a project is no longer followed (each traced in the code and
+  right); the status and path can stand twice, in the window's sentence and in the machine's words; `foundVia` is
+  taken from Agent Core's post and is not yet in porelo's wire.

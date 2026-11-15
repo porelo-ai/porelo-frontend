@@ -374,11 +374,12 @@ class Attention extends ChangeNotifier {
         );
       }
       for (final each in pullRequests.refused) {
+        final row = PullRequestsRefusedRow(machine: machine, project: each.project, refusal: each.refusal);
         yield AttentionRow(
           AttentionKind.pullRequestsRefused,
-          'pull requests refused ${machine.name}/${each.project}',
+          'pull requests refused ${machine.name}/${each.project}${row.repository == null ? '' : '/${row.repository}'}',
           machine.name,
-          PullRequestsRefusedRow(machine: machine, project: each.project, refusal: each.refusal),
+          row,
         );
       }
     }

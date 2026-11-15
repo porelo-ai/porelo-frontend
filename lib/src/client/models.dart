@@ -1318,6 +1318,13 @@ class Agent {
   /// The provider it was found signed in to, or empty.
   final String foundProvider;
 
+  /// Where its sign-in was found: `vault` where the Porelo-Vault holds the provider's credential; null where the
+  /// agent's own sign-in files on the machine were found, and from a Porelo older than the field.
+  final String? foundVia;
+
+  /// Whether it was found signed in through the Porelo-Vault rather than by its own files on the machine.
+  bool get signedInThroughTheVault => found == 'SIGNED_IN' && foundVia == 'vault';
+
   /// The paths found on the machine.
   final List<String> foundPaths;
 
@@ -1325,6 +1332,7 @@ class Agent {
   const Agent({
     this.found = '',
     this.foundProvider = '',
+    this.foundVia,
     this.foundPaths = const <String>[],
     this.loginFlow,
     this.canLogIn = false,
@@ -1362,6 +1370,7 @@ class Agent {
     loginFlow: LoginFlow.named(map['loginFlow']),
     found: _string(map, 'found'),
     foundProvider: _string(map, 'foundProvider'),
+    foundVia: _optional(map, 'foundVia'),
     foundPaths: _strings(map, 'foundPaths'),
   );
 }
@@ -4557,21 +4566,70 @@ class HostPullRequest {
   String get key => '$repository#$number';
 }
 
-/// What one reading of a host forge's pull requests answered: the whole list open now, and those seen to end.
+/// One repository of a project whose pull requests its host's forge would not give this round, while the others'
+/// were read: its earlier rows are kept by the machine, neither open nor ended, until it answers again.
+class HostPullRequestRefusal {
+  /// The repository's name in the project's file, as [HostPullRequest.repository].
+  final String repository;
+
+  /// Why, as the machine names it: `forge-access` (the forge answered 403 or 404), `forge` (any other status),
+  /// `not-carried` (the host no longer carries it), or a later word kept as said.
+  final String reason;
+
+  /// The forge's HTTP status; null where the forge was not asked.
+  final int? status;
+
+  /// The path the forge was asked, as `/api/v1/repos/<copy>/pulls`; null where none was.
+  final String? path;
+
+  /// The machine's own words about it, shown as they come; empty where it gave none.
+  final String message;
+
+  /// Constructor taking every field.
+  const HostPullRequestRefusal({
+    required this.repository,
+    required this.reason,
+    this.status,
+    this.path,
+    this.message = '',
+  });
+
+  /// Reads one from a reply; null where it names no repository, which says nothing about any.
+  static HostPullRequestRefusal? from(Map<String, dynamic> map) {
+    final repository = _optional(map, 'repository');
+    if (repository == null) return null;
+    final status = map['status'];
+    return HostPullRequestRefusal(
+      repository: repository,
+      reason: _string(map, 'reason'),
+      status: status is int ? status : null,
+      path: _optional(map, 'path'),
+      message: _string(map, 'message'),
+    );
+  }
+}
+
+/// What one reading of a host forge's pull requests answered: the whole list open now, those seen to end, and the
+/// repositories whose pull requests could not be read this round.
 class PullRequestsSeen {
-  /// Every pull request open now, the whole list.
+  /// Every pull request open now, the whole list, but for those of a [refused] repository.
   final List<HostPullRequest> open;
 
   /// Those confirmed merged or closed since the last answer, each once.
   final List<HostPullRequest> ended;
 
-  /// Constructor taking both.
-  const PullRequestsSeen({required this.open, required this.ended});
+  /// The repositories the forge refused this round, each once; empty where none was, and from a Porelo older than
+  /// the field.
+  final List<HostPullRequestRefusal> refused;
+
+  /// Constructor taking every field.
+  const PullRequestsSeen({required this.open, required this.ended, this.refused = const <HostPullRequestRefusal>[]});
 
   /// Reads one from a reply.
   factory PullRequestsSeen.from(Map<String, dynamic> map) => PullRequestsSeen(
     open: _list(map, 'pullRequests').map(HostPullRequest.from).toList(),
     ended: _list(map, 'ended').map(HostPullRequest.from).toList(),
+    refused: <HostPullRequestRefusal>[for (final each in _list(map, 'refused')) ?HostPullRequestRefusal.from(each)],
   );
 }
 

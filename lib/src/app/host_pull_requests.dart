@@ -42,7 +42,8 @@ class PullRequestRow {
   Uri? get address => pullRequestAddress(forge: machine.hostCard?.forgeUrl, project: project, request: request);
 }
 
-/// A host forge's pull requests the machine would not read, as a row of *Needs you* says it.
+/// A host forge's pull requests the machine would not read, as a row of *Needs you* says it: those of a whole project,
+/// or of one of its repositories ([HostPullRequestRefusal]) while the others' are read.
 @immutable
 class PullRequestsRefusedRow {
   /// Constructor taking what the row is about.
@@ -54,11 +55,18 @@ class PullRequestsRefusedRow {
   /// The project whose pull requests were asked for.
   final String project;
 
-  /// What the machine answered.
+  /// What the machine answered: a [HostPullRequestRefusal] for one repository alone, or what ended the watch.
   final Object refusal;
+
+  /// The repository refused alone, or null where the whole project's pull requests were.
+  String? get repository => switch (refusal) {
+    HostPullRequestRefusal(:final repository) => repository,
+    _ => null,
+  };
 
   /// What it means, in words; never the machine's own token for it.
   String get words {
+    if (refusal case final HostPullRequestRefusal refused) return _repositoryWords(refused);
     final which = "The pull requests of $project on ${machine.name}'s forge cannot be read";
     return switch (refusal) {
       MissingHostForgeToken(:final credential) =>
@@ -72,8 +80,37 @@ class PullRequestsRefusedRow {
     };
   }
 
+  String _repositoryWords(HostPullRequestRefusal refused) {
+    final which = "The pull requests of ${refused.repository} in $project on ${machine.name}'s forge cannot be read";
+    final why = switch (refused.reason) {
+      'forge-access' =>
+        'the copy of ${refused.repository} on the forge is not made yet, or you are not admitted to it; '
+            'the forge answers both alike.',
+      'forge' => 'its forge did not give them this time. They are asked for again.',
+      'not-carried' => 'the host no longer carries ${refused.repository}.',
+      _ => 'the machine refused.',
+    };
+    final asked = switch ((refused.status, refused.path)) {
+      (final status?, final path?) => ' The forge answered HTTP $status when asked for $path.',
+      (final status?, null) => ' The forge answered HTTP $status.',
+      (null, final path?) => ' The path asked was $path.',
+      (null, null) => '',
+    };
+    return '$which: $why$asked'
+        '${refused.message.isEmpty ? '' : ' The machine says: ${_sentence(refused.message)}'}'
+        ' Those shown of ${refused.repository} may be out of date until it answers again; '
+        "the other repositories' pull requests are read as before.";
+  }
+
+  /// [words] as one sentence, ending in a full stop only once.
+  static String _sentence(String words) {
+    final trimmed = words.trim();
+    return trimmed.endsWith('.') ? trimmed : '$trimmed.';
+  }
+
   static String _why(String reason) => switch (reason) {
     'settings' => "the host's forge settings are not in order.",
+    'forge-token' => 'its forge refuses your person token, so it has to be renewed there.',
     'vault-unreadable' => 'the vault there is locked or cannot be read.',
     'not-carried' => 'the host does not carry this project for you.',
     'forge' => 'its forge did not answer.',
@@ -87,7 +124,15 @@ class PullRequestsRefusedRow {
   String get action {
     final on = machine.name;
     return switch (refusal) {
+      HostPullRequestRefusal(reason: 'forge-access', :final repository) =>
+        'Ask an administrator of $on to make the copy of $repository on its forge, or to admit you to it.',
+      HostPullRequestRefusal(reason: 'not-carried', :final repository) =>
+        'If $repository should still be carried, ask an admin of $on to carry it for you.',
+      HostPullRequestRefusal() => 'If this stays, look at the forge of $on; the machine asks again by itself.',
       MissingHostForgeToken() => 'Store your forge token on $on; Open details shows how.',
+      // The machine names no command to renew it with, so none is run from here.
+      HostPullRequestsRefused(reason: 'forge-token') =>
+        'Renew your person token on $on with porelo host forge-token, in a terminal there.',
       HostPullRequestsRefused(reason: 'vault-unreadable') => 'Unlock the vault on $on.',
       HostPullRequestsRefused(reason: 'settings') => "Put the forge settings of $on in order there.",
       HostPullRequestsRefused(reason: 'not-carried') => 'Ask an admin of $on to carry $project for you.',
@@ -187,6 +232,10 @@ class _Watched {
   /// What the machine refused with, or null.
   Object? refusal;
 
+  /// The repositories its forge refused in the last answer, by [HostPullRequestRefusal.repository]; one that answers
+  /// again leaves.
+  final refusedRepositories = <String, HostPullRequestRefusal>{};
+
   void stop() {
     unawaited(listening?.cancel());
     listening = null;
@@ -226,10 +275,14 @@ class HostPullRequests extends ChangeNotifier {
   /// How the pull request [key] of [project] ended, as the machine confirmed it; null where it has not.
   String? endedAs(String project, String key) => _projects[project]?.ended[key];
 
-  /// Every project whose pull requests the machine refused to read, with its answer.
+  /// Every project whose pull requests the machine refused to read, with its answer; where the project was read,
+  /// each repository its forge refused, as a [HostPullRequestRefusal].
   List<({String project, Object refusal})> get refused => <({String project, Object refusal})>[
     for (final MapEntry(key: project, value: watched) in _projects.entries)
-      if (watched.refusal case final refusal?) (project: project, refusal: refusal),
+      if (watched.refusal case final refusal?)
+        (project: project, refusal: refusal)
+      else
+        for (final each in watched.refusedRepositories.values) (project: project, refusal: each),
   ];
 
   /// Watches [projects] on [backend]: those already watched go on. One no longer named stops being asked but keeps
@@ -249,7 +302,8 @@ class HostPullRequests extends ChangeNotifier {
         ..stop()
         ..wanted = false
         ..stale = true
-        ..refusal = null;
+        ..refusal = null
+        ..refusedRepositories.clear();
       if (watched.open.isEmpty) _projects.remove(name);
       changed = true;
     }
@@ -317,14 +371,16 @@ class HostPullRequests extends ChangeNotifier {
       ..removeWhere((key, _) => seen.open.any((each) => each.key == key))
       ..addAll({for (final each in seen.ended) each.key: each.state});
     final now = {for (final each in seen.open) each.key: each};
-    // The first answer of a watch is the whole list as it stands; later ones are changes, where only an end the
-    // machine confirms takes a row away.
-    final kept = watched.answered
-        ? <String, HostPullRequest>{
-            for (final MapEntry(:key, :value) in watched.open.entries)
-              if (!now.containsKey(key) && !ended.contains(key)) key: value,
-          }
-        : const <String, HostPullRequest>{};
+    final refused = {for (final each in seen.refused) each.repository: each};
+    // The first answer of a watch is the whole list as it stands, but for a refused repository's, which it does not
+    // read; later ones are changes, where only an end the machine confirms takes a row away.
+    final kept = <String, HostPullRequest>{
+      for (final MapEntry(:key, :value) in watched.open.entries)
+        if (!now.containsKey(key) &&
+            !ended.contains(key) &&
+            (watched.answered || refused.containsKey(value.repository)))
+          key: value,
+    };
     watched
       ..answered = true
       ..open.clear()
@@ -333,7 +389,9 @@ class HostPullRequests extends ChangeNotifier {
       ..unconfirmed.clear()
       ..unconfirmed.addAll(kept.keys)
       ..stale = false
-      ..refusal = null;
+      ..refusal = null
+      ..refusedRepositories.clear()
+      ..refusedRepositories.addAll(refused);
     _notify();
   }
 

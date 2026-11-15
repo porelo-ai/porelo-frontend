@@ -325,6 +325,80 @@ void main() {
     expect((rows(AttentionKind.pullRequest).single.value as PullRequestRow).stale, isFalse);
   });
 
+  // Harm: one repository the forge refuses silences the others, or its pull requests vanish as if merged, also when
+  // a watch asked again first answers with it refused; or it stays said after it answers again.
+  test("a refused repository's rows stay, stale, its refusal is a row of its own, and the others answer", () async {
+    const refusal = HostPullRequestRefusal(
+      repository: 'foo-2',
+      reason: 'forge-access',
+      status: 404,
+      path: '/api/v1/repos/foo/foo-2/pulls',
+      message: 'the host forge answers 404 to /api/v1/repos/foo/foo-2/pulls',
+    );
+    PullRequestRow of(String key) =>
+        rows(AttentionKind.pullRequest)
+            .map((row) => row.value as PullRequestRow)
+            .singleWhere((row) => row.request.key == key);
+
+    final first = backend.pullRequestWatches.single;
+    first.answer(<HostPullRequest>[_request(1), _request(2, repository: 'foo-2')]);
+    await _until(() => rows(AttentionKind.pullRequest).length == 2);
+
+    first.answer(<HostPullRequest>[_request(1), _request(3)], refused: const <HostPullRequestRefusal>[refusal]);
+    await _until(() => rows(AttentionKind.pullRequestsRefused).isNotEmpty);
+    expect(of('foo-1#1').stale, isFalse);
+    expect(of('foo-1#3').stale, isFalse, reason: 'the other repositories still answer');
+    expect(of('foo-2#2').stale, isTrue);
+    final said = rows(AttentionKind.pullRequestsRefused).single;
+    expect(said.id, contains('foo-2'));
+    final row = said.value as PullRequestsRefusedRow;
+    expect(row.repository, 'foo-2');
+    expect(row.words, allOf(contains('foo-2'), contains('404'), contains('/api/v1/repos/foo/foo-2/pulls')));
+    expect(row.words, isNot(contains('forge-access')));
+    expect(row.action, contains('administrator of build'));
+
+    // A watch asked again starts with a whole list, which still does not read the refused repository.
+    first.fail(const VarlinkException('org.fuin.porelo.Tasks1.Unexpected'));
+    await _until(() => backend.pullRequestWatches.length == 2);
+    backend.pullRequestWatches.last.answer(
+      <HostPullRequest>[_request(1)],
+      refused: const <HostPullRequestRefusal>[refusal],
+    );
+    await _until(() => !of('foo-1#1').stale);
+    expect(of('foo-2#2').stale, isTrue, reason: 'kept, as the machine keeps it, until it answers again');
+    expect(
+      rows(AttentionKind.pullRequest).map((row) => (row.value as PullRequestRow).request.key),
+      isNot(contains('foo-1#3')),
+    );
+    expect(rows(AttentionKind.pullRequestsRefused).single.value, isA<PullRequestsRefusedRow>());
+    expect((rows(AttentionKind.pullRequestsRefused).single.value as PullRequestsRefusedRow).repository, 'foo-2');
+
+    backend.pullRequestWatches.last.answer(<HostPullRequest>[_request(1), _request(2, repository: 'foo-2')]);
+    await _until(() => rows(AttentionKind.pullRequestsRefused).isEmpty);
+    expect(rows(AttentionKind.pullRequestsRefused), isEmpty);
+    expect(of('foo-2#2').stale, isFalse);
+  });
+
+  // Harm: a forge that refuses the person's token reads as an unknown refusal, so nobody renews it and no pull request
+  // shows again.
+  test('a refused person token says it must be renewed on the host, and how', () {
+    final row = PullRequestsRefusedRow(
+      machine: _build,
+      project: 'foo',
+      refusal: HostPullRequestsRefused(
+        const VarlinkException('org.fuin.porelo.Tasks1.HostPullRequestsRefused', <String, dynamic>{
+          'reason': 'forge-token',
+          'message': 'the host forge answers 401 to /api/v1/repos/foo/foo-1/pulls: it refuses the person token',
+        }),
+      ),
+    );
+    expect(row.words, contains('refuses your person token'));
+    expect(row.words, isNot(contains('the machine refused')));
+    expect(row.words, contains('The machine says: the host forge answers 401'));
+    expect(row.action, allOf(contains('Renew'), contains('porelo host forge-token'), contains('build')));
+    expect(row.storeCommand, isNull, reason: 'the machine names no command, so none is run');
+  });
+
   // Harm: the person is shown the daemon's token instead of what to do, or a missing token goes unsaid and no pull
   // request ever shows.
   test('a missing forge token and a refused read are one row each, in words', () async {
