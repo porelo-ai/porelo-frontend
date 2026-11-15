@@ -451,6 +451,109 @@ void main() {
     await _turn();
   }
 
+  StoryWorkStatus work({List<Map<String, Object>> tasks = const [], List<Map<String, Object>> issues = const []}) =>
+      StoryWorkStatus.from({
+        'work': {'atWork': false, 'tasks': tasks, 'issues': issues},
+      });
+
+  List<String> boardRows(PlanningBoards boards) => [for (final each in boards.needsYou) each.id];
+
+  // Harm: a reading put away hides the end of its issue's task that comes later, so the person never hears of it.
+  test("a reading put away still says a later end of its issue's task", () async {
+    final planning = _Planning(_snapshot('initial', stopped: true, working: true));
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    await putAway(env);
+    expect(boardRows(env.boards), isEmpty, reason: 'put away');
+
+    planning.status = work(
+      tasks: [
+        {
+          'task': 'reader',
+          'issues': ['item'],
+          'ended': {'at': '2026-11-10T09:00:00Z', 'outcome': 'BLOCKED', 'why': 'Needs a key.', 'answer': ''},
+        },
+      ],
+    );
+    planning.push('demo', _snapshot('ended', stopped: true, working: true));
+    await _turn();
+    expect(boardRows(env.boards), contains('reading builder/demo/item'), reason: "its task's end is said");
+    expect(env.planningRows, contains('reading builder/demo/item'), reason: 'and counted under Needs you');
+  });
+
+  // Harm: a story's end with no time, seen in this window only, keeps counting on the boards.
+  test("a story's end with no time seen leaves the boards for this window's life", () async {
+    final planning = _Planning(_snapshot('initial', working: true))
+      ..status = work(
+        tasks: [
+          {
+            'task': 'main',
+            'ended': {'at': '', 'outcome': 'BLOCKED', 'why': 'Needs a key.', 'answer': ''},
+          },
+        ],
+      );
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    expect(boardRows(env.boards), ['story ended builder/demo/story']);
+
+    env.attention.storyEndSeen(env.attention.openRows.firstWhere((row) => row.kind == AttentionKind.planning));
+    await _turn();
+    expect(env.settings.endedPutAway, isEmpty, reason: 'a mark with no time is kept for this window only');
+    expect(boardRows(env.boards), isEmpty, reason: 'seen');
+  });
+
+  // Harm: a reading put away before the settings were read keeps counting on the boards.
+  test('a reading put away before the settings were read leaves the boards', () async {
+    final planning = _Planning(_snapshot('initial', stopped: true));
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    final unread = Settings(env.store);
+    final attention = Attention(env.machines, unread);
+    final boards = PlanningBoards(env.client, seen: attention.seen);
+    attention.planning = boards;
+    addTearDown(() {
+      attention.dispose();
+      boards.dispose();
+      unread.dispose();
+    });
+    await _turn();
+    expect(boardRows(boards), ['reading builder/demo/item']);
+
+    attention.readingSeen(attention.openRows.firstWhere((row) => row.kind == AttentionKind.planning));
+    await _turn();
+    expect(unread.readingsPutAway, isEmpty, reason: 'settings not read are not written');
+    expect(boardRows(boards), isEmpty, reason: 'put away');
+  });
+
+  // Harm: a reading put away hides the issue raised again for another reason.
+  test("a reading put away is said again once its reason changes", () async {
+    final planning = _Planning(_snapshot('initial', working: true))
+      ..status = work(
+        issues: [
+          {'issue': 'item', 'reason': 'STOPPED'},
+        ],
+      );
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    expect(boardRows(env.boards), ['reading builder/demo/item']);
+    await putAway(env);
+    expect(boardRows(env.boards), isEmpty, reason: 'put away');
+
+    planning.status = work(
+      issues: [
+        {'issue': 'item', 'reason': 'SAVE_REFUSED'},
+      ],
+    );
+    planning.push('demo', _snapshot('another reason', working: true));
+    await _turn();
+    expect(boardRows(env.boards), ['reading builder/demo/item'], reason: 'its reason changed');
+    expect(env.planningRows, ['reading builder/demo/item']);
+  });
+
   // Harm: a stop put away hid the same issue's later stop, after its state had moved on and come back while the issue
   // stayed raised.
   test('a stopped reading put away is said again once its state moves on and comes back', () async {

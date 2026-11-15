@@ -249,6 +249,15 @@ class Attention extends ChangeNotifier {
     _seen.marksChanged();
   }
 
+  /// Whether the boards say the issue [kept] names with an end of its task: a reading put away hides only its stop,
+  /// never a later end, which [PlanningPutAway] cannot tell apart.
+  bool _endedNow(PlanningPutAway kept) => _planningSaid.any(
+    (entry) =>
+        entry.attention.ended != null &&
+        entry.attention.issue?.id == kept.issue &&
+        entry.attention.putAwayOn(entry.machine) == kept,
+  );
+
   /// Every row the boards say needs a person, those marked seen too: what a mark is judged gone against.
   List<PlanningNeedsYou> get _planningSaid {
     final planning = _planning;
@@ -1248,9 +1257,18 @@ class Attention extends ChangeNotifier {
     }
     _rememberRows();
     notifyListeners();
-    // Last, as the boards hearing it tell this again.
-    _tellSeen();
+    // Not now: this runs while the frame is being drawn, and the boards hearing it would redraw it.
+    if (!_seenWaits) {
+      _seenWaits = true;
+      scheduleMicrotask(() {
+        _seenWaits = false;
+        if (!_disposed) _tellSeen();
+      });
+    }
   }
+
+  /// Whether a look at the marks the boards were told of waits to run.
+  bool _seenWaits = false;
 
   /// The model of a row's machine while it is watched: rows are worked out from watched machines, and a row kept as
   /// seen can outlast the fleet it came from, as while its machine reconnects.
@@ -1473,7 +1491,7 @@ class _Seen extends ChangeNotifier implements PlanningSeen {
   final Attention _attention;
 
   @override
-  bool putAwaySeen(PlanningPutAway row) => _attention._readingsPutAway.contains(row);
+  bool putAwaySeen(PlanningPutAway row) => _attention._readingsPutAway.contains(row) && !_attention._endedNow(row);
 
   @override
   bool endSeen(PlanningStoryEnd end) => _attention._endedPutAway.contains(
