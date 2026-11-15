@@ -679,6 +679,8 @@ void main() {
     PlanningRefusal('TimedOut', {}, 'The planner did not answer in time.'),
     PlanningRefusal('InvalidSettings', {}, 'The report was not valid.'),
     PlanningRefusal('TaskEventConflict', {}, 'The offer does not match this task.'),
+    PlanningRefusal('WorkNotAllowed', {}, 'The move is not allowed.'),
+    PlanningRefusal('InvalidName', {}, 'The task name is invalid.'),
   ]) {
     test('a start refused with ${refusal.name} stops nothing and ends nothing', () async {
       final (starts, reports) = window();
@@ -694,27 +696,30 @@ void main() {
 
   // Harm: a task whose start the planner refused after offering it stays started there, so its story can never be
   // started again; or it runs on unreported, or its end is told twice.
-  test('a start the planner refused is stopped and its end reported once', () async {
-    final (starts, reports) = window();
-    final problems = <String>[];
-    reports.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
-    planner.answers.add(const PlanningRefusal('StaleRevision', {}, 'The board could not be saved.'));
-    final order = (await plannedOrders()).first;
+  // Each of the store's refusals halts the run when the start's save meets it, not only the ones a save alone throws.
+  for (final name in const ['StaleRevision', 'Unreachable', 'Busy', 'NoSuchStory']) {
+    test('a start the planner refused with $name is stopped and its end reported once', () async {
+      final (starts, reports) = window();
+      final problems = <String>[];
+      reports.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
+      planner.answers.add(PlanningRefusal(name, const {}, 'The board could not be saved.'));
+      final order = (await plannedOrders()).first;
 
-    final started = await starts(planner, 'demo', 'ST291', order);
-    await reports.idle;
-    machine.end(started.container, {'at': 'the end', 'finished': true});
-    reports.sweep();
-    await reports.idle;
+      final started = await starts(planner, 'demo', 'ST291', order);
+      await reports.idle;
+      machine.end(started.container, {'at': 'the end', 'finished': true});
+      reports.sweep();
+      await reports.idle;
 
-    expect(stopped, [(_laptop, started.container)]);
-    expect(planner.calls.map((call) => (call.event, call.offer)), [
-      (PlanningTaskEvent.started, order.offer),
-      (PlanningTaskEvent.ended, order.offer),
-    ]);
-    expect((await loaded()).planningOffer('laptop', started.container), isNull);
-    expect(problems, ['The board could not be saved.']);
-  });
+      expect(stopped, [(_laptop, started.container)]);
+      expect(planner.calls.map((call) => (call.event, call.offer)), [
+        (PlanningTaskEvent.started, order.offer),
+        (PlanningTaskEvent.ended, order.offer),
+      ]);
+      expect((await loaded()).planningOffer('laptop', started.container), isNull);
+      expect(problems, ['The board could not be saved.']);
+    });
+  }
 
   // Harm: after a restart, a stopped story's task runs on because the window forgot where it started it.
   test('after a restart, a stop finds the machine by the kept offer', () async {

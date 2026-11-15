@@ -1099,8 +1099,9 @@ class WindowTaskReports {
       if (error.name == 'TaskNotAnswered') return _voidTask(kept);
       if (!_transient(error)) _refused.add(attempt);
       // The planner's save of the start was refused, which halts the run while it holds the task started: the task
-      // stops and its end is told, so the story can start again. Any other refusal halts nothing, and the task is kept.
-      if (event == PlanningTaskEvent.started && _haltsTheRun.contains(error.name)) {
+      // stops and its end is told, so the story can start again. A refusal the run makes before it saves halts
+      // nothing, and the task is kept.
+      if (event == PlanningTaskEvent.started && !_transient(error) && !_beforeTheSave.contains(error.name)) {
         _voided.add(kept.offer);
         if (starts.machineNamed(kept.machine) case final machine?) {
           await _stopAndEnd(machine, kept.container, kept, source);
@@ -1212,9 +1213,28 @@ class WindowTaskReports {
   static String _endKey(PlanningTaskEnded ended) =>
       plannedEndKey(AgentEnded(at: ended.at, finished: ended.finished, unpushed: ended.unpushed));
 
-  /// The planner's refusals of a save of its board, which halt the run when a task's start is reported: the store's
-  /// own (a board moved on, a push only partly made, a move it cannot save), each of which only a save throws.
-  static const _haltsTheRun = {'StaleRevision', 'PartlySaved', 'MoveNotAllowed'};
+  /// The planner's refusals of a task's report made before it saves its board (the run's own and those of the request
+  /// itself), which halt nothing; every other one
+  /// (the store's, for a board moved on, one out of reach or busy, a push only partly made) halts the run.
+  static const _beforeTheSave = {
+    'TaskEventConflict',
+    'TaskNotAnswered',
+    'WorkNotAllowed',
+    'WorkRunning',
+    'RunChanged',
+    'PreviewChanged',
+    'NoDiscussion',
+    'ReadingNotStopped',
+    'ReworkNeedsFindings',
+    'ReadingRoundChanged',
+    'WorkRecordUnavailable',
+    'InvalidSettings',
+    'InvalidName',
+    'InvalidLevel',
+    'NotACloneUrl',
+    'IdeaRefused',
+    'ResultRefused',
+  };
 
   // The planner did not answer at all, or was not asked since no watched machine named the project's repository yet; a
   // later change of a machine tries again.
