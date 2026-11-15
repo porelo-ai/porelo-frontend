@@ -50,7 +50,9 @@ command on the host: the window stores their forge token there, and says only wh
 
 ## To be checked
 
-- With Agent Core: whether a shut host vault reaches the window as `MissingHostForgeToken` at all, or as
-  `HostPullRequestsRefused` with `vault-unreadable`; and, where the command itself meets a shut vault, how the window
-  tells that from its other refusals (all exit 69 now), without reading its words.
-- With Agent Core: whether the command named should carry `--if-forge`, since the window runs it by itself.
+- Settled with Agent Core: a shut host vault refuses the pull requests with `HostPullRequestsRefused`
+  (`vault-unreadable`) before the token is looked for, so `MissingHostForgeToken` comes only from an open vault
+  without the entry; the window opens the vault on the first and runs the command on the second.
+- porelo is to answer a shut vault from `porelo host forge-token` with its own exit code, 77, every other refusal
+  staying 69, and to name `--if-forge` in the command; the window reads 77 for that command alone and is built once
+  that stands in porelo.
