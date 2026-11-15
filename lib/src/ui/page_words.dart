@@ -104,7 +104,8 @@ const Map<String, PageWords> pageWords = {
       title: 'What is SSH Console?',
       words:
           'A shell on this machine in a terminal in this window, as your own account, by the key your agent holds '
-          'for it and the host key it was pinned with. Nothing is typed into a form of the window.',
+          'for it and the host key it was pinned with. A person listed as this machine\'s admin can switch it to root, '
+          'whose login takes the keys of exactly those admins. Nothing is typed into a form of the window.',
     ),
   ],
   'organization-project': [

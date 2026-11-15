@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/ssh_console.dart';
 import 'package:porelo_host/porelo_host.dart' show HostCardSsh;
+
+import '../support/organization_fixtures.dart';
 
 const _key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
@@ -144,6 +147,82 @@ void main() {
       );
       expect(() => sshConsoleCommand(machine), throwsStateError);
       expect(sshConsoleRefusal(machine), contains('SSH configuration could not be found'));
+    });
+  });
+
+  // Harm: a person root takes no key from is offered a root shell, or a person root takes one from is not; root takes
+  // the card keys of the persons listed as that machine's admins, and an Organization Admin not listed takes none.
+  group('the root switch', () {
+    OrganizationView reading(
+      String me, {
+      List<String> admins = const ['hana'],
+      List<String>? organizationAdmins,
+      bool stale = false,
+    }) => organizationFor(
+      me,
+      host: OrganizationHost(name: 'orchard', admins: admins),
+      organizationAdmins: organizationAdmins,
+      stale: stale,
+    );
+
+    test("is offered to a person listed as that machine's admin", () {
+      expect(rootConsoleOffered(_card, reading('hana')), isTrue);
+    });
+
+    test('is offered to a listed admin on a stale reading too, which still names who root takes', () {
+      expect(rootConsoleOffered(_card, reading('hana', stale: true)), isTrue);
+    });
+
+    for (final (what, view) in [
+      ("an owner not listed, who does the Organization Admins' work", reading('olive')),
+      ('an Organization Admin not listed', reading('olive', organizationAdmins: ['olive'])),
+      ('a project member not listed', reading('mia')),
+      ('a listed admin whose card is revoked', reading('rex', admins: ['rex'])),
+      ('a person listed on another machine only', organizationFor('hana')),
+    ]) {
+      test('is not offered to $what', () {
+        expect(rootConsoleOffered(_card, view), isFalse);
+      });
+    }
+
+    test('is not offered without a reading, or for a machine no card names', () {
+      expect(rootConsoleOffered(_card, null), isFalse);
+      expect(rootConsoleOffered(_byAddress, reading('hana')), isFalse);
+      expect(() => sshConsoleCommand(_byAddress, asRoot: true), throwsStateError);
+    });
+  });
+
+  // Harm: the root console takes options the person's own does not, a key file or a password among them, or on Linux
+  // rides the person's open master, whose path does not name the login, and opens their shell instead of root's.
+  group("the root console's line", () {
+    late Desk before;
+    setUp(() => before = desk);
+    tearDown(() => desk = before);
+
+    test('on Linux differs from the own line only in the login and a connection of its own', () {
+      desk = Desk.of('linux', const {});
+      final own = sshConsoleCommand(_card);
+      final root = sshConsoleCommand(_card, asRoot: true);
+      expect(root, [
+        'ssh',
+        '-F',
+        '/tmp/orchard.config',
+        '-o',
+        'ControlMaster=no',
+        '-o',
+        'ControlPath=none',
+        '-o',
+        'ProxyCommand=none',
+        '-t',
+        'root@orchard',
+      ]);
+      expect(own.where((each) => !root.contains(each)), ['ProxyCommand=false', 'orchard']);
+    });
+
+    test('on Windows differs from the own line only in the login', () {
+      desk = Desk.of('windows', const {'SystemRoot': r'D:\Windows'});
+      final own = sshConsoleCommand(_card);
+      expect(sshConsoleCommand(_card, asRoot: true), [...own.take(own.length - 1), 'root@orchard']);
     });
   });
 

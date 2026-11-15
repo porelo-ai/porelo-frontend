@@ -8,6 +8,7 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/templates.dart';
+import 'package:porelo_frontend/src/app/ssh_console.dart';
 import 'package:porelo_frontend/src/ui/expandable_list_row.dart';
 import 'package:porelo_frontend/src/ui/machine_view.dart' show TemplateRow;
 import 'package:porelo_frontend/src/ui/page_explanation.dart';
@@ -84,6 +85,34 @@ Project _demoListed(String hostState) => Project.from({
 });
 
 void main() {
+  // Harm: a person root takes no key from is offered a root shell, or the switch to root opens the person's own line.
+  group("the SSH Console's root switch", () {
+    Future<void> openConsole(WidgetTester tester, Machine machine) async {
+      World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.console));
+      await World.settle(tester);
+    }
+
+    testWidgets("a person listed as the machine's admin switches to root and opens root's line", (tester) async {
+      await World.startBackend(World.work);
+      final machine = await _withTheCard(tester);
+      await openConsole(tester, machine);
+      expect(find.byKey(const Key('ssh-console-login')), findsOneWidget, reason: 'hana is listed as build\'s admin');
+      await tester.tap(find.descendant(of: find.byKey(const Key('ssh-console-login')), matching: find.text('root')));
+      await World.settle(tester);
+      await _tap(tester, 'ssh-console-open');
+      expect(World.terminals.last.command, sshConsoleCommand(machine, asRoot: true), reason: 'the switch opens root');
+      expect(World.terminals.last.command.last, 'root@build', reason: 'root is the login');
+    });
+
+    testWidgets('an Organization Admin not listed as the machine\'s admin sees no switch', (tester) async {
+      await World.startBackend(World.work);
+      final machine = await _withTheCard(tester, me: 'olive');
+      await openConsole(tester, machine);
+      expect(find.byKey(const Key('ssh-console-open')), findsOneWidget, reason: 'the own console stands');
+      expect(find.byKey(const Key('ssh-console-login')), findsNothing, reason: 'root takes no key of olive');
+    });
+  });
+
   // Harm: a repository with commits not yet at central reads as at central, and its work is trusted as kept there.
   testWidgets('a project opened from its machine says of each repository whether it is at central', (tester) async {
     final tasks = [

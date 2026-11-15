@@ -1692,6 +1692,17 @@ Command openSshConsoleCommand({required String machine, required VoidCallback op
   unavailable: unavailable,
 );
 
+/// Opens a terminal on [machine] as root, over ssh, from its *SSH Console*, for a person listed as its admin.
+Command openRootSshConsoleCommand({required String machine, required VoidCallback open, String? unavailable}) =>
+    Command(
+      id: 'machine.sshConsoleRoot',
+      label: 'Open the SSH console as root',
+      group: machine,
+      home: Home.none,
+      run: open,
+      unavailable: unavailable,
+    );
+
 /// Copies the public protocol without reopening setup inputs or a terminal.
 Command copyHostProtocolCommand({required String project, required VoidCallback copy}) => Command(
   id: 'host.copyProtocol',

@@ -10,17 +10,20 @@ import 'page_explanation.dart';
 import 'page_words.dart';
 import 'tokens.dart';
 
-/// A machine's *SSH Console*: a terminal on it as the person's own account, opened from here into the window.
+/// A machine's *SSH Console*: a terminal on it as the person's own account, or as root for a person listed as its
+/// admin, opened from here into the window.
 ///
 /// The key is the one the person's agent holds for the machine and the host key the one it was pinned with, as for
 /// every other command to it; nothing here takes a password or names a key file.
-class SshConsoleView extends StatelessWidget {
-  /// Shows [machine]'s console under [head], offering [open] where it can be opened now.
+class SshConsoleView extends StatefulWidget {
+  /// Shows [machine]'s console under [head], offering [open] where it can be opened now, and a switch to [openAsRoot]
+  /// where one is given.
   const SshConsoleView({
     required this.machine,
     required this.head,
     required this.open,
     required this.settings,
+    this.openAsRoot,
     super.key,
   });
 
@@ -32,6 +35,9 @@ class SshConsoleView extends StatelessWidget {
 
   /// Opens the terminal; its reason, where it cannot now, is said under its button.
   final Command open;
+
+  /// Opens the terminal as root, absent for a person root takes no key from: then no switch shows.
+  final Command? openAsRoot;
 
   /// Where the explanation's fold is kept.
   final Settings settings;
@@ -51,8 +57,23 @@ class SshConsoleView extends StatelessWidget {
   }
 
   @override
+  State<SshConsoleView> createState() => _SshConsoleViewState();
+}
+
+class _SshConsoleViewState extends State<SshConsoleView> {
+  /// Whether the switch stands on root; it falls back to the own account once root is no longer offered.
+  bool _asRoot = false;
+
+  @override
   Widget build(BuildContext context) {
-    final whyNone = notOffered(machine);
+    final machine = widget.machine;
+    final head = widget.head;
+    final settings = widget.settings;
+    final rootCommand = widget.openAsRoot;
+    final asRoot = _asRoot && rootCommand != null;
+    final open = asRoot ? rootCommand : widget.open;
+    final login = asRoot ? 'root' : 'your own account';
+    final whyNone = SshConsoleView.notOffered(machine);
     final reason = open.unavailable;
     return ListView(
       key: ValueKey<String>('ssh-console ${machine.name}'),
@@ -62,19 +83,36 @@ class SshConsoleView extends StatelessWidget {
           title: MachineSection.console.label,
           path: head.path,
           pathKey: head.pathKey,
-          id: _id,
+          id: SshConsoleView._id,
           settings: settings,
-          subtitle: whyNone == null ? 'as your own account on ${machine.where}' : 'not offered for this machine',
+          subtitle: whyNone == null ? 'as $login on ${machine.where}' : 'not offered for this machine',
         ),
-        PageExplanation(id: _id, settings: settings, parts: pageWords[_id]!),
+        PageExplanation(id: SshConsoleView._id, settings: settings, parts: pageWords[SshConsoleView._id]!),
         ...head.notices,
         if (whyNone != null)
           Text(whyNone, key: const Key('ssh-console-none'))
         else ...[
+          if (rootCommand != null) ...[
+            SegmentedButton<bool>(
+              key: const Key('ssh-console-login'),
+              segments: const [
+                ButtonSegment(value: false, label: Text('My account')),
+                ButtonSegment(value: true, label: Text('root')),
+              ],
+              selected: {asRoot},
+              onSelectionChanged: (chosen) => setState(() => _asRoot = chosen.single),
+            ),
+            const SizedBox(height: Space.normal),
+          ],
           Text(
-            'A shell on ${machine.name} in a terminal in this window, as your own account. It logs in with the key '
+            'A shell on ${machine.name} in a terminal in this window, as $login. It logs in with the key '
             'your agent holds for this machine and trusts only the host key the machine was pinned with.',
           ),
+          if (asRoot)
+            const Text(
+              'Root takes the keys of the persons listed as this machine\'s admins. Where it has not taken yours yet, '
+              'the terminal shows ssh\'s own refusal.',
+            ),
           const SizedBox(height: Space.normal),
           Align(
             alignment: Alignment.centerLeft,
