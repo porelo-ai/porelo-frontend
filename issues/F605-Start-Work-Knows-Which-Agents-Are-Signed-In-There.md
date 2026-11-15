@@ -64,8 +64,16 @@ to and the window's words why not; the window answers that member for each liste
 - **Test:** `test/ui/planning_agents_test.dart`, *each agent says whether it is ready there, and the models and
   efforts the machine lists*: one agent signed in, one not, one that cannot say. Seen red before the member was
   filled (no words for the agent not signed in). Green: 4 passed.
+- **After the reading** (Claude Sonnet): each agent's model list waits at most 10 s (`modelsWait`), so one slow
+  machine or provider never holds the agents back; an older machine (`FeatureNotSupported`) lists none quietly, any
+  other failure or the wait is written to the window's log with why. Test *a model list that fails or does not
+  answer offers the agent with its model typed, and the log says why*, red first (the list held until the test's
+  own 5 s timeout).
 - **Not checked:** the preselection itself is the screen's (PL155, its own suite); the window adds no scenario of it.
 
 ## To be checked
+
+- The words of an agent not signed in are close to the start form's (*not signed in here*) but name the machine;
+  they are not shared code.
 
 - PL155's pushed commit and the member's exact shape, cited here once pushed.

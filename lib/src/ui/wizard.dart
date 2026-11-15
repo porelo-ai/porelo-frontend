@@ -356,8 +356,11 @@ class _WizardState extends State<Wizard> {
     if (mounted && (to < _index && (to >= widget.steps.length || _asks(to)))) _go(to);
   }
 
+  /// Whether *Leave* is offered: never while the review's start runs, whose answer closes the wizard.
+  bool get _mayLeave => (widget.canLeave?.call() ?? true) && !(_executing && widget.start != null);
+
   Future<void> _leave() async {
-    if (!(widget.canLeave?.call() ?? true)) return;
+    if (!_mayLeave) return;
     if ((_given || _busy) && !_leavesFreely && !await _confirm('leave')) return;
     if (mounted) Navigator.of(context).pop();
   }
@@ -426,9 +429,9 @@ class _WizardState extends State<Wizard> {
     bool started;
     try {
       started = await widget.start!();
-    } on Exception {
+    } on Exception catch (error) {
       started = false;
-      if (mounted) setState(() => _failed = 'The start could not complete. Check its progress before trying again.');
+      if (mounted) setState(() => _failed = 'The start failed: $error');
     } finally {
       if (mounted) setState(() => _executing = false);
     }
@@ -543,7 +546,7 @@ class _WizardState extends State<Wizard> {
                   runSpacing: Space.small,
                   children: [
                     if (widget.actions case final actions?) actions(context, _run),
-                    if (widget.canLeave?.call() ?? true)
+                    if (_mayLeave)
                       TextButton(key: const Key('wizard-leave'), onPressed: _leave, child: const Text('Leave')),
                     if (_index > _shownFrom(0, 1) && !_actionRuns && !_executing)
                       TextButton(key: const Key('wizard-back'), onPressed: _back, child: const Text('Back')),
@@ -560,10 +563,10 @@ class _WizardState extends State<Wizard> {
                     ),
                   ],
                 ),
-                if (reason != null)
+                if (reason ?? (review && _actionStep == null ? _failed : null) case final said?)
                   Padding(
                     padding: const EdgeInsets.only(top: Space.small),
-                    child: Text(reason, textAlign: TextAlign.end),
+                    child: Text(said, textAlign: TextAlign.end),
                   ),
               ],
             ),

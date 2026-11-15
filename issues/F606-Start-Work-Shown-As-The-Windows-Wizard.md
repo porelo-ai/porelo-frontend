@@ -83,9 +83,14 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
   passed over, its lines kept on the review), `start` and `canLeave`. The review has *Change* beside each step
   (`wizard-change-<i>`), and *Next* after a *Change* returns to the review. Every wizard of the window has it.
 - **Agents, models, efforts:** see [F605](README.md#f605)'s *Built*.
+- **After the reading** (Claude Sonnet): a start that throws now says *The start failed: <why>* on the review and
+  may be pressed again; *Leave* is not offered while the review's start runs, so its answer cannot be lost behind
+  a confirmation. Test *a start that fails says so and may be pressed again, and Leave waits while it runs*, red
+  first (nothing said).
 - **Planner:** porelo-planner `6ac9894` (PL157 on PL146), with the fix `dc08f22` for a duplicate effort key, which
   this window's scenario found (two choices on one agent in one step). Built through an uncommitted local override
-  until `dc08f22` is pushed and the pin raised; the pin and lock are raised in this commit before it is pushed.
+  until `dc08f22` is pushed; the pin and lock are raised, and the head analyzed and tested against the pin alone,
+  before the push.
   Because PL146 lies under PL157, [F597](README.md#f597) is built in the same commit.
 - **Tests:**
   - `test/ui/wizard_test.dart` (14), with *the review offers Change beside each step, and Next goes back to the
@@ -103,6 +108,13 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
 - **Not checked:** the window itself was not run.
 
 ## To be checked
+
+- After a *Change*, the review runs each step's synchronous check again, not a later step's `beforeNext` (a server
+  setup's connection check): a changed host is checked again only when its own step is walked. `goBackTo` exists
+  for this; not built here.
+- *Sub-agent Change … requires a difference*: in the wizard the comment lies on a later step that an unchanged
+  *Change* cannot reach, so the old *comment, then still disabled* proof has no place; *start disabled* holds on the
+  *Who* step, whose own check names the missing difference.
 
 - PL156's, PL157's and PL158's built commits, cited here once handed over.
 - `planning_placeholder_test.dart`, *a window that reaches its planner shows the planning screen*, failed twice

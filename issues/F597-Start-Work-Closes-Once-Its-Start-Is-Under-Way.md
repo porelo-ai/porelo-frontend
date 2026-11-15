@@ -85,8 +85,15 @@ closing it at the press is porelo-planner's.
   `6ac9894`.
 - **Steps:** *the Start work dialog is closed while Start still waits*; *the machine refuses the start of story work
   because {agent} is not signed in* (the stand-in's `orderedFails`). The two steps of the waiting dialog are gone.
+- **The board's new state:** the stand-in planner does not move the story on a start, so the scenario proves the
+  start running on with the dialog gone and the board beneath still holding the story; the move itself is the
+  planner's answer and its own suite's.
 - **Runs:** see [F606](README.md#f606)'s *Built*.
 
 ## To be checked
+
+- A start the window refuses before Start said anything (no machine for the project, a machine not yet watched, an
+  unknown order) makes no operation: it is said on the board's line (`actionProblem`) and in the window's log, not
+  under *Needs you*. Found by the reading (Claude Sonnet); not built here.
 
 - The porelo-planner issue and its commit, cited here once filed.

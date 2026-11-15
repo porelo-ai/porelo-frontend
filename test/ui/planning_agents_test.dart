@@ -1,8 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/window_log.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
@@ -81,6 +85,68 @@ void main() {
     expect(byName['unsure']!.unready, isNull, reason: 'cannot say is never read as signed out');
     expect(byName['unsure']!.efforts, isNull, reason: 'an older machine does not say its efforts');
   });
+
+  // Harm: one slow or refusing model list holds every agent of Start work back, or hides why no model is listed.
+  test(
+    'a model list that fails or does not answer offers the agent with its model typed, and the log says why',
+    () async {
+      final backend = FakeBackend(const [])
+        ..theAgentsItHas = [
+          Agent.from({
+            'name': 'signed',
+            'label': 'signed',
+            'binary': '/usr/bin/signed',
+            'version': '1',
+            'from': '',
+            'allowedDomains': const <String>[],
+            'found': 'SIGNED_IN',
+            'foundProvider': 'anthropic',
+          }),
+        ];
+      final machines = Machines(Settings(MemorySettingsStore()), reach: (_) => backend, tunnels: FakeTunnels());
+      addTearDown(machines.dispose);
+      final source = _Source();
+      final agents = MachinePlanningAgents(
+        machines,
+        _PathPlanner(source),
+        project: () => 'foo-project',
+        modelsWait: const Duration(milliseconds: 50),
+      );
+      final logs = Directory('${Directory.systemTemp.path}/porelo-agents-logs-${DateTime.now().microsecondsSinceEpoch}')
+        ..createSync();
+      final before = windowLog;
+      windowLog = WindowLog(logs.path, level: ValueNotifier(LogLevel.debug), keepPrivate: (_) async {});
+      addTearDown(() {
+        windowLog = before;
+        logs.deleteSync(recursive: true);
+      });
+      List<String> logged() {
+        final log = File('${logs.path}/${WindowLog.fileName}');
+        return log.existsSync() ? log.readAsLinesSync() : const [];
+      }
+
+      backend.offeredModelsFail = VarlinkException(
+        'org.fuin.porelo.Tasks1.CredentialRefused',
+        const <String, dynamic>{},
+      );
+      final refused = await agents.on(source);
+      expect(refused.agents.single.models, isEmpty);
+      expect(refused.agents.single.unready, isNull, reason: 'the agent is still offered');
+
+      backend
+        ..offeredModelsFail = null
+        ..offeredModelsHeld = Completer<void>();
+      final slow = await agents.on(source).timeout(const Duration(seconds: 5));
+      expect(slow.agents.single.models, isEmpty, reason: 'the agents are not held back by the model list');
+      backend.offeredModelsHeld!.complete();
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final said = logged().where((line) => line.contains('the models of signed on')).toList();
+      expect(said, hasLength(2));
+      expect(said.first, contains('CredentialRefused'));
+      expect(said.last, contains('did not answer within'));
+    },
+  );
 
   test('a refusal of the agents says which part of the machine is not known', () async {
     final machines = Machines(

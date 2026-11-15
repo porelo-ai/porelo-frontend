@@ -578,9 +578,18 @@ class WindowTaskChanges implements PlanningTaskChanges {
 class MachinePlanningAgents implements PlanningAgents {
   /// Finds each provider's machine among [machines] by the name [client] gives it, or by the [project] the person
   /// plans.
-  const MachinePlanningAgents(this.machines, this.client, {this.project = _noProject});
+  const MachinePlanningAgents(
+    this.machines,
+    this.client, {
+    this.project = _noProject,
+    this.modelsWait = const Duration(seconds: 10),
+  });
 
   static String? _noProject() => null;
+
+  /// How long the agent list waits on an agent's models before it offers that agent with its model to be typed, so
+  /// one slow machine or provider never holds Start work's agents back.
+  final Duration modelsWait;
 
   /// The project the person plans, whose machine a planner named as no machine starts on.
   final String? Function() project;
@@ -606,7 +615,9 @@ class MachinePlanningAgents implements PlanningAgents {
       final backend = machines.watching(machine)?.backend;
       if (backend == null) throw StateError('${machine.name} is not answering yet: it is being opened.');
       final listed = await backend.agentsOn();
-      final models = await Future.wait([for (final agent in listed.agents) _modelsOf(backend, agent)]);
+      final models = await Future.wait([
+        for (final agent in listed.agents) _modelsOf(backend, agent, machine.name, modelsWait),
+      ]);
       return PlanningAgentList([
         for (final (index, agent) in listed.agents.indexed)
           PlanningAgent(
@@ -631,13 +642,22 @@ class MachinePlanningAgents implements PlanningAgents {
 
 /// The models [agent]'s provider offers on [backend]'s machine, to choose from; none where no provider was found for
 /// it or the machine cannot list them, and the person types the model.
-Future<List<PlanningModel>> _modelsOf(FleetBackend backend, Agent agent) async {
+/// A machine that cannot list them, a provider that refuses or does not answer within [wait], is written to the
+/// window's log with why.
+Future<List<PlanningModel>> _modelsOf(FleetBackend backend, Agent agent, String machine, Duration wait) async {
   if (agent.foundProvider.isEmpty) return const [];
   try {
-    final offered = await backend.modelsOn(agent.foundProvider, agent: agent.name);
+    final offered = await backend.modelsOn(agent.foundProvider, agent: agent.name).timeout(wait);
     return [for (final model in offered.models) PlanningModel(model.id, label: model.label)];
-  } on Object {
-    // An older machine, a provider not answering or refusing the credential: the model is typed.
+  } on FeatureNotSupported {
+    // An older machine lists no models: the model is typed, as before.
+    return const [];
+  } on Object catch (error) {
+    final why = error is TimeoutException ? 'it did not answer within ${wait.inSeconds} s' : '$error';
+    windowLog.warn(
+      'Planning: the models of ${agent.name} on $machine could not be listed, so its model is typed: $why',
+      machine: machine,
+    );
     return const [];
   }
 }

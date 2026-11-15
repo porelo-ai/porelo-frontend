@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/ui/wizard.dart';
@@ -389,5 +391,35 @@ void main() {
     await tester.enterText(find.byKey(const Key('first')), 'x');
     await tester.pump();
     expect(find.byKey(const Key('wizard-leave')), findsOneWidget);
+  });
+
+  // Harm: a start that fails says nothing, or Leave while it runs drops the start's answer.
+  testWidgets('a start that fails says so and may be pressed again, and Leave waits while it runs', (tester) async {
+    Completer<bool>? running;
+    var fails = true;
+    await openStarting(
+      tester,
+      start: () async {
+        if (fails) throw Exception('the planner went away');
+        running = Completer<bool>();
+        return running!.future;
+      },
+    );
+    await tap(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('second')), 'two');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    await tap(tester, 'wizard-start');
+    expect(find.textContaining('the planner went away'), findsOneWidget, reason: 'the failure is said');
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-start'))).onPressed, isNotNull);
+
+    fails = false;
+    await tester.tap(find.byKey(const Key('wizard-start')));
+    await tester.pump();
+    expect(find.textContaining('the planner went away'), findsNothing);
+    expect(find.byKey(const Key('wizard-leave')), findsNothing, reason: 'no leaving while the start runs');
+    running!.complete(true);
+    await World.settle(tester);
+    expect(find.text('A start'), findsNothing);
   });
 }
