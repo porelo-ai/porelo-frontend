@@ -52,8 +52,11 @@ import './step/the_planning_story_has_known_work.dart';
 import './step/the_planning_task_is_available.dart';
 import './step/i_open_the_planning_task.dart';
 import './step/the_planning_work_opened_is.dart';
-import './step/the_planning_story_has_unknown_work.dart';
+import './step/the_window_started_task_of_st291_on_the_other_machine.dart';
+import './step/the_machine_in_front_is.dart';
+import './step/the_other_machine_no_longer_lists.dart';
 import './step/the_planning_task_is_disabled_with.dart';
+import './step/the_planning_story_has_unknown_work.dart';
 import './step/i_remove_the_planning_provider.dart';
 import './step/the_unavailable_planning_source_is_shown.dart';
 import './step/the_planning_page_has_its_i.dart';
@@ -321,6 +324,24 @@ void main() {
       await thePlanningTaskIsAvailable(tester, 'porelo-checkout-shell');
       await iOpenThePlanningTask(tester, 'porelo-checkout-shell');
       await thePlanningWorkOpenedIs(tester, 'porelo-checkout-shell');
+    });
+    testWidgets('''A task started on another machine opens there from its issue''', (tester) async {
+      await bddSetUp(tester);
+      await anotherMachineOffersTheSameProjectPlanning(tester);
+      await theWindowStartedTaskOfSt291OnTheOtherMachine(tester, 'pi-2');
+      await iUnfoldPlanningStory(tester, 'ST291');
+      await iOpenPlanningIssue(tester, 'B541');
+      await thePlanningTaskIsAvailable(tester, 'pi-2');
+      await iOpenThePlanningTask(tester, 'pi-2');
+      await theMachineInFrontIs(tester, 'elsewhere');
+    });
+    testWidgets('''A task gone from the machine it was started on names that machine''', (tester) async {
+      await bddSetUp(tester);
+      await anotherMachineOffersTheSameProjectPlanning(tester);
+      await theWindowStartedTaskOfSt291OnTheOtherMachine(tester, 'pi-2');
+      await theOtherMachineNoLongerLists(tester, 'pi-2');
+      await iOpenPlanningStory(tester, 'ST291');
+      await thePlanningTaskIsDisabledWith(tester, 'pi-2', 'does not know task pi-2 on elsewhere');
     });
     testWidgets('''Unknown story work explains why it cannot open''', (tester) async {
       await bddSetUp(tester);

@@ -237,6 +237,24 @@ Feature: Open stories and issues from planning
         When I open the planning task {'porelo-checkout-shell'}
         Then the planning work opened is {'porelo-checkout-shell'}
 
+    # Harm: a task the window started on another machine than the board's cannot be opened from its story or issue.
+    Scenario: A task started on another machine opens there from its issue
+        Given another machine offers the same project planning
+        And the window started task {'pi-2'} of ST291 on the other machine
+        When I unfold planning story {'ST291'}
+        And I open planning issue {'B541'}
+        Then the planning task {'pi-2'} is available
+        When I open the planning task {'pi-2'}
+        Then the machine in front is {'elsewhere'}
+
+    # Harm: a task gone from the machine it ran on is said missing without that machine, or looked for elsewhere.
+    Scenario: A task gone from the machine it was started on names that machine
+        Given another machine offers the same project planning
+        And the window started task {'pi-2'} of ST291 on the other machine
+        And the other machine no longer lists {'pi-2'}
+        When I open planning story {'ST291'}
+        Then the planning task {'pi-2'} is disabled with {'does not know task pi-2 on elsewhere'}
+
     # Harm: an unknown task is offered as an enabled action that silently does nothing.
     Scenario: Unknown story work explains why it cannot open
         Given the planning story has unknown work

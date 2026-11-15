@@ -816,6 +816,15 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     _changes.add(_tasks);
   }
 
+  /// Lists no task in the container [name] any more, as once it was removed.
+  void takesAway(String name) {
+    _tasks = <Task>[
+      for (final each in _tasks)
+        if (each.name != name) each,
+    ];
+    _changes.add(_tasks);
+  }
+
   /// [task] with its running state, and what Start would do to it, changed.
   static Task _with(Task task, {required bool running, required String startAction}) => Task.from(<String, dynamic>{
     ...wire(task),

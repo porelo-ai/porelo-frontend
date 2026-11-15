@@ -33,3 +33,4 @@ test/app/planner_stage_results_test.dart
 test/app/planning_offers_test.dart
 test/app/start_ordered_test.dart
 test/ui/planned_task_line_test.dart
+test/features/step/the_window_started_task_of_st291_on_the_other_machine.dart

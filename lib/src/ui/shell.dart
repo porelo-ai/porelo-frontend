@@ -4364,29 +4364,44 @@ class _ShellState extends State<Shell> {
   void _openPlanningTask(PlanningBoard board, String name) {
     if (!_beforePlanningNavigation(Section.work, () => _openPlanningTask(board, name))) return;
     if (board.disposed) return;
-    final machine = _planningMachine(board.backend, project: board.project);
+    final machine = _planningTaskMachine(board, name);
     if (machine == null) return;
     final fleet = widget.machines.watching(machine);
     if (fleet == null) return _notWatchedYet(machine);
-    final task = fleet.tasks.where((task) => task.name == name && task.project == board.project).firstOrNull;
+    final task = _plannedTaskOn(fleet, board.project, name);
     if (task == null) return;
     widget.machines.select(machine);
     fleet.selectProject(board.project);
-    fleet.selectTask(name);
+    fleet.selectTask(task.name);
     widget.shell.goTo(Section.work);
     _openWork();
   }
 
   String? _planningTaskUnavailable(PlanningBoard board, String name) {
-    final machine = _planningMachine(board.backend, project: board.project);
+    final machine = _planningTaskMachine(board, name);
     if (machine == null || board.disposed) return 'This window no longer knows the machine for $name.';
-    final task = widget.machines
-        .watching(machine)
-        ?.tasks
-        .where((task) => task.name == name && task.project == board.project)
-        .firstOrNull;
-    return task == null ? 'This window does not know task $name on this machine.' : null;
+    final fleet = widget.machines.watching(machine);
+    return fleet == null || _plannedTaskOn(fleet, board.project, name) == null
+        ? 'This window does not know task $name on ${machine.name}.'
+        : null;
   }
+
+  /// The machine a planned task [name] of [board]'s project is looked up on: the one this window started it on, as its
+  /// kept offer names, the latest first; else the machine the board's planning stands for.
+  Machine? _planningTaskMachine(PlanningBoard board, String name) {
+    for (final kept in widget.settings.plannedOffers.reversed) {
+      if (kept.project != board.project || kept.task != name) continue;
+      if (widget.machines.all.where((machine) => machine.name == kept.machine).firstOrNull case final machine?) {
+        return machine;
+      }
+    }
+    return _planningMachine(board.backend, project: board.project);
+  }
+
+  /// The task the planner names [name] in [project] on [fleet]'s machine: by its name within the project, or by its
+  /// container where the planner names that.
+  static Task? _plannedTaskOn(FleetModel fleet, String project, String name) =>
+      fleet.tasks.where((task) => task.project == project && (task.task == name || task.name == name)).firstOrNull;
 
   void _openWork() {
     final fleet = _fleet;
