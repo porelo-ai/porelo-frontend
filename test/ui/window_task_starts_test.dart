@@ -68,6 +68,40 @@ void main() {
       expect(hook.startedOn('demo', started.container), laptop);
     });
 
+    // Harm: a planned stage starts writable with a gate, without the issues as the planner holds them, or without the
+    // result file it is to hand back; or its result file is not kept, so its result never reaches the planner.
+    test('a stage starts read only with its result file and given issues, and keeps its result file', () async {
+      final order = PlanningTaskOrder.from({
+        'offer': '00000000-0000-4000-8000-0000000005a1',
+        'repository': 'porelo',
+        'issues': ['PI68'],
+        'role': 'MAIN',
+        'agent': 'claude',
+        'model': 'opus',
+        'mode': 'AGENT',
+        'prompt': 'Analyse PI68 and write analysis.json.',
+        'result': 'analysis.json',
+        'given': [
+          {'name': 'PI68.md', 'text': '# PI68\n'},
+        ],
+      });
+
+      final started = await starts()(MockPlanningSource('planner'), 'demo', 'ST366', order);
+
+      expect(machine.started.single, {
+        'project': 'demo',
+        'repository': 'porelo',
+        'agent': 'claude',
+        'model': 'opus',
+        'mode': 'AGENT',
+        'prompt': 'Analyse PI68 and write analysis.json.',
+        'result': 'analysis.json',
+        'readOnly': true,
+        'given': {'PI68.md': '# PI68\n'},
+      });
+      expect(settings.plannedOffer('laptop', started.container)!.result, 'analysis.json');
+    });
+
     // Harm: the offer of a started task is lost, so its end cannot be reported against it.
     test('an order\'s offer is kept beside the machine and the container it started in', () async {
       final order = (await plannedOrders()).first;
@@ -503,6 +537,9 @@ class _Starting extends Fake implements FleetBackend {
       'model': model,
       'mode': mode.name,
       'prompt': prompt,
+      'result': ?result,
+      if (readOnly) 'readOnly': true,
+      if (given.isNotEmpty) 'given': given,
     });
     final container = 'porelo-$project-$repository';
     final answer = this.answer ?? StartProgress(container: container, exitCode: 0, action: StartAction.create);

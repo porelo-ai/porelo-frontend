@@ -240,6 +240,8 @@ class WindowTaskStarts {
           onEvent: shown.add,
           result: result,
           readOnly: result != null,
+          // The issues as the planner holds them now, by file name; Start mounts them read only.
+          given: {for (final file in task.given) file.name: file.text},
         );
       default:
         final words = 'The planner ordered a ${task.role} task this window cannot start.';
