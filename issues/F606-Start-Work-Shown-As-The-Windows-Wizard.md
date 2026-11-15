@@ -89,8 +89,11 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
   first (nothing said).
 - **Planner:** porelo-planner `6ac9894` (PL157 on PL146), with the fix `dc08f22` for a duplicate effort key, which
   this window's scenario found (two choices on one agent in one step). Built through an uncommitted local override
-  until `dc08f22` is pushed; the pin and lock are raised, and the head analyzed and tested against the pin alone,
-  before the push.
+  until it was pushed; the pin is now porelo-planner's main `cb9d13a` (PL146, PL157, PL149 and the fix), raised in
+  the first commit of this work with its lock, the `xterm` override kept, no override else.
+- **Build box** at `e6ecbbed`, against the pin alone: Maven `test` BUILD SUCCESS, dart format and
+  `dart analyze --fatal-infos` clean, `flutter test` 4635 passed, 37 skipped, 0 failed. Its first run found
+  *A working state requests a start and moves nothing* still looking for the dialog's key; fixed in `e6ecbbed`.
   Because PL146 lies under PL157, [F597](README.md#f597) is built in the same commit.
 - **Tests:**
   - `test/ui/wizard_test.dart` (14), with *the review offers Change beside each step, and Next goes back to the
