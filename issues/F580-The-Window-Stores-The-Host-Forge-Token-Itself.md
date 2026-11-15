@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F580",
   "title": "The Window Stores The Host Forge Token Itself",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 14,

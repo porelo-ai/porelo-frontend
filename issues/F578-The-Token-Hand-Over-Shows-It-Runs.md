@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F578",
   "title": "The Token Hand-Over Shows It Runs",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "Medium",
   "rank": 60,

@@ -110,7 +110,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f580"></a>[F580](F580-The-Window-Stores-The-Host-Forge-Token-Itself.md) | M | - | Story ST362: a person admitted to a host with a local forge never stores their forge token there by hand: the window runs the machine's own store command for it once, by itself, and Needs you offers Store it now in place of a command to copy. |
 | <a id="f523"></a>[F523](F523-Work-Moving-On-By-Itself-Played-Through-On-The-VM.md) | M | - | Story ST314, the planner moves work on from state to state by itself, played once on the test VM in the window as a person would, for ST347's gathered story run: DONE work set to Reading with its reader started unasked, an OK reading set to Review, a blocking one stopped under Needs you and reworked once the person chooses Rework, a failed task kept with a warning. |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | S | - | A waiting push decided without an IDE: source level, highest risk class, files in risk order with their class, *Let it through…* or *Turn it away*, a second ask for `C3` files; the code read in IntelliJ. |
@@ -122,7 +121,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f290"></a>[F290](F290-The-Host-Functions-From-A-Windows-Desktop.md) | XL | - | Connect and Prepare from a Windows desktop: loopback ports the window holds itself, each connection carried over its own ssh, the daemon through the relay, no master. |
 | <a id="f507"></a>[F507](F507-The-Windows-Windows-Scripts-Package-Another-App.md) | M | - | The Windows packing and install check take the app's name, version, files, manifest and start as parameters, so another repository's Windows build calls them at a pinned commit; the window's own packages stay as they are, and neither script leaves a signing key or the app's files behind. |
 | <a id="f569"></a>[F569](F569-A-Repository-Carried-Onto-Or-Off-A-Host-From-Its-Menu.md) | M | - | A not-carried repository's menu on a machine's project page offers carrying it onto that machine, and a carried one's menu offers taking it off, as the machine page's repository row already does. |
-| <a id="f578"></a>[F578](F578-The-Token-Hand-Over-Shows-It-Runs.md) | S | - | Story ST361: from the press of the token page's give button until the machine's answer, the page shows that the hand-over runs, offers no second press, and Close says what happens to the running hand-over. |
 | <a id="f581"></a>[F581](F581-A-Refused-Discussion-Is-Said-Once.md) | S | - | Story ST361: a refused start of Discuss an idea is said in one place, its reason first and readable, the machine's detail table folded or kept in its lines, instead of twice at once. |
 | <a id="f515"></a>[F515](F515-A-Terminal-And-Live-List-Played-Through-On-The-VM.md) | M | - | Story ST47, a terminal and live list used together, played once on the test VM in the window as a person would, for ST347's gathered story run: a task's terminal used as an ordinary terminal, task list --watch open beside it, Ctrl-C giving the terminal back. |
 | <a id="f516"></a>[F516](F516-The-Window-And-The-Planner-Played-Through-On-Windows.md) | M | - | Story ST334, the window and the planner on Windows, played once on a Windows test machine as a person would, for ST347's gathered story run: both installed, Planning opened, the board read through the local planner, both Windows builds green. |
@@ -140,6 +138,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f579"></a>[F579](F579-The-Placing-Dialog-Takes-A-Dialogs-Width.md) | XS | - | Story ST361: the dialog `Putting <project> on <machine>` stands as wide as the window's other dialogs, its words wrapping there, instead of across almost the whole window. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f580"></a>[F580](F580-The-Window-Stores-The-Host-Forge-Token-Itself.md) | M | - | Story ST362: a person admitted to a host with a local forge never stores their forge token there by hand: the window runs the machine's own store command for it once, by itself, and Needs you offers Store it now in place of a command to copy. |
+| <a id="f578"></a>[F578](F578-The-Token-Hand-Over-Shows-It-Runs.md) | S | - | Story ST361: from the press of the token page's give button until the machine's answer, the page shows that the hand-over runs, offers no second press, and Close says what happens to the running hand-over. |
 
 ## Review
 
