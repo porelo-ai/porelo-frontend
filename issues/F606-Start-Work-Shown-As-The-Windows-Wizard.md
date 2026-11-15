@@ -46,8 +46,13 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
     with [F603](README.md#f603)), and why one cannot be used (not watched, not answering, not carrying the project), in
     the window's words.
   - The agents: the readiness member, [F605](README.md#f605) (PL155), for the machine the step chose.
-  - Models and efforts per agent, machine and the task's provider: the window passes what porelo lists, once its
-    definitions carry them (Agent Smith's answer); until then the step keeps what the agents call answers today.
+  - Models: the operator's answer to PL156 (Agent Planner, room 2026-11-15 16:02Z): a person may start an agent the
+    rule offers with any model. The model choice is a list of the chosen agent's models on that machine, the rule's
+    marked proposed, filling a text field that can also be typed by hand; a model the agent or provider refuses fails
+    at the start with its reason, said in the start's operation. porelo-planner's side is PL158: it checks only that
+    the agent is offered, for the main task and the sub-agents.
+  - Efforts: from Agent Core's B795 (handed over locally as porelo `5328c5df4`, branch `core-b795`): no effort passes
+    nothing; a proposed effort is marked only where the agent lists it.
   - Raise the pin of `porelo_planning` to PL157's screen with its lock, the `xterm` override kept.
 - **Red first:** a scenario through *Start work* reaching the review with *Change* on each step, red on the old pin
   (a dialog with no steps); a test of the window's server setup review with *Change*, red today.
@@ -57,11 +62,11 @@ field's *Optional* over the *Most reading rounds* label, porelo-planner's `story
 - *Start work* runs as the window's wizard, one step at a time, ending in a review with *Change* beside every step.
   Seen to fail: today's dialog.
 - The machine step names the machine the task goes to, and why another cannot be used.
-- An agent not signed in on that machine is named so; models and efforts are those porelo lists for it.
+- An agent not signed in on that machine is named so; the model list is that agent's models on that machine, the
+  rule's marked proposed, and a model typed by hand is started with; efforts are those B795 lists.
 - The wizard may close once the start runs on; its operation stands in front ([F597](README.md#f597)).
 - The window's other wizards show *Change* in their review too.
 
 ## To be checked
 
-- PL156's and PL157's pushed commits, cited here once pushed.
-- Agent Smith's answer on which models and efforts porelo's definitions list per agent and provider.
+- PL156's, PL157's and PL158's built commits, cited here once handed over.
