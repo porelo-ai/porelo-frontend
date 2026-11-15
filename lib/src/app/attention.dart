@@ -249,15 +249,6 @@ class Attention extends ChangeNotifier {
     _seen.marksChanged();
   }
 
-  /// Whether the boards say the issue [kept] names with an end of its task: a reading put away hides only its stop,
-  /// never a later end, which [PlanningPutAway] cannot tell apart.
-  bool _endedNow(PlanningPutAway kept) => _planningSaid.any(
-    (entry) =>
-        entry.attention.ended != null &&
-        entry.attention.issue?.id == kept.issue &&
-        entry.attention.putAwayOn(entry.machine) == kept,
-  );
-
   /// Every row the boards say needs a person, those marked seen too: what a mark is judged gone against.
   List<PlanningNeedsYou> get _planningSaid {
     final planning = _planning;
@@ -365,7 +356,7 @@ class Attention extends ChangeNotifier {
 
   Iterable<AttentionRow> _rows() sync* {
     for (final entry in _planning?.needsYou ?? const <PlanningNeedsYou>[]) {
-      if (_storyEndSeen(entry.id, entry.attention) || _readingPutAway(entry.machine, entry.attention)) continue;
+      if (_storyEndSeen(entry.machine, entry.attention) || _readingPutAway(entry.machine, entry.attention)) continue;
       yield AttentionRow(AttentionKind.planning, entry.id, entry.machine, entry.attention);
     }
     // Said here, where it stays while the records are set aside, never on a status line the next connection overwrites.
@@ -570,7 +561,9 @@ class Attention extends ChangeNotifier {
       (row) => row.kind == AttentionKind.planning && !present.contains(row.id),
     )) {
       final value = old.value as PlanningAttention;
-      if (machineNamed(old.machine) == null || _storyEndSeen(old.id, value) || _readingPutAway(old.machine, value)) {
+      if (machineNamed(old.machine) == null ||
+          _storyEndSeen(old.machine, value) ||
+          _readingPutAway(old.machine, value)) {
         continue;
       }
       final source = _planning?.sources
@@ -1011,14 +1004,18 @@ class Attention extends ChangeNotifier {
         if (fleet.mailboxes.problem case final problem?) (machine: machine, problem: problem),
   ];
 
-  /// One occurrence of a story's ended work: the entry's id and when its work ended; null where nothing ended.
-  static String? _storyEndKey(String id, PlanningAttention attention) {
-    final ended = attention.ended;
-    return ended == null ? null : '$id at ${ended.at}';
-  }
+  /// One occurrence of a story's ended work on [machine], as the boards name it ([PlanningAttention.endOn]): the story
+  /// and when its work ended, alike for the story's own row and an issue row whose task ended then; null where nothing
+  /// ended.
+  static String? _storyEndKey(String machine, PlanningAttention attention) => switch (attention.endOn(machine)) {
+    final end? => _endMark(end),
+    null => null,
+  };
 
-  bool _storyEndSeen(String id, PlanningAttention attention) {
-    final key = _storyEndKey(id, attention);
+  static String _endMark(PlanningStoryEnd end) => '$_storyEnded${end.machine}/${end.project}/${end.story} at ${end.at}';
+
+  bool _storyEndSeen(String machine, PlanningAttention attention) {
+    final key = _storyEndKey(machine, attention);
     return key != null && _endedPutAway.contains(key);
   }
 
@@ -1029,7 +1026,7 @@ class Attention extends ChangeNotifier {
   void storyEndSeen(AttentionRow row) {
     if (row.kind != AttentionKind.planning) return;
     final attention = row.value as PlanningAttention;
-    final key = _storyEndKey(row.id, attention);
+    final key = _storyEndKey(row.machine, attention);
     if (key == null) return;
     _putAway(row.id);
     final settings = _settings;
@@ -1053,7 +1050,7 @@ class Attention extends ChangeNotifier {
   /// story's work read, so a story whose work cannot be read now keeps its mark. False for any other mark.
   bool Function(String mark) _storyEndGone() {
     final planning = _planning;
-    final current = <String>{for (final entry in _planningSaid) ?_storyEndKey(entry.id, entry.attention)};
+    final current = <String>{for (final entry in _planningSaid) ?_storyEndKey(entry.machine, entry.attention)};
     final readWhole = <String>[
       for (final board in planning?.sources ?? const <PlanningBoard>[])
         if (board.live && board.snapshot?.complete == true && board.stories.every(board.endedCurrent))
@@ -1491,12 +1488,10 @@ class _Seen extends ChangeNotifier implements PlanningSeen {
   final Attention _attention;
 
   @override
-  bool putAwaySeen(PlanningPutAway row) => _attention._readingsPutAway.contains(row) && !_attention._endedNow(row);
+  bool putAwaySeen(PlanningPutAway row) => _attention._readingsPutAway.contains(row);
 
   @override
-  bool endSeen(PlanningStoryEnd end) => _attention._endedPutAway.contains(
-    '${Attention._storyEnded}${end.machine}/${end.project}/${end.story} at ${end.at}',
-  );
+  bool endSeen(PlanningStoryEnd end) => _attention._endedPutAway.contains(Attention._endMark(end));
 
   void marksChanged() => notifyListeners();
 }

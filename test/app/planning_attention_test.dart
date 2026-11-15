@@ -482,6 +482,32 @@ void main() {
     expect(env.planningRows, contains('reading builder/demo/item'), reason: 'and counted under Needs you');
   });
 
+  // Harm: an issue row whose task ended, marked seen, still counts on the boards and keeps its story card saying needs
+  // you; or its mark is one the boards cannot ask, so it hides nothing there.
+  test("an issue row whose task ended, marked seen, leaves the boards as its story's end", () async {
+    final planning = _Planning(_snapshot('initial', stopped: true, working: true))
+      ..status = work(
+        tasks: [
+          {
+            'task': 'reader',
+            'issues': ['item'],
+            'ended': {'at': '2026-11-10T09:00:00Z', 'outcome': 'BLOCKED', 'why': 'Needs a key.', 'answer': ''},
+          },
+        ],
+      );
+    final env = _Environment();
+    await env.open(_Backend(planning));
+    addTearDown(env.close);
+    expect(boardRows(env.boards), ['story ended builder/demo/story', 'reading builder/demo/item']);
+
+    env.attention.storyEndSeen(env.attention.openRows.firstWhere((row) => row.id == 'reading builder/demo/item'));
+    await _turn();
+    expect(env.settings.endedPutAway, {'story ended builder/demo/story at 2026-11-10T09:00:00Z'});
+    expect(boardRows(env.boards), isEmpty, reason: 'the end seen covers the story and its issue that ended then');
+    expect(env.planningRows, isEmpty);
+    expect(env.boards.sources.single.attentionSeen(env.boards.sources.single.stories.single), isTrue);
+  });
+
   // Harm: a story's end with no time, seen in this window only, keeps counting on the boards.
   test("a story's end with no time seen leaves the boards for this window's life", () async {
     final planning = _Planning(_snapshot('initial', working: true))
