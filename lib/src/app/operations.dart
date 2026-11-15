@@ -332,14 +332,15 @@ class Operations extends ChangeNotifier {
   static Future<void> _withTheDesktop(String path) => desk.open(path);
 
   void _saveSoon() {
-    if (store == null) return;
+    // A start that answers after the window went writes nothing: the record was written as it closed.
+    if (store == null || _disposed) return;
     if (saveDelay == Duration.zero) return _saveNow();
     _pending ??= Timer(saveDelay, _saveNow);
   }
 
   void _saveNow() {
     final to = store;
-    if (to == null) return;
+    if (to == null || _disposed) return;
     _pending?.cancel();
     _pending = null;
     final records = <Object?>[for (final operation in _all) operation.toStored(linesKept)];

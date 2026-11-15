@@ -114,6 +114,30 @@ Guards, each seen red first (break from a copy, restored, `cmp` equal, `git diff
 - `test/app/start_ordered_test.dart`, what Start says on the way reaches the caller — break: no line forwarded; red:
   "Expected: ['starting'] Actual: []".
 
+### After the reading
+
+Another model read the change and found nothing clearly wrong; fixed on top, each guard seen red first:
+
+- A start whose answer threw an `Error` of the window's own (a `StateError`, a `TypeError`) left its operation
+  running for ever: only `Exception`s were caught. Any throw now ends the operation as failed and goes on as before.
+  Guard `test/ui/window_task_starts_test.dart`, *a start that breaks in the window after it said something ends its
+  operation as failed*; break: the operation not ended on the catch-all; red: "Expected: false Actual: <true>"
+  (`running`).
+- The board kept beneath the operation still took keys and ran its animations. It is now in `ExcludeFocus` and
+  `TickerMode` while the operation is in front. Guard: the step *the operation is in front of the board*, in both
+  scenarios; breaks: `excluding: false` (red: "Expected: true Actual: <false>"), `TickerMode(enabled: true)` (red:
+  "Expected: false Actual: <true>").
+- What the person sees: a discussion's own dialog closes before Start is asked, so its operation is in front of the
+  board at once (now asserted with `hitTestable`). The *Start work* dialog is a route over the window: while it waits
+  on Start, the operation stands made behind it, not in front (measured once in the scenario: made, not
+  hit-testable), and the dialog says that the window shows how far it is; once the start answers, the dialog closes and
+  the operation is in front (asserted). Closing the dialog at the press would need porelo-planner, so it is left.
+- A start answering after the window's shell was disposed: the start reads the window's operations when Start says
+  something, none once the shell is gone, so it makes no operation then; and `Operations` writes nothing after its
+  dispose (`_saveSoon`, `_saveNow`). Guard `test/app/operations_record_test.dart`, *an operation that goes on after
+  the window closed writes nothing more*; break: `_saveNow` writes after dispose; red: "Expected: <0> Actual: <2>".
+  The live read of the operations has no test of its own.
+
 Not checked: the *In analysis* move of a running discussion (no word from Agent Planner here, see *To be checked*);
 the status line's *0 tasks there*; a real host; `test/ui` and `test/features` whole.
 
@@ -123,6 +147,13 @@ the status line's *0 tasks there*; a real host; `test/ui` and `test/features` wh
   `test/features/planning_discussion.feature` sees the operation before the session.
 
 ## To be checked
+
+- `_plannedStarts` in the shell is never pruned: an id per start pressed on the board, for the window's life.
+- A start's final reply's output and steps may be said twice in its operation where the machine repeats them there.
+- A planner-ordered start that fails after it said something also shows as a failed operation under *Needs you*,
+  beside the report's own problem.
+- Test gaps: the planner told once is asserted only through the stand-in's count of starts; the path of a start that
+  answered without starting (`_Said`) has no operation test; a discussion's operation title is not asserted.
 
 - Where *0 tasks there* comes from: no string in `lib` says it, so it is the planning screen's own (porelo-planner)
   or another line; and which project it counts, the board's or the discussion's.

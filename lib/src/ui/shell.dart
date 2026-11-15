@@ -702,7 +702,14 @@ class _ShellState extends State<Shell> {
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
-        Offstage(offstage: start != null, child: page),
+        // Beneath the operation the board takes no keys and runs no animation, though it stays built.
+        Offstage(
+          offstage: start != null,
+          child: ExcludeFocus(
+            excluding: start != null,
+            child: TickerMode(enabled: start == null, child: page),
+          ),
+        ),
         ?start,
       ],
     );

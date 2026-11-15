@@ -137,6 +137,7 @@ Feature: Start and decide story work from the planning board
         And the operation shows {'Building the image'}
         When the machine lets the start go on
         Then the Start work dialog no longer waits on Start
+        And the operation is in front of the board
 
     # Harm: the end of a task the window started never reaches the planner, so its story looks at work for ever.
     Scenario: The end of a task the window started reaches the planner

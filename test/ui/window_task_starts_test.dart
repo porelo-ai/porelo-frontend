@@ -264,6 +264,23 @@ void main() {
         expect(operation.summary, startsWith('Claude Code is not signed in on laptop'));
       });
 
+      // Harm: a fault of the window's own while Start answers leaves its operation running for ever.
+      test('a start that breaks in the window after it said something ends its operation as failed', () async {
+        final order = (await plannedOrders()).first;
+        machine.fault = StateError('the window broke');
+
+        await expectLater(
+          watched().pressed(MockPlanningSource('planner'), 'demo', 'ST291', order),
+          throwsA(isA<StateError>()),
+        );
+        await pumpEventQueue();
+
+        final operation = operations.all.single;
+        expect(operation.running, isFalse, reason: 'never left running');
+        expect(operation.failed, isTrue);
+        expect(operation.summary, contains('the window broke'));
+      });
+
       test('a start refused before it said anything makes no operation: the board alone says it', () async {
         final order = (await plannedOrders()).first;
         machine
@@ -507,6 +524,9 @@ class _Starting extends Fake implements FleetBackend {
   VarlinkException? refusal;
   final _listed = <Task>[];
 
+  /// What breaks in the window while Start answers, after it said [says]: no refusal of the machine's.
+  Object? fault;
+
   /// What Start says on the way, before it answers.
   List<StartEvent> says = const <StartEvent>[];
 
@@ -529,6 +549,7 @@ class _Starting extends Fake implements FleetBackend {
     Map<String, String> given = const {},
   }) async {
     says.forEach(onEvent ?? (_) {});
+    if (fault case final fault?) throw fault;
     if (refusal case final refusal?) throw refusal;
     started.add({
       'project': project,

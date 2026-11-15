@@ -29,7 +29,7 @@ Feature: Discuss an idea with an agent from the planning board
         Given the machine says {'Building the image'} while it prepares a start, and holds it
         When I offer the idea {'Let the board show who is at work'} for discussion
         And I start the discussion with the agent {'other-agent'}
-        Then the operation is open
+        Then the operation is in front of the board
         And the operation shows {'Building the image'}
         When the machine lets the start go on
         Then the discussion's session is on screen

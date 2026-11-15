@@ -15,7 +15,7 @@ import './step/i_turn_the_discussions_start_away.dart';
 import './step/no_discussion_is_started.dart';
 import './step/the_discussions_session_is_on_screen.dart';
 import './step/the_machine_says_while_it_prepares_a_start_and_holds_it.dart';
-import './step/the_operation_is_open.dart';
+import './step/the_operation_is_in_front_of_the_board.dart';
 import './step/the_operation_shows.dart';
 import './step/the_machine_lets_the_start_go_on.dart';
 import './step/one_discussion_was_started.dart';
@@ -66,7 +66,7 @@ void main() {
       await theMachineSaysWhileItPreparesAStartAndHoldsIt(tester, 'Building the image');
       await iOfferTheIdeaForDiscussion(tester, 'Let the board show who is at work');
       await iStartTheDiscussionWithTheAgent(tester, 'other-agent');
-      await theOperationIsOpen(tester);
+      await theOperationIsInFrontOfTheBoard(tester);
       await theOperationShows(tester, 'Building the image');
       await theMachineLetsTheStartGoOn(tester);
       await theDiscussionsSessionIsOnScreen(tester);

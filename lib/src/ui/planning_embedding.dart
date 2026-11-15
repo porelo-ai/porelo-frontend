@@ -185,7 +185,7 @@ class WindowTaskStarts {
     }
     final discussion = task.role == 'DISCUSSION';
     final shown = _StartShown(
-      operations,
+      () => operations,
       title: discussion
           ? 'Discuss an idea in $project'
           : 'Start the ${task.role.toLowerCase()} task of $story'
@@ -274,35 +274,42 @@ class WindowTaskStarts {
     }
     final StartProgress answer;
     try {
-      answer = await start();
-    } on Exception catch (error) {
-      await _refused(task.offer);
-      final said = startRefusalSaid(error);
-      final refused = said is SignInNeeded ? said.labelled(await _labelOf(backend, said.agent)) : said;
-      // One set of words for every start path, never the wire's type name alone.
-      final words = startRefusalWords(refused, machine: machine.name);
-      // Said only where the offer answered that its row stands.
-      final offered =
-          refused is SignInNeeded && (onSignInNeeded?.call(machine, backend, refused.agent, refused.label) ?? false);
-      final told = offered ? '$words Needs you offers its sign-in.' : words;
-      _sayRefused(machine, project, story, task, words);
-      shown.refused(refused);
-      // The board reads a refusal's detail first: it carries these words, which say the machine's own within them.
-      throw switch (error) {
-        VarlinkException() => PlanningRefusal(
-          error.simpleName,
-          {...error.parameters, 'detail': told},
-          told,
-          error.isMethodNotFound,
-        ),
-        SignInNeeded(:final agent, :final running) => PlanningRefusal('SignInNeeded', {
-          'agent': agent,
-          'running': ?running,
-          'detail': told,
-        }, told),
-        // The window's refusals of a start, each already in words.
-        _ => PlanningRefusal('StartRefused', {'detail': told}, told),
-      };
+      try {
+        answer = await start();
+      } on Exception catch (error) {
+        await _refused(task.offer);
+        final said = startRefusalSaid(error);
+        final refused = said is SignInNeeded ? said.labelled(await _labelOf(backend, said.agent)) : said;
+        // One set of words for every start path, never the wire's type name alone.
+        final words = startRefusalWords(refused, machine: machine.name);
+        // Said only where the offer answered that its row stands.
+        final offered =
+            refused is SignInNeeded && (onSignInNeeded?.call(machine, backend, refused.agent, refused.label) ?? false);
+        final told = offered ? '$words Needs you offers its sign-in.' : words;
+        _sayRefused(machine, project, story, task, words);
+        shown.refused(refused);
+        // The board reads a refusal's detail first: it carries these words, which say the machine's own within them.
+        throw switch (error) {
+          VarlinkException() => PlanningRefusal(
+            error.simpleName,
+            {...error.parameters, 'detail': told},
+            told,
+            error.isMethodNotFound,
+          ),
+          SignInNeeded(:final agent, :final running) => PlanningRefusal('SignInNeeded', {
+            'agent': agent,
+            'running': ?running,
+            'detail': told,
+          }, told),
+          // The window's refusals of a start, each already in words.
+          _ => PlanningRefusal('StartRefused', {'detail': told}, told),
+        };
+      }
+    } on Object catch (error) {
+      // Whatever ended the start, an error of the window's own among them, its operation ends with it, as failed:
+      // never one left running for ever. One already ended is not ended again.
+      shown.refused(error);
+      rethrow;
     }
     final container = answer.container ?? '';
     if (container.isEmpty || !_started(answer)) {
@@ -627,7 +634,8 @@ String reasonFirst(List<String> printed) {
 class _StartShown {
   _StartShown(this.operations, {required this.title, required this.machine, this.open});
 
-  final Operations? operations;
+  /// The window's operations as they are when Start says something, none once the window is gone.
+  final Operations? Function() operations;
   final String title;
   final String machine;
 
@@ -637,7 +645,7 @@ class _StartShown {
   StreamController<Object>? _output;
 
   void add(StartEvent event) {
-    final run = operations;
+    final run = operations();
     if (run == null) return;
     var output = _output;
     if (output == null) {

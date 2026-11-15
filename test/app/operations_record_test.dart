@@ -55,6 +55,25 @@ void main() {
     expect(back.seen, isFalse, reason: 'nobody opened it before the window closed');
   });
 
+  // Harm: a start that answers after the window closed writes the record again behind the one written as it closed,
+  // or throws into nothing.
+  test('an operation that goes on after the window closed writes nothing more', () async {
+    final store = MemoryOperationsStore();
+    final operations = over(store);
+    final output = StreamController<String>();
+    operations.dispose();
+    final written = store.writes;
+
+    operations.run(title: 'Discuss an idea in checkout', machine: 'this machine', output: output.stream);
+    output
+      ..add('Building the image')
+      ..addError(const FailedSaying('it broke'));
+    await output.close();
+    await pumpEventQueue();
+
+    expect(store.writes, written, reason: 'nothing written after the window closed');
+  });
+
   test('a failure that was seen comes back as seen', () async {
     final store = MemoryOperationsStore();
     final before = over(store);

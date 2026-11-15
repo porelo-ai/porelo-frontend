@@ -19,6 +19,7 @@ import './step/the_start_work_dialog_waits_on_start_with_its_mark.dart';
 import './step/the_operation_shows.dart';
 import './step/the_machine_lets_the_start_go_on.dart';
 import './step/the_start_work_dialog_no_longer_waits_on_start.dart';
+import './step/the_operation_is_in_front_of_the_board.dart';
 import './step/i_drop_story_on_working_state.dart';
 import './step/another_machine_offers_the_same_project_planning.dart';
 
@@ -162,6 +163,7 @@ void main() {
       await theOperationShows(tester, 'Building the image');
       await theMachineLetsTheStartGoOn(tester);
       await theStartWorkDialogNoLongerWaitsOnStart(tester);
+      await theOperationIsInFrontOfTheBoard(tester);
     });
     testWidgets('''The end of a task the window started reaches the planner''', (tester) async {
       await bddSetUp(tester);
