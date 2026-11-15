@@ -184,6 +184,31 @@ void main() {
     }
   });
 
+  // Harm: a task started for a stage its order does not name reads as implementing, or one that may push loses its
+  // build line.
+  test('a planned task names a stage only where its order says one', () {
+    PlannedOffer planned(String role, {String? result}) => PlannedOffer(
+      machine: 'laptop',
+      container: 'porelo-demo-pi',
+      offer: 'offer-1',
+      provider: 'porelo-planner',
+      project: 'demo',
+      story: 'ST366',
+      task: 'pi',
+      role: role,
+      result: result,
+      issues: const ['PI68'],
+    );
+    for (final role in ['MAIN', 'BUILDER', 'COORDINATOR']) {
+      final offer = planned(role);
+      expect((offer.stage, offer.worksOn, offer.writesCode), (null, 'PI68 of ST366', true), reason: role);
+    }
+    expect(planned('MAIN', result: 'analysis.json').worksOn, 'PI68 of ST366, in analysis');
+    expect(planned('BUILDER', result: 'estimate.json').worksOn, 'PI68 of ST366, estimation');
+    final reader = planned('READER');
+    expect((reader.worksOn, reader.writesCode), ('PI68 of ST366, reading', false));
+  });
+
   // Harm: a role or issues this build cannot keep refuse the keeping of a task Start already made, so its end is never
   // reported.
   test('a role or issues that cannot be kept are dropped, and the offer is kept', () async {

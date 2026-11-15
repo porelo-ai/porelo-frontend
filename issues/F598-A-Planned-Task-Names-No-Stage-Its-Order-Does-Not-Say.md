@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F598",
   "title": "A Planned Task Names No Stage Its Order Does Not Say",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 118,
@@ -51,3 +51,26 @@ task is expected.
 - A task whose order names `analysis.json` or `estimate.json` still reads *in analysis* or *estimation*, a READER
   *reading*.
 - A role this build does not know names no stage.
+
+## Built
+
+- **Stage:** `PlannedOffer.stage` (`lib/src/app/settings.dart`) answers *In analysis* or *Estimation* from the
+  order's result file and *Reading* for a READER, and null for every other role (MAIN, BUILDER, one this build does
+  not know); `worksOn` then says `<issues> of <story>` alone, and still null where an earlier build kept no role.
+- **Build line:** `writesCode` is spelled from the role and result directly, with the same answers as before: true
+  where no role was kept, false for a result file or a READER, true otherwise.
+- **Tests:** `test/app/planning_offers_test.dart` *a planned task names a stage only where its order says one* (MAIN,
+  BUILDER and an unknown role with no result; the result and reader stages); `test/ui/planned_task_line_test.dart`
+  *work whose order names no stage says its issues and story alone, and its build line* in place of *implementing work
+  says so*.
+- **Red:** `Expected: (null, PI68 of ST366, true)  Actual: (Implementing, PI68 of ST366, implementing, true)`; on the
+  row `Found 0 widgets with text "PI68 of ST366"`.
+- **Runs:** `dart analyze lib test integration_test tool` No issues found. `planning_offers_test` and
+  `planned_task_line_test`: 19 passed. `test/app` whole: 1667 passed, 5 skipped, 41 failed, all in
+  `planner_end_test`, `planner_ideas_test`, `planner_log_level_test`, `planner_stage_results_test` and
+  `planner_test`, which start or reach a local planner over a socket; `planner_ideas_test` and `planner_test` fail
+  the same with `lib/` as on the branch's base.
+
+## To be checked
+
+- Why the planner process and socket tests in `test/app` fail in this worktree's environment, on the base too.

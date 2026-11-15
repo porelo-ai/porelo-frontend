@@ -80,11 +80,12 @@ void main() {
     expect(said('No build yet'), findsNothing);
   });
 
-  // Harm: implementing work loses the line that says its build has not run yet.
-  testWidgets('implementing work says so, and its build line as before', (tester) async {
+  // Harm: work whose order names no stage reads as implementing, or loses the line that says its build has not run.
+  testWidgets('work whose order names no stage says its issues and story alone, and its build line', (tester) async {
     await plannedAs(tester, role: 'MAIN');
 
-    expect(said('PI68 of ST366, implementing'), findsOneWidget);
+    expect(said('PI68 of ST366'), findsOneWidget);
+    expect(find.descendant(of: workRows(), matching: find.textContaining('implementing')), findsNothing);
     expect(said('No build yet'), findsOneWidget);
   });
 

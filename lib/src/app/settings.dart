@@ -130,27 +130,30 @@ class PlannedOffer {
   /// The issues the order's task works on, in the order's order; none where an earlier build kept none.
   final List<String> issues;
 
-  /// The stage the task works at, in the board's word: `In analysis` and `Estimation` for a stage that hands back
-  /// its analysis or estimate, `Reading` for a reader, `Implementing` for work that pushes; null where an earlier
-  /// build kept no role.
+  /// The stage the task works at, in the board's word, only where its order says one: `In analysis` and `Estimation`
+  /// for a stage that hands back its analysis or estimate, `Reading` for a reader; null for any other role, whose
+  /// order names no stage, and where an earlier build kept no role.
   String? get stage => switch ((role, result)) {
     (null, _) => null,
     (_, 'analysis.json') => 'In analysis',
     (_, 'estimate.json') => 'Estimation',
     ('READER', _) => 'Reading',
-    _ => 'Implementing',
+    _ => null,
   };
 
   /// Whether its task writes code that is pushed and built; a stage that reads or hands back a result does not, and
-  /// one an earlier build kept is taken to.
-  bool get writesCode => stage == null || stage == 'Implementing';
+  /// any other, one an earlier build kept among them, is taken to.
+  bool get writesCode => role == null || result == null && role != 'READER';
 
-  /// What it works on, for its tile and row: `<issues> of <story>, in analysis`; null where an earlier build kept no
-  /// issues or role.
+  /// What it works on, for its tile and row: `<issues> of <story>, in analysis`, or `<issues> of <story>` where its
+  /// order names no stage; null where an earlier build kept no issues or role.
   String? get worksOn {
-    final at = stage;
-    if (at == null || issues.isEmpty || story == null) return null;
-    return '${issues.join(', ')} of $story, ${at.toLowerCase()}';
+    if (role == null || issues.isEmpty || story == null) return null;
+    final where = '${issues.join(', ')} of $story';
+    return switch (stage) {
+      final at? => '$where, ${at.toLowerCase()}',
+      null => where,
+    };
   }
 
   /// Whether it can be reported: an earlier build kept no project or task for it.
