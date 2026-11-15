@@ -553,16 +553,53 @@ void main() {
     expect(planner.calls.map((call) => call.event), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
   });
 
-  // Harm: a task started while its story was stopped runs on, or is reported though the planner voided it.
-  test('a stop stops each task on the machine it was started on, reports nothing and forgets its offer', () async {
-    final (starts, reports) = window();
-    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+  // Harm: a task of a stopped run runs on, or stays started at the planner, so its story can never be started again;
+  // or its end is told twice.
+  test('a stop stops each task on the machine it was started on, reports its end once and forgets its offer', () async {
+    final (starts, reports) = window(now: () => DateTime.utc(2026, 11, 15, 16, 30));
+    final order = (await plannedOrders()).first;
+    final started = await starts(planner, 'demo', 'ST291', order);
+    await reports.idle;
     await reports.stop(planner, 'demo', 'ST291', [started]);
+    await reports.idle;
+    // A Stop of the run already stopped names the task again; it was ended once.
+    await reports.stop(planner, 'demo', 'ST291', [started]);
+    machine.end(started.container, {'at': 'the end', 'finished': false});
+    reports.sweep();
+    await reports.idle;
+
+    expect(stopped.first, (_laptop, started.container));
+    expect(planner.calls.map((call) => (call.event, call.offer, call.container, call.machine)), [
+      (PlanningTaskEvent.started, order.offer, started.container, 'laptop'),
+      (PlanningTaskEvent.ended, order.offer, started.container, 'laptop'),
+    ]);
+    expect(planner.calls.last.ended?.at, '2026-11-15T16:30:00.000Z');
+    expect(planner.calls.last.ended?.finished, isFalse);
+    expect((await loaded()).planningOffer('laptop', started.container), isNull);
+  });
+
+  // Harm: a task whose start the planner refused after offering it stays started there, so its story can never be
+  // started again; or it runs on unreported, or its end is told twice.
+  test('a start the planner refused is stopped and its end reported once', () async {
+    final (starts, reports) = window();
+    final problems = <String>[];
+    reports.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
+    planner.answers.add(const PlanningRefusal('SaveRefused', {}, 'The board could not be saved.'));
+    final order = (await plannedOrders()).first;
+
+    final started = await starts(planner, 'demo', 'ST291', order);
+    await reports.idle;
+    machine.end(started.container, {'at': 'the end', 'finished': true});
+    reports.sweep();
     await reports.idle;
 
     expect(stopped, [(_laptop, started.container)]);
-    expect(planner.calls, isEmpty);
+    expect(planner.calls.map((call) => (call.event, call.offer)), [
+      (PlanningTaskEvent.started, order.offer),
+      (PlanningTaskEvent.ended, order.offer),
+    ]);
     expect((await loaded()).planningOffer('laptop', started.container), isNull);
+    expect(problems, ['The board could not be saved.']);
   });
 
   // Harm: after a restart, a stopped story's task runs on because the window forgot where it started it.
@@ -693,6 +730,7 @@ void main() {
     expect(restarted.container, started.container);
     expect(planner.calls.map((call) => (call.event, call.offer)), [
       (PlanningTaskEvent.started, first.offer),
+      (PlanningTaskEvent.ended, first.offer),
       (PlanningTaskEvent.started, again.offer),
     ]);
   });

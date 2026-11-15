@@ -142,12 +142,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f607"></a>[F607](F607-A-Stopped-Runs-Started-Tasks-Are-Ended-By-The-Window.md) | S | - | The window stops the tasks a Stop on an already stopped run still names as started and reports each one's end, and reports an end for a task whose start answered with an error after the planner offered it, so no planner offer stays started and the story can be started again. |
-
 ## Review
 
 | # | Size | Blocked by | What it covers |
@@ -174,6 +168,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f604"></a>[F604](F604-A-Reported-Start-Warns-No-Move-Of-Its-Story.md) | S | - | A start the window handed on stops counting as one the planner does not report yet once the window reported it started, or it ended, so a later move of its story warns only of tasks at work, instead of Stop the tasks and move for tasks long ended. |
 | <a id="f605"></a>[F605](F605-Start-Work-Knows-Which-Agents-Are-Signed-In-There.md) | XS | - | The window tells porelo-planner's Start work, for each agent it lists, whether that agent is signed in on the machine the task goes to and, where not, why in the window's words, so the dialog can preselect an agent that is ready (PL155). |
 | <a id="f606"></a>[F606](F606-Start-Work-Shown-As-The-Windows-Wizard.md) | S | - | Start work on the Planning board runs as the window's own wizard, through porelo-planner's PlanningWizards hook: a step per question with room to read each field, a review where every step's answers can be changed, ready agents, and the models and efforts porelo lists per agent. |
+| <a id="f607"></a>[F607](F607-A-Stopped-Runs-Started-Tasks-Are-Ended-By-The-Window.md) | S | - | The window stops the tasks a Stop on an already stopped run still names as started and reports each one's end, and reports an end for a task whose start answered with an error after the planner offered it, so no planner offer stays started and the story can be started again. |
 | <a id="f457"></a>[F457](F457-Needs-You-Names-The-One-Thing-To-Do.md) | L | - | *Needs you* items name one action, close with their cause, can be marked seen, embed no task tile; nothing waits at the gate in class online; a done task shown done; the commit's makers shown. |
 | <a id="f462"></a>[F462](F462-A-Hosts-Central-Reason-Said-In-Words.md) | XS | - | Where the host cannot say how its copy stands against central, the row says why in words, never the daemon's token. |
 | <a id="f466"></a>[F466](F466-A-Taken-Repository-Stays-Carried-While-Another-Waits.md) | S | - | A repository the host has taken reads carried while the project waits for the token for another. |

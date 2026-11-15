@@ -378,8 +378,9 @@ class WindowTaskReports {
     await _deliver(kept, event, ended: ended, landed: landed);
   });
 
-  /// Stops [tasks], each on the machine it was started on, and forgets their offers; reports nothing, since the
-  /// planner voided them. Completes once each stop was asked.
+  /// Stops [tasks], each on the machine it was started on, forgets their offers and, once a task is stopped, reports
+  /// its end through its kept offer, once: the planner holds a stopped run's task started until its end is told, and
+  /// starts the story again only then. Nothing else of them is reported. Completes once each stop was asked.
   Future<void> stop(PlanningSource source, String project, String story, List<PlanningTaskStarted> tasks) async {
     final provider = starts.providerOf(source);
     for (final task in tasks) {
@@ -389,13 +390,60 @@ class WindowTaskReports {
         _say(provider, project, PlanningRefusal('NoMachine', {'detail': words}, words));
         continue;
       }
+      final kept = settings.plannedOffer(machine.name, task.container);
       if (settings.planningOffer(machine.name, task.container) case final offer?) _voided.add(offer);
-      try {
-        await stopOn(machine, task.container);
-      } on Object catch (error) {
-        _say(provider, project, error);
-      }
-      await settings.forgetPlanningOffer(machine.name, task.container);
+      await _stopAndEnd(machine, task.container, kept, source);
+    }
+  }
+
+  /// Stops [container] on [machine], forgets its offer and, once it is stopped, reports the end of [kept]'s task to
+  /// [source] after the reports before it; a stop that fails reports nothing, so the planner still names the task.
+  Future<void> _stopAndEnd(Machine machine, String container, PlannedOffer? kept, PlanningSource? source) async {
+    try {
+      await stopOn(machine, container);
+    } on Object catch (error) {
+      _say(kept?.provider ?? (source == null ? null : starts.providerOf(source)), kept?.project, error);
+      await settings.forgetPlanningOffer(machine.name, container);
+      return;
+    }
+    await settings.forgetPlanningOffer(machine.name, container);
+    if (kept == null || !kept.reportable || source == null || !_endsTold.add(kept.offer)) return;
+    // Queued, so it follows a start's report still waiting for its answer: an end before its start is refused.
+    unawaited(_queued(() => _endStopped(kept, source)));
+  }
+
+  /// The offers whose task the window stopped and reported ended, so their end is told once.
+  final _endsTold = <String>{};
+
+  /// Reports that the window stopped [kept]'s task: with how its agent ended where the machine lists a new end, else
+  /// now, unfinished. The answer's orders belong to a stopped run and are not started.
+  Future<void> _endStopped(PlannedOffer kept, PlanningSource source) async {
+    final listed = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
+    final ended = switch (listed?.agentEnded) {
+      final ended? when plannedEndKey(ended) != kept.ended => plannedTaskEnded(ended, landed: plannedLandings(listed!)),
+      _ => PlanningTaskEnded(
+        at: now().toUtc().toIso8601String(),
+        finished: false,
+        why: 'The window stopped the task.',
+        answer: '',
+        unpushed: 0,
+      ),
+    };
+    try {
+      await source.taskEvent(
+        kept.project!,
+        kept.task!,
+        PlanningTaskEvent.ended,
+        offer: kept.offer,
+        container: kept.container,
+        machine: kept.machine,
+        ended: ended,
+      );
+    } on PlanningRefusal catch (refusal) {
+      // The planner holds nothing of the task any more: there is nothing to end.
+      if (refusal.name != 'TaskNotAnswered') _say(kept.provider, kept.project, refusal);
+    } on Object catch (error) {
+      _say(kept.provider, kept.project, error);
     }
   }
 
@@ -950,7 +998,7 @@ class WindowTaskReports {
         landed: landed,
       );
     } on Object catch (error, stack) {
-      return _notTaken(kept, error, stack, attempt);
+      return _notTaken(kept, error, stack, attempt, event: event, source: source);
     }
     _unreachedSaid = false;
     // A stop took the task over while its report waited: the answer's follow-ups belong to a stopped run.
@@ -996,7 +1044,7 @@ class WindowTaskReports {
       if (!at.asked && planningRefused(error, 'TaskEventConflict')) return false;
       // Not asked for another refusal of the run's, or asked and not answered: the planner did not take the report.
       if (!at.answered) {
-        await _notTaken(kept, error, stack, attempt);
+        await _notTaken(kept, error, stack, attempt, event: event, source: source);
         return true;
       }
       // The planner took the report; what the run could not start after its answer, a refusal or a start that failed
@@ -1012,10 +1060,26 @@ class WindowTaskReports {
 
   /// A report the planner did not take: a task it no longer answers for is stopped and forgotten, a refusal that will
   /// not change by itself is not sent again in this window's life, and either is thrown to be said.
-  Future<void> _notTaken(PlannedOffer kept, Object error, StackTrace stack, (String, String) attempt) async {
+  Future<void> _notTaken(
+    PlannedOffer kept,
+    Object error,
+    StackTrace stack,
+    (String, String) attempt, {
+    required PlanningTaskEvent event,
+    required PlanningSource source,
+  }) async {
     if (error is PlanningRefusal) {
       if (error.name == 'TaskNotAnswered') return _voidTask(kept);
       if (!_transient(error)) _refused.add(attempt);
+      // The planner offered the task and its start was answered with a refusal, which halts the run while the planner
+      // may hold the task started: the task stops and its end is told, so the story can start again. A conflict binds
+      // nothing, and the task is kept.
+      if (event == PlanningTaskEvent.started && !_transient(error) && error.name != 'TaskEventConflict') {
+        _voided.add(kept.offer);
+        if (starts.machineNamed(kept.machine) case final machine?) {
+          await _stopAndEnd(machine, kept.container, kept, source);
+        }
+      }
     } else {
       _refused.add(attempt);
     }

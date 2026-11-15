@@ -584,7 +584,7 @@ class WindowTaskChanges implements PlanningTaskChanges {
   )
   onStarted;
 
-  /// Stops tasks the planner no longer answers for, reporting nothing.
+  /// Stops the tasks of a stopped run, reporting the end of each one stopped.
   final Future<void> Function(PlanningSource source, String project, String story, List<PlanningTaskStarted> tasks)
   onStop;
 

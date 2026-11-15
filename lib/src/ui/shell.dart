@@ -7583,7 +7583,7 @@ class _ShellState extends State<Shell> {
     _openSession(task, on: machine);
   }
 
-  /// Stops the tasks the planner no longer answers for, on the machines they were started on, reporting nothing.
+  /// Stops the tasks of a stopped run on the machines they were started on, reporting the end of each one stopped.
   Future<void> _storyWorkStopped(
     PlanningSource source,
     String project,
