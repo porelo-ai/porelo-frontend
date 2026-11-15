@@ -89,18 +89,19 @@ setup is out: a host is set up before any project is put on it.
 - **Once per wait:** `DeclaredHandOn` (`lib/src/app/declared_hand_on.dart`) hands a host the declared token for the
   projects heard waiting and joins a hand-over to that host that runs already. A project's wait counts as answered only
   once a hand-over ran: the host took the token, Porelo said nothing waits (exit 65), Porelo or the host refused it,
-  or the Porelo-Vault declares none. While the host still says the project waits it is not handed on again by itself,
-  and asking again answers what that hand-over came to (`HandOn.earlier`). A hand-over that could not run (`notRun`:
+  or the Porelo-Vault declares none. Until the host reports the project taken it is not handed on again by itself,
+  whatever state it passes through (cloning, checking), and asking again answers what that hand-over came to
+  (`HandOn.earlier`). `taken` takes the projects the host reports `carried` each time it is heard; a later wait of one
+  of them (a repository added, say) is a new wait and handed on once more. A hand-over that could not run (`notRun`:
   the host not reached, the Porelo-Vault not asked, a press giving to that host meanwhile, the step busy) answers
-  nothing, so the next word of the host or the organization tries the same wait again. `heard` takes the projects the
-  host says wait each time it is heard; a project no longer among them waits anew once it is reported again, so a
-  later wait of the same project (a repository added, say) is handed on once more.
+  nothing; the next is tried for that host at most once per minute (`retryAfter`, clock injectable, the shell's read
+  from `declaredHandOnClock`), and meanwhile the one that could not run is answered again as `earlier`.
 - **Shell:** `_handOnDeclaredTokens` (`lib/src/ui/shell.dart`) listens to the host connections and the organization,
   and for each host this person administers that was heard (as the machine's own list corrects it) gives
-  `DeclaredHandOn.heard` the projects waiting for the token and, where any wait, calls `forWaits`. `_handOnDeclaredNow`
-  runs as one of `TokenGiving` (`run`, never beside another giving to that host; busy is `notRun`) and uses
-  `HostTokenStep.handOnDeclared` (`lib/src/app/host_token_sources.dart`), which now answers `DeclaredGiving`
-  (`given`, `refused`, `notDeclared`, `notRun`): it connects and asks only this computer's Porelo-Vault
+  `DeclaredHandOn.taken` the projects it reports carried and, where any wait for the token, calls `forWaits`.
+  `_handOnDeclaredNow` runs as one of `TokenGiving` (`run`, never beside another giving to that host; busy is
+  `notRun`) and uses `HostTokenStep.handOnDeclared` (`lib/src/app/host_token_sources.dart`), which now answers
+  `DeclaredGiving` (`given`, `refused`, `notDeclared`, `notRun`): it connects and asks only this computer's Porelo-Vault
   (`HostTokenSources.askDeclared`), so nothing opens and no other source (the kept token, the secrets file) is touched
   without a press. A step already giving or hearing, a Porelo-Vault that could not be asked, or a `give` that threw
   is `notRun`, never a hand-over with no words; only a refusal with words is logged as a warning. The declarations
@@ -111,9 +112,10 @@ setup is out: a host is set up before any project is put on it.
   placing dialog reads the host's progress again: a project still waiting was not helped, and is asked for as before.
 - **Placing dialog:** `HostConnections.handOnDeclared`, set by the shell, is called once when the dialog hears its
   project wait; while it runs the dialog says *Handing on the token your Porelo-Vault declares for <forge> to
-  <host>…* with no button, then the host's word. With nothing declared, or a hand-over that could not run, the button
-  stays. A token that did not help, handed on now or already by the window for the same wait, says *<host> still
-  waits for a token after the one your Porelo-Vault declares…* with the button.
+  <host>…* with no button, then the host's word. With nothing declared the button stays; a hand-over that could not
+  run says its words with the button, which gives as a press, and the machine's next word tries the hand-over again
+  (within the minute, the same words). A token that did not help, handed on now or already by the window for the
+  same wait, says *<host> still waits for a token after the one your Porelo-Vault declares…* with the button.
 - **Row:** the project's row (`_waitWords`) says *handing your <forge> token on from this computer's Porelo-Vault*
   while the hand-over runs.
 - **Tests:** `test/ui/placing_project_dialog_test.dart` (*handed the declared one without a press, and says so*; *a
@@ -151,9 +153,25 @@ setup is out: a host is set up before any project is put on it.
   `token_giving_test` 2, `declared_token_hand_on_test` 5, `placing_project_dialog_test` 18,
   `porelo_organization_source_test` 116, `host_token_sources_test` 10, `server_setup_wizard_test` 16,
   `organization_host_pages_test` 126, `organization_project_pages_test` 91, `machine_own_pages_test` 27: all passed.
+- **Second reading** (a loop through a passing state, the retry rate, the dialog's bare button after a hand-over that
+  could not run): tests `declared_token_hand_on_test` *a project passing through another state and waiting again is
+  the same wait* (waits, given, cloning, waits: one give) and *a hand-over that could not reach the host is tried again
+  a minute later*; `placing_project_dialog_test` *a hand-over that could not run says why, and the button gives*;
+  `declared_hand_on_test` *a project waits anew only once the host reported it taken* and *… tried again at most once
+  a minute*. Red on the code before: the loop `Expected: ['build'] Actual: ['build', 'build']`; the dialog `Found 0
+  widgets with text "build could not be reached, so no source was asked."`. Runs (one file at a time):
+  `declared_hand_on_test` 3, `declared_token_hand_on_test` 6, `placing_project_dialog_test` 19, `token_giving_test` 2,
+  `host_token_sources_test` 10, `organization_host_pages_test` 126, `organization_project_pages_test` 91,
+  `machine_own_pages_test` 27: all passed; analyze No issues found.
+
 ## To be checked
 
 - A project not reached in the 300 s pass stays waiting and is not handed on again by itself: its row and the placing
   dialog ask with the button, and a press refreshes again. Whether the window should hand on once more where the host's
   answer says it ran out of time is not built.
 - The self hand-over connects to the host as the token's page does on a press; it was not walked against a real host.
+- A project that joins a hand-over already running is marked answered with it, although the token went out before that
+  project was heard waiting; it is handed on again by itself only once the host reports it taken and waiting anew.
+- A project whose wait ends while the host is not heard (`_heardFrom` null) keeps its mark until the host is heard
+  reporting it carried; a wait that ends without the project ever being carried (the project removed) keeps it for the
+  window's life.

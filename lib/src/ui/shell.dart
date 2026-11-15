@@ -6683,7 +6683,7 @@ class _ShellState extends State<Shell> {
   }
 
   /// Hands the declared token on by itself to each host this person administers that is heard waiting for it for a
-  /// project, once per wait; a wait answered before is left to its rows until the host stops reporting it.
+  /// project, once per wait; a wait answered before is left to its rows until the host reports the project taken.
   void _handOnDeclaredTokens() {
     final view = _organization?.view;
     if (!mounted || view == null || !view.holdsRoles || _hostConnections == null) return;
@@ -6698,8 +6698,11 @@ class _ShellState extends State<Shell> {
         for (final project in heard.projects)
           if (project.waitsForToken) project.project,
       };
-      // A project the host no longer says waits is a new wait once it says so again.
-      _declaredHandOn.heard(card.name, waiting);
+      // A project the host took is a new wait once it waits again; one passing through another state is not.
+      _declaredHandOn.taken(card.name, {
+        for (final project in heard.projects)
+          if (project.state == 'carried') project.project,
+      });
       if (waiting.isEmpty) continue;
       unawaited(_declaredHandOn.forWaits(card.name, waiting));
     }

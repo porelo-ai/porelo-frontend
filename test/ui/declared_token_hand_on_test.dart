@@ -19,6 +19,9 @@ final _demoWaits = HostProgress.read('{"projects":[{"project":"demo","state":"wa
 /// What `build` says once `demo` took the token and is carried.
 final _demoCarried = HostProgress.read('{"projects":[{"project":"demo","state":"carried"}]}');
 
+/// What `build` says while it clones `demo`, the token handed on, before it says how that went.
+final _demoCloning = HostProgress.read('{"projects":[{"project":"demo","state":"cloning"}]}');
+
 /// The organization's repository, which the declared entry below matches.
 const _repository = 'https://forge.example.org/acme/organization.git';
 
@@ -103,17 +106,40 @@ void main() {
     expect(source.handedTo, ['build', 'build']);
   });
 
-  // Harm: a hand-over that could not run, the host not reached, counts as answered, so the wait is never handed on.
-  testWidgets('a hand-over that could not reach the host is tried again on the next word', (tester) async {
+  // Harm: a token that does not help is handed on in a loop, as the host passes through another state between waits.
+  testWidgets('a project passing through another state and waiting again is the same wait', (tester) async {
+    final (source, connections) = await _waiting(tester, declared: true);
+    expect(source.handedTo, ['build']);
+
+    connections.hostProgress = _demoCloning;
+    await connections.progress('build');
+    await World.settle(tester);
+    connections.hostProgress = _demoWaits;
+    await connections.progress('build');
+    await World.settle(tester);
+
+    expect(source.handedTo, ['build'], reason: 'not taken in between: the token that did not help is not given again');
+  });
+
+  // Harm: a hand-over that could not run, the host not reached, counts as answered, so the wait is never handed on;
+  // or it is tried again on every word while the host stays out of reach.
+  testWidgets('a hand-over that could not reach the host is tried again a minute later', (tester) async {
+    var now = DateTime.utc(2026, 11, 15, 18);
+    declaredHandOnClock = () => now;
+    addTearDown(() => declaredHandOnClock = DateTime.now);
     final (source, connections) = await _waiting(
       tester,
       declared: true,
       prepare: (_, connections) =>
           connections.refuseNextConnect = const OrganizationRefused('build is not reached now.'),
     );
-    // The first hand-over could not connect; the organization's word after it brought the next, which went through.
-    expect(connections.asked.where((asked) => asked == 'connect build'), hasLength(2));
-    expect(source.handedTo, ['build'], reason: 'the same wait, not answered yet, is handed on once reached');
+    expect(connections.asked.where((asked) => asked == 'connect build'), hasLength(1));
+    expect(source.handedTo, isEmpty, reason: 'the host was not reached, and the words after it within the minute wait');
+
+    now = now.add(const Duration(minutes: 1));
+    connections.notifyListeners();
+    await World.settle(tester);
+    expect(source.handedTo, ['build'], reason: 'the same wait, not answered yet, is handed on once tried again');
 
     connections.notifyListeners();
     await World.settle(tester);

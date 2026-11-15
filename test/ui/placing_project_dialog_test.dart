@@ -134,6 +134,28 @@ void main() {
     await close(tester);
   });
 
+  // Harm: a hand-over that could not run leaves a bare button, the person not told why, and nothing tries it again.
+  testWidgets('a hand-over that could not run says why, and the button gives', (tester) async {
+    final connections = FixtureConnections(['build'])..hostProgress = waiting;
+    connections.handOnDeclared = (host, projects) async =>
+        const HandOn(HandOnOutcome.notRun, words: 'build could not be reached, so no source was asked.');
+    final pressed = <String>[];
+    await open(
+      tester,
+      connections,
+      onGiveToken: (host, {atOnce = false}) async {
+        pressed.add(host);
+        return null;
+      },
+    );
+    expect(find.text('build could not be reached, so no source was asked.'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('placing-project.giveToken')));
+    await tester.pump();
+    await tester.pump();
+    expect(pressed, ['build'], reason: 'the button tries again');
+    await close(tester);
+  });
+
   // Harm: a token not given leaves a person with nothing, as the foo test's button did.
   testWidgets('a token not given says why, in the same dialog', (tester) async {
     final connections = FixtureConnections(['build'])..hostProgress = waiting;

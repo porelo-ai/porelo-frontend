@@ -149,7 +149,8 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
   }
 
   /// Hands the machine the token this computer's Porelo-Vault declares, by itself, once: where none is declared, one
-  /// handed on did not help, now or by the window before, or it could not run, the button asks as before.
+  /// handed on did not help, now or by the window before, or it could not run, the button asks as before, saying why
+  /// where there are words; one that could not run is tried again on the machine's next word.
   Future<void> _handOn() async {
     final handOn = widget.connections.handOnDeclared;
     if (handOn == null) return;
@@ -165,8 +166,10 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
     if (!mounted) return;
     setState(() {
       _handingOn = false;
-      if (done case HandOn(outcome: HandOnOutcome.refused, :final words?)) _tokenWhy = words;
+      if (done case HandOn(outcome: HandOnOutcome.refused || HandOnOutcome.notRun, :final words?)) _tokenWhy = words;
       if (done.outcome == HandOnOutcome.handedOn) _handed = true;
+      // One that could not run answered nothing: the button asks, and the machine's next word tries it again.
+      if (done.outcome == HandOnOutcome.notRun) _handOnTried = false;
     });
     if (done.outcome != HandOnOutcome.handedOn) return;
     // Handed on before, by the window for the same wait: the machine's word already followed it.
