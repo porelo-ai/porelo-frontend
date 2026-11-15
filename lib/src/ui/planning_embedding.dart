@@ -523,13 +523,14 @@ class MachinePlanningAgents implements PlanningAgents {
   }
 }
 
-/// What a refused Start printed, its last line first: Porelo ends with why the task cannot start, and the lines above
-/// it (a table of what it checked) follow, so a line that shows only its beginning shows the reason.
+/// What a refused Start printed, on one line with its last line first: Porelo ends with why the task cannot start,
+/// and the lines above it (a table of what it checked) follow after a dash, apart from each other, since the board's
+/// line keeps no line breaks.
 String reasonFirst(List<String> printed) {
   final lines = [
     for (final line in printed.join('\n').split('\n'))
-      if (line.trim().isNotEmpty) line.trimRight(),
+      if (line.trim().isNotEmpty) line.trim().replaceAll(RegExp(r'\s+'), ' '),
   ];
-  if (lines.length < 2) return lines.join().trim();
-  return [lines.last.trim(), ...lines.take(lines.length - 1)].join('\n');
+  if (lines.length < 2) return lines.join();
+  return '${lines.last} — ${lines.take(lines.length - 1).join(' · ')}';
 }

@@ -49,4 +49,11 @@ machine's details when they want them.
 - The discussion scenario now reads the board's line: *A discussion Start the machine refuses is said in the log, and
   once on the board, its reason first*, its stand-in printing a table above the reason as Porelo does. Seen red with
   the old order, and with the notice put back and the reason first (two widgets with the words).
+- The reading by another model (Claude Sonnet) found nothing red: every start that reaches the hook still ends in a
+  line. Taken from its yellows: the board's line drops line breaks, so the reason stood glued to the table; the words
+  are now one line, the reason, a dash, then the table's lines apart (*· *), and the scenario's step holds the dash
+  (red with the lines joined by breaks). *no notice says a Start was refused* now finds no notice of any kind. Left:
+  the reason is taken as Porelo's last line; a refusal by the daemon's own error (`VarlinkException`) keeps its words
+  as they come; a follow-up start refused while Planning is not open is said on the board and in the log, not on the
+  page in view.
 - Not seen in the debug build.
