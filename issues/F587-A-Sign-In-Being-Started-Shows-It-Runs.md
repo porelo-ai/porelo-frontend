@@ -80,6 +80,36 @@ button grey, with no mark, step or time, for a long while, then went on.
 - Not checked: a real first sign-in against a machine that builds its login image; `test/ui` and `test/features`
   whole (only the files named in the hand-over ran).
 
+- **The reading** (Claude Sonnet): nothing red. Taken from it:
+  - `PoreloClient.agentSignInStart` (and `FleetBackend.agentSignInStart`) takes an `abandoned` future, as the wait
+    does: a start still waiting for a relay place gives it up without starting a relay, an open one's connection is
+    closed at once, and the start ends as `VarlinkDisconnected`; its connection is closed after an answer and a
+    refusal too. `SigningIn` completes it when it is left, forgotten or disposed; the machine's own login goes on.
+    The features' `FakeBackend` notes the future it was given (`signInStartAbandoned`); the model test's stand-ins
+    take the parameter.
+  - `SigningIn.startingFor` is never negative: a clock set back reads as no time.
+  - Guards, each seen red:
+    - `test/client/agent_sign_in_test.dart` *a start closes its connection once answered* and *once refused*.
+      Break: the connection not closed in `finally`. Red: `Expected: <0> Actual: <1>` (open connections), both.
+    - Same group, *once left, while the machine has not answered*. Break: leaving no longer closes the connection.
+      Red: `Expected: <0> Actual: <1>`, then the start never ends (`TimeoutException`).
+    - `test/client/relay_test.dart` *a sign-in start left while it waits for a place starts no relay*. Break: the
+      relay's place asked for without `abandoned`. Red: `TimeoutException after 0:00:05.000000: Future not
+      completed` (the start waits on).
+    - The mapping on the new path, by the existing *a refused sign-in is its own error with its reason and words,
+      and an older machine has none*. Break: no `FeatureNotSupported` for `MethodNotFound`. Red: `threw
+      VarlinkException:<org.varlink.service.MethodNotFound ...>`. Break: no `SignInRefused`. Red: `threw
+      VarlinkException:<org.fuin.porelo.Tasks1.SignInRefused ...>` (and *once refused* red with it).
+    - `test/app/agent_sign_in_test.dart` *left / forgotten / disposed while its start is out, it tells the start of
+      the machine it is no longer wanted*. Break: the start's future never completed. Red: `Expected: true Actual:
+      <false>`, all three.
+    - Same file, *the time a start has run is never negative when the clock is set back*. Break: no clamp. Red:
+      `Expected: Duration:<0:00:00.000000> Actual: Duration:<-0:05:00.000000>`.
+    - `test/ui/sign_in_starting_test.dart` *a refused start shows its refusal and no time*. Break: the running part
+      shown while a refusal stands. Red: `Found 1 widget with key [<'start-sign-in-starting'>]`.
+    - Same file, *a panel closed while its start is out stops ticking*. Break: the ticker not cancelled on dispose.
+      Red: `A Timer is still pending even after the widget tree was disposed.`
+
 ## Acceptance
 
 - The tests above, each seen red first; `test/ui` and `test/features` green.

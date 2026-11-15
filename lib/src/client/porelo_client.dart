@@ -541,12 +541,29 @@ class PoreloClient {
   /// another one.
   ///
   /// **On a connection of its own, under [signInStartWithin] rather than the single call's deadline**, so a first
-  /// sign-in is not cut off while the machine still builds its login image.
-  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) async {
-    final connection = await backend.open(use: const RelayUse.stream());
+  /// sign-in is not cut off while the machine still builds its login image. Once [abandoned] completes, a start still
+  /// waiting for a place gives it up and an open one's connection is closed, and it ends as [VarlinkDisconnected]; the
+  /// machine's own login goes on.
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote, Future<void>? abandoned}) async {
+    VarlinkConnection? connection;
+    var left = false;
+    unawaited(
+      abandoned?.then<void>((_) {
+        left = true;
+        final open = connection;
+        connection = null;
+        unawaited(open?.close());
+      }, onError: (Object _) {}),
+    );
+    final opened = await backend.open(use: const RelayUse.stream(), abandoned: abandoned);
+    if (left) {
+      await opened.close();
+      throw VarlinkDisconnected('The sign-in start to ${backend.label} was no longer wanted.');
+    }
+    connection = opened;
     try {
       return SignInStarted.from(
-        await connection.call('$interfaceName.AgentSignInStart', <String, dynamic>{
+        await opened.call('$interfaceName.AgentSignInStart', <String, dynamic>{
           'agent': agent,
           'force': ?force,
           'remote': ?remote,
@@ -557,7 +574,8 @@ class PoreloClient {
       if (refusal.simpleName == 'SignInRefused') throw SignInRefused(refusal);
       rethrow;
     } finally {
-      await connection.close();
+      connection = null;
+      await opened.close();
     }
   }
 

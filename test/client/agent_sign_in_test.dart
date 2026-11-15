@@ -139,6 +139,65 @@ void main() {
     expect((await waited).single.stored, isTrue);
   });
 
+  // Harm: a start of up to 15 minutes keeps its connection, and on Windows its relay's place, after it was answered,
+  // refused or left, so the machine's places run out and later calls wait behind it.
+  group('a start closes its connection', () {
+    late PoreloClient client;
+    late int before;
+
+    setUp(() async {
+      client = await connect();
+      // The connection that agreed the interface is gone once the mock has seen it close.
+      await pumpEventQueue();
+      before = daemon.openConnections;
+    });
+
+    Future<void> closed(String when) async {
+      // The mock sees the close when its socket does, which a busy machine takes more than one turn of the queue for.
+      final until = DateTime.now().add(const Duration(seconds: 5));
+      while (daemon.openConnections != before && DateTime.now().isBefore(until)) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(daemon.openConnections, before, reason: 'the start closed its connection $when');
+    }
+
+    test('once answered', () async {
+      daemon.method('AgentSignInStart', (_) => <String, dynamic>{'container': 'porelo-login-claude', 'started': true});
+      await client.agentSignInStart('claude');
+      await closed('once answered');
+    });
+
+    test('once refused', () async {
+      daemon.fails('AgentSignInStart', 'org.fuin.porelo.Tasks1.SignInRefused', <String, dynamic>{
+        'agent': 'claude',
+        'reason': 'LOOPBACK_OVER_SSH',
+        'detail': '',
+      });
+      await expectLater(client.agentSignInStart('claude'), throwsA(isA<SignInRefused>()));
+      await closed('once refused');
+    });
+
+    test('once left, while the machine has not answered', () async {
+      final asked = Completer<void>();
+      final answer = Completer<Map<String, dynamic>>();
+      daemon.method('AgentSignInStart', (_) {
+        asked.complete();
+        return answer.future;
+      });
+      final left = Completer<void>();
+
+      final started = client.agentSignInStart('claude', abandoned: left.future);
+      final ended = expectLater(started, throwsA(isA<VarlinkDisconnected>()));
+      await asked.future;
+      expect(daemon.openConnections, before + 1, reason: 'the start holds one connection');
+      left.complete();
+
+      await closed('once left');
+      await ended.timeout(const Duration(seconds: 5));
+      answer.complete(<String, dynamic>{'container': 'porelo-login-claude', 'started': true});
+    });
+  });
+
   // Harm: a first sign-in, whose start answers only once the machine built its login image, is cut off as failed
   // while the machine goes on building.
   test('a start is not cut by the deadline of a single call', () async {

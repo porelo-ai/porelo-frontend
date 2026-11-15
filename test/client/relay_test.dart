@@ -525,6 +525,26 @@ void main() {
       expect(started, 2, reason: 'the stream that was left never starts a relay');
     });
 
+    // Harm: a sign-in start left while it waits for a place still starts a relay and holds it up to 15 minutes later.
+    test('a sign-in start left while it waits for a place starts no relay', () async {
+      mock.pushes('Prepare', (_) => StreamController<Map<String, dynamic>>().stream);
+      final client = await PoreloClient.connect(windowsBackend(CarrierBudget(daemonCalls: 2)));
+      await until(() => live == 0, 'the connect relay to exit');
+      final first = client.prepare('p').listen((_) {});
+      await until(() => started == 2, 'the first stream to start its relay');
+      final left = Completer<void>();
+      final start = client.agentSignInStart('claude', abandoned: left.future);
+      final ended = expectLater(start, throwsA(isA<VarlinkDisconnected>()));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(started, 2, reason: 'the start waits for the place the stream holds');
+      left.complete();
+      await ended.timeout(const Duration(seconds: 5));
+      await first.cancel();
+      await until(() => live == 0, 'the first stream to exit');
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(started, 2, reason: 'the start that was left never starts a relay');
+    });
+
     test('a place is free again once its relay could not start', () async {
       var refusals = 2;
       final backend = Machines.backendOn(

@@ -575,12 +575,16 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     ];
   }
 
+  /// What the window completes once it no longer wants the answer to the last sign-in start; null where it gave none.
+  Future<void>? signInStartAbandoned;
+
   /// Starts the agent's login, or answers the one that runs with `started` false: **never a second**, as the
   /// machine does.
   @override
-  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) async {
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote, Future<void>? abandoned}) async {
     if (!signsIn) throw const FeatureNotSupported('AgentSignInStart');
     signInStarts.add((agent: agent, force: force, remote: remote));
+    signInStartAbandoned = abandoned;
     if (signInStartHeld case final held?) await held.future;
     if (signInStartFails case final failure?) throw failure;
     if (signInRefusedAs case final reason? when force != true) {

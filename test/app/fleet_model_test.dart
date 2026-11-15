@@ -426,7 +426,7 @@ class _Wedged implements FleetBackend {
   Future<List<AgentSignIn>> agentSignIns() async => throw const FeatureNotSupported('AgentSignIns');
 
   @override
-  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) async =>
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote, Future<void>? abandoned}) async =>
       throw const FeatureNotSupported('AgentSignInStart');
 
   @override
@@ -895,7 +895,7 @@ class _Machine implements FleetBackend {
   Future<List<AgentSignIn>> agentSignIns() async => throw const FeatureNotSupported('AgentSignIns');
 
   @override
-  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) async =>
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote, Future<void>? abandoned}) async =>
       throw const FeatureNotSupported('AgentSignInStart');
 
   @override

@@ -401,6 +401,50 @@ void main() {
       expect(attached, 0);
       expect(signingIn.starting, isFalse);
     });
+
+    // Harm: a start nobody waits for any more keeps its connection, and on Windows a relay's place, up to 15 minutes.
+    for (final (how, leave) in <(String, void Function(SigningIn))>[
+      ('left', (signingIn) => signingIn.leave()),
+      ('forgotten', (signingIn) => signingIn.forget()),
+      ('disposed', (signingIn) => signingIn.dispose()),
+    ]) {
+      test('$how while its start is out, it tells the start of the machine it is no longer wanted', () async {
+        final machine = _holdingTheStart();
+        final signingIn = SigningIn();
+        signingIn.take(machine, const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN'));
+
+        unawaited(signingIn.signIn());
+        await pumpEventQueue();
+        var abandoned = false;
+        unawaited(machine.signInStartAbandoned!.then((_) => abandoned = true));
+        await pumpEventQueue();
+        expect(abandoned, isFalse, reason: 'wanted while it is out');
+        leave(signingIn);
+        await pumpEventQueue();
+
+        expect(abandoned, isTrue);
+        machine.signInStartHeld!.complete();
+        await pumpEventQueue();
+        if (how != 'disposed') signingIn.dispose();
+      });
+    }
+
+    // Harm: a clock set back while a start is out shows a negative time, as if the start had not begun.
+    test('the time a start has run is never negative when the clock is set back', () async {
+      var now = DateTime.utc(2026, 11, 15, 10);
+      final machine = _holdingTheStart();
+      final signingIn = SigningIn(clock: () => now);
+      addTearDown(signingIn.dispose);
+      signingIn.take(machine, const AgentSignIn(agent: 'an-agent', state: 'NOT_SIGNED_IN'));
+
+      unawaited(signingIn.signIn());
+      await pumpEventQueue();
+      now = now.subtract(const Duration(minutes: 5));
+
+      expect(signingIn.startingFor, Duration.zero);
+      machine.signInStartHeld!.complete();
+      await pumpEventQueue();
+    });
   });
 
   group('a sign-in pressed again', () {

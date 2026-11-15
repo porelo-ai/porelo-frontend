@@ -64,9 +64,24 @@ class SigningIn extends ChangeNotifier with QuietAfterDispose {
   bool starting = false;
 
   /// How long the start that is out has run, or null while none is: the machine's first one builds its login image.
-  Duration? get startingFor => starting ? _clock().difference(_startedAt ?? _clock()) : null;
+  /// A clock set back reads as no time, never as a negative one.
+  Duration? get startingFor {
+    if (!starting) return null;
+    final ran = _clock().difference(_startedAt ?? _clock());
+    return ran.isNegative ? Duration.zero : ran;
+  }
 
   DateTime? _startedAt;
+
+  /// Completed once the start that is out is no longer wanted here: left, forgotten or disposed.
+  Completer<void>? _startLeft;
+
+  /// Tells the start that is out, if any, that its answer is no longer wanted, so its connection is closed.
+  void _leaveTheStart() {
+    final left = _startLeft;
+    _startLeft = null;
+    if (left != null && !left.isCompleted) left.complete();
+  }
 
   /// Whether the sign-in the machine found is being imported.
   bool importing = false;
@@ -202,6 +217,7 @@ class SigningIn extends ChangeNotifier with QuietAfterDispose {
   /// Drops everything about the sign-in before; **a sign-in that runs is not ended**.
   void forget() {
     _turn++;
+    _leaveTheStart();
     unawaited(_wait?.cancel());
     _wait = null;
     _waitedOn = null;
@@ -233,6 +249,7 @@ class SigningIn extends ChangeNotifier with QuietAfterDispose {
               'from here.'
         : null;
     _turn++;
+    _leaveTheStart();
     _confirming = false;
     asking = false;
     starting = false;
@@ -336,11 +353,19 @@ class SigningIn extends ChangeNotifier with QuietAfterDispose {
     final turn = _turn;
     starting = true;
     _startedAt = _clock();
+    _leaveTheStart();
+    final left = _startLeft = Completer<void>();
     refusal = null;
     words = null;
     notifyListeners();
     try {
-      final started = await on.agentSignInStart(agent, force: force ? true : null, remote: remote ? true : null);
+      final started = await on.agentSignInStart(
+        agent,
+        force: force ? true : null,
+        remote: remote ? true : null,
+        abandoned: left.future,
+      );
+      if (identical(_startLeft, left)) _startLeft = null;
       if (turn != _turn) return;
       starting = false;
       container = started.container;
@@ -356,6 +381,7 @@ class SigningIn extends ChangeNotifier with QuietAfterDispose {
       notifyListeners();
       if (started.attach.isNotEmpty) _attachTo(started.attach);
     } on SignInRefused catch (refused) {
+      if (identical(_startLeft, left)) _startLeft = null;
       if (turn != _turn) return;
       starting = false;
       refusal = refused.reason;
@@ -367,6 +393,7 @@ class SigningIn extends ChangeNotifier with QuietAfterDispose {
           : said;
       notifyListeners();
     } on Exception catch (failed) {
+      if (identical(_startLeft, left)) _startLeft = null;
       if (turn != _turn) return;
       starting = false;
       _refused(failed, 'how $who is signed in');
@@ -535,6 +562,7 @@ class SigningIn extends ChangeNotifier with QuietAfterDispose {
   @override
   void dispose() {
     _turn++;
+    _leaveTheStart();
     unawaited(_wait?.cancel());
     _wait = null;
     super.dispose();

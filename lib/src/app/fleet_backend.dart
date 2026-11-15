@@ -258,8 +258,9 @@ abstract class FleetBackend {
 
   /// Starts [agent]'s own login on the machine, or answers the one that runs already: never a second. [force] is
   /// the person's second decision after `ALREADY_SIGNED_IN`; [remote] says the person reaches the machine from
-  /// another one.
-  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote});
+  /// another one. Once [abandoned] completes, this window stops waiting for the answer and frees what it held for it;
+  /// the machine's own login goes on.
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote, Future<void>? abandoned});
 
   /// Waits until [agent]'s sign-in ends, at most 30 minutes, and answers once; at once where none runs. **On a
   /// connection of its own**, closed when the subscription is canceled, which does not end the sign-in.
@@ -855,8 +856,8 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
   Future<List<AgentSignIn>> agentSignIns() => _opened().agentSignIns();
 
   @override
-  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote}) =>
-      _opened().agentSignInStart(agent, force: force, remote: remote);
+  Future<SignInStarted> agentSignInStart(String agent, {bool? force, bool? remote, Future<void>? abandoned}) =>
+      _opened().agentSignInStart(agent, force: force, remote: remote, abandoned: abandoned);
 
   @override
   Stream<SignInWaited> agentSignInWait(String agent) => _opened().agentSignInWait(agent);

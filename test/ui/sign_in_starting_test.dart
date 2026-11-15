@@ -56,4 +56,54 @@ void main() {
     await tester.pump();
     expect(starting, findsNothing, reason: 'answered, the start is no longer shown as running');
   });
+
+  // Harm: a refused start still reads as running, its time going on, so the person waits for nothing.
+  testWidgets('a refused start shows its refusal and no time', (tester) async {
+    final (:machine, :signingIn) = await _shown(tester);
+    machine.signInRefusedAs = 'ALREADY_SIGNED_IN';
+
+    unawaited(signingIn.signIn());
+    await tester.pump();
+    expect(find.text('0 s so far.'), findsOneWidget);
+    machine.signInStartHeld!.complete();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.byKey(const Key('start-sign-in-starting')), findsNothing);
+    expect(find.textContaining('so far'), findsNothing);
+    expect(find.textContaining('holds a sign-in'), findsWidgets, reason: 'the refusal is said instead');
+  });
+
+  // Harm: a panel closed while its start is out keeps a timer ticking for a view nobody has open.
+  testWidgets('a panel closed while its start is out stops ticking', (tester) async {
+    final (:machine, :signingIn) = await _shown(tester);
+    unawaited(signingIn.signIn());
+    await tester.pump();
+    expect(find.byKey(const Key('start-sign-in-starting')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 2));
+    // A timer still pending fails the test once its body ends.
+    expect(signingIn.starting, isTrue, reason: 'only the panel went; the start is still out');
+  });
+}
+
+/// A panel on a machine whose sign-in start is held until the test answers it.
+Future<({FakeBackend machine, SigningIn signingIn})> _shown(WidgetTester tester) async {
+  tester.view
+    ..physicalSize = const Size(1280, 800)
+    ..devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final machine = FakeBackend(const <Task>[])
+    ..signsIn = true
+    ..signInStartHeld = Completer<void>();
+  final signingIn = SigningIn(clock: () => DateTime.utc(2026, 11, 15, 10))..machine = 'gorge';
+  addTearDown(signingIn.dispose);
+  signingIn.take(machine, const AgentSignIn(agent: 'claude', state: 'NOT_SIGNED_IN'));
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(body: SignInPanel(signingIn: signingIn)),
+    ),
+  );
+  return (machine: machine, signingIn: signingIn);
 }
