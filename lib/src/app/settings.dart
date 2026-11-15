@@ -67,6 +67,8 @@ class PlannedOffer {
     this.ended,
     this.run,
     this.landedReported = false,
+    this.result,
+    this.resultHanded,
   });
 
   /// The machine's name, as the window shows it.
@@ -100,23 +102,34 @@ class PlannedOffer {
   /// Whether where its work landed was reported, with its end or after it.
   final bool landedReported;
 
+  /// The file a planned stage hands back, as its order named it (`analysis.json`, `estimate.json`); null for work that
+  /// pushes, whose end is reported alone.
+  final String? result;
+
+  /// The end, as the window keys it, whose result or missing result the planner has taken; its end is reported only
+  /// after that. Null while none was.
+  final String? resultHanded;
+
   /// Whether it can be reported: an earlier build kept no project or task for it.
   bool get reportable => provider != null && project != null && story != null && task != null;
 
   /// The same, with what was reported since.
-  PlannedOffer copyWith({bool? startedReported, String? ended, bool? landedReported}) => PlannedOffer(
-    machine: machine,
-    container: container,
-    offer: offer,
-    provider: provider,
-    project: project,
-    story: story,
-    task: task,
-    startedReported: startedReported ?? this.startedReported,
-    ended: ended ?? this.ended,
-    run: run,
-    landedReported: landedReported ?? this.landedReported,
-  );
+  PlannedOffer copyWith({bool? startedReported, String? ended, bool? landedReported, String? resultHanded}) =>
+      PlannedOffer(
+        machine: machine,
+        container: container,
+        offer: offer,
+        provider: provider,
+        project: project,
+        story: story,
+        task: task,
+        startedReported: startedReported ?? this.startedReported,
+        ended: ended ?? this.ended,
+        run: run,
+        landedReported: landedReported ?? this.landedReported,
+        result: result,
+        resultHanded: resultHanded ?? this.resultHanded,
+      );
 }
 
 /// A discussion of an idea this window started for a planner's offer: where it runs, and whose idea it hands in
@@ -1007,6 +1020,7 @@ class Settings extends ChangeNotifier {
     String? task,
     String? ended,
     String? run,
+    String? result,
   }) async {
     if (!_validOffer(machine, container, offer)) {
       throw ArgumentError('A machine, a container and an offer of at most 200 characters must be given.');
@@ -1017,6 +1031,7 @@ class Settings extends ChangeNotifier {
     }
     if (ended != null && !_validEnd(ended)) throw ArgumentError('An end must be a short line.');
     if (run != null && !_validLabel(run)) throw ArgumentError('A run must be a short name.');
+    if (result != null && !_validResultName(result)) throw ArgumentError('A result must be a plain file name.');
     _planningOffers[(machine, container)] = PlannedOffer(
       machine: machine,
       container: container,
@@ -1027,6 +1042,7 @@ class Settings extends ChangeNotifier {
       task: task,
       ended: ended,
       run: run,
+      result: result,
     );
     _kept(offer);
     await _write();
@@ -1042,14 +1058,17 @@ class Settings extends ChangeNotifier {
     bool? started,
     String? ended,
     bool? landed,
+    String? resultHanded,
   }) async {
     final kept = _planningOffers[(machine, container)];
     if (kept == null) return;
     if (ended != null && !_validEnd(ended)) throw ArgumentError('An end must be a short line.');
+    if (resultHanded != null && !_validEnd(resultHanded)) throw ArgumentError('An end must be a short line.');
     _planningOffers[(machine, container)] = kept.copyWith(
       startedReported: started,
       ended: ended,
       landedReported: landed,
+      resultHanded: resultHanded,
     );
     await _write();
   }
@@ -1225,6 +1244,9 @@ class Settings extends ChangeNotifier {
 
   static bool _validEnd(String value) => value.length <= 400 && !value.contains(RegExp(r'[\x00-\x1f]'));
 
+  /// A result file's name as an order names it: a plain file name, never a path.
+  static bool _validResultName(String value) => RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$').hasMatch(value);
+
   void _readPlanningOffers(Map<String, Object?> stored) {
     _planningOffers.clear();
     if (stored['planningOffers'] case final List<dynamic> offers) {
@@ -1238,6 +1260,8 @@ class Settings extends ChangeNotifier {
           final reportable = named.every((each) => each is String && _validLabel(each));
           final ended = value['ended'];
           final run = value['run'];
+          final result = value['result'];
+          final resultHanded = value['resultHanded'];
           _planningOffers[(machine, container)] = PlannedOffer(
             machine: machine,
             container: container,
@@ -1250,6 +1274,8 @@ class Settings extends ChangeNotifier {
             ended: reportable && ended is String && _validEnd(ended) ? ended : null,
             run: reportable && run is String && _validLabel(run) ? run : null,
             landedReported: reportable && value['landedReported'] == true,
+            result: reportable && result is String && _validResultName(result) ? result : null,
+            resultHanded: reportable && resultHanded is String && _validEnd(resultHanded) ? resultHanded : null,
           );
         }
       }
@@ -1342,6 +1368,8 @@ class Settings extends ChangeNotifier {
             'ended': ?kept.ended,
             'run': ?kept.run,
             if (kept.landedReported) 'landedReported': true,
+            'result': ?kept.result,
+            'resultHanded': ?kept.resultHanded,
           },
         },
     ],

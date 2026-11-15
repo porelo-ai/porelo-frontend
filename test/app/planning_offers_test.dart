@@ -94,6 +94,63 @@ void main() {
     expect(kept.ended, 'the end reported');
   });
 
+  // Harm: a planned stage's result file is forgotten with a restart, so its result never reaches the planner and its
+  // issue never moves; or a result handed in is handed in again, or its end reported before it.
+  test('a stage keeps its result file and the end whose result was handed in, across a restart', () async {
+    final store = MemorySettingsStore();
+    final settings = await loaded(store);
+    await settings.rememberPlanningOffer(
+      machine: 'laptop',
+      container: 'porelo-demo-pi',
+      offer: 'offer-1',
+      provider: 'porelo-planner',
+      project: 'demo',
+      story: 'ST366',
+      task: 'pi',
+      result: 'analysis.json',
+    );
+    expect(settings.plannedOffer('laptop', 'porelo-demo-pi')!.resultHanded, isNull);
+
+    await settings.planningOfferReported('laptop', 'porelo-demo-pi', resultHanded: 'the end');
+
+    final kept = (await loaded(store)).plannedOffer('laptop', 'porelo-demo-pi')!;
+    expect((kept.result, kept.resultHanded), ('analysis.json', 'the end'));
+    expect(
+      () => settings.rememberPlanningOffer(
+        machine: 'laptop',
+        container: 'porelo-demo-x',
+        offer: 'offer-2',
+        provider: 'porelo-planner',
+        project: 'demo',
+        story: 'ST366',
+        task: 'pi',
+        result: '../analysis.json',
+      ),
+      throwsArgumentError,
+      reason: 'a result is a plain file name',
+    );
+  });
+
+  // Harm: a stored result name that is a path reaches the machine's result read.
+  test('a stored result that is no plain file name is dropped on load', () async {
+    final store = MemorySettingsStore({
+      'planningOffers': [
+        {
+          'machine': 'laptop',
+          'container': 'porelo-demo-pi',
+          'offer': 'offer-1',
+          'provider': 'porelo-planner',
+          'project': 'demo',
+          'story': 'ST366',
+          'task': 'pi',
+          'result': '/etc/passwd',
+        },
+      ],
+    });
+
+    expect((await loaded(store)).plannedOffer('laptop', 'porelo-demo-pi')!.result, isNull);
+  });
+
   // Harm: an entry an earlier build kept breaks the load or is lost, or is reported with names guessed for it.
   test('an older entry without project and task loads and is kept, but cannot be reported', () async {
     final store = MemorySettingsStore({
