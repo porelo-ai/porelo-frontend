@@ -137,6 +137,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
 
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f583"></a>[F583](F583-A-Move-Planning-Already-Shows-Is-Not-Refused.md) | XS | - | Story ST362: the window carries porelo-planner's screen at the commit where a move whose save meets a changed planning that already shows it in its target state is said as done, quietly, not refused in red. |
+
 ## Review
 
 | # | Size | Blocked by | What it covers |
