@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F591",
   "title": "A Planned Stage Hands Its Result To The Planner",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 11,
