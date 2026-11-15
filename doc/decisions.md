@@ -77,6 +77,7 @@ taken, `git log` answers.
 | [The side bar is a folding tree, and only a leaf shows a list](#the-side-bar-is-a-folding-tree-and-only-a-leaf-shows-a-list) |
 | [The scenarios' stub agent is the newest snapshot, checked by its own digest](#the-scenarios-stub-agent-is-the-newest-snapshot-checked-by-its-own-digest) |
 | [A machine elsewhere's last device is revoked at the machine, never from the window](#a-machine-elsewheres-last-device-is-revoked-at-the-machine) |
+| [A sign-in is carried to a host sealed to the host's one-use key, and the window never holds its value](#a-sign-in-is-carried-to-a-host-sealed-to-the-hosts-one-use-key) |
 
 ## The interface can do what a console can
 
@@ -1067,3 +1068,17 @@ dialog says so.
 
 **What it costs:** a person at another computer goes to the machine for the last device; what it saves is a vault
 shut for good from a window that cannot see who knows its passphrase.
+
+## A sign-in is carried to a host sealed to the host's one-use key
+
+A host's provider row offers *Import from this computer…*: this computer's vault entries of the provider and the
+local agents' own sign-ins, side by side. The host makes a one-use key (`CredentialReceiver`), this computer's Porelo
+seals the one chosen to it (`SealCredential`), and the host opens it under the name and kind sealed
+(`ReceiveCredential`). The window holds only the ciphertext, for the one call that hands it on; no value or
+ciphertext is shown, logged or put in a command line. A kept entry is replaced only on asking, with a fresh key and a
+fresh seal, since the host's key is spent after one receipt. This computer's own page and a WSL distribution's offer
+no carry.
+
+**What it costs:** a sign-in made here reaches a host only while both Porelos answer these calls, and a host's
+providers are read again after each carry; what it saves is a person typing or copying a credential onto each host.
+

@@ -336,6 +336,14 @@ administration or a project on the machine, and who is locked with a purge day. 
 listed in no project, no Machine Admin and past their purge day, so only those are offered: the person confirms the
 removal of exactly those named accounts and all they hold, and every other account is named with why it is not offered.
 
+Each confirmed one is purged as root before the down play (`porelo-host person purge`), and the first failure stops the
+rest, the play and the release. A
+status that cannot be read purges nothing and leaves the ordinary take-down, whose play still refuses while anyone holds a
+membership. A holder new after a refused play needs another confirmation, and a failed take-down then offers the one
+confirmed as a loss.
+Once Porelo is confirmed off, the window removes the machine from the organization's list; a refusal, or no answer within two minutes, is said in the dialog, and the row keeps *Remove the machine…*. SSH forwarding and unlock integration belong to the shared host transport. Provider sign-ins and the
+local vault keep their own terminal paths.
+
 **A host's wait for its first token is one word per host, true to the machine.** It comes from what the host said as
 root (`org status`, asked once per connection, on *Refresh* and after a token given here), from what the last
 *Connect* heard, and from a setup that just prepared the host; a failed read or a lost connection keeps it. The
@@ -350,13 +358,29 @@ While a machine's setup runs, its row offers the protocol alone, as its button d
 the setup, come back once it ended or failed. A wizard step whose work goes on after the wizard leaves without
 asking, and offers no *Back* while its action runs. Until the run's first line comes, the protocol says *Waiting for
 the first line*. A start whose caller has just read the organization starts `up` without reading it again.
-Each confirmed one is purged as root before the down play (`porelo-host person purge`), and the first failure stops the
-rest, the play and the release. A
-status that cannot be read purges nothing and leaves the ordinary take-down, whose play still refuses while anyone holds a
-membership. A holder new after a refused play needs another confirmation, and a failed take-down then offers the one
-confirmed as a loss.
-Once Porelo is confirmed off, the window removes the machine from the organization's list; a refusal, or no answer within two minutes, is said in the dialog, and the row keeps *Remove the machine…*. SSH forwarding and unlock integration belong to the shared host transport. Provider sign-ins and the
-local vault keep their own terminal paths.
+
+**A machine's SSH Console** is a section of every machine reached over ssh: *Open the SSH console* runs
+`ssh <the machine's own options> -t <host>` on this computer's pseudoterminal, in the page, sized to it, ended by
+*Close the console* or by leaving the page. Its options are those every other command to the machine uses, never a
+key file or a password; a machine the window cannot reach as it should stands grey with why. A person the
+organization's card lists among the machine's admins also sees *My account* / *root*, and root logs in as
+`root@<host>` with the same options (on Linux over a connection of its own, not the card's shared master).
+
+**A host's forge token is stored by the host's own command.** Where the host's Porelo answers its pull requests with
+`MissingHostForgeToken`, the window runs the `storeCommand` it names on the machine over the card's login, once by
+itself and again on *Store my forge token on … now*; one run per machine, standard input closed, its output never
+read, logged or shown, only its exit code and the last line of its errors kept. The pull requests are then asked for
+again, and the machine's answer is the verdict. `vault-unreadable` opens the host's vault by Core's unlock over its
+connection. A forge that refuses the person token (`forge-token`) says to renew it on the host with
+`porelo host forge-token`; nothing is run, since the host names no command for it. Giving a machine its first token
+from the token page shows that the hand-over runs and asks the host after it; closing the page leaves it running, and
+the machine's row says whether it still waits.
+
+**A repository whose pull requests are refused** (`refused` beside a host's `pullRequests`: `forge-access`, `forge`
+or `not-carried`, with the forge's status and the path asked) is a row of its own in *Needs you*, saying which
+repository, the reason in words, the status and path and the machine's own words; the others' pull requests read on,
+and the refused repository's rows stay, marked out of date, until it answers again, also on a watch's first answer.
+An agent `SIGNED_IN` whose `foundVia` is `vault` reads on the start dialog as signed in through the Porelo-Vault.
 
 A saved rental made before one-click joining stays visible for give-back or setup again. Its provider
 project and original rental tag remain readable; retired trust and credential metadata is ignored. An old
@@ -396,6 +420,9 @@ without discarding its recovery record while the replacement flow runs.
   planner ordered after a report where a refused report is said. The words lead with Porelo's last line, its reason,
   and the table of what it checked follows. A Start turned away in the dialog, or refused by the window before it
   asks, is neither logged nor said.
+- **A move whose save meets a changed planning** that already shows the story or issue in its target state counts as
+  done, with the notice *Planning already shows <id> in <state>.*; a planning that shows it in a third state keeps the
+  red refusal. This is the package's own branch, from porelo-planner 1868e5e on.
 - **The planner is found by its address file**, `porelo-planner/planner.json` under `XDG_RUNTIME_DIR`. Only a missing
   address means none runs: the window then starts `/usr/libexec/porelo/planner`, else `porelo-planner` on an absolute
   `PATH` entry, once, and waits 20 s for its address. Every other refusal is said, and starts nothing.
