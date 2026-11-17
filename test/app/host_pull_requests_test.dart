@@ -399,6 +399,34 @@ void main() {
     expect(row.storeCommand, isNull, reason: 'the machine names no command, so none is run');
   });
 
+  // Harm: a machine that answered with its own reason reads as one that stopped answering, so the person looks at the
+  // connection instead of what the machine said; and a watch that really ended quietly reads as refused.
+  test("a watch the machine refuses with its own error says the machine's reason, not that it stopped", () {
+    PullRequestsRefusedRow ended(Object refusal) =>
+        PullRequestsRefusedRow(machine: _build, project: 'porelo', refusal: refusal);
+    final refused = ended(
+      const VarlinkException('org.fuin.porelo.Tasks1.Failed', <String, dynamic>{
+        'message': "no project 'porelo' here. This machine has: default",
+      }),
+    );
+    expect(refused.words, contains("The machine says: no project 'porelo' here. This machine has: default."));
+    expect(refused.words, isNot(contains('stopped answering')));
+    expect(refused.answered, isTrue);
+
+    final unnamed = ended(const VarlinkException('org.fuin.porelo.Tasks1.Unexpected'));
+    expect(unnamed.words, contains('the machine refused'));
+    expect(unnamed.words, isNot(contains('stopped answering')));
+    expect(unnamed.answered, isTrue);
+
+    for (final quiet in <Object>[
+      StateError('the watch ended without a word'),
+      const VarlinkDisconnected('its socket closed'),
+    ]) {
+      expect(ended(quiet).words, contains('stopped answering'), reason: '$quiet');
+      expect(ended(quiet).answered, isFalse, reason: '$quiet');
+    }
+  });
+
   // Harm: the person is shown the daemon's token instead of what to do, or a missing token goes unsaid and no pull
   // request ever shows.
   test('a missing forge token and a refused read are one row each, in words', () async {

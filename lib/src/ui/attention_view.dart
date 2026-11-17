@@ -444,7 +444,7 @@ extension on _AttentionViewState {
         state = switch (each.refusal) {
           MissingHostForgeToken() => 'Forge token missing',
           HostPullRequestsRefused(reason: 'forge-token') => 'Forge token refused',
-          HostPullRequestsRefused() || HostPullRequestRefusal() => 'Refused',
+          _ when each.answered => 'Refused',
           _ => 'Not answered',
         };
         subtitle = each.action;

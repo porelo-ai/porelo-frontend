@@ -64,6 +64,10 @@ class PullRequestsRefusedRow {
     _ => null,
   };
 
+  /// Whether the machine answered with a refusal of its own, rather than the watch ending without a word or losing its
+  /// connection.
+  bool get answered => refusal is VarlinkException || refusal is HostPullRequestRefusal;
+
   /// What it means, in words; never the machine's own token for it.
   String get words {
     if (refusal case final HostPullRequestRefusal refused) return _repositoryWords(refused);
@@ -76,6 +80,9 @@ class PullRequestsRefusedRow {
             '; until then no pull request waiting for you there is shown.',
       HostPullRequestsRefused(:final reason, :final message) =>
         '$which: ${_why(reason)}${message.isEmpty ? '' : ' The machine says: $message.'}',
+      VarlinkException(:final parameters) =>
+        '$which: the machine refused.'
+            '${_says(parameters['message'])} They are asked for again.',
       _ => '$which: the machine stopped answering about them. They are asked for again.',
     };
   }
@@ -101,6 +108,12 @@ class PullRequestsRefusedRow {
         ' Those shown of ${refused.repository} may be out of date until it answers again; '
         "the other repositories' pull requests are read as before.";
   }
+
+  /// What the machine said with a refusal, as a sentence after the row's own; nothing where it said no words.
+  static String _says(Object? message) => switch (message) {
+    final String said when said.trim().isNotEmpty => ' The machine says: ${_sentence(said)}',
+    _ => '',
+  };
 
   /// [words] as one sentence, ending in a full stop only once.
   static String _sentence(String words) {
