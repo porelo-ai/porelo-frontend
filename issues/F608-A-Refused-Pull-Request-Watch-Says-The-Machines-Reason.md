@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F608",
   "title": "A Refused Pull Request Watch Says the Machine's Reason",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 128,

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F609",
   "title": "Stop Work Offered in Needs You Before Planning Is Opened",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "XS",
   "priority": "High",
   "rank": 129,
