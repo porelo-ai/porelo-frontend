@@ -43,6 +43,10 @@ import './step/the_section_shown_is.dart';
 import './step/the_machine_reports_a_stopped_run_of.dart';
 import './step/i_go_to_what_needs_a_person.dart';
 import './step/the_needs_you_row_of_offers_to_start_again.dart';
+import './step/the_window_started_task_of_whose_issue_needs_you_for.dart';
+import './step/the_needs_you_row_of_offers_to_stop_its_work.dart';
+import './step/i_stop_the_work_of_the_needs_you_row_of.dart';
+import './step/task_was_stopped_on_this_machine.dart';
 import './step/the_machine_reports_a_run_of_whose_issue_needs_you_for.dart';
 import './step/what_needs_you_says_in_words_only.dart';
 
@@ -158,6 +162,14 @@ void main() {
       await theMachineReportsAStoppedRunOf(tester, 'ST291');
       await iGoToWhatNeedsAPerson(tester);
       await theNeedsYouRowOfOffersToStartAgain(tester, 'B540');
+    });
+    testWidgets('''A raised story's row in Needs you stops its work''', (tester) async {
+      await bddSetUp(tester);
+      await theWindowStartedTaskOfWhoseIssueNeedsYouFor(tester, 'pi-2', 'ST291', 'SAVE_REFUSED');
+      await iGoToWhatNeedsAPerson(tester);
+      await theNeedsYouRowOfOffersToStopItsWork(tester, 'B540');
+      await iStopTheWorkOfTheNeedsYouRowOf(tester, 'B540');
+      await taskWasStoppedOnThisMachine(tester, 'pi-2');
     });
     testWidgets('''A planning row whose findings were not saved says so in words, never its code''', (tester) async {
       await bddSetUp(tester);

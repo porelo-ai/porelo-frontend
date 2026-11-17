@@ -110,6 +110,15 @@ Feature: The stories of a project on a planning board
         And I go to what needs a person
         Then the Needs you row of {'B540'} offers to start again
 
+    # Harm: a story's raised work keeps its agents running, as its row in Needs you cannot stop it until the planning
+    # board was opened once.
+    Scenario: A raised story's row in Needs you stops its work
+        When the window started task {'pi-2'} of {'ST291'} whose issue needs you for {'SAVE_REFUSED'}
+        And I go to what needs a person
+        Then the Needs you row of {'B540'} offers to stop its work
+        When I stop the work of the Needs you row of {'B540'}
+        Then task {'pi-2'} was stopped on this machine
+
     # Harm: a person cannot tell why a planning row needs them, as it shows the planner's code for programs.
     Scenario: A planning row whose findings were not saved says so in words, never its code
         When the machine reports a run of {'ST291'} whose issue needs you for {'SAVE_REFUSED'}

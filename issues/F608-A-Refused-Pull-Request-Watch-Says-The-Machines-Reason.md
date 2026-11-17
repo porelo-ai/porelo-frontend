@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F608",
   "title": "A Refused Pull Request Watch Says the Machine's Reason",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 128,
@@ -44,3 +44,9 @@ reason the machine gave was nowhere to be seen.
 - A watch refused with a plain varlink error shows the machine's message and *Refused*.
 - A watch that ends without a word, or whose connection is lost, still says the machine stopped answering.
 - The test above fails without the change.
+
+## Decided while building
+
+- **The state chip has no test of its own.** Whether the machine answered is decided in
+  `PullRequestsRefusedRow.answered`, which the unit test holds in both directions; the chip in `attention_view.dart`
+  only turns that into its label, and a label is fixed, not guarded.

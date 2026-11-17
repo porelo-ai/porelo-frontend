@@ -651,8 +651,9 @@ class _ShellState extends State<Shell> {
   /// The boards of the planning the window was given, absent where nothing serves planning: then the planning place
   /// says so, and nothing else in the window asks after planning.
   ///
-  /// Each board holds how a start reaches the window, so a row in Needs you can start its work again before the
-  /// planning screen was ever shown, and leaves out of its cards and its Needs you what was marked seen there.
+  /// Each board holds how a start and a stop reach the window, so a row in Needs you can start its work again or stop
+  /// it before the planning screen was ever shown, and leaves out of its cards and its Needs you what was marked seen
+  /// there.
   late final _planning = switch (widget.planning) {
     final planning? => PlanningBoards(
       planning.client,
@@ -660,9 +661,19 @@ class _ShellState extends State<Shell> {
       agents: _planningAgents!,
       wizards: const WindowPlanningWizards(),
       seen: _attention.seen,
+      taskChanges: _planningTaskChanges,
     ),
     null => null,
   };
+
+  /// How the planning's tasks are opened, shown as started and stopped through the window, the same for the boards and
+  /// the planning screen.
+  late final _planningTaskChanges = WindowTaskChanges(
+    whyNot: _planningTaskUnavailable,
+    opening: _openPlanningTask,
+    onStarted: _storyWorkStarted,
+    onStop: _storyWorkStopped,
+  );
 
   /// The agents a start of planning work may choose, the same for the boards and the planning screen.
   late final _planningAgents = switch (widget.planning) {
@@ -4660,12 +4671,7 @@ class _ShellState extends State<Shell> {
           boards: boards,
           host: _planningHost,
           startTask: planning.startTask,
-          taskChanges: WindowTaskChanges(
-            whyNot: _planningTaskUnavailable,
-            opening: _openPlanningTask,
-            onStarted: _storyWorkStarted,
-            onStop: _storyWorkStopped,
-          ),
+          taskChanges: _planningTaskChanges,
           agents: _planningAgents!,
           wizards: const WindowPlanningWizards(),
           pageButton: PageExplanationButton(id: 'planning', settings: widget.settings),
