@@ -25,7 +25,7 @@ from being set up.
 
 On 2026-11-17, after a live test. The window's SSH folder held the `.conf`, `.conf.known_hosts` and `.conf.pub` of
 seven machines no longer in the window's list, from rentals given back days before. A machine set up again under a
-reused name stops on such files (F611).
+reused name stops on such files ([F611](README.md#f611)).
 
 ## Plan
 
