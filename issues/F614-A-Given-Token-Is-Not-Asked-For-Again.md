@@ -61,6 +61,8 @@ arrived.
 
 - Whether the machine fills `repositories` for a project while it still answers `waiting-for-token` or `pending`
   during that run; read on a host's `org status` answer. If not, the count waits for the machine to say it.
-- The daemon's project row may come to say `taking`, with repositories done, their total and since when, while a
-  run with the token takes them (proposed, not built). Once it is served, the page takes that word and its count in
-  place of its own record of the hand-over.
+- The machine may come to say `taking`, with repositories done, their total (absent while it still counts) and since
+  when, while a run with the token takes them, and a run that ends short returns to `waiting-for-token`, `held` or
+  `refused` with its reason per repository (agreed, not built). The Machine Admin's page reads it from the host's
+  status as root, as today; a member's own daemon serves it in the project's row. Once it is served, the page takes
+  that word and its count in place of its own record of the hand-over.
