@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F628",
   "title": "Approval, New Work And Forms Moved Into Services",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "M",
   "priority": "High",
   "rank": 4,

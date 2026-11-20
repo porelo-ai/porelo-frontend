@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F625",
   "title": "The Window's Token Hand-Ons Moved Out Of Its Dialogs Into A Service",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "M",
   "priority": "High",
   "rank": 1,

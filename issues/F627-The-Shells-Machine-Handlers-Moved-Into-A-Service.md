@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F627",
   "title": "The Shell's Machine Handlers Moved Into A Service",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "L",
   "priority": "High",
   "rank": 3,

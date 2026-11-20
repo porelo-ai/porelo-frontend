@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F626",
   "title": "A Host's Give-Back And Token Moved Into Services",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "M",
   "priority": "High",
   "rank": 2,
