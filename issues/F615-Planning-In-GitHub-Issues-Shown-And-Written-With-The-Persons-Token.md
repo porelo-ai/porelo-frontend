@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F615",
   "title": "Planning In GitHub Issues Shown And Written With The Person's Token",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 1,
@@ -14,8 +14,8 @@
 }
 ```
 
-**Why this size.** S: one member of the screen's `PlanningHost` implemented in `planning_embedding.dart` over the
-existing token hand-on of `ForgeConnection`, the pin with its test fakes, one decision and the changelog; the board,
+**Why this size.** S: one optional interface of the screen implemented in `planning_embedding.dart` over the
+existing token hand-on of `organization_access_dialogs.dart`, the pin with its test fakes, one decision and the changelog; the board,
 its dialogs and the start and stop hooks need no change of their own, and the window owns no contract here.
 
 **What must be true.** A person whose project is planned in GitHub Issues sees its board, opens its issues, starts and
@@ -38,31 +38,42 @@ task ever holds it.
   `porelo vault credential --for <url>`, the executable the window names in `PORELO_EXECUTABLE`; the window never
   sends a token to the planner over its loopback connection. One token, the person's existing git token, also carries
   planning.
-- Where the vault holds no token for the forge, or GitHub refuses it for want of a right, the planner refuses the
-  board with `NoForgeAccess` (HTTP 403), with the field `address` and, where GitHub names it, `right` (`Issues`,
-  `Projects`); its words are the planner's. The screen offers, beside that refusal, the host call
-  `Future<bool> handOnForgeToken(String address)` of its `PlanningHost`, which the window implements, and reads the
-  board again after `true`.
+- Where the vault holds no token for the forge, or GitHub refuses it for want of a right, the planner refuses with
+  `NoForgeAccess` inside its existing 502 answers (`StoreRefused` on reads, `SaveRefused` on writes), named by the
+  type `urn:porelo-planner:NoForgeAccess`, with `parameters.address`, the forge's https origin with no user, port,
+  path, query or fragment, and `parameters.right` where GitHub names one (`Issues`, `Projects`); its words are the
+  planner's.
+- The window's call is an optional interface of the screen package beside `PlanningHost`:
+  `PlanningForgeAccess.handOnForgeToken({required String provider, required String address})`. The screen offers it
+  only to a host that implements it; `provider` is the name of the planning provider whose planner refused, so the
+  token goes into that machine's vault; the call answers `true` only when a token now stands there, and the screen
+  then reads the board again.
 
 ## Plan
 
-- `lib/src/ui/planning_embedding.dart`, `ShellPlanningHost.handOnForgeToken`: puts the token the system secret store
-  keeps for the address into this computer's vault under `git.token.<host>`, through `ForgeConnection`'s existing
-  `putToken` path (`lib/src/app/forge_connection.dart`), asking for it first in the helper terminal
-  (`askForForgeToken`, `lib/src/ui/forges_view.dart`) where none is kept; answers `false` where the person turns it
-  away or the vault refuses, with the reason in the window's log and never the token.
-- `pubspec.yaml`: the `porelo_planning` pin moves to the planner commit that publishes the contract up front:
-  `NoForgeAccess` in `planner.yaml` and `PlanningHost.handOnForgeToken(String address)` with a default answering
-  `false`, before the planner's behavior behind them. The window builds and ships against that commit alone; a later
-  raise to the commit with the planner's behavior is a pin change with the full suite run, no code. `test/` fakes of
-  `PlanningHost` and of the planning client follow the package's interfaces.
+- `lib/src/ui/organization_access_dialogs.dart`: the part of `prepareOrganizationForge` after it parsed the
+  repository (open the local vault, follow a declaration, ask for the token where the secret store keeps none, hand
+  it to the vault under `git.token.<host>`, confirm it there) moves into a function of its own, which
+  `prepareOrganizationForge` calls unchanged; beside it `prepareForgeForPlanning(context, origin, forges)` takes the
+  planner's origin, refuses one that is not `https://<host>` alone, and calls the same function for `https://<host>/`.
+- `lib/src/ui/planning_embedding.dart`, `ShellPlanningHost` also implements `PlanningForgeAccess`: for the provider
+  `LocalPlanner.name`, this computer's planner, it runs the hand-on it is given and answers `true` once the token is
+  confirmed in this computer's vault; for any other provider, a machine whose vault this window does not hand tokens
+  to this way, and on any refusal, it answers `false` and says why in the window's log, never the token.
+- `lib/src/ui/shell.dart`: the shell gives its `ShellPlanningHost` that hand-on, as `prepareForgeForPlanning` with its
+  own context, `ForgeConnection` and terminal.
+- `pubspec.yaml`, `pubspec.lock`: the `porelo_planning` pin moves to the planner commit with the contract; it is built
+  against that commit's worktree locally and goes out in the same gathered push as the planner commit, after it.
+  Nothing in the screen calls the hook yet; a later raise to the commit whose screen offers it is a pin change.
 - `lib/src/ui/planning_embedding.dart`: the comment on `given` no longer says the issues are files of a repository;
   `doc/decisions.md` (*The planner is given the one Porelo the window vouches for*) says the lent token now also
   writes the planning to GitHub, with its exposure; `CHANGELOG.md`.
-- Red first, against the published contract alone: a test that calls `ShellPlanningHost.handOnForgeToken('github.com')`
-  with a fake secret store and a fake vault: the stored token lands under `git.token.github.com` and the call answers
-  `true`; with none stored and the terminal turned away it answers `false` and the vault is untouched. The screen's
-  offer beside a `NoForgeAccess` refusal is proven at the later pin raise, in the acceptance below.
+- Red first, against the contract alone: `test/ui/planning_embedding_test.dart` calls
+  `ShellPlanningHost.handOnForgeToken` with a recording hand-on: another provider answers `false` and never runs it;
+  this computer's planner runs it with the origin and answers `true`; a refused hand-on answers `false`. In
+  `test/ui/organization_access_dialogs_test.dart`, `prepareForgeForPlanning` refuses an origin with a path, user or
+  port before anything is asked, and with an open vault lacking the entry puts the secret store's token under
+  `git.token.github.com`.
 
 ## Acceptance
 
@@ -74,5 +85,4 @@ task ever holds it.
 
 ## To be checked
 
-- Which planner commit publishes the contract, for the first pin, and which brings the planner's behavior, for the
-  second.
+- Which planner commit has the screen offer the hand-on, for the second pin.
