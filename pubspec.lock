@@ -691,8 +691,8 @@ packages:
     dependency: "direct main"
     description:
       path: screen
-      ref: "7eaf0a2cdeb9e8c2265b60c8201a5b12ed868ff1"
-      resolved-ref: "7eaf0a2cdeb9e8c2265b60c8201a5b12ed868ff1"
+      ref: ad351c404c70e6169e3ccb20ba1bec22a932d75b
+      resolved-ref: ad351c404c70e6169e3ccb20ba1bec22a932d75b
       url: "https://github.com/porelo-ai/porelo-planner.git"
     source: git
     version: "0.1.0-SNAPSHOT"
