@@ -3,7 +3,7 @@ name: porelo-issues
 description: Porelo rules for issues: the skeleton, states, sizes, the index, links, finished and rejected rows, requirement hand-overs. Use when filing, analyzing or changing the state of an issue.
 ---
 
-> **BEGIN Shared Skill porelo-issues** · sha256 `9b8d15818f82dec4` · changed 2026-11-20T16:42Z
+> **BEGIN Shared Skill porelo-issues** · sha256 `cc8442cd5b6d2e2c` · changed 2026-11-20T16:42Z
 
 # porelo-issues
 
@@ -115,4 +115,4 @@ description: Porelo rules for issues: the skeleton, states, sizes, the index, li
   repository's prefixes; a repository may own several, for subgroups. An issue is one task and says
   what must be true and how it is judged done.
 
-> **END Shared Skill porelo-issues** · sha256 `9b8d15818f82dec4`
+> **END Shared Skill porelo-issues** · sha256 `cc8442cd5b6d2e2c`
