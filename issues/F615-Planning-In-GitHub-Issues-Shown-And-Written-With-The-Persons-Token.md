@@ -28,19 +28,24 @@ own token, which the window asks for once with the rights planning needs and nev
   issue dialogs; the window gives that screen its place, its links, its wizards and its start and stop of tasks, as
   today.
 - Story, issue and task are strings the window passes through without reading them: in its place, its kept offers and
-  its reports. An issue carried over from Markdown keeps its old id.
+  its reports. An issue carried over from Markdown keeps its old id, and the board serves it under that id, so a task
+  started before the cut-over is reported under it afterwards; ids made later keep today's pattern.
 - A planned stage's start still names the issues it reads as files, each a name and a text, which Start mounts read
-  only; how the planner renders an issue into that text is the planner's.
+  only; the planner renders an issue into that text as Markdown.
 - The planner takes the person's forge token for an `https` address from this computer's Porelo vault through
   `porelo vault credential --for <url>`, the executable the window names in `PORELO_EXECUTABLE`; the window never
   sends a token to the planner over its loopback connection.
-- Where the vault holds no token for the forge, or GitHub refuses it for want of a right, the planner refuses with a
-  code the window recognizes, naming the forge's address and, where GitHub says it, the right missing.
+- Where the vault holds no token for the forge, or GitHub refuses it for want of a right, the planner refuses the
+  board with `NoForgeAccess` (HTTP 403), with the field `address` and, where GitHub names it, `right` (`Issues`,
+  `Projects`); its words are the planner's. Once the window answers that it handed the token on, the screen reads the
+  board again.
+- The token needs, on the project's repositories, Issues (read and write), Contents (read and write, for git) and
+  Metadata (read), and on the organization Projects (read and write).
 
 ## Plan
 
-- `lib/src/ui/forges_view.dart`, `tokenRightsWords`: the token also needs Issues (read and write) on the project's
-  repositories and Projects (read and write) on the organization, for planning; `lib/src/app/forge.dart`'s 403 hint
+- `lib/src/ui/forges_view.dart`, `tokenRightsWords`: the token also needs Issues (read and write) and Metadata (read)
+  on the project's repositories and Projects (read and write) on the organization, for planning; `lib/src/app/forge.dart`'s 403 hint
   names Issues for an `/issues` path and Projects for a GraphQL project field refusal.
 - `lib/src/ui/planning_embedding.dart`, `ShellPlanningHost`: implements the screen's new host call for the planner's
   no-access refusal by offering to hand the person's token from the system secret store into this computer's vault,
@@ -71,9 +76,7 @@ own token, which the window asks for once with the rights planning needs and nev
 
 ## To be checked
 
-- With the planner: the refusal code and its fields, the host call's name and answer, and whether `given` stays a list
-  of name and text.
-- With the planner: that a task started before the cut-over and reported after it is accepted under its old ids, so
-  the window's kept offers need no rewrite.
+- With the planner: whether the planning screen's `PlanningHost` carries the call that hands the token on, and its
+  name, and which planner commit brings it and `NoForgeAccess`, for the pin.
 - Whether a fine-grained token waiting for the organization's approval of Projects is said as waiting, as for
   Contents.
