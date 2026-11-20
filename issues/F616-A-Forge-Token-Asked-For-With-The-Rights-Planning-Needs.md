@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F616",
   "title": "A Forge Token Asked For With The Rights Planning Needs",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "XS",
   "priority": "High",
   "rank": 2,

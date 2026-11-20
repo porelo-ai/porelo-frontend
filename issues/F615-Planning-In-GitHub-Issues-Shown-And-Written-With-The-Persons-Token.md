@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F615",
   "title": "Planning In GitHub Issues Shown And Written With The Person's Token",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "S",
   "priority": "High",
   "rank": 1,
