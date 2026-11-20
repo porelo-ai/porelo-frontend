@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F629",
   "title": "A First Start Of A Repository With No Checkout Here Starts",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 1,

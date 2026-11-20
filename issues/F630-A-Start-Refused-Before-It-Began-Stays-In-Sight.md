@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F630",
   "title": "A Start Refused Before It Began Stays In Sight",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 2,
