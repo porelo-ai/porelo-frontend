@@ -86,6 +86,7 @@ if [ "${RELEASE:-0}" != 1 ]; then
 fi
 
 say "Building the release bundle"
+bash tool/fetch_pinned_git.sh
 flutter build linux --release --dart-define=PORELO_VERSION="$version"
 
 test -x "$bundle/porelo_frontend" || {

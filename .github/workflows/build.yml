@@ -181,7 +181,9 @@ jobs:
                       libstdc++-12-dev dpkg-dev binutils rpm
 
             - name: Get dependencies
-              run: flutter pub get
+              run: |
+                  bash tool/fetch_pinned_git.sh
+                  flutter pub get
 
             # Generated tests are committed, so CI proves they are current rather than trusting that
             # somebody ran the generator. A diff here means a .feature was edited and not regenerated.
@@ -361,7 +363,9 @@ jobs:
                   cache: true
 
             - name: Get dependencies
+              shell: bash
               run: |
+                  bash tool/fetch_pinned_git.sh
                   flutter pub get
                   dart pub get --directory=packages/porelo_host
 

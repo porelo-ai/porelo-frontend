@@ -110,7 +110,12 @@ switch ($Mode) {
       $env:PORELO_STORY_PLANNER = $planner
       $env:PORELO_STORY_STEPS = Join-Path $Run 'noted.txt'
       $env:PORELO_REHEARSAL_SHOTS = Join-Path $Run 'pictures'
-      flutter pub get *> (Join-Path $Run 'pub-get.log')
+      # Git's own bash: a bare `bash` may be WSL's launcher, which runs in another system with another pub cache.
+      $gitBash = Join-Path (Split-Path (Split-Path (Get-Command git).Source)) 'bin\bash.exe'
+      if (-not (Test-Path $gitBash)) { throw "Git's bash is not at $gitBash" }
+      & $gitBash tool/fetch_pinned_git.sh *> (Join-Path $Run 'pub-get.log')
+      if ($LASTEXITCODE) { throw "Fetching pinned git commits failed with exit $LASTEXITCODE" }
+      flutter pub get *>> (Join-Path $Run 'pub-get.log')
       dart pub get --directory=packages/porelo_host *>> (Join-Path $Run 'pub-get.log')
       flutter test -d windows --machine "integration_test\${Story}_test.dart" 1> (Join-Path $Run 'results.json') 2> (Join-Path $Run 'run.log')
       $status = $LASTEXITCODE

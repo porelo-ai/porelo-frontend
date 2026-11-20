@@ -50,7 +50,9 @@ jobs:
                   cache: true
 
             - name: Run the tests that read a document
-              run: flutter test --tags documents
+              run: |
+                  bash tool/fetch_pinned_git.sh
+                  flutter test --tags documents
 
             # A pull request's own commits held to the shared rule on commit messages. One from outside - from another
             # repository, or opened by someone not a member - also carries its author's Signed-off-by: on each commit,

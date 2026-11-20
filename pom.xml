@@ -66,6 +66,19 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>fetch-pinned-git</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>bash</executable>
+                            <arguments>
+                                <argument>tool/fetch_pinned_git.sh</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>flutter-pub-get</id>
                         <phase>generate-sources</phase>
                         <goals>

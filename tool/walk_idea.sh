@@ -416,9 +416,10 @@ prepare_vm() {
     fi
     fetch_flutter
     # The pub cache of this checkout's packages, so a run's build fetches none of them.
-    git -C "$here" archive --format=tar HEAD pubspec.yaml pubspec.lock packages |
+    git -C "$here" archive --format=tar HEAD pubspec.yaml pubspec.lock packages tool/fetch_pinned_git.sh |
         on_vm "set -e; rm -rf ~/.walk-prepared/pub; mkdir -p ~/.walk-prepared/pub; tar -x -C ~/.walk-prepared/pub
-        cd ~/.walk-prepared/pub; PATH=\$HOME/$flutter_dir/bin:\$PATH flutter --suppress-analytics pub get >/dev/null
+        cd ~/.walk-prepared/pub; bash tool/fetch_pinned_git.sh
+        PATH=\$HOME/$flutter_dir/bin:\$PATH flutter --suppress-analytics pub get >/dev/null
         PATH=\$HOME/$flutter_dir/bin:\$PATH flutter --suppress-analytics precache --linux >/dev/null" || {
         echo "walk: the packages of pubspec.lock could not be fetched on $vm" >&2
         return 1

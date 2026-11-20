@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F631",
   "title": "A Raised Git Pin Resolves On The First Pub Get",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 1,
@@ -30,14 +30,22 @@ every later one does.
   It happened twice on real runs: the build box's `./mvnw verify` and the walk VM's walk preparation, each at the
   minute that machine first fetched the new commit. A cache without the mirror, or with the commit already in it,
   does not fail. Both pinned commits name `markdown: ^7.3.1` in `screen/pubspec.yaml`.
-- First, read in the SDK's pub source which pubspec the resolution reads for a git package whose commit is not yet in
-  the mirror (inferred, not measured: one read before the mirror is fetched), and whether a newer Flutter fixes it.
 - Then the fix at its cause, never a second `pub get` alone: before the first `pub get`, each pinned git dependency's
   commit is brought into the pub cache's mirror, or the resolution is made to read the pinned commit; in `pom.xml`'s
   `flutter-pub-get`, the walk's preparation in `tool/walk_idea.sh`, and the Build's `flutter pub get` steps if the
   runner's cache can hold an older mirror.
 - Red first: the reproduction script, run on the build box against a cache prepared as above, fails before the fix
   and passes after; it is a test script and gets no tests of its own.
+
+- Built: `tool/fetch_pinned_git.sh` reads every git package `pubspec.lock` pins and, where the pub cache already
+  mirrors its URL without the pinned commit, fetches it into that mirror before pub resolves; it fails with the URL and
+  commit when the commit cannot be had, and leaves a repository with no mirror to pub's own clone. It runs before every
+  resolution of the window's own pubspec: Maven's `fetch-pinned-git` before `flutter-pub-get`, the Build's and the
+  Windows trial's dependency steps, the daily document tests, `tool/e2e.sh` (the VM walks and stories),
+  `tool/package.sh`, the walk's VM preparation and the Windows story run.
+- Cause, measured with `pub get -v` on the build box: the solver first finds the pinned commit missing from the
+  mirror (`rev-list` fails) and records that no version of the package matches; it then fetches, reads the package's
+  pubspec and selects it, but the earlier derivation stands, so the package's transitive dependencies are dropped.
 
 ## Acceptance
 

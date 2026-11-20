@@ -25,6 +25,11 @@ void main() {
       Process.runSync('chmod', <String>['755', shim.path]);
     }
     File('${scratch.path}/e2e.sh').writeAsBytesSync(File('tool/e2e.sh').readAsBytesSync());
+    // What e2e.sh runs before the test from the checkout's root: here a lock that pins no git package.
+    Directory('${scratch.path}/tool').createSync();
+    File('${scratch.path}/tool/fetch_pinned_git.sh')
+        .writeAsBytesSync(File('tool/fetch_pinned_git.sh').readAsBytesSync());
+    File('${scratch.path}/pubspec.lock').writeAsStringSync('packages:\n');
     Directory('${scratch.path}/build').createSync();
   });
 

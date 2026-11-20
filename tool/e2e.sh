@@ -133,6 +133,7 @@ stop() {
     exit 130
 }
 trap stop INT TERM
+bash tool/fetch_pinned_git.sh >&2
 setsid xvfb-run -a -s '-screen 0 1280x800x24' flutter test -d linux "$@" $target &
 test_run=$!
 (
