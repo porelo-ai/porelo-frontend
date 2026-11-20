@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F625",
   "title": "The Window's Use Cases Moved Out Of Its Pages Into Services",
-  "state": "Idea",
+  "state": "Accepted",
   "size": "L",
   "priority": "High",
   "rank": 1,
