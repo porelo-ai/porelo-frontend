@@ -20,7 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- The *Planning* board takes a project's stories and issues named by their tracker reference (`<repository>#<number>`) beside today's ids, shows an item carried over from Markdown with its old id beside the reference and finds it by either, and where the board is refused for want of the person's forge token it offers to hand the token on.
+- The *Planning* board shows a tracked project's stories and issues by their tracker reference alone (`<repository>#<number>`), with no old id beside it, and names a file it gives a task with `-` in place of `#`; where the board is refused for want of the person's forge token it offers to hand the token on.
 - A planned stage of a project kept in a tracker is started with the issue and phase its planner names, so the task knows which issue it works on; on a machine whose Porelo cannot take them the start is refused, never made without them.
 - Where *My forges* asks for a token, it names the rights planning needs beside Contents (read and write) for git: Issues (read and write) and Metadata (read) on the repositories and Projects (read and write) on the organization, so one token serves both.
 - *Start work* on the *Planning* board runs as the window's own wizard: one question a step, with room for each field, a single choice said rather than asked, and a last step listing every answer with *Change* beside it before *Start <state>*; an agent not signed in on the machine is named with why, and the model and effort lists are the agent's own on that machine.
