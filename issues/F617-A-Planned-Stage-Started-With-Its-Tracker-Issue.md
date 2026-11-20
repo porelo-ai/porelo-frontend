@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F617",
   "title": "A Planned Stage Started With Its Tracker Issue",
-  "state": "Analyzed",
+  "state": "Backlog",
   "size": "S",
   "priority": "Medium",
   "rank": 1,
