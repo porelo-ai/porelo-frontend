@@ -73,7 +73,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f617"></a>[F617](F617-A-Planned-Stage-Started-With-Its-Tracker-Issue.md) | - | - | A planned stage of a project kept in a tracker is started with the issue and phase its order names, passed on as Start's work |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | - | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | - | - | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 
@@ -81,6 +80,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f617"></a>[F617](F617-A-Planned-Stage-Started-With-Its-Tracker-Issue.md) | S | - | A planned stage of a project kept in a tracker is started with the issue and phase its order names, passed on as Start's work |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | - | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. |
 | <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | - | A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation. |
 | <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | M | - | What a piece of work did, in words, at its top: last answer, commits as a list with their highest risk class, what waits with its checks, messages, firewall stops; no diff. |
