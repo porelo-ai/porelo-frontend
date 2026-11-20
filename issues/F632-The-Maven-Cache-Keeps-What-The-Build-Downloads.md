@@ -5,8 +5,8 @@
   "$schema": "issue-1.json",
   "id": "F632",
   "title": "The Maven Cache Keeps What The Build Downloads",
-  "state": "Backlog",
-  "size": "S",
+  "state": "Implementing",
+  "size": "XS",
   "priority": "High",
   "rank": 2,
   "blockedBy": [],
@@ -14,8 +14,8 @@
 }
 ```
 
-**Why this size.** S: one cache step in `.github/actions/pinned-jdk/action.yml` and the Builds that read it; no code
-that ships.
+**Why this size.** XS: the shared form of the Build's Maven cache taken over as a copy, in `.github/actions/` and the
+Build's one saving job; no code that ships.
 
 **What must be true.** A Build fetches from Maven Central only what changed since the cache was saved, so Central's
 rate limit never turns a Build red that has no fault.
@@ -28,11 +28,10 @@ rate limit never turns a Build red that has no fault.
   but what Maven resolves also comes from `porelo-parent` 0.2.2-SNAPSHOT and its imported BOMs and plugin versions,
   which move without this pom changing. `actions/cache` never saves over an exact hit, so what a moved parent brings is
   downloaded again in every Build.
-- First, read how `porelo-parent`'s users that solved this key their cache, so the repositories keep one form.
-- Then the key changes whenever what Maven resolved changes, never by a retry: for example, a save after the build
-  keyed by a hash of the resolved artifacts' list, restored by prefix.
-- Red first: a Build log where an exact hit is followed by `Downloading from central` lines; after the fix, a second
-  Build on an unchanged parent downloads none.
+- The fix is the shared form all Porelo repositories copy: `pinned-jdk` restores under a key holding the run's id and
+  attempt and touches a marker; a new `maven-cache-save` action, the last step of the Build's `build` job with
+  `if: always()`, saves only when a jar or pom changed status after the marker (`find -cnewer`, since Maven dates a
+  download by the server's Last-Modified). The wrapper's Maven gets a cache of its own, keyed by its properties.
 
 ## Acceptance
 
