@@ -51,13 +51,18 @@ task ever holds it.
   `putToken` path (`lib/src/app/forge_connection.dart`), asking for it first in the helper terminal
   (`askForForgeToken`, `lib/src/ui/forges_view.dart`) where none is kept; answers `false` where the person turns it
   away or the vault refuses, with the reason in the window's log and never the token.
-- `pubspec.yaml`: the `porelo_planning` pin moves to the planner commit that brings `NoForgeAccess` and the call;
-  `test/` fakes of `PlanningHost` and of the planning client follow the package's interfaces.
+- `pubspec.yaml`: the `porelo_planning` pin moves to the planner commit that publishes the contract up front:
+  `NoForgeAccess` in `planner.yaml` and `PlanningHost.handOnForgeToken(String address)` with a default answering
+  `false`, before the planner's behavior behind them. The window builds and ships against that commit alone; a later
+  raise to the commit with the planner's behavior is a pin change with the full suite run, no code. `test/` fakes of
+  `PlanningHost` and of the planning client follow the package's interfaces.
 - `lib/src/ui/planning_embedding.dart`: the comment on `given` no longer says the issues are files of a repository;
   `doc/decisions.md` (*The planner is given the one Porelo the window vouches for*) says the lent token now also
   writes the planning to GitHub, with its exposure; `CHANGELOG.md`.
-- Red first: a widget test in which the fake planner refuses the board with `NoForgeAccess` and the screen calls
-  `handOnForgeToken`: the secret store's token lands under `git.token.github.com`, and the call answers `true`.
+- Red first, against the published contract alone: a test that calls `ShellPlanningHost.handOnForgeToken('github.com')`
+  with a fake secret store and a fake vault: the stored token lands under `git.token.github.com` and the call answers
+  `true`; with none stored and the terminal turned away it answers `false` and the vault is untouched. The screen's
+  offer beside a `NoForgeAccess` refusal is proven at the later pin raise, in the acceptance below.
 
 ## Acceptance
 
@@ -69,4 +74,5 @@ task ever holds it.
 
 ## To be checked
 
-- Which planner commit brings `handOnForgeToken` and `NoForgeAccess`, for the pin.
+- Which planner commit publishes the contract, for the first pin, and which brings the planner's behavior, for the
+  second.
