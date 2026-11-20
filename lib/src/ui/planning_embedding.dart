@@ -8,6 +8,7 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlanningAgents,
         PlanningBoard,
         PlanningClient,
+        PlanningForgeAccess,
         PlanningHost,
         PlanningModel,
         PlanningPlace,
@@ -23,6 +24,7 @@ import '../app/fleet_backend.dart';
 import '../app/links.dart' as links;
 import '../app/machines.dart';
 import '../app/operations.dart';
+import '../app/organization_source.dart' show OrganizationRefused;
 import '../app/planner.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
@@ -31,6 +33,7 @@ import '../app/window_log.dart';
 import '../client/models.dart' show Agent, AgentEnded, Mode, StartEvent, Task;
 import '../client/porelo_client.dart' show FeatureNotSupported, StartProgress;
 import '../wire/varlink_exception.dart';
+import 'organization_access_dialogs.dart' show planningForgeHost, prepareForgeForPlanning;
 import 'planning_reports.dart';
 import 'start_work_view.dart' show StartAgentChoice;
 
@@ -274,7 +277,7 @@ class WindowTaskStarts {
           onEvent: shown.add,
           result: result,
           readOnly: result != null,
-          // The issues as the planner holds them now, by file name; Start mounts them read only.
+          // The issues as the planner holds them now, each a name and a text; Start mounts them read only.
           given: {for (final file in task.given) file.name: file.text},
         );
       default:
@@ -521,16 +524,67 @@ Machine? planningMachineOf(Machines machines, PlanningClient client, PlanningSou
   );
 }
 
+/// Puts the person's token for a forge's https origin into this computer's vault, throwing [OrganizationRefused] with
+/// why where it does not; as [prepareForgeForPlanning] does.
+typedef HandOnForgeToken = Future<void> Function(String origin);
+
 /// The planning screen's place as this window's own place, kept in the window's history.
-class ShellPlanningHost implements PlanningHost {
-  /// Follows [shell], and opens Needs you through [needsYou].
-  ShellPlanningHost(this.shell, {required this.needsYou});
+class ShellPlanningHost implements PlanningHost, PlanningForgeAccess {
+  /// Follows [shell], opens Needs you through [needsYou], and hands a forge token on for this computer's planner
+  /// through [handOn], where given.
+  ShellPlanningHost(this.shell, {required this.needsYou, this.handOn});
 
   /// The window's navigation.
   final ShellModel shell;
 
   /// Opens Needs you.
   final VoidCallback needsYou;
+
+  /// How a forge token reaches this computer's vault; none where this window hands none on.
+  final HandOnForgeToken? handOn;
+
+  ((String, String), Future<bool>)? _handingOn;
+
+  /// Hands the person's token on only for this computer's planner, whose vault is the only one this way reaches; one
+  /// at a time, so a second ask while the first still waits on the person opens nothing more.
+  @override
+  Future<bool> handOnForgeToken({required String provider, required String address}) {
+    if (_handingOn case (final key, final running)) {
+      // The same ask shares the run's answer; any other is not what that run hands on.
+      return key == (provider, address) ? running : Future.value(false);
+    }
+    final handing = _handOnOnce(provider, address);
+    _handingOn = ((provider, address), handing);
+    return handing.whenComplete(() => _handingOn = null);
+  }
+
+  Future<bool> _handOnOnce(String provider, String address) async {
+    final handOn = this.handOn;
+    if (provider != LocalPlanner.name || handOn == null) {
+      windowLog.warn(
+        'A planner asked for a forge token for a planning provider this window hands none to this way, so none was '
+        'handed on.',
+      );
+      return false;
+    }
+    final String host;
+    try {
+      host = planningForgeHost(address);
+    } on OrganizationRefused catch (refused) {
+      windowLog.warn('No forge token was handed on for porelo-planner: ${refused.words}');
+      return false;
+    }
+    try {
+      await handOn('https://$host');
+      return true;
+    } on OrganizationRefused catch (refused) {
+      windowLog.warn('No token for $host was handed on for porelo-planner: ${refused.words}');
+      return false;
+    } on Exception {
+      windowLog.warn('No token for $host was handed on for porelo-planner: the hand-on could not be confirmed.');
+      return false;
+    }
+  }
 
   @override
   void addListener(VoidCallback listener) => shell.addListener(listener);

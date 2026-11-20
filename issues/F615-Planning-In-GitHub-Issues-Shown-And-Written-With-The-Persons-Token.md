@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F615",
   "title": "Planning In GitHub Issues Shown And Written With The Person's Token",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 1,
@@ -55,25 +55,34 @@ task ever holds it.
   repository (open the local vault, follow a declaration, ask for the token where the secret store keeps none, hand
   it to the vault under `git.token.<host>`, confirm it there) moves into a function of its own, which
   `prepareOrganizationForge` calls unchanged; beside it `prepareForgeForPlanning(context, origin, forges)` takes the
-  planner's origin, refuses one that is not `https://<host>` alone, and calls the same function for `https://<host>/`.
+  planner's origin through `planningForgeHost`, which refuses anything but `https://<host>` with at most a lone `/`
+  (read from the text itself, so no user, port, not even `:443`, query, fragment, other scheme or upper-case scheme;
+  the host through `forgeAddress`), and calls the
+  same function for `https://<host>/`. On that path a declaration naming another source than the vault is refused in
+  words and never turned to the vault: the planner's ask names only the forge.
 - `lib/src/ui/planning_embedding.dart`, `ShellPlanningHost` also implements `PlanningForgeAccess`: for the provider
-  `LocalPlanner.name`, this computer's planner, it runs the hand-on it is given and answers `true` once the token is
-  confirmed in this computer's vault; for any other provider, a machine whose vault this window does not hand tokens
-  to this way, and on any refusal, it answers `false` and says why in the window's log, never the token.
+  `LocalPlanner.name`, this computer's planner, it runs the hand-on it is given and answers `true` once this
+  computer's vault resolves a token for the forge (a declaration already present counts); for any other provider, a
+  machine whose vault this window does not hand tokens to this way, for an origin `planningForgeHost` refuses, and on
+  any refusal it answers `false` and says why in the window's log, naming only the host, never the address as received
+  or the token. One hand-on runs at a time: the same ask while one runs gets that one's answer and opens nothing more,
+  any other answers `false` at once. The screen is to call it only from the person's press on its offer; at this pin
+  nothing calls it yet.
 - `lib/src/ui/shell.dart`: the shell gives its `ShellPlanningHost` that hand-on, as `prepareForgeForPlanning` with its
-  own context, `ForgeConnection` and terminal.
+  own context, `ForgeConnection` and terminal, refusing once the shell is no longer mounted.
 - `pubspec.yaml`, `pubspec.lock`: the `porelo_planning` pin moves to the planner commit with the contract; it is built
   against that commit's worktree locally and goes out in the same gathered push as the planner commit, after it.
   Nothing in the screen calls the hook yet; a later raise to the commit whose screen offers it is a pin change.
 - `lib/src/ui/planning_embedding.dart`: the comment on `given` no longer says the issues are files of a repository;
   `doc/decisions.md` (*The planner is given the one Porelo the window vouches for*) says the lent token now also
   writes the planning to GitHub, with its exposure; `CHANGELOG.md`.
-- Red first, against the contract alone: `test/ui/planning_embedding_test.dart` calls
+- Tests, each seen red with its guard broken: `test/ui/planning_forge_access_test.dart` calls
   `ShellPlanningHost.handOnForgeToken` with a recording hand-on: another provider answers `false` and never runs it;
-  this computer's planner runs it with the origin and answers `true`; a refused hand-on answers `false`. In
-  `test/ui/organization_access_dialogs_test.dart`, `prepareForgeForPlanning` refuses an origin with a path, user or
-  port before anything is asked, and with an open vault lacking the entry puts the secret store's token under
-  `git.token.github.com`.
+  this computer's planner runs it with the bare origin and answers `true`, and refuses an origin with a path, user,
+  port or another scheme; a refused or failed hand-on answers `false`; a second same ask while the first runs runs nothing
+  more, and an ask for another forge or provider meanwhile answers `false`; a host given no hand-on answers `false`. In `test/ui/organization_access_dialogs_test.dart`, `prepareForgeForPlanning` refuses thirteen malformed origins
+  before the vault or the token is touched, puts the secret store's token under `git.token.github.com` once, and
+  refuses a declaration naming the environment in words, with no dialog and nothing declared.
 
 ## Acceptance
 

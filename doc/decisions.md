@@ -1008,9 +1008,18 @@ the file and every folder up to `/` are owned by root or the person and writable
 private group: their primary group, which no other account has as its primary one and which `/etc/group` lists with no
 other member. Off Linux the variable is left unset.
 
+The same lent token writes the planning where it is kept in GitHub Issues, so the one token the person gives needs
+Issues and organization Projects beside Contents. Where the planner finds none for its forge and refuses the board for
+it, the window hands the person's token from the system secret store into this computer's vault, as it does for an
+organization, when the person takes the planning screen's offer: only for this computer's own planner, only for a forge
+named as an https origin alone, one hand-on at a time, and following a declaration the vault already holds for that
+forge without ever changing it.
+
 **What it costs:** a Porelo installed elsewhere, as under `/opt` or by Nix, is not found, and a refused one is said only
 in the window's log; the planning then reads public repositories only. Accounts and groups known only through NSS (LDAP,
-NIS) are not seen, so a folder their group may write is refused.
+NIS) are not seen, so a folder their group may write is refused. A person whose declaration for the forge names another
+source than the vault changes it themselves before the planner can write. **The exposure:** the planner, a process of
+the person's own account, can use every right of that token, Issues and Projects included.
 
 ## A task on a host is certified by this computer's agent
 

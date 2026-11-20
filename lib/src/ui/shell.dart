@@ -684,7 +684,14 @@ class _ShellState extends State<Shell> {
     ),
     null => null,
   };
-  late final _planningHost = ShellPlanningHost(widget.shell, needsYou: () => widget.shell.goTo(Section.attention));
+  late final _planningHost = ShellPlanningHost(
+    widget.shell,
+    needsYou: () => widget.shell.goTo(Section.attention),
+    handOn: (origin) async {
+      if (!mounted) throw const OrganizationRefused('The window was closed before the token was handed on.');
+      await prepareForgeForPlanning(context, origin, _forges, open: widget.sessions.openTerminal);
+    },
+  );
 
   /// Start's form for a discussion the planner ordered, on [machine]: the person's agent and model, or null.
   Future<DiscussionChoice?> _chooseDiscussion(Machine machine, String project, PlanningTaskOrder task) async {

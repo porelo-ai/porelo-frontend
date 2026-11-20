@@ -501,6 +501,111 @@ void main() {
     expect(calls, hasLength(1), reason: 'an existing token must never be replaced by the keychain token');
     expect(tokens.reads, reads);
   });
+
+  group("the planner's forge", () {
+    // Harm: what the planner names as its forge, coming over its connection, steers the token to another host's
+    // vault entry or reaches the vault before it is understood.
+    testWidgets('anything but an https origin alone is refused before a vault or a token is touched', (tester) async {
+      final context = await page(tester);
+      final backend = FakeBackend([]);
+      final tokens = _CountingTokens();
+      final forges = ForgeConnection(tokens);
+      addTearDown(forges.dispose);
+      for (final origin in [
+        'http://github.com',
+        'HTTPS://github.com',
+        'github.com',
+        'https://github.com/porelo-ai',
+        'https://github.com/porelo-ai/porelo-project',
+        'https://user@github.com',
+        'https://github.com:8443',
+        'https://github.com:443',
+        'https://github.com:',
+        'https://github.com/?a=b',
+        'https://github.com/#x',
+        'https://github.com.',
+        'https://',
+      ]) {
+        await expectLater(
+          prepareForgeForPlanning(context, origin, forges, localBackend: backend, deviceKeys: MemoryDeviceKeyStore()),
+          throwsA(isA<OrganizationRefused>()),
+          reason: origin,
+        );
+      }
+      expect(backend.storeAsked, isEmpty);
+      expect(tokens.reads, 0);
+    });
+
+    // Harm: the token goes to a vault entry of another name than the forge's, or one already kept is overwritten.
+    testWidgets("the kept token lands under the forge's own vault entry, once", (tester) async {
+      final context = await page(tester);
+      final backend = FakeBackend([])
+        ..theStoreIs = const VaultState(vault: '/vault', exists: true, readable: true, credentials: []);
+      final tokens = _CountingTokens();
+      await tokens.write('github.com', 'private-test-token');
+      final forges = ForgeConnection(tokens);
+      addTearDown(forges.dispose);
+      final calls = <List<String>>[];
+      final core = CoreCredentials(
+        run: (_, arguments, {inDirectory, environment = const {}, input}) async {
+          calls.add(arguments);
+          expect(input, 'private-test-token');
+          backend.theStoreIs = const VaultState(
+            vault: '/vault',
+            exists: true,
+            readable: true,
+            credentials: [Credential(name: 'git.token.github.com', type: 'token', characters: 18)],
+          );
+          return (code: 0, out: '{"name":"git.token.github.com","stored":true}', err: '');
+        },
+      );
+      for (final origin in ['https://github.com', 'https://GitHub.com/']) {
+        await prepareForgeForPlanning(
+          context,
+          origin,
+          forges,
+          localBackend: backend,
+          deviceKeys: MemoryDeviceKeyStore(),
+          core: core,
+        );
+      }
+      expect(calls.single, ['vault', 'put', 'git.token.github.com', '--json']);
+    });
+
+    // Harm: the planner's ask, which names only the forge, turns a declaration the person made for it to the vault.
+    testWidgets('a declaration naming another source is refused in words and left as it is', (tester) async {
+      final context = await page(tester);
+      final backend = FakeBackend([])
+        ..theStoreIs = const VaultState(vault: '/vault', exists: true, readable: true, credentials: [])
+        ..theConnections = const [
+          Connection(
+            id: 'GH_TOKEN',
+            kind: 'TOKEN',
+            match: 'https://github.com/',
+            purpose: 'git',
+            source: 'ENVIRONMENT',
+          ),
+        ];
+      final tokens = _CountingTokens();
+      await tokens.write('github.com', 'private-test-token');
+      final forges = ForgeConnection(tokens);
+      addTearDown(forges.dispose);
+      await expectLater(
+        prepareForgeForPlanning(
+          context,
+          'https://github.com',
+          forges,
+          localBackend: backend,
+          deviceKeys: MemoryDeviceKeyStore(),
+        ),
+        throwsA(isA<OrganizationRefused>().having((it) => it.words, 'words', contains('GH_TOKEN'))),
+      );
+      await World.settle(tester);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(backend.declared, isEmpty);
+      expect(tokens.reads, 0);
+    });
+  });
 }
 
 class _CountingTokens extends MemoryForgeTokens {

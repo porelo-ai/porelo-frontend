@@ -196,6 +196,84 @@ Future<void> prepareOrganizationForge(
       'Write it as https://forge.example.org/owner/repository or git@forge.example.org:owner/repository.',
     );
   }
+  await _handForgeTokenOn(
+    context,
+    forges,
+    address: address,
+    destination: destination,
+    namedPort: namedPort,
+    bySsh: bySsh,
+    mayDeclare: true,
+    open: open,
+    localBackend: localBackend,
+    deviceKeys: deviceKeys,
+    core: core,
+  );
+}
+
+/// The host of [origin], a forge's https origin as the planner names it: `https://<host>` and nothing else, with at
+/// most a lone `/` for its path. Throws [OrganizationRefused] for anything more, before a vault or a token is touched.
+String planningForgeHost(String origin) {
+  // Read from the text itself: a parsed address drops a default port such as `:443` and an empty one.
+  final host = RegExp(r'^https://([^/:@?#\\\s]+)/?$').firstMatch(origin)?.group(1);
+  if (host == null) {
+    throw const OrganizationRefused(
+      'The planner named a forge that is not an https address alone, so no token was handed over.',
+    );
+  }
+  try {
+    return forgeAddress(host);
+  } on FormatException {
+    throw const OrganizationRefused(
+      'The planner named a forge that is not an https address alone, so no token was handed over.',
+    );
+  }
+}
+
+/// Puts the person's token for the forge at [origin] into this computer's Porelo vault for its planner, as
+/// [prepareOrganizationForge] does for an organization: the vault opened first, the token asked for where the system
+/// secret store keeps none, and confirmed in the vault after. A declaration this computer's vault holds for the forge
+/// is followed, never changed: one that names another source is refused in words.
+Future<void> prepareForgeForPlanning(
+  BuildContext context,
+  String origin,
+  ForgeConnection forges, {
+  OpenTerminal? open,
+  FleetBackend? localBackend,
+  DeviceKeyStore? deviceKeys,
+  CoreCredentials? core,
+}) async {
+  final host = planningForgeHost(origin);
+  await _handForgeTokenOn(
+    context,
+    forges,
+    address: host,
+    destination: 'https://$host/',
+    namedPort: null,
+    bySsh: false,
+    mayDeclare: false,
+    open: open,
+    localBackend: localBackend,
+    deviceKeys: deviceKeys,
+    core: core,
+  );
+}
+
+/// Hands the token for [address] into this computer's vault for [destination]; [mayDeclare] is whether a declaration
+/// naming another source may be turned to the vault, with the person's yes.
+Future<void> _handForgeTokenOn(
+  BuildContext context,
+  ForgeConnection forges, {
+  required String address,
+  required String destination,
+  required int? namedPort,
+  required bool bySsh,
+  required bool mayDeclare,
+  OpenTerminal? open,
+  FleetBackend? localBackend,
+  DeviceKeyStore? deviceKeys,
+  CoreCredentials? core,
+}) async {
   // Organization commands run here, regardless of which machine happens to be selected in the window.
   // On Windows this computer is the WSL distribution, which Porelo's command line also runs in.
   final machine = desk.isWindows
@@ -241,8 +319,9 @@ Future<void> prepareOrganizationForge(
       if (declared.present) return;
       if (declared.source != 'VAULT' || declared.id != name || namedPort != null) {
         final words = _noTokenThereWords(declared);
-        // A token in the vault is lent by the host's name, so a forge on its own port cannot take that way.
-        if (namedPort != null) throw OrganizationRefused(words);
+        // A token in the vault is lent by the host's name, so a forge on its own port cannot take that way; and the
+        // planner's ask names only the forge, too little to turn a declaration of the person's to the vault.
+        if (namedPort != null || !mayDeclare) throw OrganizationRefused(words);
         final instead = await showDialog<bool>(
           context: context,
           builder: (dialog) => AlertDialog(
