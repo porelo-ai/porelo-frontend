@@ -124,7 +124,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f631"></a>[F631](F631-A-Raised-Git-Pin-Resolves-On-The-First-Pub-Get.md) | S | - | The first flutter pub get after a git dependency's pin moved, on a machine whose pub cache already mirrors that repository, drops a transitive package and fails; reproduced on the build box, cause inside pub still to be read |
 | <a id="f632"></a>[F632](F632-The-Maven-Cache-Keeps-What-The-Build-Downloads.md) | S | - | The Build's Maven cache is keyed by pom.xml alone and never saved over an exact hit, so the parent's and plugins' artifacts that move without this pom are fetched from Maven Central on every Build, which a 429 from Central turns red |
 | <a id="f611"></a>[F611](F611-A-Rebuilt-Host-Set-Up-Again-Replaces-Its-Old-Files.md) | S | - | Setting a machine up again under a name whose SSH files the window wrote for an earlier setup replaces those files once the person accepted the new host key, so the setup goes on without removing files by hand; files the window did not write are still refused |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
@@ -163,6 +162,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f631"></a>[F631](F631-A-Raised-Git-Pin-Resolves-On-The-First-Pub-Get.md) | S | - | The first flutter pub get after a git dependency's pin moved, on a machine whose pub cache already mirrors that repository, drops a transitive package and fails; reproduced on the build box, cause inside pub still to be read |
 | <a id="f523"></a>[F523](F523-Work-Moving-On-By-Itself-Played-Through-On-The-VM.md) | M | - | Story ST314, the planner moves work on from state to state by itself, played once on the test VM in the window as a person would, for ST347's gathered story run: DONE work set to Reading with its reader started unasked, an OK reading set to Review, a blocking one stopped under Needs you and reworked once the person chooses Rework, a failed task kept with a warning. |
 
 ## Review

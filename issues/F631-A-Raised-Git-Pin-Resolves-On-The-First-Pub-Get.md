@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F631",
   "title": "A Raised Git Pin Resolves On The First Pub Get",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "S",
   "priority": "High",
   "rank": 1,
