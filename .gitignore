@@ -3,6 +3,10 @@
 # and a tool that drops a new dot directory here cannot quietly add it to the repository.
 .*
 !.gitignore
+!.agents
+!.claude
+.claude/*
+!.claude/skills
 !.gitkeep
 # The shared code style and the commits `git blame` skips, both committed as the shared rules say.
 !.editorconfig
