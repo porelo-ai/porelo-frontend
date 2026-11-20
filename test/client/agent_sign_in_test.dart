@@ -26,6 +26,17 @@ void main() {
     answerWithin: answerWithin,
   );
 
+  /// The connections open once the one that agreed the interface is gone: the mock sees that close when its socket
+  /// does, which a busy machine takes more than one turn of the queue for, so a count read sooner still holds it.
+  Future<int> settled() async {
+    final until = DateTime.now().add(const Duration(seconds: 5));
+    while (daemon.openConnections > 0 && DateTime.now().isBefore(until)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(daemon.openConnections, 0, reason: 'the connection that agreed the interface is closed');
+    return daemon.openConnections;
+  }
+
   // Harm: a shut vault, a state the machine cannot say, or one this build does not know reads as signed in.
   test('only SIGNED_IN reads as signed in, and a sign-in that runs is named by its container', () async {
     final asked = <Map<String, dynamic>>[];
@@ -147,9 +158,7 @@ void main() {
 
     setUp(() async {
       client = await connect();
-      // The connection that agreed the interface is gone once the mock has seen it close.
-      await pumpEventQueue();
-      before = daemon.openConnections;
+      before = await settled();
     });
 
     Future<void> closed(String when) async {
@@ -230,9 +239,7 @@ void main() {
       })
       ..method('List', (_) => <String, dynamic>{'tasks': <Map<String, dynamic>>[]});
     final client = await connect();
-    // The connection that agreed the interface is gone once the mock has seen it close.
-    await pumpEventQueue();
-    final before = daemon.openConnections;
+    final before = await settled();
 
     final waiting = client.agentSignInWait('claude').listen((_) {}, onError: (Object _) {});
     await asked.future;
