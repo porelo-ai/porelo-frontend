@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f625"></a>[F625](F625-The-Windows-Use-Cases-Moved-Out-Of-Its-Pages-Into-Services.md) | L | - | A page's handler only checks its input, calls one service and shows its answer; starting and reporting planned tasks, handing a forge token on and porelo-host's commands move into services tested without widgets |
 | <a id="f584"></a>[F584](F584-A-Rotating-Sign-In-Is-Made-On-The-Host.md) | M | - | Story ST364: in Import from this computer, a sign-in whose refresh token rotates is marked as one made on the host and offers Sign in on the host, which shows the login's link or code and its progress in the dialog and the agent's row afterwards; API keys are carried as today. |
 | <a id="f585"></a>[F585](F585-A-Sign-In-Made-On-The-Host-Seen-End-To-End.md) | S | [F584](README.md#f584) | Story ST364: signing an agent in on a host from Import from this computer is held by a feature scenario on the stand-in machines, a rotating source and an API key side by side, and checked once against porelo with Core's host sign-in. |
 | <a id="f436"></a>[F436](F436-Every-Task-Run-Kept-And-Read-In-The-Window.md) | L | - | Every task that runs or ran, removed ones too, in a history view: who started and stopped it, its timeline and numbers, its logs as views of the one log stream, after it is gone too. |
