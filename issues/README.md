@@ -80,6 +80,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f615"></a>[F615](F615-Planning-In-GitHub-Issues-Shown-And-Written-With-The-Persons-Token.md) | M | - | The planning place shows a project planned in GitHub Issues through the planner's screen; the person's own forge token, which the planner takes from this computer's Porelo vault, is asked for with the rights planning needs, and a planner that finds no token or too few rights offers to hand it on |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | - | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. |
 | <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | - | A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation. |
 | <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | M | - | What a piece of work did, in words, at its top: last answer, commits as a list with their highest risk class, what waits with its checks, messages, firewall stops; no diff. |
