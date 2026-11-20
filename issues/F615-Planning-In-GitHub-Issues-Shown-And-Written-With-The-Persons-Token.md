@@ -37,8 +37,11 @@ own token, which the window asks for once with the rights planning needs and nev
   sends a token to the planner over its loopback connection.
 - Where the vault holds no token for the forge, or GitHub refuses it for want of a right, the planner refuses the
   board with `NoForgeAccess` (HTTP 403), with the field `address` and, where GitHub names it, `right` (`Issues`,
-  `Projects`); its words are the planner's. Once the window answers that it handed the token on, the screen reads the
-  board again.
+  `Projects`); its words are the planner's. The screen offers, beside that refusal, the host call
+  `Future<bool> handOnForgeToken(String address)` of its `PlanningHost`, which the window implements, and reads the
+  board again after `true`.
+- A planned stage on a host starts through the host daemon's own `Start`, reached over the forwarded socket, which
+  takes `given` as the local daemon's does.
 - The token needs, on the project's repositories, Issues (read and write), Contents (read and write, for git) and
   Metadata (read), and on the organization Projects (read and write).
 
@@ -76,7 +79,7 @@ own token, which the window asks for once with the rights planning needs and nev
 
 ## To be checked
 
-- With the planner: whether the planning screen's `PlanningHost` carries the call that hands the token on, and its
-  name, and which planner commit brings it and `NoForgeAccess`, for the pin.
+- Which planner commit brings `handOnForgeToken` and `NoForgeAccess`, for the pin.
+- With Porelo's daemon: that a host's `Start` declares and mounts `given` as the local one does.
 - Whether a fine-grained token waiting for the organization's approval of Projects is said as waiting, as for
   Contents.
