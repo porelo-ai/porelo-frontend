@@ -114,7 +114,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f615"></a>[F615](F615-Planning-In-GitHub-Issues-Shown-And-Written-With-The-Persons-Token.md) | S | - | The planning place shows a project planned in GitHub Issues through the planner's screen, raised to the screen that refuses a board it has no access for; the window answers that refusal by handing the person's forge token from the system secret store into this computer's Porelo vault, where the planner takes it |
-| <a id="f616"></a>[F616](F616-A-Forge-Token-Asked-For-With-The-Rights-Planning-Needs.md) | XS | - | Where the window asks for the person's forge token, it names the rights planning in GitHub Issues needs beside Contents; a GitHub refusal for a missing Issues or Projects right names that right and where to give it |
 | <a id="f523"></a>[F523](F523-Work-Moving-On-By-Itself-Played-Through-On-The-VM.md) | M | - | Story ST314, the planner moves work on from state to state by itself, played once on the test VM in the window as a person would, for ST347's gathered story run: DONE work set to Reading with its reader started unasked, an OK reading set to Review, a blocking one stopped under Needs you and reworked once the person chooses Rework, a failed task kept with a warning. |
 | <a id="f611"></a>[F611](F611-A-Rebuilt-Host-Set-Up-Again-Replaces-Its-Old-Files.md) | S | - | Setting a machine up again under a name whose SSH files the window wrote for an earlier setup replaces those files once the person accepted the new host key, so the setup goes on without removing files by hand; files the window did not write are still refused |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
@@ -148,6 +147,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | - | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f533"></a>[F533](F533-The-Idea-Walk-Tells-A-Builder-Out-Of-Time-From-A-Window-Fault.md) | XS | - | A walk of an idea to a finished story says, at the builder's own step, when a builder task ended unfinished, with its reason, rather than failing later at the window's report of that end. |
 | <a id="f534"></a>[F534](F534-A-Machine-Whose-Socket-Folder-Is-Gone-Says-So.md) | S | - | A saved machine whose endpoint lies in a folder that no longer exists says that the folder is gone and how to connect again, rather than that the folder is not the person's alone. |
+
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f616"></a>[F616](F616-A-Forge-Token-Asked-For-With-The-Rights-Planning-Needs.md) | XS | - | Where the window asks for the person's forge token, it names the rights planning in GitHub Issues needs beside Contents; a GitHub refusal for a missing Issues or Projects right names that right and where to give it |
 
 ## Review
 
