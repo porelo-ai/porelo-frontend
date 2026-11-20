@@ -42,8 +42,9 @@ own token, which the window asks for once with the rights planning needs and nev
   board again after `true`.
 - A planned stage on a host starts through the host daemon's own `Start`, reached over the forwarded socket, which
   takes `given` as the local daemon's does.
-- The token needs, on the project's repositories, Issues (read and write), Contents (read and write, for git) and
-  Metadata (read), and on the organization Projects (read and write).
+- One token: the person's existing git token also carries planning, with no separate planning token. It needs, on
+  the project's repositories, Issues (read and write), Contents (read and write, for git) and Metadata (read), and on
+  the organization Projects (read and write).
 
 ## Plan
 
@@ -71,15 +72,8 @@ own token, which the window asks for once with the rights planning needs and nev
   loads; with a token lacking Issues, the board says that right is missing and where to give it.
 - No token appears in the window's log, the planner's log, a command line or a task's environment.
 
-## Open questions
-
-- One token or two: planning needs Issues and organization Projects rights beside Contents. One token kept as today
-  is simpler; a second, planning-only token kept apart limits what a machine holding the git token can reach. The
-  analysis assumes one.
-
 ## To be checked
 
 - Which planner commit brings `handOnForgeToken` and `NoForgeAccess`, for the pin.
-- With Porelo's daemon: that a host's `Start` declares and mounts `given` as the local one does.
 - Whether a fine-grained token waiting for the organization's approval of Projects is said as waiting, as for
   Contents.
