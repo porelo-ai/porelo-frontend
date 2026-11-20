@@ -124,6 +124,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f629"></a>[F629](F629-A-First-Start-Of-A-Repository-With-No-Checkout-Here-Starts.md) | S | - | New work on a repository of default with no checkout on the machine starts again: the window stops sending FirstStart a repository the machine's Porelo does not take, and a live test holds the call against the real interface |
+| <a id="f630"></a>[F630](F630-A-Start-Refused-Before-It-Began-Stays-In-Sight.md) | S | - | A start the machine refuses before its task exists, such as at the first-start question, is said in full in the open form and listed under Needs you, never only in a status line cut short after the form closed |
 | <a id="f611"></a>[F611](F611-A-Rebuilt-Host-Set-Up-Again-Replaces-Its-Old-Files.md) | S | - | Setting a machine up again under a name whose SSH files the window wrote for an earlier setup replaces those files once the person accepted the new host key, so the setup goes on without removing files by hand; files the window did not write are still refused |
 | <a id="f203"></a>[F203](F203-This-Repository-Worked-In-A-Porelo-Task.md) | S | - | This repository's agent working in an attended Porelo task on the host, its build green on the host's Forgejo, reached in the room, with a way back. |
 | <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | S | - | A waiting push decided without an IDE: source level, highest risk class, files in risk order with their class, *Let it through…* or *Turn it away*, a second ask for `C3` files; the code read in IntelliJ. |
