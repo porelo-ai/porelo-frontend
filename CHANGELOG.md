@@ -19,6 +19,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Where *My forges* asks for a token, it names the rights planning needs beside Contents (read and write) for git: Issues (read and write) and Metadata (read) on the repositories and Projects (read and write) on the organization, so one token serves both.
 - *Start work* on the *Planning* board runs as the window's own wizard: one question a step, with room for each field, a single choice said rather than asked, and a last step listing every answer with *Change* beside it before *Start <state>*; an agent not signed in on the machine is named with why, and the model and effort lists are the agent's own on that machine.
 - Where the machine cannot list an agent's models, *Start work* still offers the agent with its model typed and says under the model field why the list is missing; *Start* is never held for it.
 - *Start work* closes as soon as the planner took the order and the first start is under way; the start's operation stands in front with its steps, and a start refused after that is said in the operation and under *Needs you*.

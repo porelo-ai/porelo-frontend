@@ -152,7 +152,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f615"></a>[F615](F615-Planning-In-GitHub-Issues-Shown-And-Written-With-The-Persons-Token.md) | S | - | The planning place shows a project planned in GitHub Issues through the planner's screen, raised to the screen that refuses a board it has no access for; the window answers that refusal by handing the person's forge token from the system secret store into this computer's Porelo vault, where the planner takes it |
-| <a id="f616"></a>[F616](F616-A-Forge-Token-Asked-For-With-The-Rights-Planning-Needs.md) | XS | - | Where the window asks for the person's forge token, it names the rights planning in GitHub Issues needs beside Contents; a GitHub refusal for a missing Issues or Projects right names that right and where to give it |
 
 ## Review
 
@@ -160,6 +159,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f473"></a>[F473](F473-The-Window-Calls-The-Host-Programs-It-Has-Now.md) | S | - | Every call the window makes on a host names a program the host has now: root's org status, org refresh and person purge by /usr/sbin/porelo-host, and a project's central state from the person's own daemon there, so no machine page fails on a removed program. |
+| <a id="f616"></a>[F616](F616-A-Forge-Token-Asked-For-With-The-Rights-Planning-Needs.md) | XS | - | Where the window asks for the person's forge token, it names the rights planning in GitHub Issues needs beside Contents, so the one token is made with all of them |
 | <a id="f557"></a>[F557](F557-A-Snapshot-Window-Sets-Up-WSL-With-Snapshots.md) | XS | - | Story ST50, a machine and a host reached from Windows: a snapshot window sets Porelo up in a WSL distribution from Porelo's snapshots repository, and a release window from its releases repository. |
 | <a id="f509"></a>[F509](F509-A-Hosts-Browser-Address-Reaches-Only-Its-Own-Forward.md) | S | - | The forge and homeserver addresses the window gives a browser for a host's card reach only the card's own forward, on IPv6 loopback as on IPv4, never another local program that listens there. |
 | <a id="f508"></a>[F508](F508-A-Tasks-Clipboard-Write-Asks-First.md) | M | - | A task's write to this computer's clipboard through OSC 52 is never silent: every write is held and asked about in its own terminal's view, with a preview of what would be written. |
