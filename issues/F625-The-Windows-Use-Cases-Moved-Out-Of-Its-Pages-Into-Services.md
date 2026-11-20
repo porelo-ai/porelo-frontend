@@ -5,41 +5,61 @@
   "$schema": "issue-1.json",
   "id": "F625",
   "title": "The Window's Use Cases Moved Out Of Its Pages Into Services",
-  "state": "Accepted",
-  "size": "L",
+  "state": "Analyzed",
+  "size": "XL",
   "priority": "High",
   "rank": 1,
   "blockedBy": [],
-  "covers": "A page's handler only checks its input, calls one service and shows its answer; starting and reporting planned tasks, handing a forge token on and porelo-host's commands move into services tested without widgets"
+  "covers": "A page's handler only checks its input, calls one service and shows its answer; token hand-ons, a host's give-back and the shell's machine, approval and work handlers move into services tested without widgets"
 }
 ```
 
-**Why this size.** L: four use cases of a few hundred lines each move out of the UI layer and the host command's
-entry, each with its tests moved from widget level to unit level; no contract changes.
+**Why this size.** XL: about a dozen handlers of 50 to 120 lines in `shell.dart` and four other pages each chain
+several backend, settings or vault calls with rules between them; it splits into the four parts below, each M or L.
 
-**What must be true.** A widget's handler, and `porelo-host`'s command entry, only check what was given, call one
-service method and show or print its answer. The use case (what is kept, in which order, under which rule, what is
-told the planner or the vault) lives in a service that knows nothing of widgets, a `BuildContext` or the command line,
-and is tested without them.
+**What must be true.** A widget's handler only checks what was given, calls one service method and shows its answer;
+the dialogs it needs are asked through callbacks the service is given. The use case (what is kept, in which order,
+under which rule, what is told the machine, the vault or the forge, and what is undone when a step fails) lives in a
+service under `lib/src/app/` that knows no `BuildContext`, `setState` or widget, and is tested without them.
 
 ## Plan
 
-Read in today's code; the entry points that carry a use case:
+Read in today's code. Already a service, only placed under `lib/src/ui/`: `WindowTaskStarts`
+(`lib/src/ui/planning_embedding.dart`) and `WindowTaskReports` (`lib/src/ui/planning_reports.dart`) use no widget and
+are tested by plain `test()`; they move to `lib/src/app/` unchanged. `porelo-host`'s `runHostCommand`
+(`packages/porelo_host/bin/porelo_host.dart`) checks its arguments, maps them to a plan and calls `run.up`, `run.down`
+or `run.memberships`; it needs no change.
 
-- `lib/src/ui/planning_embedding.dart`, `WindowTaskStarts.call`: chooses the machine, hands and keeps the offer in the
-  settings, picks discussion or ordered start, maps refusals and says them under *Needs you*. Moves to
-  `lib/src/app/planned_task_starts.dart`; the UI keeps the operation shown and the person's choice of agent.
-- `lib/src/ui/planning_reports.dart`, `WindowTaskReports`: reports, stops, the sweep, handing ideas and stage results
-  to the planner, with their queue and kept state. Moves to `lib/src/app/planned_task_reports.dart`.
-- `lib/src/ui/organization_access_dialogs.dart`, `_handForgeTokenOn` (behind `prepareOrganizationForge` and
-  `prepareForgeForPlanning`): the vault's declaration rules, the hand-on and its refusals run inside dialog code with
-  a `BuildContext`. The rules move to a service in `lib/src/app/`; the dialogs keep the asking.
-- `packages/porelo_host/bin/porelo_host.dart`, `runHostCommand`: parses and runs each command in one function. Each
-  command becomes a service method the entry maps arguments to and whose result it prints.
-- Steps: one use case at a time, its widget tests turned into unit tests over the service first (they must pass
-  unchanged in meaning), then the handler reduced to the mapping.
+The entry points that carry a use case, in four parts, each its own issue once split:
+
+1. **Token hand-ons (M).** `_handForgeTokenOn` (`lib/src/ui/organization_access_dialogs.dart:264`) opens the machine,
+   looks at its vault, applies the declaration rules and declares, with dialogs between; `_giveHostTokenNow`
+   (`lib/src/ui/shell.dart:6814`) runs a hand-over step that goes on after its dialog closes. Both become one service
+   in `lib/src/app/`; the dialogs stay and are passed in as callbacks.
+2. **A host's give-back and token (M).** `_giveBack` (`lib/src/ui/host_dialog.dart:693`) brings the host down,
+   confirms it, forgets its record, removes it from the organization with a two-minute limit and forgets its machines,
+   reading again on failure; `_giveToken` (`lib/src/ui/organization_host_pages.dart:621`) branches over what the
+   connection heard before and after. Each becomes a service method with its compensation; the page keeps `_busy` and
+   `_problem`.
+3. **The shell's machine handlers (L).** `_forget` (`shell.dart:2641`), `_addAConnection` (`:1902`),
+   `_storeTheCredentialToStart` (`:3199`) and `_startTheAgents` (`:3294`) chain checks, backend calls and a terminal;
+   they move to a machine service, the shell keeping the dialogs and the operations shown.
+4. **Approval, new work and forms (M).** `_approve` (`shell.dart:3742`, branch choice, gate, remembered branch),
+   `_newWork` (`:6178`, machine and project chosen and started), `_attempt` (`lib/src/ui/key_recovery_dialog.dart:89`,
+   request, terminal, restore when it never opened) and `_save` (`lib/src/ui/forges_view.dart:269`, token asked, forge
+   added or edited).
+
+Steps per part: the service's unit tests first, over `FakeBackend` and recording callbacks, each covering a path the
+widget tests hold today (a refusal, a failed step and what is undone, a page closed meanwhile), seen red with the
+handler's logic not yet moved; then the handler reduced to the mapping, its widget tests passing unchanged. The guard
+on each: a step that runs after the person left, or a failure that leaves a host or a credential half done.
+
+## Open questions
+
+- Split this issue into the four parts above as issues of their own, in that order, so each is built and tested alone?
 
 ## To be checked
 
-- Further handlers in `lib/src/ui/shell.dart` (7800 lines) that run a use case themselves, found by reading its
-  `await` chains on a backend, settings or the vault; each is added here before the build.
+- About fifteen smaller handlers of 25 to 45 lines in `shell.dart` (two to four awaited calls with a guard, such as
+  `_letGo`, `_readAll`, `_bringToCentral`, `_openItsForge`) are read one by one when part 3 is built; each that runs a
+  use case joins it.
