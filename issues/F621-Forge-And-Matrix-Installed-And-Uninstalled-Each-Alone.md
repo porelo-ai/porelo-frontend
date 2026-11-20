@@ -27,9 +27,8 @@ as it was before. On Windows and macOS this computer offers neither.
 ## The contract it builds on
 
 - On a host, porelo-host's playbook `porelo.host.part` installs or uninstalls one part (`porelo_host_part`: forge or
-  matrix, `porelo_host_action`: install or uninstall). The window reaches it through the shipped `porelo-host`
-  binary, as it runs `up` and `down` today, so it needs a subcommand there for it, with the host's arguments `up`
-  takes.
+  matrix, `porelo_host_action`: install or uninstall), taking the inventory `up` takes and printing
+  `porelo.host.lines`; a refusal for work not at central is a failed task line naming the project.
 - On this computer the window runs `pkexec /usr/libexec/porelo-host/part <forge|matrix> <install|uninstall>`: the
   one administrator prompt.
 - Both print the `porelo.host.lines` JSON lines `up` and `down` print, refusals and waiting stops alike. The playbook
@@ -41,12 +40,17 @@ as it was before. On Windows and macOS this computer offers neither.
 
 ## Plan
 
+- `packages/porelo_host` (the shipped `porelo-host` binary, `host_command.dart`, `host_run.dart`): a subcommand
+  `porelo-host part <forge|matrix> <install|uninstall>` with the host arguments `up` takes, which copies the
+  collection and the inventory and runs `porelo.host.part` as `up` runs its playbook.
 - `lib/src/app/host_session.dart`: `installPart(part)` and `uninstallPart(part)` beside `up()` and `down()`, the same
   steps and refusals (`Step`, a stop line's `needs`), read by the same line reader.
 - This computer: the `pkexec` command above, its lines read the same way, Linux only; a declined prompt ends in
   words, never as a failure of the part.
 - Before a forge's uninstall: the pull requests waiting for review ([F619](README.md#f619)) are named, and the person
   goes on or stops.
+- Before Matrix's uninstall, where a project's room lives on it: the person chooses to keep the history for a later
+  install or to delete everything, and the choice goes to the uninstall.
 - `lib/src/ui/part_install_dialog.dart`: what happens, the prompt, the lines live, the end in words; its uninstall
   side shows the refusal's reason (work to bring to central, reviews open, another person's project, not a Machine
   Admin) and offers the page where it is resolved.
@@ -56,14 +60,11 @@ as it was before. On Windows and macOS this computer offers neither.
   needs the vault), and the dialog never offering uninstall to one who is not a Machine Admin (harm: a forge removed
   with work not at central, or another person's project losing its forge).
 
-## Open questions
-
-- Uninstalling Matrix while a project's room lives on it: is the room's history kept for a later install, or is
-  the person told it goes?
-
 ## To be checked
 
-- The `porelo-host` subcommand that runs `porelo.host.part` on a host, and its arguments; whether `up` without a part
-  removes an installed one (today it does not).
+- How Matrix's uninstall is told to keep the history or delete everything (a variable of `porelo.host.part` and an
+  argument of the local `part`), and what the message transport keeps of a room meanwhile.
+- The playbook's name and variables once porelo-host publishes them; whether `up` without a part removes an
+  installed one (today it does not).
 - Whether a forge on this computer needs a port the window then reaches directly, or through the same forward as a
   host's.

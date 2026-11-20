@@ -31,23 +31,19 @@ builds and today's gate refusals, each with what to do next. The page names the 
     *Bring to central…* (`PushToCentral`, as the project page does) or *Take central first…* where central moved on;
   - waiting for your review: `PullRequests` / `WatchPullRequests` (as `app/host_pull_requests.dart` gathers them for
     *Needs you*); a row opens the pull request in the browser;
-  - builds today: from each task's `builds` in `List`/`Watch`, counted from local midnight;
-  - gate refusals today: no daemon call gives them (`Pending` lists only what waits) — a contract gap, written into
-    `doc/Contract-Gaps.md` and asked of the daemon's owner; until it stands the tile says it cannot be read, never 0.
+  - builds today and gate refusals today count everything that machine's forge saw since local midnight, not only
+    the person's own work. Neither has a source: each task's `builds` in `List`/`Watch` covers only the person's own
+    tasks, and `Pending` lists only what waits. Both are contract gaps, written into `doc/Contract-Gaps.md` and asked
+    of the daemon's owner; until they stand each tile says it cannot be read, never 0.
 - The page names its central forge (the project's `central`); the tree's count ([F618](README.md#f618)) is the
   sum of what waits for central and for review.
 - The lists move here from the machine page ([F622](README.md#f622)) and the project pages keep theirs.
 - Tests, unit level first, red first: the per-machine summary over `FakeBackend` projects (ahead, unmeasured, behind,
-  none), pull requests refused or missing a token, and the unknown gate count (harm: work reads as at central while
+  none), pull requests refused or missing a token, and the unknown builds and gate counts (harm: work reads as at central while
   it is not, or a refusal reads as none). Widget: the not-installed page offers only *Install…*.
-
-## Open questions
-
-- Builds today and gate refusals today: are they the forge's (all builds and refusals the machine's forge saw) or
-  only the person's own? The design says "today"; the person's own work is what the window can read now.
 
 ## To be checked
 
-- Which daemon call can give gate refusals since local midnight, with the daemon's owner.
+- Which daemon call can give the forge's builds and gate refusals since local midnight, with the daemon's owner.
 - How this computer's own forge is addressed once installed (port and address), from the install contract of
   [F621](README.md#f621).
