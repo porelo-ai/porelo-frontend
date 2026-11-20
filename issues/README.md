@@ -81,7 +81,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f625"></a>[F625](F625-The-Windows-Use-Cases-Moved-Out-Of-Its-Pages-Into-Services.md) | XL | - | A page's handler only checks its input, calls one service and shows its answer; token hand-ons, a host's give-back and the shell's machine, approval and work handlers move into services tested without widgets |
+| <a id="f625"></a>[F625](F625-The-Windows-Token-Hand-Ons-Moved-Out-Of-Its-Dialogs-Into-A-Service.md) | M | - | Handing a forge token and a host token on runs in a service tested without widgets, the dialogs only asking; the planned tasks' start and report services move from the UI folder to the app's |
+| <a id="f626"></a>[F626](F626-A-Hosts-Give-Back-And-Token-Moved-Into-Services.md) | M | - | Giving a host back and giving its page a token run in services tested without widgets, with their compensation; the dialog and the page keep only busy, problem and the asking |
+| <a id="f627"></a>[F627](F627-The-Shells-Machine-Handlers-Moved-Into-A-Service.md) | L | - | Forgetting a machine, adding a connection, storing a credential to start and starting the agents run in a machine service tested without widgets; the shell keeps the dialogs and the operations shown |
+| <a id="f628"></a>[F628](F628-Approval-New-Work-And-Forms-Moved-Into-Services.md) | M | - | Approving a push, starting new work, a key recovery attempt and saving a forge run in services tested without widgets; the handlers keep the asking |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | - | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. |
 | <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | - | A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation. |
 | <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | M | - | What a piece of work did, in words, at its top: last answer, commits as a list with their highest risk class, what waits with its checks, messages, firewall stops; no diff. |
