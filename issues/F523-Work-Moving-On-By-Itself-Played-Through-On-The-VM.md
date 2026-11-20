@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F523",
   "title": "Work Moving On By Itself Played Through On The VM",
-  "state": "Backlog",
+  "state": "Implementing",
   "size": "M",
   "priority": "High",
   "rank": 96,
