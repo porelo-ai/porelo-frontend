@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F619",
   "title": "A Machine's Forge Page",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "M",
   "priority": "High",
   "rank": 2,

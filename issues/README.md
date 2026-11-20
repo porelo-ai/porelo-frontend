@@ -82,12 +82,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f618"></a>[F618](F618-Forge-And-Matrix-Under-Each-Machine-In-The-Tree.md) | S | - | Under every machine, right after Projects, a Forge and a Matrix entry with a state dot (running, wants something, not installed) and a count of what waits for the person |
-| <a id="f619"></a>[F619](F619-A-Machines-Forge-Page.md) | M | - | Under each machine a Forge page: its state, Open in browser, Uninstall…, tiles and lists of what waits for central, reviews waiting, builds and gate refusals today, and the central forge it brings work to |
-| <a id="f620"></a>[F620](F620-A-Machines-Matrix-Page.md) | M | - | Under each machine a Matrix page: its state, Open in the Matrix client, Uninstall…, tiles and lists of what agents ask, unread, agents present and project rooms, and who can reach it |
-| <a id="f621"></a>[F621](F621-Forge-And-Matrix-Installed-And-Uninstalled-Each-Alone.md) | L | - | From its own page, a forge or Matrix is installed or uninstalled alone, on this computer and on a host alike: one administrator prompt, the lines shown live, uninstall refused while work is not at central |
-| <a id="f622"></a>[F622](F622-A-Machine-Page-That-Says-How-Each-Part-Stands.md) | S | - | A machine's page shows one line per part (state, short summary, a link to its page), and the lists move to the parts' pages |
-| <a id="f623"></a>[F623](F623-Central-Forges-Instead-Of-My-Forges.md) | S | - | My forges becomes Central forges and lists only central forges; a host's or this computer's own forge appears only under its machine |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | - | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. |
 | <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | - | A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation. |
 | <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | M | - | What a piece of work did, in words, at its top: last answer, commits as a list with their highest risk class, what waits with its checks, messages, firewall stops; no diff. |
@@ -100,6 +94,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f618"></a>[F618](F618-Forge-And-Matrix-Under-Each-Machine-In-The-Tree.md) | S | - | Under every machine, right after Projects, a Forge and a Matrix entry with a state dot (running, wants something, not installed) and a count of what waits for the person |
+| <a id="f619"></a>[F619](F619-A-Machines-Forge-Page.md) | M | - | Under each machine a Forge page: its state, Open in browser, Uninstall…, tiles and lists of what waits for central, reviews waiting, builds and gate refusals today, and the central forge it brings work to |
+| <a id="f620"></a>[F620](F620-A-Machines-Matrix-Page.md) | M | - | Under each machine a Matrix page: its state, Open in the Matrix client, Uninstall…, tiles and lists of what agents ask, unread, agents present and project rooms, and who can reach it |
+| <a id="f621"></a>[F621](F621-Forge-And-Matrix-Installed-And-Uninstalled-Each-Alone.md) | L | - | From its own page, a forge or Matrix is installed or uninstalled alone, on this computer and on a host alike: one administrator prompt, the lines shown live, uninstall refused while work is not at central |
+| <a id="f622"></a>[F622](F622-A-Machine-Page-That-Says-How-Each-Part-Stands.md) | S | - | A machine's page shows one line per part (state, short summary, a link to its page), and the lists move to the parts' pages |
+| <a id="f623"></a>[F623](F623-Central-Forges-Instead-Of-My-Forges.md) | S | - | My forges becomes Central forges and lists only central forges; a host's or this computer's own forge appears only under its machine |
 | <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | - | The setup script verified by its signature before it runs. |
 | <a id="f495"></a>[F495](F495-The-Windows-Tests-Wait-On-No-Clock-Network-Or-Process.md) | M | - | The window's unit tests wait on no real time, network or process: an injected clock under fakeAsync, an in-memory varlink connection, fake process starts, one smoke test each. |
 | <a id="f496"></a>[F496](F496-Flows-Proven-Only-End-To-End-Proven-Below.md) | M | - | The flows proven only by the end-to-end or live runs proven below them: MockMachine handlers and wire tests, a test that every client method is known to the mock, the planning commands and the start dialog's machine change. |

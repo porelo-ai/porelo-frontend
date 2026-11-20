@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F618",
   "title": "Forge And Matrix Under Each Machine In The Tree",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "S",
   "priority": "High",
   "rank": 1,

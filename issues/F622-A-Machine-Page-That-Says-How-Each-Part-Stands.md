@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F622",
   "title": "A Machine Page That Says How Each Part Stands",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "S",
   "priority": "High",
   "rank": 5,

@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F621",
   "title": "Forge And Matrix Installed And Uninstalled Each Alone",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "L",
   "priority": "High",
   "rank": 4,

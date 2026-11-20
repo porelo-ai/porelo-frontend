@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F620",
   "title": "A Machine's Matrix Page",
-  "state": "Analyzed",
+  "state": "Estimated",
   "size": "M",
   "priority": "High",
   "rank": 3,
