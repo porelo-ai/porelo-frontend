@@ -735,6 +735,7 @@ class PoreloClient {
     List<String>? reads,
     bool? readOnly,
     Map<String, String>? given,
+    TrackedWork? work,
   }) async* {
     // Never dropped where the machine lacks them: without them the start would be an ordinary one, a repository
     // writable, where every repository read only and a file handed back were asked.
@@ -755,6 +756,10 @@ class PoreloClient {
     }
     if (given != null && !await _startDeclares('given')) {
       throw const FeatureNotSupported('Start(given)');
+    }
+    // Without it a stage of a project kept in a tracker would work on nothing it can name.
+    if (work != null && !await _startDeclares('work')) {
+      throw const FeatureNotSupported('Start(work)');
     }
     // Only what the caller named is sent, so the backend's own defaults stay the only defaults.
     // Restating them here would be a second place for them to drift.
@@ -792,6 +797,7 @@ class PoreloClient {
       'reads': ?reads,
       'readOnly': ?readOnly,
       'given': ?given,
+      if (work != null) 'work': <String, String>{'issue': work.issue, 'phase': work.phase},
       // Only a help to find the task again: a machine that keeps none starts the same task without it.
       if (callerKey != null && await _startDeclares('callerKey')) 'callerKey': callerKey,
     };

@@ -6391,3 +6391,7 @@ class CentralPushProgress {
   /// Whether this is the final reply, naming what was pushed and what was up to date.
   bool get isFinal => pushed != null || upToDate != null;
 }
+
+/// The issue a planned stage works on, as its tracker names it (`owner/repo#123`), and its phase in the project's own
+/// workflow, both as the planner's order gives them.
+typedef TrackedWork = ({String issue, String phase});

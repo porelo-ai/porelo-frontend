@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F617",
   "title": "A Planned Stage Started With Its Tracker Issue",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "Medium",
   "rank": 1,
@@ -29,24 +29,28 @@ project kept in Markdown starts exactly as today.
 
 ## Plan
 
-- `lib/src/client/porelo_client.dart`, `start`: a parameter `work` (issue and phase), sent as `work` only when given.
-  Given and not declared by the machine's `Start`, the start is refused with `FeatureNotSupported('Start(work)')`,
-  as for `given`: a stage started without its issue would work on nothing it can name.
+- `lib/src/client/models.dart`: `TrackedWork`, a record of `issue` and `phase` (`StartWork` names the window's own
+  start already).
+- `lib/src/client/porelo_client.dart`, `start`: `work`, sent as `{issue, phase}` only when given. Given and not
+  declared by the machine's `Start`, the start is refused with `FeatureNotSupported('Start(work)')`, as for `given`:
+  a stage started without its issue would work on nothing it can name. The window checks nothing of its content:
+  the planner refuses a malformed order, and Porelo refuses an issue or phase outside its rules with exit code 64,
+  said in its words like any refusal.
 - `lib/src/app/fleet_backend.dart`, `startOrdered`: the same parameter, passed on; its stand-ins in
   `test/features/support/world.dart`, `test/app/fleet_model_test.dart`, `test/ui/window_task_reports_test.dart` and
   `test/ui/window_task_starts_test.dart` take it.
-- `lib/src/ui/planning_embedding.dart`: a planned stage's start passes the order's `work` when present. A discussion
-  start is left as it is unless the planner's order gives `work` there too (to be checked).
-- `pubspec.yaml`: the `porelo_planning` pin raised to the planner commit whose `PlanningTaskOrder` carries `work`.
-- `doc/Backend-API.md`, the row "A task the planner orders": `work` named beside `given`. `CHANGELOG.md`: Added.
-- Tests, unit level, the first red: `test/client` against `MockDaemon`: `work` is sent as given where `Start`
-  declares it, absent where not given, and a start with it is refused on a machine whose `Start` lacks it (harm: a
-  stage runs without knowing its issue, or an older machine is sent a parameter it rejects).
-  `test/app/start_ordered_test.dart`: `startOrdered` passes it through. `test/ui/window_task_starts_test.dart`: an
-  order with `work` reaches `startOrdered` with it, one without does not.
+- `lib/src/ui/planning_embedding.dart`: every task the planner orders that is not a discussion (a planned stage, and
+  a main or builder task that works an issue) passes the order's `work` when present. A discussion's order never
+  carries it; the planner refuses one that does.
+- `pubspec.yaml`: the `porelo_planning` pin raised to the published planner commit whose `PlanningTaskOrder` carries
+  `work` (`PlanningWork`); the same screen also shows a carried item's old id beside its tracker reference and offers
+  the forge token where the board was refused for want of it.
+- `doc/Backend-API.md`, the row "A task the planner orders": `work` named. `CHANGELOG.md`: Changed.
 
-## To be checked
+## Acceptance
 
-- Which `porelo_planning` commit carries `work` in `PlanningTaskOrder`, and its Dart shape, for the pin.
-- Whether a discussion's order can carry `work` as well.
-- Which porelo release declares `Start(work)`, for the live-daemon test's list of declared methods.
+- Unit level, each seen red before its code: `test/app/start_ordered_test.dart` against `MockDaemon`: `work` reaches
+  Start as `{issue, phase}` where Start declares it, and a start with it is refused before Start is asked where Start
+  lacks it (harm: a stage runs without knowing its issue). `test/ui/window_task_starts_test.dart`: an order with
+  `work` reaches `startOrdered` with it, and one without sends none (harm: as above, or a Markdown project's start
+  changes).

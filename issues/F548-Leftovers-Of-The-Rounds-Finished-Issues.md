@@ -36,6 +36,10 @@ of its own, and is checked against the code again before it is fixed.
     after `_start`, and the process it started is only taken off `_children`, never stopped;
   - nothing calls `WindowsHostUnlocker.rekey`, and `cancel` waits only on pending unlocks, so a rekey would be neither
     serialized with them nor waited for.
+- **A start refused for a Start input the machine lacks reads as code.** `FeatureNotSupported` for `Start(given)`,
+  `Start(readOnly)`, `Start(reads)` and `Start(work)` reaches the planning board and the start's operation through
+  `startRefusalSaid` in `lib/src/app/start_refusals.dart`, whose fallback says `this backend has no Start(work)`:
+  it says neither that the machine's Porelo is older than the window nor that a newer one is needed.
 - **A secrets file cannot be chosen from the window.** `rememberSecretsFile` in `lib/src/app/settings.dart` has no
   caller in `lib`, so the token step's secrets-file source is read only where the settings already name one.
 - **A doc comment above the wrong constant.** In `packages/porelo_host/lib/src/host_run.dart` the comment for

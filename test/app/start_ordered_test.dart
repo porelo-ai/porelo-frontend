@@ -149,6 +149,63 @@ void main() {
     expect(asked, isEmpty);
   });
 
+  // Harm: a stage of a project kept in a tracker starts without knowing which issue and phase it works on.
+  test('a planned stage of a tracked project is started with its issue and phase as work', () async {
+    daemon.description =
+        'method Start(task: ?string, readOnly: ?bool, result: ?string, given: ?[string]string, '
+        'work: ?(issue: string, phase: string)) -> (exitCode: ?int)';
+    final asked = <Map<String, dynamic>>[];
+    daemon.stream('Start', (parameters) async* {
+      asked.add(parameters);
+      yield <String, dynamic>{'container': 'porelo-demo-porelo-pi', 'exitCode': 0, 'action': 'CREATE'};
+    });
+    final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+    await backend.open();
+
+    await backend.startOrdered(
+      project: 'demo',
+      repository: 'porelo',
+      agent: 'claude',
+      model: 'opus',
+      mode: Mode.agent,
+      prompt: 'Build porelo-frontend#617.',
+      result: 'result.json',
+      readOnly: true,
+      work: (issue: 'porelo-ai/porelo-frontend#617', phase: 'Implementing'),
+    );
+
+    expect(asked.single['work'], {'issue': 'porelo-ai/porelo-frontend#617', 'phase': 'Implementing'});
+  });
+
+  // Harm: a machine whose Start cannot take a stage's issue starts it anyway, working on nothing it can name.
+  test('a machine whose Start takes no work is never asked to start a stage that has one', () async {
+    daemon.description =
+        'method Start(task: ?string, readOnly: ?bool, result: ?string, given: ?[string]string) -> (exitCode: ?int)';
+    final asked = <Map<String, dynamic>>[];
+    daemon.stream('Start', (parameters) async* {
+      asked.add(parameters);
+      yield <String, dynamic>{'container': 'porelo-demo-porelo', 'exitCode': 0, 'action': 'CREATE'};
+    });
+    final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'), asksToCertify: false);
+    await backend.open();
+
+    await expectLater(
+      backend.startOrdered(
+        project: 'demo',
+        repository: 'porelo',
+        agent: 'claude',
+        model: 'opus',
+        mode: Mode.agent,
+        prompt: 'Build porelo-frontend#617.',
+        result: 'result.json',
+        readOnly: true,
+        work: (issue: 'porelo-ai/porelo-frontend#617', phase: 'Implementing'),
+      ),
+      throwsA(isA<FeatureNotSupported>().having((error) => '$error', 'words', contains('work'))),
+    );
+    expect(asked, isEmpty);
+  });
+
   // Harm: a refused start reads as a start, or loses the words the machine gave for it.
   test('a refusal comes back with what the machine printed before it', () async {
     daemon.stream('Start', (_) async* {

@@ -279,6 +279,11 @@ class WindowTaskStarts {
           readOnly: result != null,
           // The issues as the planner holds them now, each a name and a text; Start mounts them read only.
           given: {for (final file in task.given) file.name: file.text},
+          // The tracker issue and phase a task of a project kept in a tracker works; absent for one kept in Markdown.
+          work: switch (task.work) {
+            final work? => (issue: work.issue, phase: work.phase),
+            null => null,
+          },
         );
       default:
         final words = 'The planner ordered a ${task.role} task this window cannot start.';

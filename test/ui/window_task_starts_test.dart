@@ -102,6 +102,25 @@ void main() {
       expect(settings.plannedOffer('laptop', started.container)!.result, 'analysis.json');
     });
 
+    // Harm: a task of a project kept in a tracker starts without knowing which issue and phase it works on.
+    test('a task that works a tracker issue starts with the issue and phase its order names', () async {
+      final order = PlanningTaskOrder.from({
+        'offer': '00000000-0000-4000-8000-0000000006a1',
+        'repository': 'porelo-frontend',
+        'issues': ['porelo-frontend#617'],
+        'role': 'MAIN',
+        'agent': 'claude',
+        'model': 'opus',
+        'mode': 'AGENT',
+        'prompt': 'Build porelo-frontend#617.',
+        'work': {'issue': 'porelo-ai/porelo-frontend#617', 'phase': 'Implementing'},
+      });
+
+      await starts()(MockPlanningSource('planner'), 'demo', 'porelo-project#370', order);
+
+      expect(machine.started.single['work'], (issue: 'porelo-ai/porelo-frontend#617', phase: 'Implementing'));
+    });
+
     // Harm: the offer of a started task is lost, so its end cannot be reported against it.
     test('an order\'s offer is kept beside the machine and the container it started in', () async {
       final order = (await plannedOrders()).first;
@@ -547,6 +566,7 @@ class _Starting extends Fake implements FleetBackend {
     String? result,
     bool readOnly = false,
     Map<String, String> given = const {},
+    TrackedWork? work,
   }) async {
     says.forEach(onEvent ?? (_) {});
     if (fault case final fault?) throw fault;
@@ -561,6 +581,7 @@ class _Starting extends Fake implements FleetBackend {
       'result': ?result,
       if (readOnly) 'readOnly': true,
       if (given.isNotEmpty) 'given': given,
+      'work': ?work,
     });
     final container = 'porelo-$project-$repository';
     final answer = this.answer ?? StartProgress(container: container, exitCode: 0, action: StartAction.create);

@@ -297,6 +297,7 @@ abstract class FleetBackend {
   /// A planned stage is started [readOnly], its one repository read only with no gate and nothing pushed, with
   /// [result] the file it hands back when it ends and [given] the files it reads, name to text, as its planner holds
   /// them now; a machine that cannot start one so refuses with `FeatureNotSupported`, never starting it writable.
+  /// [work] is the issue and phase of a project kept in a tracker; a machine whose Start takes none refuses the same way.
   Future<StartProgress> startOrdered({
     required String project,
     required String repository,
@@ -310,6 +311,7 @@ abstract class FleetBackend {
     String? result,
     bool readOnly = false,
     Map<String, String> given = const {},
+    TrackedWork? work,
   });
 
   /// Starts a discussion a planner ordered: every repository of [project] read only, nothing writable and nothing
@@ -906,6 +908,7 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     String? result,
     bool readOnly = false,
     Map<String, String> given = const {},
+    TrackedWork? work,
   }) => _startRunning(
     project: project,
     repository: repository,
@@ -923,6 +926,7 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
       result: result,
       readOnly: readOnly ? true : null,
       given: given.isEmpty ? null : given,
+      work: work,
       now: true,
       certify: asksToCertify,
     ),

@@ -66,13 +66,11 @@ task ever holds it.
   machine whose vault this window does not hand tokens to this way, for an origin `planningForgeHost` refuses, and on
   any refusal it answers `false` and says why in the window's log, naming only the host, never the address as received
   or the token. One hand-on runs at a time: the same ask while one runs gets that one's answer and opens nothing more,
-  any other answers `false` at once. The screen is to call it only from the person's press on its offer; at this pin
-  nothing calls it yet.
+  any other answers `false` at once. The screen calls it only from the person's press on its offer.
 - `lib/src/ui/shell.dart`: the shell gives its `ShellPlanningHost` that hand-on, as `prepareForgeForPlanning` with its
   own context, `ForgeConnection` and terminal, refusing once the shell is no longer mounted.
-- `pubspec.yaml`, `pubspec.lock`: the `porelo_planning` pin moves to the planner commit with the contract; it is built
-  against that commit's worktree locally and goes out in the same gathered push as the planner commit, after it.
-  Nothing in the screen calls the hook yet; a later raise to the commit whose screen offers it is a pin change.
+- `pubspec.yaml`, `pubspec.lock`: the `porelo_planning` pin moves to the published planner commit with the contract,
+  and on to the one whose screen offers the hand-on where the board was refused for want of the token.
 - `lib/src/ui/planning_embedding.dart`: the comment on `given` no longer says the issues are files of a repository;
   `doc/decisions.md` (*The planner is given the one Porelo the window vouches for*) says the lent token now also
   writes the planning to GitHub, with its exposure; `CHANGELOG.md`.
@@ -91,7 +89,3 @@ task ever holds it.
 - With the token removed from this computer's vault, the planning place offers to hand it on, and after it the board
   loads.
 - No token appears in the window's log, the planner's log, a command line or a task's environment.
-
-## To be checked
-
-- Which planner commit has the screen offer the hand-on, for the second pin.
