@@ -185,20 +185,16 @@ Feature: Work on a repository without writing a project first
         Then it says {'Default'}
         And the projects page lists {'checkout'} on {'this machine'}
 
-    # A machine forgotten while its question is open is asked nothing more, and nothing starts on it.
-    Scenario: a first task's question answered after its machine was forgotten writes nothing and starts nothing
-        Given the first task on {'tools'} in default asks before it starts
-        When I watch another machine called {'elsewhere'}
-        And I go to the work
+    # A repository added by its address has no checkout here, so there is no first-start question: its first task
+    # starts as any other, the machine's own allowance of its settings asked by the start.
+    Scenario: a first task on a repository of default with no checkout here starts
+        When I go to the work
         And I select the project {'default'}
         And I press the start tile
         And I start work in default on {'git@example.org:acme/tools.git'}
         And I call it {'tools-work'}
         And I start it
-        And the machine the start was pressed on is forgotten
-        And I agree to the first task
-        Then no first task was agreed to on any machine
-        And nothing was started
+        Then one start was sent
 
     # Said once: the dialog said "Asking the machine" twice while it read what default holds.
     Scenario: while the machine is asked, default says once what it is reading

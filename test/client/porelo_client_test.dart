@@ -151,37 +151,6 @@ void main() {
       expect(allowed.allowed, isFalse, reason: 'CHANGED allows nothing');
     });
 
-    // Harm: settings written for another repository, or a checkout's question asked where there is none.
-    test("a repository's first start in default is asked and confirmed by its name", () async {
-      final asked = <Map<String, dynamic>>[];
-      daemon
-        ..method('FirstStart', (parameters) {
-          asked.add(parameters);
-          return <String, dynamic>{
-            'outcome': 'ASK_NEW',
-            'file': 'egress: {}',
-            'fileName': '.porelo.yml (this machine)',
-            'project': 'default',
-            'hash': 'h1',
-          };
-        })
-        ..method('ConfirmFirstStart', (parameters) {
-          asked.add(parameters);
-          return <String, dynamic>{'project': 'default'};
-        });
-      final client = await connect();
-
-      final first = await client.firstStartOf('shop');
-      final project = await client.confirmFirstStartOf('shop', first.hash);
-
-      expect(asked, <Map<String, dynamic>>[
-        <String, dynamic>{'repository': 'shop'},
-        <String, dynamic>{'repository': 'shop', 'hash': 'h1'},
-      ]);
-      expect(first.fileName, '.porelo.yml (this machine)');
-      expect(project, 'default');
-    });
-
     test('reads the task list over the socket', () async {
       daemon.method(
         'List',

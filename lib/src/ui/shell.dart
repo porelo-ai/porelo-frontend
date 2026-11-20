@@ -139,7 +139,6 @@ import 'filtered_list_section.dart';
 import 'vault_actions.dart';
 import 'vault_view.dart';
 import 'start_agents_view.dart';
-import 'first_start_view.dart' show askFirstStart;
 import 'start_work_view.dart';
 import 'sign_in_panel.dart';
 import '../app/agent_sign_in.dart';
@@ -3392,42 +3391,14 @@ class _ShellState extends State<Shell> {
   /// Runs it, on the machine its form was opened on, and hands the stream to the session record rather than to
   /// this view.
   void _beginTheRun(Machine machine) {
-    // Taken at the press: the form closes with it, and a question before the start is answered after.
+    // Taken at the press: the form closes with it.
     final pressed = widget.starting.press();
     if (pressed == null) return;
-    unawaited(_beginAfterTheProposal(machine, pressed));
-  }
-
-  /// Before the first task on a repository in default with no checkout here, the machine's proposal is put first.
-  Future<void> _beginAfterTheProposal(Machine machine, StartPress pressed) async {
-    final repository = pressed.repository;
-    if (pressed.project == defaultProject && repository != null && !pressed.fromACheckout) {
-      final AfterTheProposal after;
-      try {
-        after = await askBeforeTheFirstTask(
-          pressed.on,
-          repository,
-          (first) => mounted && widget.machines.all.contains(machine)
-              ? askFirstStart(context, first: first, repository: repository)
-              : Future<bool?>.value(),
-          stillWanted: () => mounted && widget.machines.all.contains(machine),
-        );
-      } on VarlinkException catch (refusal) {
-        if (!mounted || !widget.machines.all.contains(machine)) return;
-        _say(
-          '${machine.name} could not say what a first task on $repository is to do, so nothing '
-          'started: ${refusal.parameters['message'] ?? refusal.parameters['detail'] ?? refusal.simpleName}',
-          on: machine,
-        );
-        return;
-      }
-      if (after == AfterTheProposal.startNothing || !mounted) return;
-    }
     _run(machine, pressed);
   }
 
   void _run(Machine machine, StartPress pressed) {
-    // The machine may have been forgotten while the question before the start was out: nothing is sent then.
+    // The machine may have been forgotten since the press: nothing is sent then.
     if (!widget.machines.all.contains(machine)) return;
     final fleet = widget.machines.watching(machine);
     if (fleet == null) return _notWatchedYet(machine);

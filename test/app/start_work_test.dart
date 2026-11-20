@@ -124,53 +124,6 @@ void main() {
     expect(starting.ready, isTrue, reason: 'the machine answered READY after the allowance');
   });
 
-  group('the proposal before the first task on a repository in default', () {
-    const asks = FirstStart(
-      outcome: FirstStart.askNew,
-      hosts: <String>['repo.example.org'],
-      file: 'egress:\n  domains: [repo.example.org]\n',
-      fileName: '.porelo.yml (this machine)',
-      project: defaultProject,
-      hash: 'h1',
-    );
-
-    // Harm: settings written and allowed with nobody having said yes to the text shown.
-    test('a yes is sent for exactly the text shown, and the start goes on', () async {
-      final machine = FakeBackend(const <Task>[])..theFirstStartOfSays['shop'] = asks;
-      FirstStart? shown;
-      final after = await askBeforeTheFirstTask(machine, 'shop', (first) async {
-        shown = first;
-        return true;
-      });
-      expect(shown?.hash, 'h1');
-      expect(machine.firstStartsOfConfirmed, <(String, String)>[('shop', 'h1')]);
-      expect(after, AfterTheProposal.start);
-    });
-
-    // Harm: work started though the person closed the question, or settings written on a no.
-    test('a no writes nothing and starts; closing it writes nothing and starts nothing', () async {
-      final machine = FakeBackend(const <Task>[])..theFirstStartOfSays['shop'] = asks;
-      expect(await askBeforeTheFirstTask(machine, 'shop', (_) async => false), AfterTheProposal.start);
-      expect(await askBeforeTheFirstTask(machine, 'shop', (_) async => null), AfterTheProposal.startNothing);
-      expect(machine.firstStartsOfConfirmed, isEmpty);
-    });
-
-    test('a repository with its settings, and a machine without the question, start without asking', () async {
-      final machine = FakeBackend(const <Task>[])
-        ..theFirstStartOfSays['known'] = const FirstStart(outcome: FirstStart.known, project: defaultProject);
-      var asked = 0;
-      Future<bool?> ask(FirstStart _) async {
-        asked++;
-        return true;
-      }
-
-      expect(await askBeforeTheFirstTask(machine, 'known', ask), AfterTheProposal.start);
-      expect(await askBeforeTheFirstTask(machine, 'older', ask), AfterTheProposal.start);
-      expect(asked, 0);
-      expect(machine.firstStartsOfAsked, <String>['known', 'older']);
-    });
-  });
-
   // Harm: work started on a porelo.yml nobody who may sign it signed.
   test('a start refused for an unsigned porelo.yml is offered in no mode', () async {
     final machine = FakeBackend(const <Task>[])

@@ -82,8 +82,8 @@ gap here is a backend method that has to be added, not a workaround waiting to b
 - **A repository's own settings in Default** (decided in Porelo, being built). `CanStart` answers
   `SETTINGS_NOT_ALLOWED` with `settingsToAllow` and `settingsHash`, or `SETTINGS_UNSIGNED` with `file` and
   `commit`; `AllowSettings(repository, hash)` answers `ALLOWED` or `CHANGED`; `FirstStart` names the file it
-  writes in `fileName`, and `FirstStart` and `ConfirmFirstStart` take a repository in Default by its name where no
-  checkout is here. The interface reads them already, and against a machine without them starts as before;
+  writes in `fileName`. A repository added by its address has no first start: `FirstStart` reads a checkout here.
+  The interface reads them already, and against a machine without them starts as before;
   `ImageSettings` and `Egress` list what a repository removed in `removed` (`key`, `by`), read already too.
 
 - **Whether an agent is waiting on a person for its own question.** `WAITING` covers clearance

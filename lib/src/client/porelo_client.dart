@@ -1286,18 +1286,6 @@ class PoreloClient {
     return reply['project'] as String? ?? '';
   }
 
-  /// What a first start of [repository], a repository in `default` with no checkout here, is to do: read from the
-  /// gate's mirror, `KNOWN` where it has its settings already. Changes nothing.
-  Future<FirstStart> firstStartOf(String repository) async =>
-      FirstStart.from(await _call('FirstStart', {'repository': repository}));
-
-  /// A person's yes to the text [hash] names for [repository]: writes this machine's own settings for it, never into
-  /// the repository, and allows them. Answers the project a start then names.
-  Future<String> confirmFirstStartOf(String repository, String hash) async {
-    final reply = await _call('ConfirmFirstStart', {'repository': repository, 'hash': hash});
-    return reply['project'] as String? ?? '';
-  }
-
   // --------------------------------------------------------------------- the gate
 
   /// What is waiting at a project's gate.

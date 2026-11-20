@@ -161,8 +161,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f629"></a>[F629](F629-A-First-Start-Of-A-Repository-With-No-Checkout-Here-Starts.md) | S | - | New work on a repository of default with no checkout on the machine starts again: the window asks FirstStart only for a repository with a checkout here, and a live test holds the call against the real interface |
-| <a id="f630"></a>[F630](F630-A-Start-Refused-Before-It-Began-Stays-In-Sight.md) | S | - | A start the machine refuses before its task exists, such as at the first-start question, is said in full in the open form and listed under Needs you, never only in a status line cut short after the form closed |
 | <a id="f523"></a>[F523](F523-Work-Moving-On-By-Itself-Played-Through-On-The-VM.md) | M | - | Story ST314, the planner moves work on from state to state by itself, played once on the test VM in the window as a person would, for ST347's gathered story run: DONE work set to Reading with its reader started unasked, an OK reading set to Review, a blocking one stopped under Needs you and reworked once the person chooses Rework, a failed task kept with a warning. |
 
 ## Review
@@ -172,6 +170,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f443"></a>[F443](F443-Forge-Token-Handed-Over-When-The-Machine-Asks.md) | S | - | The person's forge token on a host made by the host's own command, run in a terminal there from the window when the host asks; never through this program. |
 | <a id="f473"></a>[F473](F473-The-Window-Calls-The-Host-Programs-It-Has-Now.md) | S | - | Every call the window makes on a host names a program the host has now: root's org status, org refresh and person purge by /usr/sbin/porelo-host, and a project's central state from the person's own daemon there, so no machine page fails on a removed program. |
 | <a id="f615"></a>[F615](F615-Planning-In-GitHub-Issues-Shown-And-Written-With-The-Persons-Token.md) | S | - | The planning place shows a project planned in GitHub Issues through the planner's screen, raised to the screen that refuses a board it has no access for; the window answers that refusal by handing the person's forge token from the system secret store into this computer's Porelo vault, where the planner takes it |
+| <a id="f629"></a>[F629](F629-A-First-Start-Of-A-Repository-With-No-Checkout-Here-Starts.md) | S | - | New work on a repository of default with no checkout on the machine starts again: the window no longer asks FirstStart by a repository's name, and the live test holds every parameter the client sends against the served contract |
 | <a id="f616"></a>[F616](F616-A-Forge-Token-Asked-For-With-The-Rights-Planning-Needs.md) | XS | - | Where the window asks for the person's forge token, it names the rights planning in GitHub Issues needs beside Contents, so the one token is made with all of them |
 | <a id="f557"></a>[F557](F557-A-Snapshot-Window-Sets-Up-WSL-With-Snapshots.md) | XS | - | Story ST50, a machine and a host reached from Windows: a snapshot window sets Porelo up in a WSL distribution from Porelo's snapshots repository, and a release window from its releases repository. |
 | <a id="f509"></a>[F509](F509-A-Hosts-Browser-Address-Reaches-Only-Its-Own-Forward.md) | S | - | The forge and homeserver addresses the window gives a browser for a host's card reach only the card's own forward, on IPv6 loopback as on IPv4, never another local program that listens there. |
@@ -560,6 +559,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f630"></a>F630 | A Start Refused Before It Began Stays In Sight | Covered by [F629](#f629): with no first-start question by a repository's name, nothing is refused before a start's operation stands in front with its whole output. |
 | <a id="f470"></a>F470 | A Story Moved Against Its Issues Is Warned And Confirmed | Moved to the planner's package: the board's move, its warning and *confirm*, and a story's given state on its card are porelo-planner's (PL38, PL84); the planner already keeps a given state and takes `confirm` (2026-11-12). |
 | <a id="f450"></a>F450 | The Window's Tests Follow The Test Pyramid | Split by the operator (2026-11-12) into five issues of their own: [F495](#f495), [F496](#f496), [F497](#f497), [F498](#f498) and [F499](#f499), which keeps its measurement. |
 | <a id="f284"></a>F284 | The Subagent Number Chosen When Starting | The number of subagents now follows the number of Agent issues in the story, so it is not chosen when starting (operator, 2026-11-12; ST52 rejected). |

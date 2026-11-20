@@ -90,6 +90,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- *New work* in default on a repository added by its address starts again: the window no longer asks this machine for a first-start proposal by the repository's name, which Porelo never takes, and which refused every such start; a repository's own settings are allowed by the start as for any other.
 - *Stop work* on a story's row in *Needs you* works right after the window starts; it no longer waits, disabled, until *Planning* was opened once.
 - Where a machine refuses to read a project's pull requests with an error of its own, *Needs you* says the machine refused, with the reason it gave, and the state *Refused*; only a watch that ended without a word or lost its connection still says the machine stopped answering, as *Not answered*.
 - A planning row under *Needs you* says why it needs you in a sentence only, such as *saving its findings was refused* or *its work was stopped*, no longer the planner's code (*SAVE_REFUSED*, *STOPPED*) as a line of its own, and a finding's severity reads *Blocking* or *Note*; the window's log still names the code.

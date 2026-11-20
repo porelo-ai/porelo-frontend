@@ -5,12 +5,12 @@
   "$schema": "issue-1.json",
   "id": "F629",
   "title": "A First Start Of A Repository With No Checkout Here Starts",
-  "state": "Implementing",
+  "state": "Review",
   "size": "S",
   "priority": "High",
   "rank": 1,
   "blockedBy": [],
-  "covers": "New work on a repository of default with no checkout on the machine starts again: the window asks FirstStart only for a repository with a checkout here, and a live test holds the call against the real interface"
+  "covers": "New work on a repository of default with no checkout on the machine starts again: the window no longer asks FirstStart by a repository's name, and the live test holds every parameter the client sends against the served contract"
 }
 ```
 
@@ -47,14 +47,19 @@ checkout here still gets the question. Today every start without a checkout fail
   it. A repository added by address (`DefaultRepository.checkout` empty, source `REMOTE`) has no first start; its own
   settings go through `CanStart` (`SETTINGS_NOT_ALLOWED` with `settingsToAllow`, `settingsHash`), `AllowSettings` and
   then `Start`, which the window has already.
-- `lib/src/app/start_work.dart`, `askBeforeTheFirstTask`: asked only for a repository with a checkout here, and then
-  with `firstStart(checkout)` and `confirmFirstStart(checkout, hash)`; for one without, it asks nothing and the start
-  goes on. `firstStartOf` and `confirmFirstStartOf` leave `PoreloClient`, `FleetBackend`, `MockDaemon` and the
-  stand-ins.
-- `test/app/start_work_test.dart`: a repository without a checkout starts with no `FirstStart` sent; one with a checkout
-  sends its path; seen red first. `test/client/live_daemon_test.dart`: `FirstStart` with a checkout against the real
-  `porelod`, so the next live run shows a drift.
-- `doc/Contract-Gaps.md`: the entry no longer says `FirstStart` takes a repository by its name.
+- `lib/src/ui/shell.dart`: a start in `default` from the Default list goes to the machine at once; the question before
+  it (`askBeforeTheFirstTask`, `AfterTheProposal`) and the client's `firstStartOf` and `confirmFirstStartOf` are gone
+  from `PoreloClient`, `FleetBackend`, `FirstStartDialog` and the stand-ins. A start from a checkout here keeps its
+  first-start question with the checkout's path, as before.
+- `test/features/work_without_a_project.feature`: *a first task on a repository of default with no checkout here
+  starts* presses *Start it* and expects one start sent; seen red with the stand-in refusing as Porelo does
+  (`FirstStartRefused`, `NOT_A_CHECKOUT`). The scenario of a forgotten machine's first-start question went with the
+  question.
+- `test/client/live_daemon_test.dart`: *declares every parameter this client sends with a method* reads each
+  `_call` with a map written in place and holds every key against the method's parameters in the served contract.
+  Against porelod 0.5.1 snapshot 556 it was red with the old client (`repository is sent with FirstStart and not
+  declared as its parameter`) and is green now, with no other parameter undeclared.
+- `doc/Contract-Gaps.md`: a repository added by its address has no first start. `CHANGELOG.md`: Fixed.
 
 ## Acceptance
 

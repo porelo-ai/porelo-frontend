@@ -44,7 +44,7 @@ void main() {
       final contract = await client.contract();
 
       // Read from the client itself rather than listed here: a list beside it named 14 of 48.
-      final called = RegExp(r"_call(?:More)?\('([A-Za-z]+)'")
+      final called = RegExp(r"_call(?:More)?\(\s*'([A-Za-z0-9]+)'")
           .allMatches(File('lib/src/client/porelo_client.dart').readAsStringSync())
           .map((match) => match.group(1)!)
           .toSet();
@@ -56,6 +56,30 @@ void main() {
           contains('method $method'),
           reason: '$method is called by this client and is not in the served contract',
         );
+      }
+    });
+
+    test('declares every parameter this client sends with a method', () async {
+      // A parameter the far side never declared is refused there as something else, and the call fails in front of
+      // somebody; read from the client's own calls, so a call added later is held too.
+      final contract = await client.contract();
+      final source = File('lib/src/client/porelo_client.dart').readAsStringSync();
+      final sent = parametersSent(source);
+      // Every call names its method in place, so none is passed over unread: only the two definitions name none.
+      expect(RegExp(r"_call(?:More)?\((?!\s*')").allMatches(source), hasLength(2), reason: 'a call was not read');
+      expect(sent['FirstStart'], contains('checkout'), reason: 'the client source was not read');
+      expect(sent['HandIn'], contains('sha256'), reason: 'a key with a digit was not read');
+      expect(sent['Prepare'], contains('project'), reason: 'a call wrapped after its parenthesis was not read');
+      for (final MapEntry(key: method, value: names) in sent.entries) {
+        final text = declarationIn(contract, 'method $method(');
+        expect(text, isNotNull, reason: '$method is called by this client and is not in the served contract');
+        for (final name in names) {
+          expect(
+            declares(parametersOf(text!), name),
+            isTrue,
+            reason: '$name is sent with $method and not declared as its parameter',
+          );
+        }
       }
     });
 

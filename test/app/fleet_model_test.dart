@@ -300,13 +300,6 @@ class _Wedged implements FleetBackend {
       throw const FeatureNotSupported('ConfirmFirstStart');
 
   @override
-  Future<FirstStart> firstStartOf(String repository) async => throw const FeatureNotSupported('FirstStart');
-
-  @override
-  Future<String> confirmFirstStartOf(String repository, String hash) async =>
-      throw const FeatureNotSupported('ConfirmFirstStart');
-
-  @override
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
       const Stream<List<String>>.empty();
   @override
@@ -773,13 +766,6 @@ class _Machine implements FleetBackend {
 
   @override
   Future<String> confirmFirstStart(String checkout, String hash) async =>
-      throw const FeatureNotSupported('ConfirmFirstStart');
-
-  @override
-  Future<FirstStart> firstStartOf(String repository) async => throw const FeatureNotSupported('FirstStart');
-
-  @override
-  Future<String> confirmFirstStartOf(String repository, String hash) async =>
       throw const FeatureNotSupported('ConfirmFirstStart');
 
   @override

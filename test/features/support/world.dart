@@ -1716,29 +1716,6 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     return theFirstStartSays.project;
   }
 
-  /// What a first start of a repository in default answers, by its name; absent answers as a Porelo older than
-  /// the parameter.
-  final Map<String, FirstStart> theFirstStartOfSays = <String, FirstStart>{};
-
-  /// Every repository asked about, and every yes to one: the repository and the hash.
-  final List<String> firstStartsOfAsked = <String>[];
-  final List<(String, String)> firstStartsOfConfirmed = <(String, String)>[];
-
-  @override
-  Future<FirstStart> firstStartOf(String repository) async {
-    firstStartsOfAsked.add(repository);
-    return theFirstStartOfSays[repository] ??
-        (throw const VarlinkException('org.varlink.service.InvalidParameter', <String, dynamic>{
-          'parameter': 'repository',
-        }));
-  }
-
-  @override
-  Future<String> confirmFirstStartOf(String repository, String hash) async {
-    firstStartsOfConfirmed.add((repository, hash));
-    return defaultProject;
-  }
-
   /// What every task's image was built with. Set by the scenario.
   ImageSettings theImageSays = const ImageSettings(known: false);
 

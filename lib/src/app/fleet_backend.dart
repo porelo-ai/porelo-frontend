@@ -672,13 +672,6 @@ abstract class FleetBackend {
 
   /// A person's yes to the text [hash] names; answers the project a start then names.
   Future<String> confirmFirstStart(String checkout, String hash);
-
-  /// What a first start of [repository] in `default` is to do, with no checkout here; changes nothing.
-  /// [FeatureNotSupported] from a Porelo without `FirstStart`.
-  Future<FirstStart> firstStartOf(String repository);
-
-  /// A person's yes to the text [hash] names for [repository] in `default`; answers the project a start then names.
-  Future<String> confirmFirstStartOf(String repository, String hash);
 }
 
 /// A machine that can carry a credential to another, porelo to porelo: the value is sealed to the receiving host's
@@ -1455,12 +1448,6 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
 
   @override
   Future<String> confirmFirstStart(String checkout, String hash) => _opened().confirmFirstStart(checkout, hash);
-
-  @override
-  Future<FirstStart> firstStartOf(String repository) => _opened().firstStartOf(repository);
-
-  @override
-  Future<String> confirmFirstStartOf(String repository, String hash) => _opened().confirmFirstStartOf(repository, hash);
 
   /// Which of `last` and `formatted` this machine's `Tail` takes, read off its contract once.
   Future<Set<String>> _whatTailTakes() async {

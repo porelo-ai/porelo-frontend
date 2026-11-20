@@ -902,7 +902,6 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
       named: name.trim(),
       mode: mode!,
       repository: repository,
-      fromACheckout: checkout != null,
       agent: agentToRun,
       signsIn: signIn.served == true,
       send: _labelled(_startOn(on)),
@@ -1235,7 +1234,6 @@ class StartPress {
     required this.named,
     required this.mode,
     required this.repository,
-    required this.fromACheckout,
     required this.send,
     this.agent,
     this.signsIn = false,
@@ -1264,9 +1262,6 @@ class StartPress {
 
   /// The repository it starts in, or null.
   final String? repository;
-
-  /// Whether it starts from a checkout on this computer.
-  final bool fromACheckout;
 
   /// Sends the `Start`, to [on].
   final Stream<StartEvent> Function() send;
@@ -1333,42 +1328,4 @@ String? _upstreamKey(String address) {
   if (scp != null) return 'remote ${scp.group(1)!.toLowerCase()}/${path(scp.group(2)!)}';
   final local = trimmed.startsWith('file://') ? trimmed.substring('file://'.length) : trimmed;
   return 'local ${local.startsWith('/') ? '/' : ''}${path(local)}';
-}
-
-/// What becomes of a start after the machine's first-start question for its repository.
-enum AfterTheProposal {
-  /// The start goes on: with the settings a yes wrote, or with Porelo's own.
-  start,
-
-  /// The person closed the question: nothing starts, and nothing was sent.
-  startNothing,
-}
-
-/// Before the first task on [repository] in `default`, with no checkout here: the machine's proposal, put to the
-/// person by [ask] (true for a yes, false for a no, null for closing it), and a yes sent for exactly the text shown.
-///
-/// [stillWanted] is asked after each wait: once it says no (the machine forgotten meanwhile), nothing more is sent.
-Future<AfterTheProposal> askBeforeTheFirstTask(
-  FleetBackend machine,
-  String repository,
-  Future<bool?> Function(FirstStart first) ask, {
-  bool Function()? stillWanted,
-}) async {
-  final FirstStart first;
-  try {
-    first = await machine.firstStartOf(repository);
-  } on FeatureNotSupported {
-    return AfterTheProposal.start;
-  } on VarlinkException catch (refusal) {
-    // A Porelo that takes no repository here starts as it did before it could propose.
-    if (refusal.name == 'org.varlink.service.InvalidParameter') return AfterTheProposal.start;
-    rethrow;
-  }
-  // Only a question with a text a yes could name is put; anything else starts as the machine would without one.
-  if (!first.asks || first.hash.isEmpty || first.refusal.isNotEmpty) return AfterTheProposal.start;
-  if (!(stillWanted?.call() ?? true)) return AfterTheProposal.startNothing;
-  final said = await ask(first);
-  if (said == null || !(stillWanted?.call() ?? true)) return AfterTheProposal.startNothing;
-  if (said) await machine.confirmFirstStartOf(repository, first.hash);
-  return AfterTheProposal.start;
 }
