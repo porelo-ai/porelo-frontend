@@ -161,7 +161,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f632"></a>[F632](F632-The-Maven-Cache-Keeps-What-The-Build-Downloads.md) | XS | - | The Build's Maven cache is keyed by pom.xml alone and never saved over an exact hit, so the parent's and plugins' artifacts that move without this pom are fetched from Maven Central on every Build, which a 429 from Central turns red |
 | <a id="f523"></a>[F523](F523-Work-Moving-On-By-Itself-Played-Through-On-The-VM.md) | M | - | Story ST314, the planner moves work on from state to state by itself, played once on the test VM in the window as a person would, for ST347's gathered story run: DONE work set to Reading with its reader started unasked, an OK reading set to Review, a blocking one stopped under Needs you and reworked once the person chooses Rework, a failed task kept with a warning. |
 
 ## Review
@@ -174,6 +173,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f629"></a>[F629](F629-A-First-Start-Of-A-Repository-With-No-Checkout-Here-Starts.md) | S | - | New work on a repository of default with no checkout on the machine starts again: the window no longer asks FirstStart by a repository's name, and the live test holds every parameter the client sends against the served contract |
 | <a id="f631"></a>[F631](F631-A-Raised-Git-Pin-Resolves-On-The-First-Pub-Get.md) | S | - | The first flutter pub get after a git dependency's pin moved, on a machine whose pub cache already mirrors that repository, drops a transitive package and fails; reproduced on the build box, cause inside pub still to be read |
 | <a id="f616"></a>[F616](F616-A-Forge-Token-Asked-For-With-The-Rights-Planning-Needs.md) | XS | - | Where the window asks for the person's forge token, it names the rights planning in GitHub Issues needs beside Contents, so the one token is made with all of them |
+| <a id="f632"></a>[F632](F632-The-Maven-Cache-Keeps-What-The-Build-Downloads.md) | XS | - | The Build's Maven cache is keyed by pom.xml alone and never saved over an exact hit, so the parent's and plugins' artifacts that move without this pom are fetched from Maven Central on every Build, which a 429 from Central turns red |
 | <a id="f557"></a>[F557](F557-A-Snapshot-Window-Sets-Up-WSL-With-Snapshots.md) | XS | - | Story ST50, a machine and a host reached from Windows: a snapshot window sets Porelo up in a WSL distribution from Porelo's snapshots repository, and a release window from its releases repository. |
 | <a id="f509"></a>[F509](F509-A-Hosts-Browser-Address-Reaches-Only-Its-Own-Forward.md) | S | - | The forge and homeserver addresses the window gives a browser for a host's card reach only the card's own forward, on IPv6 loopback as on IPv4, never another local program that listens there. |
 | <a id="f508"></a>[F508](F508-A-Tasks-Clipboard-Write-Asks-First.md) | M | - | A task's write to this computer's clipboard through OSC 52 is never silent: every write is held and asked about in its own terminal's view, with a preview of what would be written. |

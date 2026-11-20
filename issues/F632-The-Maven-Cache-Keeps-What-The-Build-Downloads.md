@@ -5,7 +5,7 @@
   "$schema": "issue-1.json",
   "id": "F632",
   "title": "The Maven Cache Keeps What The Build Downloads",
-  "state": "Implementing",
+  "state": "Review",
   "size": "XS",
   "priority": "High",
   "rank": 2,

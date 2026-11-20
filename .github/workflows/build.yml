@@ -106,6 +106,7 @@ jobs:
 
             # Maven drives the build, so the runner needs a JDK as well as Flutter: the pinned one.
             - uses: ./.github/actions/pinned-jdk
+              id: pinned-jdk
 
             # What this build runs is pinned and moved only by review, and Porelo's own tool says so for
             # every repository alike; the action above already resolved it beside porelo-machines.
@@ -322,6 +323,12 @@ jobs:
                   path: |
                       build/test-results.xml
                       build/test-report.html
+
+            # Even after a failure, so what the job fetched is not asked of Central again.
+            - if: always()
+              uses: ./.github/actions/maven-cache-save
+              with:
+                  key: ${{ steps.pinned-jdk.outputs.maven-cache-key }}
 
     # The interface on Windows, which reaches a Porelo in a WSL distribution through `wsl.exe`. Tested
     # and built on GitHub's Windows runner, there being no Windows machine beside the VM, and packed as
