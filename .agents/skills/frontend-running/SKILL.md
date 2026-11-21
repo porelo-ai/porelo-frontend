@@ -12,7 +12,7 @@ description: porelo-frontend: running the interface. Use when starting or debugg
     dart run build_runner build && dart format test/features integration_test   # after editing a feature
     dart analyze                                # stays at "No issues found!"
     flutter test                                # the whole suite
-    flutter test --tags documents               # a change to documents or issues alone
+    flutter test --tags documents               # a change to documents alone
     tool/e2e.sh                                 # the integration leg, against PORELO_E2E_HOST
     tool/rehearse_window.sh check --vm …        # a move rehearsed in the window, in a VM, against a rented host
     tool/walk_idea.sh check --vm …              # a real idea walked to Finished in the window, in a VM, against its porelo

@@ -603,8 +603,8 @@ as well runs in full, and `workflow_dispatch` still forces a run. On a push whos
 proved with the leased leg green, the build skips leasing again and names the run it took the
 proof from; a tag always runs the leg.
 
-**The cost is that CI does not check such a push**: the decisions index, dead links and retired
-issue ids are held by `test/docs_test.dart` run before the commit, not after the push.
+**The cost is that CI does not check such a push**: the decisions index and dead links are held by
+`test/docs_test.dart` run before the commit, not after the push.
 `test/packaging_test.dart` fails if the filter goes or grows to cover anything but documentation.
 
 ## Where a Dart or Flutter skill says otherwise
@@ -706,7 +706,7 @@ feature and documents tests, the ZIP and the MSIX built and signed, and the MSIX
 started once after a copy signed with another certificate is seen refused. The operator tests on a
 Windows machine from time to time, as [design](design.md#a-test-on-a-windows-machine) says how;
 such a test is welcome, not required before a push or before an issue is finished. Until one is
-done, the download page and the issue's row say "untested on a Windows machine", then "tested on
+done, the download page and the issue say "untested on a Windows machine", then "tested on
 Windows on <version>".
 
 **The exposure:** until such a test, nothing has shown the interface on Windows reaching a WSL

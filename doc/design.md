@@ -571,5 +571,5 @@ distribution with Porelo. On a Windows 10 2004 or later, or Windows 11, with WSL
 
 Where typing or scrolling fails, `porelo_frontend.exe --diagnose-terminal` writes what arrives to
 `%TEMP%\porelo-terminal-diagnose.txt`. The result, with the version tested, goes in the channel; the
-download page and the issue's row then say "tested on Windows on <version>".
+download page and the issue then say "tested on Windows on <version>".
 
