@@ -9,7 +9,7 @@ Where to read on:
   backend older than this build.
 - [What the contract does not yet cover](doc/Contract-Gaps.md): what has no backend method yet.
 - [Design](doc/design.md): what the interface is built out of.
-- [Requirements](issues/README.md): what is still to do, in order.
+- [Requirements](https://github.com/porelo-ai/porelo-frontend/issues): what is still to do.
 - [AGENTS.md](AGENTS.md): the rules for working here, and what was measured.
 
 ## Build and test

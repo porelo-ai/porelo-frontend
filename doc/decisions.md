@@ -598,7 +598,7 @@ setup costs every machine about 165 MB of memory at rest, whether it ever carrie
 
 A build runs the tests, leases a machine for the integration tests, installs and publishes a
 snapshot — all of it for a package that has not changed when only documentation did. `build.yml`
-ignores pushes whose every change is under `**.md`, `doc/**` or `issues/**`; a push that changes code
+ignores pushes whose every change is under `**.md` or `doc/**`; a push that changes code
 as well runs in full, and `workflow_dispatch` still forces a run. On a push whose tree a run already
 proved with the leased leg green, the build skips leasing again and names the run it took the
 proof from; a tag always runs the leg.

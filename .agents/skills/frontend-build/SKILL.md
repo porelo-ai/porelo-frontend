@@ -21,7 +21,7 @@ description: porelo-frontend build and publishing rules. Use when building or pu
   without `/artifactory`.
 - **`tool/test_report.dart` reads `flutter test --machine` once** and writes the HTML page, JUnit XML,
   the step summary and one annotation per failing scenario; an empty run fails.
-- **A change to `**.md`, `doc/`, `issues/` or `mkdocs.yml` alone starts no build.**
+- **A change to `**.md`, `doc/` or `mkdocs.yml` alone starts no build.**
 - **Every download a workflow takes from outside is pinned, by digest or version, and comes from `actions/cache` keyed
   by that pin**, checked against it after a hit as after a download; a miss fetches and saves. The pin is the key's
   last part after a `-` and what comes before it names the kind, as `delete-runs.yml` keeps only the newest entry of

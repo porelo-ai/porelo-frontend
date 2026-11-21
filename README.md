@@ -32,7 +32,7 @@ How to add the repository, and the first steps after installing, are on the
 - [Contributing](https://github.com/porelo-ai/porelo-frontend/blob/main/CONTRIBUTING.md): how a change is proposed, and what is particular here
 - [The backend API](https://github.com/porelo-ai/porelo-frontend/blob/main/doc/Backend-API.md): how a client talks to Porelo
 - [Decisions](https://github.com/porelo-ai/porelo-frontend/blob/main/doc/decisions.md): what holds, and what it costs
-- [Requirements](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md): what is still to do
+- [Requirements](https://github.com/porelo-ai/porelo-frontend/issues): what is still to do
 
 ## Licence
 

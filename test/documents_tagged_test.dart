@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Holds every test that reads a document to the `documents` tag.
 ///
-/// A change to documents or issues runs only `flutter test --tags documents`, so a test that reads a
+/// A change to documents alone runs only `flutter test --tags documents`, so a test that reads a
 /// document without the tag is skipped exactly when the change it guards is made.
 void main() {
   final tests = Directory('test')
@@ -38,13 +38,12 @@ void main() {
   });
 }
 
-/// How a test reaches the repository's documents: a file or directory under `doc/` or `issues/`, a
-/// Markdown file at the root, or a listing kept to its Markdown. A path built in a scratch directory
-/// starts with `$` and is no document, nor is a map's key such as `'issues':`, `map['issues']` or
-/// `map.remove('issues')`.
+/// How a test reaches the repository's documents: a file or directory under `doc/`, a Markdown file at
+/// the root, or a listing kept to its Markdown. A path built in a scratch directory starts with `$` and
+/// is no document, nor is a map's key such as `'doc':`, `map['doc']` or `map.remove('doc')`.
 final _readsADocument = <RegExp>[
-  RegExp(r"\b(File|Directory)\(\s*'(doc|issues)(/[^']*)?'"),
-  RegExp(r"(?<![\w\])!]\[)(?<!\.remove\()'(doc|issues)'(?!\s*:)"),
+  RegExp(r"\b(File|Directory)\(\s*'doc(/[^']*)?'"),
+  RegExp(r"(?<![\w\])!]\[)(?<!\.remove\()'doc'(?!\s*:)"),
   RegExp(r"\bFile\(\s*'[^'$/]*\.md'"),
   RegExp(r"(?<!!)\b\w+\.path\.endsWith\('\.md'\)"),
 ];

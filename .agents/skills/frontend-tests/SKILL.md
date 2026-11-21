@@ -10,7 +10,7 @@ description: porelo-frontend test rules. Use when writing or running frontend te
 - **Features are Gherkin files generated into widget tests by `bdd_widget_test`, and the generated
   tests are committed.** A `Feature` line is one short sentence, step wording is an API reused as
   is, and an apostrophe or a `$` in a step's text breaks the generated Dart.
-- **No requirement id appears outside `issues/`**: `porelo-release check-citations .` enforces it, and
+- **No requirement id appears in the code or the documents**: `porelo-release check-citations .` enforces it, and
   `check-doc-site doc mkdocs.yml` holds `doc/` to the site's navigation, and `check-readmes .` the
   `README.md` beside `pom.xml`; all three run on the host before every hand-over, and
   `shared-rules` once a day. A channel question number is kept out of the code by

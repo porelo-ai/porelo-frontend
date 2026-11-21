@@ -76,7 +76,8 @@ into a shared skill or this block, one that concerns only this machine into `.AG
 ## This repository
 
 The Porelo interface: a Flutter desktop app (Linux) that watches and drives the Porelo daemons of
-several machines over their varlink socket. Its issues carry the prefix `F`; its design is in
+several machines over their varlink socket. Its issues are the repository's GitHub Issues, each named by its
+reference there (`porelo-ai/porelo-frontend#<number>`); its design is in
 `doc/design.md`, the daemon calls it uses in `doc/Backend-API.md`, what the daemon cannot do yet in
 `doc/Contract-Gaps.md`, and its decisions in `doc/decisions.md`.
 

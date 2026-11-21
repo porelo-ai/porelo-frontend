@@ -15,14 +15,13 @@ void main() {
   final docs = <File>[
     for (final file in Directory('.').listSync().whereType<File>())
       if (file.path.endsWith('.md') && !file.uri.pathSegments.last.startsWith('.')) file,
-    for (final root in <String>['doc', 'issues'])
+    for (final root in <String>['doc'])
       ...Directory(root).listSync(recursive: true).whereType<File>().where((file) => file.path.endsWith('.md')),
   ];
 
-  test('the docs and the issues were found at all', () {
+  test('the docs were found at all', () {
     // Without this the link test below passes by examining nothing.
     expect(docs.where((doc) => doc.path.startsWith('doc/')), isNotEmpty);
-    expect(docs.where((doc) => doc.path.startsWith('issues/')), isNotEmpty);
   });
 
   /// The decisions document's own index.
