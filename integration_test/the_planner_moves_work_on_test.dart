@@ -19,6 +19,7 @@ import './step/the_proposal_moved_nothing.dart';
 import './step/i_order_the_work_and_start_its_builder_task.dart';
 import './step/the_builder_task_runs_and_the_story_stands_in_implementing.dart';
 import './step/the_builder_agent_works_until_its_task_ends.dart';
+import './step/i_forward_the_work_of_each_builder_upstream_at_the_gate.dart';
 import './step/the_forge_holds_the_work_of_the_builder_agent.dart';
 import './step/the_window_posts_the_end_of_the_builder_task.dart';
 import './step/reading_is_set_and_its_reader_runs_with_no_dialog_shown.dart';
@@ -51,6 +52,7 @@ void main() {
       await iOrderTheWorkAndStartItsBuilderTask(tester);
       await theBuilderTaskRunsAndTheStoryStandsInImplementing(tester);
       await theBuilderAgentWorksUntilItsTaskEnds(tester);
+      await iForwardTheWorkOfEachBuilderUpstreamAtTheGate(tester);
       await theForgeHoldsTheWorkOfTheBuilderAgent(tester);
       await theWindowPostsTheEndOfTheBuilderTask(tester);
       await readingIsSetAndItsReaderRunsWithNoDialogShown(tester);

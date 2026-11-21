@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/e2e.dart';
 import '../support/idea_walk.dart';
+import 'i_forward_the_work_of_each_builder_upstream_at_the_gate.dart';
 
 /// Usage: the window runs the rework and it ends
 Future<void> theWindowRunsTheReworkAndItEnds(WidgetTester tester) =>
@@ -38,6 +39,9 @@ Future<void> theWindowRunsTheReworkAndItEnds(WidgetTester tester) =>
       }
       noteStep('   the rework runs in $rework');
       await untilItEnds(tester, rework, within: Walk.taskDeadline, issue: second.id);
+      // A guarded project's gate holds the rework's push as it held the builders': the person forwards it, and only
+      // then can its reader see it.
+      await forwardTheWorkOf(tester, rework);
       // Reworked, the issue is read again: the window starts that reader by itself. Noted, so the driver's clean-up
       // takes it and what it pushed away with the rest.
       Walk.tasksBefore = {...Walk.tasksBefore, rework};

@@ -16,6 +16,12 @@ Future<void> theFailedTasksCardStaysWithAWarningAndANeedsyouEntryToItsResult(Wid
     await whatNeedsAPersonSaysItsProviderRefusedIt(tester);
     // Its card kept on the work page, saying its agent ended.
     await toThePlace(tester, 'work');
+    // The list and not *Running*, which is where the page stands if it was left there.
+    final list = find.byKey(const Key('work-view-list'));
+    if (list.evaluate().isNotEmpty) {
+      await tester.tap(list);
+      await tester.pump();
+    }
     final card = find.byKey(ValueKey<String>('tile-state ${Demand.ended.name}'));
     final tile = find.byWidgetPredicate(
       (widget) =>

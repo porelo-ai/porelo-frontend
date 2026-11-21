@@ -22,6 +22,7 @@ Feature: The planner moves work on from state to state by itself
         When I order the work and start its builder task
         Then the builder task runs and the story stands in Implementing
         When the builder agent works until its task ends
+        And I forward the work of each builder upstream at the gate
         Then the forge holds the work of the builder agent
         When the window posts the end of the builder task
         Then Reading is set and its reader runs with no dialog shown

@@ -343,7 +343,7 @@ List<String> _secrets() {
 
 /// The commit the builder in [container] landed its work in [repository] as: from porelo's row of the task, where it
 /// names one, else from porelo's event log on this machine, the last accepted push of this run's project that arrived
-/// at that task's gate since the run began. Never the repository's tip at the run's start, the seed's: null where
+/// at that task's gate since the run began; the log names the task by its name or its container. Never the repository's tip at the run's start, the seed's: null where
 /// neither names another.
 Future<String?> theLandedCommitOf(String container, String repository) async {
   final seeded = Walk.issueHeadOf(repository);
@@ -375,7 +375,9 @@ Future<String?> theLandedCommitOf(String container, String repository) async {
           'task': final String task,
           'detail': final String detail,
         }
-        when task == container && project == Walk.poreloProject && !(DateTime.tryParse(at)?.isBefore(began) ?? true)) {
+        when (task == container || 'porelo-${project}_$task' == container) &&
+            project == Walk.poreloProject &&
+            !(DateTime.tryParse(at)?.isBefore(began) ?? true)) {
       final arrived = RegExp(r'^[0-9a-f]+\.\.([0-9a-f]{40,64}) arrived .*: accepted$').firstMatch(detail);
       if (arrived != null && builders(arrived.group(1)!)) commit = arrived.group(1);
     }
@@ -783,39 +785,71 @@ Future<void> moveAndSave(WidgetTester tester, String issue, String state) async 
   }
 }
 
-/// Fills the open start form of work toward [target] as the walk orders it: unattended, with the walk's agent and
-/// model in each repository; returns once the form offers its start.
+/// Fills the open Start work wizard toward [target] as the walk orders it: unattended, with the walk's agent and
+/// model in each repository; returns on the wizard's review, once it offers its start.
 Future<void> fillTheWorkForm(WidgetTester tester, String target) async {
   final unattended = find.byKey(const Key('story-work-mode UNATTENDED'));
   final refused = find.byKey(const Key('story-work-error'));
-  // Opening the form asks the planner for its proposal.
+  final next = find.byKey(const Key('wizard-next'));
+  final start = find.byKey(const Key('wizard-start'));
+  // Opening the wizard asks the planner for its proposal.
   await pumpUntil(
     tester,
-    () => unattended.evaluate().isNotEmpty || refused.evaluate().isNotEmpty,
+    () => next.evaluate().isNotEmpty || start.evaluate().isNotEmpty || refused.evaluate().isNotEmpty,
     timeout: const Duration(minutes: 2),
-    what: 'the proposal of the work, unattended',
+    what: 'the proposal of the work',
   );
   if (refused.evaluate().isNotEmpty) fail('the proposal was refused: ${tester.widget<Text>(refused).data}');
-  if (find.textContaining('→ $target').evaluate().isEmpty) {
+  if (find.textContaining('→ $target').evaluate().isEmpty &&
+      find.byKey(const Key('story-work-target')).evaluate().isNotEmpty) {
     await tester.tap(find.byKey(const Key('story-work-target')));
     await pumpFor(tester);
     await tester.tap(find.text(target).last);
-    await pumpUntil(tester, () => unattended.evaluate().isNotEmpty, what: 'the proposal to $target');
+    await pumpFor(tester);
   }
-  await tester.ensureVisible(unattended);
-  await tester.tap(unattended);
-  await pumpFor(tester);
   const prefix = 'story-work-task ';
-  final repositories = [
-    for (final each
-        in find
-            .byWidgetPredicate(
-              (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith(prefix),
-            )
-            .evaluate())
-      (each.widget.key! as ValueKey<String>).value.substring(prefix.length),
-  ];
-  if (repositories.isEmpty) fail('the proposal names no repository to work in');
+  final tasks = find.byWidgetPredicate(
+    (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith(prefix),
+  );
+  var agentsSet = false;
+  // Each step shows only its own fields: the walk answers what the step shows, then goes on to the next.
+  for (var step = 0; start.evaluate().isEmpty; step++) {
+    if (step == 8) fail('the wizard did not reach its review in eight steps');
+    if (refused.evaluate().isNotEmpty) fail('the wizard refused: ${tester.widget<Text>(refused).data}');
+    if (unattended.evaluate().isNotEmpty) {
+      await tester.ensureVisible(unattended);
+      await tester.tap(unattended);
+      await pumpFor(tester);
+    }
+    if (tasks.evaluate().isNotEmpty) {
+      await chooseTheWalkAgent(tester, [
+        for (final each in tasks.evaluate()) (each.widget.key! as ValueKey<String>).value.substring(prefix.length),
+      ]);
+      agentsSet = true;
+    }
+    await pumpUntil(
+      tester,
+      () => tester.widget<ButtonStyleButton>(next).onPressed != null || refused.evaluate().isNotEmpty,
+      timeout: const Duration(minutes: 1),
+      what: 'the wizard to offer its next step',
+    );
+    if (refused.evaluate().isNotEmpty) continue;
+    await tester.ensureVisible(next);
+    await tester.tap(next);
+    await pumpFor(tester);
+  }
+  if (!agentsSet) fail('the proposal names no repository to work in');
+  if (find.textContaining('Unattended').evaluate().isEmpty) fail('the work is not unattended on the review');
+  await pumpUntil(
+    tester,
+    () => tester.widget<ButtonStyleButton>(start).onPressed != null,
+    timeout: const Duration(minutes: 1),
+    what: 'the wizard to offer its start',
+  );
+}
+
+/// Sets the walk's agent and model as the main agent of each of [repositories] in the wizard's Who step.
+Future<void> chooseTheWalkAgent(WidgetTester tester, List<String> repositories) async {
   for (final repository in repositories) {
     final agent = find.byKey(Key('story-work-main-agent $repository'));
     await tester.ensureVisible(agent);
@@ -829,13 +863,6 @@ Future<void> fillTheWorkForm(WidgetTester tester, String target) async {
     await tester.enterText(model, Walk.model);
     await pumpFor(tester);
   }
-  final start = find.byKey(const Key('story-work-start'));
-  await pumpUntil(
-    tester,
-    () => tester.widget<ButtonStyleButton>(start).onPressed != null,
-    timeout: const Duration(minutes: 1),
-    what: 'the form to offer its start',
-  );
 }
 
 /// The probe's reads that an issue stands in [state] on the board and in its repository's file.

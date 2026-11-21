@@ -329,6 +329,17 @@ check() {
         return 1
     fi
     echo "walk: $vm has what the run needs; Flutter $flutter_version is fetched into ~/$flutter_dir if missing"
+    # The window runs on the account's own settings: machines and forges an earlier walk left there change what it
+    # reads and asks, so they are named before the run, never changed.
+    # shellcheck disable=SC2016 # expanded on the VM, not here
+    on_vm 'f=${XDG_CONFIG_HOME:-$HOME/.config}/porelo/frontend.json; [ ! -s "$f" ] || python3 -I -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+machines = [m.get(\"name\", \"?\") for m in d.get(\"machines\", []) if m.get(\"name\") != \"this machine\"]
+forges = [f.get(\"id\", \"?\") for f in d.get(\"forges\", [])]
+if machines or forges:
+    print(\"walk: the window settings there hold machines %s and forges %s besides this machine\" % (machines or \"none\", forges or \"none\"))
+" "$f"' </dev/null || true
 }
 
 # Flutter of pubspec.yaml's version into the account's cache on the VM, where it is not there yet.
@@ -587,6 +598,38 @@ for path in paths:
             open(file, "w", encoding="utf-8").write(renamed)
 EOF
 
+# The porelo project's own repository is followed from the story's copy in the organization, where the planner reads
+# its planning: porelo names a project's own upstream only from `central` under project.yml's `project:`, so a copy that
+# names none there is given its own. The planner reads a repository only with the prefixes of its issues, so each
+# repository that names none is given its own, F and a letter in the order they stand (FA, FB, ...).
+cat >"$work/central.py" <<'EOF'
+import re, sys
+central = sys.argv[1]
+lines = open("project.yml", encoding="utf-8").read().split("\n")
+def block_of(name):
+    head = next((i for i, line in enumerate(lines) if re.match(re.escape(name) + r"\s*:\s*$", line)), None)
+    if head is None:
+        sys.exit(f"walk: project.yml has no {name}: block")
+    end = next((i for i in range(head + 1, len(lines)) if lines[i].strip() and not lines[i][:1].isspace()), len(lines))
+    return head, end
+head, end = block_of("project")
+block = [line for line in lines[head + 1:end] if line.strip()]
+indent = re.match(r"[ \t]*", block[0])[0] if block else "    "
+if not any(re.match(re.escape(indent) + r"central\s*:", line) for line in block):
+    lines.insert(head + 1, f'{indent}central: "{central}"')
+head, end = block_of("repositories")
+entries = [i for i in range(head + 1, end) if re.match(r"([ \t]+)[^ \t#][^:]*:\s*$", lines[i])]
+outer = min((len(re.match(r"[ \t]*", lines[i])[0]) for i in entries), default=0)
+entries = [i for i in entries if len(re.match(r"[ \t]*", lines[i])[0]) == outer]
+for n, at in reversed(list(enumerate(entries))):
+    stop = entries[n + 1] if n + 1 < len(entries) else end
+    inner = [line for line in lines[at + 1:stop] if line.strip()]
+    pad = re.match(r"[ \t]*", inner[0])[0] if inner else " " * (outer + 2)
+    if not any(re.match(re.escape(pad) + r"issues\s*:", line) for line in inner):
+        lines.insert(at + 1, f"{pad}issues: [F{chr(ord('A') + n)}]")
+open("project.yml", "w", encoding="utf-8").write("\n".join(lines))
+EOF
+
 # One call of GitHub's API: the token reaches curl on its standard input as a config line. Prints the status; the
 # answer's body is in $work/answer.
 # shellcheck disable=SC2329 # run by cleanup, on the EXIT trap
@@ -725,17 +768,28 @@ cleanup() {
         # The planner keeps a project's runs in its own state, by story: a later run's story of the same name would
         # take over this run's ended work. Put back once the run's planner is gone, which ends within its stop.
         # One that outlives its stop is killed, so its state is still put back; one that outlives that is named.
-        on_vm "set -e; for round in \$(seq 60); do
+        # What stopped it is said with what is left: a run whose planner had a project of its own puts nothing back.
+        local why
+        why=$(on_vm "set -e; for round in \$(seq 60); do
                 gone=''; for p in /proc/[0-9]*; do [ \"\$(readlink \$p/exe 2>/dev/null)\" != \$HOME/$run/bin/porelo-planner ] || gone=\"\$gone \${p#/proc/}\"; done
                 [ -n \"\$gone\" ] || break
                 [ \"\$round\" != 50 ] || kill -KILL \$gone 2>/dev/null || true
                 sleep 0.2; done
             [ -z \"\$gone\" ] || { echo \"walk: the run's planner still runs as\$gone\" >&2; exit 1; }
-            [ -z '$own_planner' ] || exit 0
-            mkdir -p ~/.local/state/porelo-planner; cd ~/.local/state/porelo-planner; rm -rf -- '$project'
-            if [ -f ~/$run.planner-state.tar ]; then tar -xf ~/$run.planner-state.tar; fi
-            rm -f ~/$run.planner-state.tar" </dev/null ||
-            left+=("the planner's state of $project on $vm (~/.local/state/porelo-planner/$project; before the run: ~/$run.planner-state.tar)")
+            # No 'exit' on the way that succeeds: it runs the login shell's ~/.bash_logout, whose clear_console fails
+            # where there is no console, and set -e then ends the call non-zero.
+            if [ -z '$own_planner' ]; then
+                mkdir -p ~/.local/state/porelo-planner; cd ~/.local/state/porelo-planner; rm -rf -- '$project'
+                if [ -f ~/$run.planner-state.tar ]; then tar -xf ~/$run.planner-state.tar; fi
+                rm -f ~/$run.planner-state.tar
+            fi" 2>&1 </dev/null) || {
+            why=${why:-it ended non-zero and said nothing}
+            if [ -n "$own_planner" ]; then
+                left+=("the run's planner on $vm: $why")
+            else
+                left+=("the planner's state of $project on $vm (~/.local/state/porelo-planner/$project; before the run: ~/$run.planner-state.tar): $why")
+            fi
+        }
     fi
     local tasks='' listed='' each keep_vault=''
     # The tasks the window noted, and every task of the project porelod lists now that was not there before the
@@ -1009,6 +1063,8 @@ make_repository() {
     if [ "$template" = "$porelo_template" ]; then
         # shellcheck disable=SC2015 # either failing stops the run
         on_vm "cd ~/$run/fill/'$repository' && python3 -I - '$story-' '${templates[*]}' ." <"$work/rename.py" >&2 &&
+            on_vm "cd ~/$run/fill/'$repository' && python3 -I - 'https://github.com/$org/$repository'" \
+                <"$work/central.py" >&2 &&
             on_vm "set -e; cd ~/$run/fill/'$repository'; git add -A; git diff --cached --quiet ||
                 git -c user.name='Porelo walk' -c user.email=walk@example.org commit -q -m 'Take the template $template for the walk $name'" \
                 </dev/null >&2 || {

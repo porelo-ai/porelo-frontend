@@ -8,11 +8,11 @@ import '../support/idea_walk.dart';
 Future<void> iOrderTheWorkAndStartItsBuilderTask(WidgetTester tester) =>
     walked(tester, '6 the person orders the work and starts its builder task', () async {
       await noteTheTasks();
-      await tester.tap(find.byKey(const Key('story-work-start')));
+      await tester.tap(find.byKey(const Key('wizard-start')));
       await pumpFor(tester);
-      final dialog = find.byKey(const Key('story-work-dialog'));
+      final dialog = find.byKey(const Key('wizard-start'));
       final refused = find.byKey(const Key('story-work-error'));
-      // The form closes once each task it ordered was started.
+      // The wizard closes once each task it ordered was started.
       await pumpUntil(
         tester,
         () => dialog.evaluate().isEmpty || refused.evaluate().isNotEmpty,

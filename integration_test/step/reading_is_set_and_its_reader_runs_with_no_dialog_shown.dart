@@ -23,11 +23,19 @@ Future<void> readingIsSetAndItsReaderRunsWithNoDialogShown(
     if (issue == null) fail('asked ${theContainerOf(reader)} for the issue it reads; it works on none of the story');
     // A reader that ended already has been reported so: the planner moved its issue on to Review, often before the
     // last reader starts. Its end is read after the planner's state, which follows it.
-    final state = await probeHolds(['issue-state', issue, 'Review']) && hasEnded(await theTask(theContainerOf(reader)))
-        ? 'Review'
-        : 'Reading';
-    if (state == 'Review') noteStep('   $issue: its reader ended before this read; it stands in Review');
-    await theIssueStandsIn(issue, Walk.issues.firstWhere((each) => each.id == issue).repository, state);
+    // One whose reading stopped on blocking findings stays in Reading for the person, as a later step reads.
+    final repository = Walk.issues.firstWhere((each) => each.id == issue).repository;
+    if (await probeHolds(['attention', issue, 'BLOCKING_FINDINGS'])) {
+      noteStep('   $issue: its reader ended before this read; its reading stopped on blocking findings');
+      await inTheForge(['store-issue', Walk.urlOf(repository), issue, 'Reading']);
+    } else {
+      final state =
+          await probeHolds(['issue-state', issue, 'Review']) && hasEnded(await theTask(theContainerOf(reader)))
+          ? 'Review'
+          : 'Reading';
+      if (state == 'Review') noteStep('   $issue: its reader ended before this read; it stands in Review');
+      await theIssueStandsIn(issue, repository, state);
+    }
     // With the model the planner proposed, the walk's.
     final model = '${reader['model'] ?? ''}';
     if (!model.contains(Walk.model)) {
