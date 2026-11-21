@@ -56,7 +56,11 @@ void main() {
     expect(starts.single.$2, isEmpty, reason: 'no runtime directory is passed on Windows');
     expect(opened, isNotEmpty, reason: 'its address is read');
     expect(opened.toSet(), {null});
-    expect(planner.startOffered, isFalse, reason: 'a planner started is not offered for a start again');
+    expect(
+      planner.startOffered,
+      isTrue,
+      reason: 'a planner started that never said where it answers may be started again, never a dead end',
+    );
   });
 
   // Harm: on Linux the planning place waits for a button nobody needs there.

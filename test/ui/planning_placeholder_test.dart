@@ -79,7 +79,11 @@ void main() {
     addTearDown(() => runtime.deleteSync(recursive: true));
     final directory = Directory('${runtime.path}/porelo-planner')..createSync();
     Process.runSync('chmod', ['700', directory.path]);
-    final address = File('${directory.path}/planner.json')..writeAsStringSync(jsonEncode({'port': 9, 'token': 't'}));
+    // A port something listens on: an address file naming one nothing listens on is a planner gone, taken away.
+    final listening = await tester.runAsync(() => ServerSocket.bind(InternetAddress.loopbackIPv4, 0));
+    addTearDown(() => listening!.close());
+    final address = File('${directory.path}/planner.json')
+      ..writeAsStringSync(jsonEncode({'port': listening!.port, 'token': 't'}));
     Process.runSync('chmod', ['600', address.path]);
     final planner = LocalPlanner(
       projects: () => const [],

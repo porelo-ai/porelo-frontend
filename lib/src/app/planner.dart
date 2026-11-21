@@ -71,9 +71,9 @@ const plannerOutputLine = 64 * 1024;
 /// The planner's option that has it end once its standard input closes, as when the window that holds it ends.
 const plannerEndsWithInput = '--end-with-input';
 
-/// How long a planner the window started on Windows, which has no SIGTERM, has to end by itself once its input is
-/// closed; with the two seconds a hard end then has, the whole end stays within the five seconds the window gives its
-/// ends on a signal.
+/// How long a planner the window started has to end by itself once its input is closed on Windows, which has no
+/// SIGTERM, or once it was sent SIGTERM elsewhere; with the two seconds a hard end then has, the whole end stays within
+/// the five seconds the window gives its ends on a signal.
 const plannerInputEndWait = Duration(seconds: 3);
 
 /// Opens the planner's board reads from the address file under [runtimeDirectory], the account's own when null.
@@ -199,6 +199,7 @@ class LocalPlanner extends ChangeNotifier
     this.wait = const Duration(seconds: 20),
     this.poll = const Duration(milliseconds: 200),
     this.follow = const Duration(seconds: 2),
+    this.probeWait = const Duration(seconds: 2),
     this.inputEndWait = plannerInputEndWait,
     bool? onWindows,
     Map<String, String>? environment,
@@ -275,8 +276,11 @@ class LocalPlanner extends ChangeNotifier
   /// How often the address file of a planner found is read again, to follow the planner to a new address.
   final Duration follow;
 
-  /// How long a planner the window started on Windows has to end by itself once its input is closed, before it is
-  /// ended hard.
+  /// How long a connection to the port an address file names may take before the planner there is taken for alive.
+  final Duration probeWait;
+
+  /// How long a planner the window started has to end by itself, once its input is closed on Windows or once it was
+  /// sent SIGTERM elsewhere, before it is ended hard.
   final Duration inputEndWait;
 
   final List<String> Function() _projects;
@@ -349,6 +353,8 @@ class LocalPlanner extends ChangeNotifier
     if (!_offered) return;
     _offered = false;
     _asked = true;
+    // Asked again after a start that failed: one more start, the earlier planner ended first if it still runs.
+    _started = false;
     _notReached = plannerLookedFor;
     notifyListeners();
     await _reaching;
@@ -373,6 +379,7 @@ class LocalPlanner extends ChangeNotifier
     if (_disposed) return;
     if (await _look() != _Look.notRunning) return;
     if (_started) {
+      _offered = true;
       return _say('porelo-planner was started, but did not say where it answers yet.');
     }
     if (runtimeDirectory case final runtime?
@@ -395,8 +402,8 @@ class LocalPlanner extends ChangeNotifier
     if (identical(_starting, starting)) _starting = null;
     if (_over) return;
     if (failure != null) {
-      // A start the person asked for that failed may be asked for again.
-      _offered = _onWindows;
+      // A start that failed may be asked for again, never a dead end.
+      _offered = true;
       return _say('porelo-planner could not be started: $failure');
     }
     final waited = Stopwatch()..start();
@@ -404,9 +411,11 @@ class LocalPlanner extends ChangeNotifier
       await Future<void>.delayed(poll);
       if (await _look() != _Look.notRunning) return;
       if (_endedEarly case final code?) {
+        _offered = true;
         return _say('porelo-planner ended with exit code $code before it said where it answers.');
       }
       if (waited.elapsed >= wait) {
+        _offered = true;
         return _say('porelo-planner was started, but did not say where it answers within ${wait.inSeconds} s.');
       }
     }
@@ -457,6 +466,9 @@ class LocalPlanner extends ChangeNotifier
   Future<_Look> _look({bool quietly = false}) async {
     try {
       var address = await _addressNow();
+      // An address file a planner left when it ended names no planner: it is taken away, and one is started as where
+      // there is none.
+      if (address != null && await _removedIfStale(address)) return _Look.notRunning;
       final source = await _open(_repositories, runtimeDirectory: runtimeDirectory);
       // A planner may write its address between the two reads; the address opened is then read once more.
       address ??= await _addressNow();
@@ -502,21 +514,75 @@ class LocalPlanner extends ChangeNotifier
     }
   }
 
+  /// Whether [address], the address file's text, names a planner that is gone, and if so takes the file away: its
+  /// process no longer runs, where the file names one and this is Linux, or nothing listens on its loopback port. The
+  /// file is removed only while it still reads as [address], so a planner that wrote a new one meanwhile keeps it.
+  Future<bool> _removedIfStale(String address) async {
+    if (!await _gone(address)) return false;
+    final runtime = runtimeDirectory ?? _environment[_onWindows ? 'LOCALAPPDATA' : 'XDG_RUNTIME_DIR'];
+    if (runtime == null || runtime.trim().isEmpty) return false;
+    final file = File([runtime, 'porelo-planner', 'planner.json'].join(Platform.pathSeparator));
+    try {
+      if (await file.readAsString() != address) return false;
+      await file.delete();
+    } on FileSystemException {
+      // Gone meanwhile, as when the planner took it away at its end: nothing is left to take.
+    }
+    windowLog.info('The planner\'s address file named a planner that is gone; the window took it away.');
+    // A planner of this window's that ended leaves room for one more start.
+    _started = false;
+    return true;
+  }
+
+  /// Whether the planner [address] names is gone: its process id names no process, where the file gives one and this
+  /// is Linux, else its loopback port refuses a connection. A port that answers, or a check that cannot be made, is
+  /// not taken for gone.
+  Future<bool> _gone(String address) async {
+    final Object? json;
+    try {
+      json = jsonDecode(address);
+    } on FormatException {
+      return false;
+    }
+    if (json is! Map<String, dynamic> || json['port'] is! int) return false;
+    // The process id alone decides where the file gives one on Linux, so the follow every few seconds opens no
+    // connection to the planner.
+    final pid = json['pid'];
+    if (!_onWindows && pid is int && pid > 0) return !await Directory('/proc/$pid').exists();
+    try {
+      final socket = await Socket.connect(InternetAddress.loopbackIPv4, json['port'] as int, timeout: probeWait);
+      // A planner that ends meanwhile resets the connection after it was made; that error is no answer of its own.
+      socket.done.ignore();
+      socket.destroy();
+      return false;
+    } on SocketException catch (error) {
+      // Refused: nothing listens there. A wait that ran out is no proof the planner is gone.
+      return error.osError?.errorCode == (_onWindows ? 10061 : 111);
+    }
+  }
+
   /// Reads the address file of the planner found again: a new address is opened in place of the old one, and a file
   /// gone at two reads in a row means that planner is gone, so the planner is looked for, and started, as at first.
   Future<void> _follow() async {
-    if (_disposed || _checking || _source == null) return;
+    if (_disposed || _checking) return;
     _checking = true;
     try {
       final address = await _addressNow();
       if (_disposed) return;
-      if (address != null) {
+      // With no planner held, as after a gone one's file was taken away and none could be started, a planner that
+      // writes its address afterwards is found by the next follow.
+      if (_source == null) {
+        if (address != null && _reaching == null && !await _removedIfStale(address)) await reach();
+        return;
+      }
+      if (address != null && !await _removedIfStale(address)) {
         _missing = 0;
         if (address != _address) await _look(quietly: true);
         return;
       }
-      // Twice, so a planner writing its file anew is not taken for none.
-      if (++_missing < 2) return;
+      if (_disposed) return;
+      // Twice, so a planner writing its file anew is not taken for none; a file of a planner gone is none at once.
+      if (address == null && ++_missing < 2) return;
       final gone = _source;
       _source = null;
       _address = null;
@@ -674,7 +740,9 @@ class LocalPlanner extends ChangeNotifier
   Future<void> _stop(Process process) async {
     windowLog.info('Ending porelo-planner, which the window started.');
     try {
-      await (_onWindows ? _endThroughItsInput(process) : stopOwnedProcess(process));
+      // A planner takes its address file away at its end; killed before, it leaves it behind, so it is given as long
+      // as on Windows.
+      await (_onWindows ? _endThroughItsInput(process) : stopOwnedProcess(process, grace: inputEndWait));
       windowLog.info('porelo-planner, which the window started, ended with exit code ${await process.exitCode}.');
     } on TimeoutException {
       windowLog.error(

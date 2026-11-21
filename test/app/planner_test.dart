@@ -6,6 +6,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/planner.dart';
@@ -49,13 +50,19 @@ class _Planner {
   final calls = <(String, String, String)>[];
 
   /// Writes the address file as the planner does: owner-only, in an owner-only directory, in one step.
-  Future<void> announce(String runtime, {String token = 'token-of-the-test', int mode = 384, Object? log}) async {
+  Future<void> announce(
+    String runtime, {
+    String token = 'token-of-the-test',
+    int mode = 384,
+    Object? log,
+    Object? pid,
+  }) async {
     signing.token = token;
     final directory = await Directory('$runtime/porelo-planner').create(recursive: true);
     await Process.run('chmod', ['700', directory.path]);
     // Written beside it and renamed over, so a window looking meanwhile never sees it before its mode is set.
     final written = File('${directory.path}/planner.json.new');
-    await written.writeAsString(jsonEncode({'port': server.port, 'token': token, 'log': ?log}));
+    await written.writeAsString(jsonEncode({'port': server.port, 'token': token, 'log': ?log, 'pid': ?pid}));
     await Process.run('chmod', [mode.toRadixString(8), written.path]);
     await written.rename('${directory.path}/planner.json');
   }
@@ -542,24 +549,32 @@ void main() {
     }
   }
 
-  // Harm: after the planner restarts on another port, planning stays out of reach until the window is restarted.
-  test('after the planner restarts on another port, the window follows it there', () async {
-    final first = await planner();
-    await first.announce(runtime.path);
-    final local = client(follow: const Duration(milliseconds: 20));
-    await local.reach();
-    final before = local.providers.single.source;
-    await first.server.close(force: true);
-    final second = await planner();
-    await second.announce(runtime.path, token: 'token-after-the-restart');
+  // Harm: after the planner restarts on another port, planning stays out of reach until the window is restarted; also
+  // when the follow took the ended one's file away before the new one wrote its own.
+  for (final (named, gap) in [
+    ('at once', Duration.zero),
+    ('after its file was taken away', const Duration(milliseconds: 200)),
+  ]) {
+    test('after the planner restarts on another port $named, the window follows it there', () async {
+      final first = await planner();
+      await first.announce(runtime.path);
+      final local = client(follow: const Duration(milliseconds: 20));
+      await local.reach();
+      final before = local.providers.single.source;
+      await first.server.close(force: true);
+      await Future<void>.delayed(gap);
+      final second = await planner();
+      await second.announce(runtime.path, token: 'token-after-the-restart');
 
-    await until(() => !identical(local.providers.single.source, before));
-    await local.providers.single.source.stories('demo');
+      // A follow between the two may take the first one's file away, which leaves no planner for a moment.
+      await until(() => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
+      await local.providers.single.source.stories('demo');
 
-    expect(local.notReached, isNull);
-    expect(second.calls, hasLength(second.signing.requests.length), reason: 'each signed under the new token');
-    expect(second.calls.map((call) => call.$2), contains('/projects/demo/stories'));
-  });
+      expect(local.notReached, isNull);
+      expect(second.calls, hasLength(second.signing.requests.length), reason: 'each signed under the new token');
+      expect(second.calls.map((call) => call.$2), contains('/projects/demo/stories'));
+    });
+  }
 
   // Harm: a guessed path is opened as the planner's log, or the one the planner names is not the one opened.
   test('the planner\'s log is the path its address file names, and none where it names none', () async {
@@ -601,6 +616,123 @@ void main() {
     expect(starts, 1, reason: 'the planner started answers, so no second one is started');
     expect(second.calls, isNotEmpty, reason: 'the planner started was read');
     expect(second.calls, hasLength(second.signing.requests.length), reason: 'each signed under its token');
+  });
+
+  /// A process id that names no process here: past the kernel's largest.
+  const noProcess = 4194304 + 1;
+
+  // Harm: an address file left by a planner that ended keeps planning out of reach, with only a reload that fails.
+  for (final (named, withPid) in [('by a process that is gone', true), ('by a port nothing listens on', false)]) {
+    test('an address file of a planner gone, told $named, is taken away and a planner is started', () async {
+      final ended = await planner();
+      await ended.announce(runtime.path, pid: withPid ? noProcess : null);
+      await ended.server.close(force: true);
+      final started = await planner();
+      var starts = 0;
+      final local = client(
+        candidates: [await program()],
+        start: (_, _) async {
+          starts++;
+          await started.announce(runtime.path, token: 'token-of-the-new-one', pid: pid);
+          return PlannerProcess();
+        },
+      );
+
+      await local.reach();
+      await local.providers.single.source.stories('demo');
+
+      expect(starts, 1);
+      expect(local.notReached, isNull);
+      expect(started.calls, isNotEmpty, reason: 'the planner started is the one read');
+    });
+  }
+
+  // Harm: a planner that ends while the window probes its port resets the connection after it was made, and that
+  // error escapes the probe as one nobody handles.
+  test('a port that resets each connection it takes is not taken for gone, and its reset escapes nowhere', () async {
+    final resetting = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(resetting.close);
+    resetting.listen((socket) {
+      // SO_LINGER on, for no time: the close is sent as a reset.
+      socket.setRawOption(
+        RawSocketOption(RawSocketOption.levelSocket, 13, Uint8List.fromList([1, 0, 0, 0, 0, 0, 0, 0])),
+      );
+      socket.destroy();
+    });
+    final directory = await Directory('${runtime.path}/porelo-planner').create(recursive: true);
+    await Process.run('chmod', ['700', directory.path]);
+    final file = File('${directory.path}/planner.json');
+    await file.writeAsString(jsonEncode({'port': resetting.port, 'token': 'token-of-the-test'}));
+    await Process.run('chmod', ['600', file.path]);
+    final local = client(follow: const Duration(milliseconds: 20));
+
+    await local.reach();
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+
+    expect(file.existsSync(), isTrue, reason: 'a port that took the connection is no proof the planner is gone');
+  });
+
+  // Harm: a planner that answers is taken for gone, and a second one is started beside it.
+  test('an address file whose process runs is kept, and no planner is started', () async {
+    final running = await planner();
+    await running.announce(runtime.path, pid: pid);
+    final local = client();
+
+    await local.reach();
+
+    expect(local.notReached, isNull);
+    expect(File('${runtime.path}/porelo-planner/planner.json').existsSync(), isTrue);
+  });
+
+  // Harm: a planner that dies while the window runs leaves its file, and the board stays dead until a restart.
+  test('a planner found that dies while the window runs is replaced at the next follow', () async {
+    final first = await planner();
+    await first.announce(runtime.path);
+    final second = await planner();
+    var starts = 0;
+    final local = client(
+      candidates: [await program()],
+      follow: const Duration(milliseconds: 20),
+      start: (_, _) async {
+        starts++;
+        await second.announce(runtime.path, token: 'token-of-the-new-one', pid: pid);
+        return PlannerProcess();
+      },
+    );
+    await local.reach();
+    final before = local.providers.single.source;
+
+    await first.server.close(force: true);
+    await until(() => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
+
+    expect(starts, 1);
+    await local.providers.single.source.stories('demo');
+    expect(second.calls, isNotEmpty);
+  });
+
+  // Harm: a start that failed leaves the planning page with words and nothing to do.
+  test('a start that failed offers one more start, which starts the planner', () async {
+    final started = await planner();
+    var starts = 0;
+    final local = client(
+      candidates: [await program()],
+      wait: const Duration(milliseconds: 200),
+      start: (_, _) async {
+        starts++;
+        if (starts == 2) await started.announce(runtime.path, pid: pid);
+        return PlannerProcess();
+      },
+    );
+
+    await local.reach();
+    expect(local.notReached, contains('did not say where it answers'));
+    expect(local.startOffered, isTrue, reason: 'the page offers a start');
+
+    await local.startNow();
+
+    expect(starts, 2);
+    expect(local.notReached, isNull);
+    expect(local.startOffered, isFalse);
   });
 }
 
