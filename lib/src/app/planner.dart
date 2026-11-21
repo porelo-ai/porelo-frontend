@@ -549,16 +549,27 @@ class LocalPlanner extends ChangeNotifier
     // connection to the planner.
     final pid = json['pid'];
     if (!_onWindows && pid is int && pid > 0) return !await Directory('/proc/$pid').exists();
-    try {
-      final socket = await Socket.connect(InternetAddress.loopbackIPv4, json['port'] as int, timeout: probeWait);
-      // A planner that ends meanwhile resets the connection after it was made; that error is no answer of its own.
-      socket.done.ignore();
-      socket.destroy();
-      return false;
-    } on SocketException catch (error) {
-      // Refused: nothing listens there. A wait that ran out is no proof the planner is gone.
-      return error.osError?.errorCode == (_onWindows ? 10061 : 111);
-    }
+    final port = json['port'] as int;
+    final answer = Completer<bool>();
+    // A planner that ends meanwhile resets the connection it took; the reset is then reported once more, outside the
+    // call, and is caught here: the port did take the connection.
+    runZonedGuarded(
+      () async {
+        try {
+          final socket = await Socket.connect(InternetAddress.loopbackIPv4, port, timeout: probeWait);
+          socket.done.ignore();
+          socket.destroy();
+          if (!answer.isCompleted) answer.complete(false);
+        } on SocketException catch (error) {
+          // Refused: nothing listens there. A wait that ran out is no proof the planner is gone.
+          if (!answer.isCompleted) answer.complete(error.osError?.errorCode == (_onWindows ? 10061 : 111));
+        }
+      },
+      (error, stack) {
+        if (!answer.isCompleted) answer.complete(false);
+      },
+    );
+    return answer.future;
   }
 
   /// Reads the address file of the planner found again: a new address is opened in place of the old one, and a file
