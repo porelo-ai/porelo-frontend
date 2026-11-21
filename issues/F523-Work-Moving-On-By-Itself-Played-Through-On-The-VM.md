@@ -93,6 +93,41 @@ the rework, and a failed task keeps its card with a warning and a Needs-you entr
 - Porelo's start taking an opaque key from its caller, at most 200 characters, kept with the task and given back by
   List and Watch.
 
+## Runs so far
+
+- The latest run on the test VM `ubuntu26.04`, in this repository's own account, with porelo 0.5.1~snapshot.564 and
+  porelo-planner 8f8a2ef: all 25 steps green, the last two after a resume from walk step 13. It shows all that ST314
+  promises: DONE work is set to Reading, and its reader starts with no dialog; the OK reading sets Review; the second
+  issue's reading stops on the seeded test as a blocking finding, listed under Needs you; Rework chosen there runs the
+  rework to its end, its push forwarded and read again; and the task on a refused key fails, its card kept with "Waits
+  on you" and a way to its Needs-you entry. No fault of the window was found.
+- After the run: the test organization holds none of the run's repositories, and the VM account holds no task, no
+  planner state and no copy of the run.
+- The walk tool the run used is not on `main` yet: the Start work wizard filled step by step, the gate forwarding of
+  the builders' and the rework's pushes, and the seeds' `workflow.yml` and `issues/README.md` stand on a branch of their
+  own, with the fix of finding 4 below.
+- Findings, for one commit of walk-tool fixes and then one fresh run:
+  1. That branch lacks the fix of [F631](README.md#f631): the first `flutter pub get` of the run's copy on a VM whose
+     pub mirror holds the earlier planner pin drops `markdown`, and the window does not start. It is rebased onto
+     `main`.
+  2. The forward step waits 15 s for the branch dialog, but the window first reads each configured forge's token and
+     asks that forge for the repository's branches; with a GitHub entry in the account's settings the dialog came
+     later than that (cause inferred, not measured). The step waits as long as the window may ask the forge.
+  3. The window runs on the account's own settings, which keep machines and a forge from earlier walks; the walk
+     starts from known settings, or names what it found.
+  4. The failed-card step looked for the card in the Work page's list while the page stood in *Running*; it picks the
+     list first, as the log step does.
+  5. The clean-up reports the planner's state as left over where the folder does not exist.
+- Still open in the walk tool: its preflight does not check the walk agent, `known_hosts` and the providers on the VM
+  before a run; a resume starts a new window, which knows nothing of the tasks the earlier one started, so a step after
+  a builder's end is proven only by a fresh run.
+
+## To be checked
+
+- After the run, porelod still lists the run's porelo project, marked Stale, although the run took it out of the
+  organization: porelod could not read the organization's repository again without the test person's ssh agent.
+  Whether a refresh with the agent present drops it decides whether this goes to porelo as a finding.
+
 ## Note
 
 - A test script is test tooling, not production code: no tests for the test scripts, no red-first, no review loops
