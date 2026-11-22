@@ -86,6 +86,12 @@ class _HeldWatch extends _Planning {
   final waiting = StreamController<PlanningSnapshot>();
   @override
   Stream<PlanningSnapshot> watchStories(String project) => waiting.stream;
+
+  /// Sends [snapshot] as the board the planner now holds, so its other reads answer the same revision.
+  void send(Map<String, dynamic> snapshot) {
+    boards['demo'] = snapshot;
+    waiting.add(PlanningSnapshot.from(snapshot));
+  }
 }
 
 /// A machine that lists one project and serves [planning] for it.
@@ -384,11 +390,11 @@ void main() {
     await env.replace(_Backend(held));
     expect(env.boards.sources.single.live, isFalse);
     expect(env.settings.readingsPutAway, hasLength(1), reason: 'a board not read yet forgets nothing');
-    held.waiting.add(PlanningSnapshot.from(_snapshot('resumed')));
+    held.send(_snapshot('resumed'));
     await _turn();
     expect(env.settings.readingsPutAway, isEmpty, reason: 'the board, read whole, no longer says it');
 
-    held.waiting.add(PlanningSnapshot.from(_snapshot('stopped again', stopped: true)));
+    held.send(_snapshot('stopped again', stopped: true));
     await _turn();
     expect(env.planningRows, ['reading builder/demo/item'], reason: 'its next stop is said');
   });

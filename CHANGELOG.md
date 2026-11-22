@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The *Planning* board shows a project's issues in no story in a card of their own, per state, each offering *Hang into a story…* and *Move to…*; a story's or an issue's details are read without waiting behind a change still being saved, and say so while one is; a change of the board is sent again once the board it moved still holds the value it changed.
 - While porelo-planner reads the whole board, at the first look, at *Reload planning* or at its own poll, the *Planning* page shows a progress bar and one sentence, such as "Loading the planning from GitHub: 600 of 1,384 entries", in place of a timeout; until the planner knows how many entries there are, the bar moves without a share. A Reload's bar stands over the board shown, whose cards can be moved meanwhile, and the button comes back when the read ends. A read that fails is still said, named as the planner names it.
 - The *Planning* board shows a tracked project's stories and issues by their tracker reference alone (`<repository>#<number>`), with no old id beside it, and names a file it gives a task with `-` in place of `#`; where the board is refused for want of the person's forge token it offers to hand the token on.
 - A planned stage of a project kept in a tracker is started with the issue and phase its planner names, so the task knows which issue it works on; on a machine whose Porelo cannot take them the start is refused, never made without them.
