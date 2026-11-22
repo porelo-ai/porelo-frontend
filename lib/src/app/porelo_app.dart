@@ -5,6 +5,7 @@ import '../ui/theme.dart';
 
 import '../ui/planning_embedding.dart' show EmbeddedPlanning;
 import '../ui/shell.dart';
+import '../ui/zoom.dart';
 import 'egress.dart';
 import 'product.dart';
 import 'agent_inventory.dart';
@@ -199,8 +200,17 @@ class PoreloApp extends StatelessWidget {
       theme: PoreloTheme.light,
       darkTheme: PoreloTheme.dark,
       themeMode: settings.appearance,
-      // Around the navigator, so the walk's panel stays usable while a dialog is open.
-      builder: walk == null ? null : (context, child) => WalkFrame(walk: walk!, texts: poreloWalkTexts, child: child!),
+      // Around the navigator, so the walk's panel stays usable while a dialog is open, and the zoom reaches dialogs and
+      // menus too.
+      builder: (context, child) => ZoomKeys(
+        zoomIn: settings.zoomIn,
+        zoomOut: settings.zoomOut,
+        reset: settings.zoomReset,
+        child: Zoomed(
+          percent: settings.zoomPercent,
+          child: walk == null ? child! : WalkFrame(walk: walk!, texts: poreloWalkTexts, child: child!),
+        ),
+      ),
       home: ListenableBuilder(
         listenable: Listenable.merge(<Listenable>[
           machines,

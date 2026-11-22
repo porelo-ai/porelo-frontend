@@ -4591,6 +4591,7 @@ class _ShellState extends State<Shell> {
             builder: (context) => SimpleDialog(
               title: const Text('Options'),
               children: [
+                _zoomRow(),
                 for (final group in const ['Options', logsGroup]) ...[
                   if (group == logsGroup)
                     Padding(
@@ -5880,6 +5881,7 @@ class _ShellState extends State<Shell> {
 
     return MenuAnchor(
       menuChildren: [
+        _zoomRow(),
         if (appearance.isNotEmpty)
           submenu('Appearance', [for (final c in appearance) entry(c, after(c), mark: c.checked ?? false)]),
         if (refresh.isNotEmpty)
@@ -5900,6 +5902,44 @@ class _ShellState extends State<Shell> {
       ),
     );
   }
+
+  /// The zoom as a browser shows it: smaller, the size in force (pressed, the usual size), larger. The menu closes
+  /// when the window is drawn at another size, as it does when the window is resized; the keys say how to go on
+  /// without it: Ctrl+Minus, Ctrl+0 and Ctrl+Plus.
+  Widget _zoomRow() => ListenableBuilder(
+    listenable: widget.settings,
+    builder: (context, _) {
+      final settings = widget.settings;
+      final percent = settings.zoomPercent;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Space.normal),
+        // Wraps rather than overflows where a narrow, zoomed window leaves it less room than its words and buttons.
+        child: Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: Space.small,
+          children: [
+            const Text('Zoom'),
+            IconButton(
+              key: const Key('zoom-out'),
+              tooltip: 'Smaller (Ctrl+Minus)',
+              icon: const Icon(Icons.remove),
+              onPressed: percent > Settings.zoomSteps.first ? settings.zoomOut : null,
+            ),
+            Tooltip(
+              message: 'Usual size (Ctrl+0)',
+              child: TextButton(key: const Key('zoom-reset'), onPressed: settings.zoomReset, child: Text('$percent %')),
+            ),
+            IconButton(
+              key: const Key('zoom-in'),
+              tooltip: 'Larger (Ctrl+Plus)',
+              icon: const Icon(Icons.add),
+              onPressed: percent < Settings.zoomSteps.last ? settings.zoomIn : null,
+            ),
+          ],
+        ),
+      );
+    },
+  );
 
   /// Closes the drawer the tree is in, when it is in one, before going where it was asked.
   void _leaveDrawer() {

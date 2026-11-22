@@ -751,6 +751,29 @@ class Settings extends ChangeNotifier {
   /// Light, dark, or whatever the desktop says.
   ThemeMode get appearance => _appearance;
 
+  /// The zoom steps a person moves through, in percent, as a browser offers them.
+  static const zoomSteps = [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200];
+
+  /// How large the window draws everything, text and icons alike, in percent of its usual size.
+  int get zoomPercent => _zoomPercent;
+  int _zoomPercent = 100;
+
+  /// Draws everything one step larger, up to the last step.
+  Future<void> zoomIn() => _zoomTo(zoomSteps.firstWhere((step) => step > _zoomPercent, orElse: () => zoomSteps.last));
+
+  /// Draws everything one step smaller, down to the first step.
+  Future<void> zoomOut() => _zoomTo(zoomSteps.lastWhere((step) => step < _zoomPercent, orElse: () => zoomSteps.first));
+
+  /// Draws everything at its usual size again.
+  Future<void> zoomReset() => _zoomTo(100);
+
+  Future<void> _zoomTo(int percent) async {
+    if (percent == _zoomPercent) return;
+    _zoomPercent = percent;
+    notifyListeners();
+    await _write();
+  }
+
   /// How often every machine is asked again on its own, in seconds. Zero asks only when told.
   ///
   /// A push covers the tasks; nothing pushes the project list, so a project removed at the
@@ -817,6 +840,8 @@ class Settings extends ChangeNotifier {
       };
     }
     _appearance = _appearanceNamed(stored['appearance']);
+    // Only a step this window offers; any other stored value leaves the usual size.
+    if (stored['zoomPercent'] case final int zoom when zoomSteps.contains(zoom)) _zoomPercent = zoom;
     _logLevel.value = LogLevel.values.where((each) => each.word == stored['logLevel']).firstOrNull ?? LogLevel.info;
     final every = stored['refreshSeconds'];
     if (every is int && every >= 0) _refreshSeconds = every;
@@ -1927,6 +1952,7 @@ class Settings extends ChangeNotifier {
     ..._storedPlanningOffers,
     'setupDraft': _setupDraft,
     'appearance': _appearance.name,
+    'zoomPercent': _zoomPercent,
     'logLevel': _logLevel.value.word,
     'machines': _machines,
     'muted': _muted,

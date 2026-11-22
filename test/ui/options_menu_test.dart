@@ -121,4 +121,43 @@ void main() {
       await World.settle(tester);
     }
   });
+
+  // Harm: a person who does not use Ctrl+Plus cannot make the window larger or smaller, or cannot see its size now.
+  testWidgets('the Zoom row makes the window smaller and larger and shows its size', (tester) async {
+    await open(tester);
+    expect(find.text('100 %'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('zoom-out')));
+    await World.settle(tester);
+    expect(World.settings.zoomPercent, 90);
+    // Drawn at another size, the menu closes as on a resize; opened again, it says the size in force.
+    if (find.byKey(const Key('zoom-reset')).evaluate().isEmpty) await World.tapInView(tester, 'options-menu');
+    expect(find.text('90 %'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('zoom-in')));
+    await World.settle(tester);
+    expect(World.settings.zoomPercent, 100);
+    if (find.byKey(const Key('zoom-in')).evaluate().isEmpty) await World.tapInView(tester, 'options-menu');
+    await tester.tap(find.byKey(const Key('zoom-in')));
+    await World.settle(tester);
+    expect(World.settings.zoomPercent, 110);
+  });
+
+  // Harm: in a narrow window, where the settings open as a dialog, a person without the keys cannot zoom at all.
+  testWidgets('the Zoom row stands in the narrow window\'s Options too', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await World.settle(tester);
+    await World.tapInView(tester, 'bar-overflow');
+    await tester.tap(find.text('Options').last);
+    await World.settle(tester);
+    expect(find.text('100 %'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('zoom-in')));
+    await World.settle(tester);
+    expect(World.settings.zoomPercent, 110);
+    expect(tester.takeException(), isNull);
+  });
 }
