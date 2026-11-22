@@ -127,6 +127,7 @@ void main() {
   testWidgets('with an organization, the projects outside it stand in the same list', (tester) async {
     await World.startBackend(World.work);
     await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('mia')));
+    await tester.ensureVisible(find.byKey(const ValueKey('rail projects')));
     await tester.tap(find.byKey(const ValueKey('rail projects')));
     await World.settle(tester);
     final machine = World.machines.current.name;
@@ -573,6 +574,7 @@ void main() {
   ) async {
     await World.startBackend(World.work);
     await World.startApp(tester, organizationSource: FixtureOrganization(organizationFor('mia')));
+    await tester.ensureVisible(find.byKey(const ValueKey('rail projects')));
     await tester.tap(find.byKey(const ValueKey('rail projects')));
     await World.settle(tester);
     expect(find.byKey(const ValueKey('my-project demo')), findsOneWidget);

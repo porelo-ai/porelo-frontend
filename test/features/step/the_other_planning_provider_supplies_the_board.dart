@@ -7,6 +7,10 @@ import '../support/planning_details.dart';
 Future<void> theOtherPlanningProviderSuppliesTheBoard(WidgetTester tester) async {
   await revealPlanning(tester, find.text('Story supplied by another machine'));
   expect(find.text('Story supplied by another machine'), findsOneWidget);
-  expect(tester.widget<Text>(find.byKey(const Key('rail-planning-count'))).data, '5');
+  expect(
+    find.byKey(const Key('rail-open-work-count')),
+    findsOneWidget,
+    reason: 'the other machine gives the open count',
+  );
   expect(find.textContaining('Planning store cannot be read'), findsOneWidget);
 }

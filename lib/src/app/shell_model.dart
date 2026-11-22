@@ -293,15 +293,17 @@ class ShellModel extends ChangeNotifier {
   /// Opens the initial machine path before saved machines have finished loading.
   void initializeNavigation(Machine current) {
     if (!_navigationInitialized && _foldedOpen.isEmpty) {
-      _foldedOpen.addAll(['machines', ShellPlace.machineKey(current.name)]);
+      _foldedOpen.addAll(['machines', ShellPlace.machineKey(current.name), 'planning']);
     }
   }
 
   /// Restores checked navigation data, opening the first machine on a first start.
   void restoreNavigation(Map<String, Object?> saved, List<Machine> machines, Machine current) {
+    var starting = false;
     try {
       if (_navigationInitialized) return;
       _navigationInitialized = true;
+      starting = true;
       if (_movedBeforeRestore) {
         _foldedOpen.addAll(['machines', ShellPlace.machineKey(current.name)]);
         return;
@@ -350,6 +352,8 @@ class ShellModel extends ChangeNotifier {
           ..addAll(folds.whereType<String>().where((key) => validFolds.contains(key) || _isOrganizationFold(key)));
       }
     } finally {
+      // Planning starts unfolded, so Board and Open work with its count are seen without looking for them.
+      if (starting) _foldedOpen.add('planning');
       notifyListeners();
     }
   }

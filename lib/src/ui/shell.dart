@@ -92,6 +92,7 @@ import 'package:porelo_planning/porelo_planning.dart'
     show
         PlanningBoard,
         PlanningFilter,
+        PlanningView,
         PlanningBoards,
         PlanningScreen,
         PlanningSource,
@@ -5744,6 +5745,11 @@ class _ShellState extends State<Shell> {
             'Organization',
       Section.project =>
         '${(widget.shell.itemMachine ?? machine).name} › ${widget.shell.itemProject ?? project?.label ?? ''}',
+      // The menu row opened under Planning, so the title says which of its views is shown.
+      Section.planning => switch (widget.shell.place.planningView) {
+        PlanningView.board => 'Board',
+        PlanningView.openWork => 'Open work',
+      },
       final section => section.label,
     };
     return AppBar(
@@ -5912,7 +5918,6 @@ class _ShellState extends State<Shell> {
                   widget.machines.watching(machine)?.tasks.where((task) => task.runningWork).length ?? 0,
               ].fold<int>(0, (sum, each) => sum + each),
         work: _attention.workCount,
-        planning: _planningReached ? _planning?.workingCount : null,
         planningCounted: _planningReached,
         needing: _attention.needingCount,
         reviewing: _planningReached ? _planning?.review.value : null,

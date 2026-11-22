@@ -48,6 +48,7 @@ void main() {
   // is about and is gone once closed (seen live).
   testWidgets('My cards & keys shows the key and card in its own body, opening no dialog', (tester) async {
     await _start(tester);
+    await tester.ensureVisible(find.byKey(const ValueKey('rail cards')));
     await tester.tap(find.byKey(const ValueKey('rail cards')));
     await World.settle(tester);
     expect(find.byType(Dialog), findsNothing);

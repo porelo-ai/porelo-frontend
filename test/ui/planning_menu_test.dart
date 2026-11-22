@@ -33,7 +33,6 @@ void main() {
             needing: 12,
             reviewing: reviewing,
             openWork: openWork,
-            planning: 0,
             planningCounted: true,
             machines: 0,
             projects: 0,
@@ -104,6 +103,14 @@ void main() {
     expect(chosen.map((place) => place.project), ['checkout', null], reason: 'Board, then Planning itself');
   });
 
+  // Harm: Planning carries a count beside Open work's that means something else, and the two disagree.
+  testWidgets('Planning itself carries no count', (tester) async {
+    await show(tester, place: const ShellPlace(Section.planning), openWork: 537);
+
+    expect(find.descendant(of: find.byKey(const ValueKey('rail planning')), matching: find.text('0')), findsNothing);
+    expect(find.byKey(const Key('rail-planning-count')), findsNothing);
+  });
+
   // Harm: an unknown count reads as nothing left to build.
   testWidgets('Open work shows no count while the planner has not said', (tester) async {
     await show(tester, place: const ShellPlace(Section.planning));
@@ -164,6 +171,23 @@ void main() {
       expect(shell.place.project, 'checkout');
       expect(shell.place.planningView, PlanningView.openWork);
       expect(shell.place.planningFilter, PlanningFilter.review);
+    });
+
+    // Harm: Planning starts folded, so Board and Open work with its count are not seen at a start.
+    test('a start, first or restored, shows Planning unfolded', () {
+      final first = ShellModel()..initializeNavigation(local);
+      expect(first.foldedOpen, contains('planning'));
+
+      final restored = ShellModel()
+        ..restoreNavigation(
+          const {
+            'section': 'work',
+            'folded': <String>['machines'],
+          },
+          const [local],
+          local,
+        );
+      expect(restored.foldedOpen, contains('planning'));
     });
 
     // Harm: a story opened while Planning is folded leaves its row hidden, so nothing in the menu shows where one is.

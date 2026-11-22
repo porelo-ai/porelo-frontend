@@ -23,7 +23,7 @@ void main() {
     expect(find.text(planningNotReached), findsOneWidget);
     expect(find.byType(PlanningScreen), findsNothing);
     expect(find.byKey(const ValueKey('rail planning')), findsOneWidget, reason: 'the rail keeps the place');
-    expect(find.byKey(const Key('rail-planning-count')), findsNothing, reason: 'nothing is counted without a planner');
+    expect(find.byKey(const Key('rail-open-work-count')), findsNothing, reason: 'nothing is counted without a planner');
   });
 
   // Harm: the planning a window was given is hidden behind the line for a window without one.
@@ -69,7 +69,7 @@ void main() {
 
     expect(find.text(plannerNotInstalled), findsOneWidget);
     expect(find.byType(PlanningScreen), findsNothing);
-    expect(find.byKey(const Key('rail-planning-count')), findsNothing, reason: 'nothing is counted without a planner');
+    expect(find.byKey(const Key('rail-open-work-count')), findsNothing, reason: 'nothing is counted without a planner');
   }, skip: Platform.isWindows); // Linux only: porelo-planner, its runtime directory and POSIX modes.
 
   // Harm: a planner the window reached stays hidden behind the line, so its boards are never shown.

@@ -301,7 +301,7 @@ void main() {
     await restoration.restore();
     expect(machines.current.name, 'loaded');
     expect(shell.foldedOpen, contains(ShellPlace.machineKey('loaded')));
-    expect(shell.foldedOpen, {'machines', ShellPlace.machineKey('loaded')});
+    expect(shell.foldedOpen, {'machines', ShellPlace.machineKey('loaded'), 'planning'});
     expect(settings.shellNavigation['folded'], contains(ShellPlace.machineKey('loaded')));
   });
 

@@ -48,7 +48,6 @@ class ShellRail extends StatefulWidget {
     required this.section,
     required this.running,
     this.work,
-    this.planning,
     this.planningCounted = true,
     required this.needing,
     this.reviewing,
@@ -98,7 +97,7 @@ class ShellRail extends StatefulWidget {
   final bool organizationsKnown;
 
   /// Observed totals; null means they cannot currently be read.
-  final int? running, work, planning, needing, machines, projects, forges;
+  final int? running, work, needing, machines, projects, forges;
 
   /// The issues waiting for the person's review over every project the planner serves, shown as a count of its own
   /// beside Needs you; null while no board has said, or where no planner is reached, and then not shown.
@@ -199,8 +198,6 @@ class _ShellRailState extends State<ShellRail> {
       branch: true,
       icon: Icons.view_kanban_outlined,
       selectedIcon: Icons.view_kanban,
-      count: widget.planning,
-      countKey: widget.planningCounted ? 'rail-planning-count' : null,
     ),
     if (widget.foldedOpen.contains('planning'))
       for (final view in PlanningView.values) ...[
@@ -614,7 +611,7 @@ class _ReviewCount extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final words = count == 1 ? '1 issue waits for your review' : '$count issues wait for your review';
+    final words = count == 1 ? '1 story waits for your review' : '$count stories wait for your review';
     return Tooltip(
       message: words,
       child: Semantics(
@@ -631,9 +628,17 @@ class _ReviewCount extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: Space.small, vertical: Space.tight),
               decoration: ShapeDecoration(shape: const StadiumBorder(), color: theme.colorScheme.tertiaryContainer),
-              child: Text(
-                count > 99 ? '99+' : '$count',
-                style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onTertiaryContainer),
+              // The board's mark for review, so the count reads as reviews and not as what Needs you counts.
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.visibility_outlined, size: Sizes.mark, color: theme.colorScheme.onTertiaryContainer),
+                  const SizedBox(width: Space.tight),
+                  Text(
+                    count > 999 ? '999+' : '$count',
+                    style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onTertiaryContainer),
+                  ),
+                ],
               ),
             ),
           ),

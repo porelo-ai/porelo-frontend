@@ -44,7 +44,16 @@ void main() {
     expect(find.descendant(of: count, matching: find.text('63')), findsOneWidget);
     expect(tester.widget<Badge>(find.byKey(const Key('needing-count-badge'))).label, isA<Text>());
     expect((tester.widget<Badge>(find.byKey(const Key('needing-count-badge'))).label! as Text).data, '2');
-    expect(find.byTooltip('63 issues wait for your review'), findsOneWidget);
+    expect(find.byTooltip('63 stories wait for your review'), findsOneWidget);
+  });
+
+  // Harm: the count reads as Needs you's own, or several hundred reviews read as 99.
+  testWidgets('the review count carries the review mark and its whole number', (tester) async {
+    await show(tester, reviewing: 343);
+
+    expect(find.descendant(of: count, matching: find.byIcon(Icons.visibility_outlined)), findsOneWidget);
+    expect(find.descendant(of: count, matching: find.text('343')), findsOneWidget);
+    expect(find.byTooltip('343 stories wait for your review'), findsOneWidget);
   });
 
   // Harm: a count no board has said yet, or one no planner will ever say, reads as nothing to review.
@@ -63,6 +72,6 @@ void main() {
     await tester.tap(count);
     await tester.pump();
     expect(opened, 1);
-    expect(find.byTooltip('1 issue waits for your review'), findsOneWidget);
+    expect(find.byTooltip('1 story waits for your review'), findsOneWidget);
   });
 }

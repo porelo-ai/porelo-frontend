@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
-import 'package:porelo_planning/porelo_planning.dart' show PlanningFilter;
+import 'package:porelo_planning/porelo_planning.dart' show PlanningFilter, PlanningView;
 
 import '../features/support/world.dart';
 
@@ -76,5 +76,23 @@ void main() {
     await World.settle(tester);
     expect(World.shell.place.project, 'billing');
     expect(World.shell.place.planningFilter, PlanningFilter.review);
+  });
+
+  // Harm: the title bar says Planning whichever view is open, so it does not tell Board from Open work.
+  testWidgets('the title bar names the view opened under Planning', (tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      Project.from({'name': 'checkout'}),
+    ];
+    World.planning.boards['checkout'] = _board(review: 1);
+    await World.startApp(tester);
+    World.shell.choosePlace(const ShellPlace(Section.planning));
+    await World.settle(tester);
+    final title = find.descendant(of: find.byType(AppBar), matching: find.text('Board'));
+    expect(title, findsOneWidget);
+
+    World.shell.choosePlace(const ShellPlace(Section.planning, planningView: PlanningView.openWork));
+    await World.settle(tester);
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('Open work')), findsOneWidget);
   });
 }
