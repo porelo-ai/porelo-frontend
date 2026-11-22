@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:porelo_planning/porelo_planning.dart' show PlanningView;
 
 import '../app/fleet_model.dart' show Reachability;
 import '../app/machines.dart';
@@ -50,6 +51,9 @@ class ShellRail extends StatefulWidget {
     this.planning,
     this.planningCounted = true,
     required this.needing,
+    this.reviewing,
+    this.onReviewing,
+    this.openWork,
     required this.machines,
     required this.projects,
     this.forges,
@@ -96,6 +100,16 @@ class ShellRail extends StatefulWidget {
   /// Observed totals; null means they cannot currently be read.
   final int? running, work, planning, needing, machines, projects, forges;
 
+  /// The issues waiting for the person's review over every project the planner serves, shown as a count of its own
+  /// beside Needs you; null while no board has said, or where no planner is reached, and then not shown.
+  final int? reviewing;
+
+  /// Opens the planning board, from the review count beside Needs you.
+  final VoidCallback? onReviewing;
+
+  /// The issues left to build over every project the planner serves, on *Open work*; null while no board has said.
+  final int? openWork;
+
   /// Whether Planning shows a count at all: not where the window reaches no planner, as no count is ever coming.
   final bool planningCounted;
 
@@ -133,8 +147,19 @@ class _TreeRow {
     this.countKey,
     this.badge = false,
     this.state,
+    this.rowId,
+    this.parentId,
   });
   final ShellPlace place;
+
+  /// The row Left moves to, where it is not the last of the place's ancestors.
+  final String? parentId;
+
+  /// The row's own identity, where two rows lead to places of one key.
+  final String? rowId;
+
+  /// The row's identity in the tree: its place's, unless [rowId] names it.
+  String get id => rowId ?? place.key;
   final String label;
   final int depth;
   final bool branch, badge;
@@ -171,11 +196,34 @@ class _ShellRailState extends State<ShellRail> {
     _TreeRow(
       const ShellPlace(Section.planning),
       'Planning',
+      branch: true,
       icon: Icons.view_kanban_outlined,
       selectedIcon: Icons.view_kanban,
       count: widget.planning,
       countKey: widget.planningCounted ? 'rail-planning-count' : null,
     ),
+    if (widget.foldedOpen.contains('planning'))
+      for (final view in PlanningView.values) ...[
+        _TreeRow(
+          ShellPlace(
+            Section.planning,
+            project: _planning?.project,
+            planningSource: _planning?.planningSource,
+            planningView: view,
+          ),
+          switch (view) {
+            PlanningView.board => 'Board',
+            PlanningView.openWork => 'Open work',
+          },
+          rowId: _planningViewId(view),
+          parentId: 'planning',
+          depth: 1,
+          count: view == PlanningView.openWork ? widget.openWork : null,
+          countKey: view == PlanningView.openWork && widget.planningCounted ? 'rail-open-work-count' : null,
+        ),
+        if (_planning case final place? when place.story != null && place.planningView == view)
+          _TreeRow(_storyOf(place), '› ${place.story}', depth: 2),
+      ],
     _TreeRow(
       const ShellPlace(Section.machines),
       'My machines',
@@ -248,7 +296,28 @@ class _ShellRailState extends State<ShellRail> {
       ],
   ];
 
-  String get selected => widget.place?.key ?? widget.section.name;
+  String get selected => switch (_planning) {
+    // Folded, the view and story rows are not there, and Planning stands for them.
+    _? when !widget.foldedOpen.contains('planning') => 'planning',
+    final place? when place.story != null => _storyOf(place).key,
+    final place? => _planningViewId(place.planningView),
+    null => widget.place?.key ?? widget.section.name,
+  };
+
+  /// The chosen place where it is one of planning's.
+  ShellPlace? get _planning => widget.place?.section == Section.planning ? widget.place : null;
+
+  /// The story a planning place shows, without the issue opened under it: the row that leads back to the story.
+  static ShellPlace _storyOf(ShellPlace place) => ShellPlace(
+    Section.planning,
+    project: place.project,
+    planningSource: place.planningSource,
+    story: place.story,
+    planningView: place.planningView,
+    planningFilter: place.planningFilter,
+  );
+
+  static String _planningViewId(PlanningView view) => 'planning-${view.name}';
 
   void _scrollTo(String key) => WidgetsBinding.instance.addPostFrameCallback((_) {
     if (!mounted) return;
@@ -276,14 +345,14 @@ class _ShellRailState extends State<ShellRail> {
       setState(
         () => _cursor = (_cursor + (key == LogicalKeyboardKey.arrowDown ? 1 : -1)).clamp(0, entries.length - 1).toInt(),
       );
-      _scrollTo(entries[_cursor].place.key);
+      _scrollTo(entries[_cursor].id);
     } else if (key == LogicalKeyboardKey.arrowRight) {
       if (row.branch && !widget.foldedOpen.contains(row.place.key)) widget.onFold?.call(row.place.key);
     } else if (key == LogicalKeyboardKey.arrowLeft) {
       if (row.branch && widget.foldedOpen.contains(row.place.key)) {
         widget.onFold?.call(row.place.key);
-      } else if (row.place.ancestors.isNotEmpty) {
-        final parent = entries.indexWhere((entry) => entry.place.key == row.place.ancestors.last);
+      } else if ((row.parentId ?? row.place.ancestors.lastOrNull) case final up?) {
+        final parent = entries.indexWhere((entry) => entry.id == up);
         if (parent >= 0) setState(() => _cursor = parent);
       }
     } else if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space) {
@@ -298,7 +367,7 @@ class _ShellRailState extends State<ShellRail> {
   Widget build(BuildContext context) {
     final entries = rows;
     if (_revealed != selected || !_sameFolds(widget.foldedOpen)) {
-      final chosen = entries.indexWhere((row) => row.place.key == selected);
+      final chosen = entries.indexWhere((row) => row.id == selected);
       if (_revealed != selected && chosen >= 0) _cursor = chosen;
       _revealed = selected;
       _lastFolds = Set.of(widget.foldedOpen);
@@ -371,12 +440,10 @@ class _ShellRailState extends State<ShellRail> {
 
   Widget _row(BuildContext context, _TreeRow row, int index) {
     final theme = Theme.of(context);
-    final chosen =
-        selected == row.place.key ||
-        row.place.section == Section.planning && (widget.place?.ancestors.contains('planning') ?? false);
-    final ancestor = widget.place?.ancestors.contains(row.place.key) ?? false;
+    final chosen = selected == row.id;
+    final ancestor = row.id == row.place.key && (widget.place?.ancestors.contains(row.place.key) ?? false);
     final open = widget.foldedOpen.contains(row.place.key);
-    final treeKey = row.place.key;
+    final treeKey = row.id;
     final globalKey = _rows.putIfAbsent(treeKey, GlobalKey.new);
     final height = WindowSize.fromContext(context).treeRowHeight;
     Widget? count;
@@ -479,6 +546,12 @@ class _ShellRailState extends State<ShellRail> {
                       padding: const EdgeInsets.only(left: Space.tight),
                       child: count,
                     ),
+                  if (row.place.section == Section.attention)
+                    if (widget.reviewing case final reviewing?)
+                      Padding(
+                        padding: const EdgeInsets.only(left: Space.tight),
+                        child: _ReviewCount(reviewing, onPressed: widget.onReviewing),
+                      ),
                   if (row.branch)
                     ExcludeFocus(
                       child: IconButton(
@@ -527,5 +600,45 @@ class _ShellRailState extends State<ShellRail> {
   void dispose() {
     _focus.dispose();
     super.dispose();
+  }
+}
+
+/// The issues waiting for the person's review, beside Needs you's badge and apart from it, so neither hides the other;
+/// pressing it opens the planning board.
+class _ReviewCount extends StatelessWidget {
+  const _ReviewCount(this.count, {this.onPressed});
+
+  final int count;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final words = count == 1 ? '1 issue waits for your review' : '$count issues wait for your review';
+    return Tooltip(
+      message: words,
+      child: Semantics(
+        button: true,
+        label: words,
+        excludeSemantics: true,
+        child: InkWell(
+          key: const Key('rail-review-count'),
+          customBorder: const StadiumBorder(),
+          onTap: onPressed,
+          child: Container(
+            constraints: const BoxConstraints(minWidth: Sizes.touchTarget, minHeight: Sizes.touchTarget),
+            alignment: Alignment.center,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: Space.small, vertical: Space.tight),
+              decoration: ShapeDecoration(shape: const StadiumBorder(), color: theme.colorScheme.tertiaryContainer),
+              child: Text(
+                count > 99 ? '99+' : '$count',
+                style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onTertiaryContainer),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

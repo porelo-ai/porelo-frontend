@@ -481,13 +481,20 @@ void expectPlanningWorkOpened(WidgetTester tester, String name) {
   expect(planningElement('detail'), findsNothing);
 }
 
-/// Confirms the rail highlight from its own semantics, including ancestor destinations.
+/// Confirms from the rail's own semantics that its one selected row is Planning or a row under it: the view, or the
+/// story open under the view.
 void expectPlanningRail(WidgetTester tester) {
-  final rail = find.byKey(const Key('rail planning'));
-  expect(rail, findsOneWidget);
-  final semantics = tester.element(rail).findAncestorWidgetOfExactType<Semantics>();
-  expect(semantics, isNotNull);
-  expect(semantics!.properties.selected, isTrue);
+  expect(find.byKey(const Key('rail planning')), findsOneWidget);
+  final selected = find.byWidgetPredicate(
+    (widget) =>
+        widget is InkWell &&
+        widget.key is ValueKey<String> &&
+        (widget.key! as ValueKey<String>).value.startsWith('rail ') &&
+        tester.element(find.byWidget(widget)).findAncestorWidgetOfExactType<Semantics>()?.properties.selected == true,
+  );
+  expect(selected, findsOneWidget);
+  final key = (tester.widget(selected).key! as ValueKey<String>).value;
+  expect(key, startsWith('rail planning'));
 }
 
 /// Removes the provider of the open page through the machine model.

@@ -33,13 +33,13 @@ void main() {
     }
   });
 
-  // Harm: navigation persists a leaf as a collapsible branch and restores invalid tree state.
-  test('planning is an ancestor without becoming a saved fold', () {
+  // Harm: a story's row under the folded Planning branch is hidden, and is hidden again after a restart.
+  test('planning is an ancestor and a saved fold, as the branch that holds its views', () {
     final shell = ShellModel();
     shell.choosePlace(const ShellPlace(Section.planning, project: 'demo', planningSource: 'local', story: 'sample'));
     shell.revealPlace();
     expect(shell.place.ancestors, contains('planning'));
-    expect(shell.navigation['folded'], isNot(contains('planning')));
+    expect(shell.navigation['folded'], contains('planning'));
     shell.dispose();
   });
 }

@@ -603,6 +603,8 @@ class ShellPlanningHost implements PlanningHost, PlanningForgeAccess {
     source: shell.place.planningSource,
     story: shell.place.story,
     issue: shell.place.issue,
+    view: shell.place.planningView,
+    filter: shell.place.planningFilter,
   );
 
   @override
@@ -613,6 +615,8 @@ class ShellPlanningHost implements PlanningHost, PlanningForgeAccess {
       planningSource: place.source,
       story: place.story,
       issue: place.issue,
+      planningView: place.view,
+      planningFilter: place.filter,
     ),
   );
 

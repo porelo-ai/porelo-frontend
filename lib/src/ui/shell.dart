@@ -91,6 +91,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart'
     show
         PlanningBoard,
+        PlanningFilter,
         PlanningBoards,
         PlanningScreen,
         PlanningSource,
@@ -4661,6 +4662,29 @@ class _ShellState extends State<Shell> {
   };
 
   /// Whether the planning the window was given is reached, so its count can be said.
+  /// Opens the board filtered to the issues waiting for review: on the project shown when it has some, else on the
+  /// first project that has some, since the count covers every project and a board shows one.
+  void _openReview() {
+    final planning = _planning;
+    final shown = planning?.selected;
+    // Only a live board is one the count was taken from; a stale one may still say reviews that are gone.
+    bool reviewing(PlanningBoard board) => board.live && !board.unsupported && (board.snapshot?.open?.review ?? 0) > 0;
+    final board = shown != null && reviewing(shown)
+        ? shown
+        : planning?.projects
+              .map((project) => planning.sources.where((each) => each.project == project))
+              .expand((boards) => boards.where(reviewing).take(1))
+              .firstOrNull;
+    widget.shell.choosePlace(
+      ShellPlace(
+        Section.planning,
+        project: board?.project,
+        planningSource: board == null ? null : planning?.sourceOf(board),
+        planningFilter: PlanningFilter.review,
+      ),
+    );
+  }
+
   bool get _planningReached => switch (widget.planning?.client) {
     null => false,
     PlanningReach(notReached: _?) => false,
@@ -5841,6 +5865,8 @@ class _ShellState extends State<Shell> {
       _hostRuns,
       _workView,
       ?_planning,
+      ?_planning?.review,
+      ?_planning?.open,
       ?_organization,
       for (final machine in widget.machines.all) ?widget.machines.watching(machine),
     ]),
@@ -5889,6 +5915,9 @@ class _ShellState extends State<Shell> {
         planning: _planningReached ? _planning?.workingCount : null,
         planningCounted: _planningReached,
         needing: _attention.needingCount,
+        reviewing: _planningReached ? _planning?.review.value : null,
+        onReviewing: _openReview,
+        openWork: _planningReached ? _planning?.open.value : null,
         machines:
             rows.preparations.length +
             listedMachines(widget.machines)

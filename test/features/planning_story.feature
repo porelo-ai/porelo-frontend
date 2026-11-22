@@ -11,7 +11,6 @@ Feature: Open stories and issues from planning
         When I open planning story {'ST291'}
         Then planning details contain {'Story source'}
         And planning details do not contain {'# Story source'}
-        And planning details contain {'0 of 16 in Review or Finished'}
         And the planning issue table is shown
         And the planning breadcrumb is {'Planning,ST291'}
         And Planning is selected in the rail
@@ -92,7 +91,7 @@ Feature: Open stories and issues from planning
         Then planning details contain {'Updated issue title'}
         When I press planning breadcrumb {1}
         Then planning details contain {'Updated story title'}
-        And planning details contain {'1 of 16 in Review or Finished'}
+        And the planning issue {'B541'} reports {'Review'}
 
     # Harm: a detail refusal becomes a successful empty screen and loses its explanation.
     Scenario: A detail refusal keeps the daemon words
@@ -120,7 +119,6 @@ Feature: Open stories and issues from planning
     Scenario: An empty story shows its empty list
         When I open planning story {'ST294'}
         Then planning details contain {'No issues yet.'}
-        And planning details do not contain {'0 of 0 in Review or Finished'}
 
     # Harm: a lost watch leaves the last detail answer looking live.
     Scenario: A watch failure marks the detail stale
@@ -389,7 +387,7 @@ Feature: Open stories and issues from planning
         And the planning issue {'B540'} reports {'Implementing'}
         And the planning issue {'B541'} reports {'Implementing'}
         Examples:
-            | error              | words                    |
-            | MoveNotAllowed     | Policy refused this move |
-            | StateNotAllowed    | Policy refused this move |
-            | EnteredOnlyByWork  | entered only by work     |
+            | error              | words                           |
+            | MoveNotAllowed     | Policy refused this move        |
+            | StateNotAllowed    | Policy refused this move        |
+            | EnteredOnlyByWork  | is entered by hand only by an   |

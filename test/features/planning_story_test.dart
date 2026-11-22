@@ -90,7 +90,6 @@ void main() {
       await iOpenPlanningStory(tester, 'ST291');
       await planningDetailsContain(tester, 'Story source');
       await planningDetailsDoNotContain(tester, '# Story source');
-      await planningDetailsContain(tester, '0 of 16 in Review or Finished');
       await thePlanningIssueTableIsShown(tester);
       await thePlanningBreadcrumbIs(tester, 'Planning,ST291');
       await planningIsSelectedInTheRail(tester);
@@ -180,7 +179,7 @@ void main() {
       await planningDetailsContain(tester, 'Updated issue title');
       await iPressPlanningBreadcrumb(tester, 1);
       await planningDetailsContain(tester, 'Updated story title');
-      await planningDetailsContain(tester, '1 of 16 in Review or Finished');
+      await thePlanningIssueReports(tester, 'B541', 'Review');
     });
     testWidgets('''A detail refusal keeps the daemon words''', (tester) async {
       await bddSetUp(tester);
@@ -208,7 +207,6 @@ void main() {
       await bddSetUp(tester);
       await iOpenPlanningStory(tester, 'ST294');
       await planningDetailsContain(tester, 'No issues yet.');
-      await planningDetailsDoNotContain(tester, '0 of 0 in Review or Finished');
     });
     testWidgets('''A watch failure marks the detail stale''', (tester) async {
       await bddSetUp(tester);
@@ -502,13 +500,13 @@ void main() {
       },
     );
     testWidgets(
-      '''Outline: A daemon refusal of an issue move keeps its words (EnteredOnlyByWork, entered only by work)''',
+      '''Outline: A daemon refusal of an issue move keeps its words (EnteredOnlyByWork, is entered by hand only by an)''',
       (tester) async {
         await bddSetUp(tester);
         await thePlanningMoveIsRefusedWith(tester, 'EnteredOnlyByWork');
         await iOpenPlanningStory(tester, 'ST291');
         await iMovePlanningIssueTo(tester, 'B541', 'Review');
-        await planningDetailsContain(tester, 'entered only by work');
+        await planningDetailsContain(tester, 'is entered by hand only by an');
         await thePlanningIssueReports(tester, 'B540', 'Implementing');
         await thePlanningIssueReports(tester, 'B541', 'Implementing');
       },

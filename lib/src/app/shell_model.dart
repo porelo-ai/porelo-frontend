@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:porelo_planning/porelo_planning.dart' show PlanningFilter, PlanningView;
 
 import 'machines.dart';
 
@@ -127,7 +128,15 @@ class ShellPlace {
     this.planningSource,
     this.story,
     this.issue,
+    this.planningView = PlanningView.board,
+    this.planningFilter,
   });
+
+  /// The planning view shown, or on a story or an issue the one it was opened from, to which Back returns.
+  final PlanningView planningView;
+
+  /// The planning board's filter, or null for every story; kept on a story or an issue for the way back.
+  final PlanningFilter? planningFilter;
 
   /// The planning project's name.
   final String? project;
@@ -166,6 +175,8 @@ class ShellPlace {
   String get key => switch (section) {
     Section.planning when story != null =>
       'planning ${Uri.encodeComponent(planningSource ?? '')} ${Uri.encodeComponent(project ?? '')} ${Uri.encodeComponent(story!)} ${Uri.encodeComponent(issue ?? '')}',
+    Section.planning when planningView != PlanningView.board || planningFilter != null =>
+      'planning ${planningView.name}${planningFilter == null ? '' : ' ${planningFilter!.name}'}',
     Section.machine when machine != null =>
       '${machineKey(machine!.name)}${machineSection == null ? '' : ' ${machineSection!.name}'}',
     Section.organization when organization != null =>
@@ -175,7 +186,7 @@ class ShellPlace {
 
   /// Ancestors opened to reveal this place.
   List<String> get ancestors => [
-    if (section == Section.planning && story != null) 'planning',
+    if (section == Section.planning && (story != null || key != 'planning')) 'planning',
     if (machine != null) 'machines',
     if (machineSection != null) machineKey(machine!.name),
     if (organization != null) 'organizations',
@@ -319,11 +330,17 @@ class ShellModel extends ChangeNotifier {
         machineSection: section == Section.machine ? machineSection : null,
         organization: section == Section.organization ? organization : null,
         organizationSection: section == Section.organization ? organizationSection : null,
+        // Only a view this window knows; any other is dropped, so no place names a view without a row.
+        planningView: section == Section.planning
+            ? PlanningView.values.where((value) => value.name == saved['planningView']).firstOrNull ??
+                  PlanningView.board
+            : PlanningView.board,
       );
       itemMachine = _place.machine;
       final validFolds = {
         'machines',
         'organizations',
+        'planning',
         for (final each in machines) ShellPlace.machineKey(each.name),
         if (_place.organization != null) ShellPlace.organizationKey(_place.organization!),
       };
@@ -370,6 +387,8 @@ class ShellModel extends ChangeNotifier {
     if (_place.machineSection != null) 'machineSection': _place.machineSection!.name,
     if (_place.organization != null) 'organization': _place.organization,
     if (_place.organizationSection != null) 'organizationSection': _place.organizationSection!.name,
+    if (_place.section == Section.planning && _place.planningView != PlanningView.board)
+      'planningView': _place.planningView.name,
     'folded': _foldedOpen.toList(),
   };
 
@@ -386,7 +405,7 @@ class ShellModel extends ChangeNotifier {
   void choosePlace(ShellPlace next, {bool branch = false}) {
     if (!(beforeNavigation?.call(next.section, () => choosePlace(next, branch: branch)) ?? true)) return;
     final same = _place.key == next.key;
-    _foldedOpen.addAll(next.ancestors.where((key) => key != 'planning'));
+    _foldedOpen.addAll(next.ancestors);
     if (branch && same) {
       toggleFold(next.key);
       return;
@@ -402,7 +421,7 @@ class ShellModel extends ChangeNotifier {
 
   /// Reveals the chosen row when a phone drawer opens.
   void revealPlace() {
-    _foldedOpen.addAll(_place.ancestors.where((key) => key != 'planning'));
+    _foldedOpen.addAll(_place.ancestors);
     notifyListeners();
   }
 
@@ -551,6 +570,8 @@ class ShellModel extends ChangeNotifier {
           project: _place.project,
           planningSource: _place.planningSource,
           story: _place.issue == null ? null : _place.story,
+          planningView: _place.planningView,
+          planningFilter: _place.planningFilter,
         ),
       );
       return;
