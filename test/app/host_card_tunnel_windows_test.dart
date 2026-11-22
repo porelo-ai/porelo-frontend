@@ -34,12 +34,34 @@ void main() {
   late _Files files;
   late _Says says;
 
+  /// The test's ports, bound on both families from the moment they are picked until the card takes them over: a port
+  /// let go between picking and the card's bind could be taken by a test running beside this one, and the card would
+  /// then be refused for a reason of this machine's, not its own.
+  late Map<(String, int), RawServerSocket> reserved;
+
   Future<int> freePort() async {
-    final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-    final port = socket.port;
-    await socket.close();
-    return port;
+    // A port whose other family is taken is picked again; a machine that refuses every one fails here, never hangs.
+    for (var attempt = 1; ; attempt++) {
+      final four = await LoopbackCarrier.bindExclusive(InternetAddress.loopbackIPv4, 0);
+      final port = four.port;
+      try {
+        final six = await LoopbackCarrier.bindExclusive(InternetAddress.loopbackIPv6, port);
+        reserved[(InternetAddress.loopbackIPv4.address, port)] = four;
+        reserved[(InternetAddress.loopbackIPv6.address, port)] = six;
+        return port;
+      } on SocketException catch (refused) {
+        await four.close();
+        if (attempt >= 20) fail('no port free on both loopback families: $refused');
+      }
+    }
   }
+
+  /// Hands the card a port the test holds for it, or binds one it does not hold as the window does.
+  Future<RawServerSocket> takeReserved(InternetAddress address, int port) async =>
+      reserved.remove((address.address, port)) ?? await LoopbackCarrier.bindExclusive(address, port);
+
+  /// Lets go of the test's hold on [port] for [address] alone, so another program may take it.
+  Future<void> unreserve(InternetAddress address, int port) async => reserved.remove((address.address, port))?.close();
 
   Future<bool> bindable(InternetAddress address, int port) async {
     try {
@@ -80,7 +102,7 @@ void main() {
   Tunnels tunnelsWith({Duration appears = const Duration(seconds: 5), CarrierBudget? budget, BindLoopback? bind}) {
     final tunnels = Tunnels(
       carrierBudget: budget,
-      carrierBind: bind,
+      carrierBind: bind ?? takeReserved,
       configEnvironment: environment,
       appears: appears,
       start: (command) async {
@@ -118,6 +140,12 @@ void main() {
     // An APPDATA Windows' path rules and this test's file system both take: the stand-in writer keeps the files.
     environment = {'SystemRoot': r'C:\Windows', 'APPDATA': folder.path};
     desk = Desk.of('windows', environment);
+    reserved = {};
+    addTearDown(() async {
+      for (final socket in reserved.values) {
+        await socket.close();
+      }
+    });
     ports = [await freePort(), await freePort(), await freePort()];
     final card = HostCardSsh(
       name: 'alpha',
@@ -158,6 +186,7 @@ void main() {
       expect(command, isNot(anyOf(contains('-L'), contains('-R'), contains('-M'), contains('-N'))));
     }
     expect(launches.single, containsAllInOrder(['-F', config, '-T', 'alpha']), reason: 'only the relay ran');
+    expect(reserved, isEmpty, reason: 'every port is the card\'s own now, none still the test\'s');
     for (final port in ports) {
       for (final family in families) {
         expect(await bindable(family, port), isFalse, reason: '${family.address}:$port is held');
@@ -217,6 +246,7 @@ void main() {
       expect(unlock.calls, isEmpty);
       expect(await closedAtOnce(InternetAddress.loopbackIPv4, ports[0]), isTrue);
       expect(carried, isEmpty);
+      expect(reserved, isEmpty, reason: 'every port is the card\'s own now, none still the test\'s');
       expect(await bindable(InternetAddress.loopbackIPv6, ports[2]), isFalse, reason: 'the ports stay held');
     });
   }
@@ -370,6 +400,7 @@ void main() {
   // Harm: Connect goes on beside another program holding one of the card's ports, which then receives what is meant for
   // the card.
   test('a port another program holds refuses Connect, naming it, and holds no other', () async {
+    await unreserve(InternetAddress.loopbackIPv6, ports[1]);
     final squatter = await ServerSocket.bind(InternetAddress.loopbackIPv6, ports[1], v6Only: true);
     addTearDown(squatter.close);
     final tunnels = tunnelsWith();
