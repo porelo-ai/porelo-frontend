@@ -6,31 +6,44 @@ import 'package:porelo_planning/porelo_planning.dart' show PlanningFilter, Plann
 
 import '../features/support/world.dart';
 
-/// A project's board whose open-work figures say [review] issues wait for the person's review.
+/// A project's board where [review] stories stand in Review, the state its work rule ends in, beside one still ready.
 Map<String, dynamic> _board({required int review}) => {
   'states': [
     {'name': 'Ready', 'kind': 'WAITING'},
+    {'name': 'Implementing', 'kind': 'WORKING'},
     {'name': 'Review', 'kind': 'WAITING'},
   ],
   'phases': [
     {
       'name': 'Work',
-      'states': ['Ready', 'Review'],
+      'states': ['Ready', 'Implementing', 'Review'],
+    },
+  ],
+  'work': [
+    {
+      'state': 'Implementing',
+      'from': ['Ready'],
+      'done': 'Review',
     },
   ],
   'stories': [
-    {'id': 'StoryOne', 'title': 'A story with work in review', 'state': 'Ready', 'issues': <Map<String, dynamic>>[]},
+    {'id': 'StoryReady', 'title': 'A story still to build', 'state': 'Ready', 'issues': <Map<String, dynamic>>[]},
+    for (var i = 0; i < review; i++)
+      {
+        'id': 'Story$i',
+        'title': 'A story waiting for review $i',
+        'state': 'Review',
+        'issues': <Map<String, dynamic>>[],
+      },
   ],
   'open': {
-    'states': [
-      {'name': 'Review', 'issues': review},
-    ],
+    'states': <Object>[],
     'blocked': 0,
     'sizes': <Object>[],
     'unsized': 0,
-    'left': review,
-    'unestimated': review,
-    'review': review,
+    'left': 0,
+    'unestimated': 0,
+    'review': 0,
   },
   'revision': 'initial',
 };
@@ -38,9 +51,9 @@ Map<String, dynamic> _board({required int review}) => {
 void main() {
   final count = find.byKey(const Key('rail-review-count'));
 
-  // Harm: the issues waiting for the person's review are seen only on the board, or a project the planner serves is
+  // Harm: the stories waiting for the person's review are seen only on the board, or a project the planner serves is
   // left out of the count beside Needs you.
-  testWidgets("the planner's issues in review are counted beside Needs you over every project", (tester) async {
+  testWidgets("the planner's stories in review are counted beside Needs you over every project", (tester) async {
     await World.startBackend(World.work);
     World.backend.theProjectsItHas = [
       Project.from({'name': 'checkout'}),
@@ -59,8 +72,8 @@ void main() {
     expect(World.shell.place.planningFilter, PlanningFilter.review);
   });
 
-  // Harm: the count says issues wait, and pressing it shows a board where none waits.
-  testWidgets('pressing the review count opens a project that has issues in review', (tester) async {
+  // Harm: the count says stories wait, and pressing it shows a board where none waits.
+  testWidgets('pressing the review count opens a project that has stories in review', (tester) async {
     await World.startBackend(World.work);
     World.backend.theProjectsItHas = [
       Project.from({'name': 'checkout'}),

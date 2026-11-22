@@ -12,14 +12,14 @@ Feature: Open stories and issues from planning
         Then planning details contain {'Story source'}
         And planning details do not contain {'# Story source'}
         And the planning issue table is shown
-        And the planning breadcrumb is {'Planning,ST291'}
+        And the planning breadcrumb is {'Board,ST291'}
         And Planning is selected in the rail
 
     # Harm: an issue loses its criteria or hides blocking findings behind notes.
     Scenario: An issue shows its last reading and sub-agents
         When I open planning story {'ST291'}
         And I open planning issue {'B541'}
-        Then the planning breadcrumb is {'Planning,ST291,B541'}
+        Then the planning breadcrumb is {'Board,ST291,B541'}
         And Planning is selected in the rail
         And planning details contain {'Only confirmed work is published'}
         And planning details contain {'Read the final changes'}
@@ -29,7 +29,7 @@ Feature: Open stories and issues from planning
     Scenario: An unfolded card opens an issue directly
         When I unfold planning story {'ST291'}
         And I open planning issue {'B541'}
-        Then the planning breadcrumb is {'Planning,ST291,B541'}
+        Then the planning breadcrumb is {'Board,ST291,B541'}
         And planning details contain {'The host tool reads the organization'}
 
     # Harm: navigating back resets the board filters folds or scroll position.
@@ -42,7 +42,7 @@ Feature: Open stories and issues from planning
         And I open planning story {'ST291'}
         And I open planning issue {'B541'}
         And I press planning breadcrumb {1}
-        Then the planning breadcrumb is {'Planning,ST291'}
+        Then the planning breadcrumb is {'Board,ST291'}
         When I press planning breadcrumb {0}
         Then the planning board position is retained
 
@@ -51,7 +51,7 @@ Feature: Open stories and issues from planning
         When I open planning story {'ST291'}
         And I open planning issue {'B541'}
         And I press planning back
-        Then the planning breadcrumb is {'Planning,ST291'}
+        Then the planning breadcrumb is {'Board,ST291'}
         When I press planning back
         Then the planning board is visible
 
@@ -142,10 +142,10 @@ Feature: Open stories and issues from planning
         When I unfold planning story {'ST291'}
         And I open planning issue {'B541'}
         And I use a narrow planning pane
-        Then the planning breadcrumb is {'Planning,ST291,B541'}
+        Then the planning breadcrumb is {'Board,ST291,B541'}
         And planning has no asynchronous error
         When I press planning breadcrumb {1}
-        Then the planning breadcrumb is {'Planning,ST291'}
+        Then the planning breadcrumb is {'Board,ST291'}
 
     # Harm: missing or repeated numbers produce duplicate keys and crash the issue page.
     Scenario: Incomplete finding numbers remain readable
@@ -196,7 +196,7 @@ Feature: Open stories and issues from planning
         And the machine lists planning issue {'B541'} under story {'ST294'}
         Then the planning section {'Story'} contains {'ST294'}
         When I open the planning owner story
-        Then the planning breadcrumb is {'Planning,ST294'}
+        Then the planning breadcrumb is {'Board,ST294'}
 
     # Harm: a parent failure hides an issue that was read and its valid browser link.
     Scenario: A failed parent leaves the issue and its link readable

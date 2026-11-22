@@ -99,7 +99,8 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlanningTaskOrder,
         PlanningTaskStarted,
         confirmPlanningLeave,
-        planningFailureWords;
+        planningFailureWords,
+        planningStoryReviewState;
 import 'package:porelo_host/porelo_host.dart'
     show
         CentralToken,
@@ -4679,13 +4680,19 @@ class _ShellState extends State<Shell> {
   };
 
   /// Whether the planning the window was given is reached, so its count can be said.
-  /// Opens the board filtered to the issues waiting for review: on the project shown when it has some, else on the
-  /// first project that has some, since the count covers every project and a board shows one.
+  /// Opens the board filtered to the stories waiting for review: on the project shown when it has some, else on the
+  /// first project that has some, since the count covers every project and a board shows one. Stories wait as the
+  /// count takes them, in the state their workflow's last work ends in.
   void _openReview() {
     final planning = _planning;
     final shown = planning?.selected;
     // Only a live board is one the count was taken from; a stale one may still say reviews that are gone.
-    bool reviewing(PlanningBoard board) => board.live && !board.unsupported && (board.snapshot?.open?.review ?? 0) > 0;
+    bool reviewing(PlanningBoard board) {
+      if (!board.live || board.unsupported) return false;
+      final waiting = planningStoryReviewState(board.snapshot);
+      return waiting != null && board.stories.any((story) => story.state == waiting);
+    }
+
     final board = shown != null && reviewing(shown)
         ? shown
         : planning?.projects

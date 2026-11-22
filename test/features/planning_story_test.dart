@@ -91,14 +91,14 @@ void main() {
       await planningDetailsContain(tester, 'Story source');
       await planningDetailsDoNotContain(tester, '# Story source');
       await thePlanningIssueTableIsShown(tester);
-      await thePlanningBreadcrumbIs(tester, 'Planning,ST291');
+      await thePlanningBreadcrumbIs(tester, 'Board,ST291');
       await planningIsSelectedInTheRail(tester);
     });
     testWidgets('''An issue shows its last reading and sub-agents''', (tester) async {
       await bddSetUp(tester);
       await iOpenPlanningStory(tester, 'ST291');
       await iOpenPlanningIssue(tester, 'B541');
-      await thePlanningBreadcrumbIs(tester, 'Planning,ST291,B541');
+      await thePlanningBreadcrumbIs(tester, 'Board,ST291,B541');
       await planningIsSelectedInTheRail(tester);
       await planningDetailsContain(tester, 'Only confirmed work is published');
       await planningDetailsContain(tester, 'Read the final changes');
@@ -108,7 +108,7 @@ void main() {
       await bddSetUp(tester);
       await iUnfoldPlanningStory(tester, 'ST291');
       await iOpenPlanningIssue(tester, 'B541');
-      await thePlanningBreadcrumbIs(tester, 'Planning,ST291,B541');
+      await thePlanningBreadcrumbIs(tester, 'Board,ST291,B541');
       await planningDetailsContain(tester, 'The host tool reads the organization');
     });
     testWidgets('''Breadcrumbs retain the board position''', (tester) async {
@@ -121,7 +121,7 @@ void main() {
       await iOpenPlanningStory(tester, 'ST291');
       await iOpenPlanningIssue(tester, 'B541');
       await iPressPlanningBreadcrumb(tester, 1);
-      await thePlanningBreadcrumbIs(tester, 'Planning,ST291');
+      await thePlanningBreadcrumbIs(tester, 'Board,ST291');
       await iPressPlanningBreadcrumb(tester, 0);
       await thePlanningBoardPositionIsRetained(tester);
     });
@@ -130,7 +130,7 @@ void main() {
       await iOpenPlanningStory(tester, 'ST291');
       await iOpenPlanningIssue(tester, 'B541');
       await iPressPlanningBack(tester);
-      await thePlanningBreadcrumbIs(tester, 'Planning,ST291');
+      await thePlanningBreadcrumbIs(tester, 'Board,ST291');
       await iPressPlanningBack(tester);
       await thePlanningBoardIsVisible(tester);
     });
@@ -230,10 +230,10 @@ void main() {
       await iUnfoldPlanningStory(tester, 'ST291');
       await iOpenPlanningIssue(tester, 'B541');
       await iUseANarrowPlanningPane(tester);
-      await thePlanningBreadcrumbIs(tester, 'Planning,ST291,B541');
+      await thePlanningBreadcrumbIs(tester, 'Board,ST291,B541');
       await planningHasNoAsynchronousError(tester);
       await iPressPlanningBreadcrumb(tester, 1);
-      await thePlanningBreadcrumbIs(tester, 'Planning,ST291');
+      await thePlanningBreadcrumbIs(tester, 'Board,ST291');
     });
     testWidgets('''Incomplete finding numbers remain readable''', (tester) async {
       await bddSetUp(tester);
@@ -284,7 +284,7 @@ void main() {
       await theMachineListsPlanningIssueUnderStory(tester, 'B541', 'ST294');
       await thePlanningSectionContains(tester, 'Story', 'ST294');
       await iOpenThePlanningOwnerStory(tester);
-      await thePlanningBreadcrumbIs(tester, 'Planning,ST294');
+      await thePlanningBreadcrumbIs(tester, 'Board,ST294');
     });
     testWidgets('''A failed parent leaves the issue and its link readable''', (tester) async {
       await bddSetUp(tester);
