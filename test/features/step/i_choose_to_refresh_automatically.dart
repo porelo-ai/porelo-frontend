@@ -7,6 +7,8 @@ import '../support/world.dart';
 Future<void> iChooseToRefreshAutomatically(WidgetTester tester, String how) async {
   await tester.tap(find.byTooltip('Options'));
   await World.settle(tester);
-  await tester.tap(find.widgetWithText(CheckedPopupMenuItem<String>, 'Refresh automatically: $how'));
+  await tester.tap(find.widgetWithText(SubmenuButton, 'Refresh automatically'));
+  await World.settle(tester);
+  await tester.tap(find.widgetWithText(MenuItemButton, how));
   await World.settle(tester);
 }

@@ -47,6 +47,12 @@ void main() {
     await World.startApp(tester, planning: (_) => EmbeddedPlanning(planner, startTask: mockStartTask));
   }
 
+  /// Opens the submenu [name] of the settings menu, which is open.
+  Future<void> openSubmenu(WidgetTester tester, String name) async {
+    await tester.tap(find.widgetWithText(SubmenuButton, name));
+    await World.settle(tester);
+  }
+
   Future<void> openOptions(WidgetTester tester, double width) async {
     tester.view.physicalSize = Size(width, 800);
     await World.settle(tester);
@@ -66,20 +72,35 @@ void main() {
       '';
 
   // Harm: a person cannot tell which file a link opens, on a desktop or on a phone's width.
-  for (final width in [390.0, 1280.0]) {
-    testWidgets('both links name their files in Options at $width', (tester) async {
-      await start(tester, plannerLog: '/state/porelo/logs/planner.log');
-      await openOptions(tester, width);
-      expect(find.textContaining(windowsLog), findsOneWidget);
-      expect(find.textContaining('/state/porelo/logs/planner.log'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-  }
+  testWidgets('both links name their files in Options at 390', (tester) async {
+    await start(tester, plannerLog: '/state/porelo/logs/planner.log');
+    await openOptions(tester, 390);
+    expect(find.text('frontend.log'), findsOneWidget);
+    expect(find.text('planner.log'), findsOneWidget);
+    expect(find.textContaining('/state/porelo/logs/'), findsNothing, reason: 'a log is named by its file alone');
+    expect(tester.takeException(), isNull);
+  });
+
+  // Harm: the menu is as long as the logs' folders, so the person scrolls through paths to find a file.
+  testWidgets('Logs is one entry opening a submenu of the files by name, never their folder', (tester) async {
+    await start(tester, plannerLog: '/state/porelo/logs/planner.log');
+    await openOptions(tester, 1280);
+    expect(find.widgetWithText(SubmenuButton, 'Logs'), findsOneWidget);
+    expect(find.text('frontend.log'), findsNothing);
+
+    await openSubmenu(tester, 'Logs');
+    expect(find.widgetWithText(MenuItemButton, 'frontend.log'), findsOneWidget);
+    expect(find.widgetWithText(MenuItemButton, 'planner.log'), findsOneWidget);
+    expect(find.textContaining('/state/'), findsNothing);
+    expect(find.textContaining(windowsLog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   // Harm: the opener is called on nothing and fails silently, so the person is told nothing.
   testWidgets('a log not there yet is said with its path, and nothing is opened', (tester) async {
     await start(tester);
     await openOptions(tester, 1280);
+    await openSubmenu(tester, 'Logs');
     await World.tapInView(tester, 'log.window');
     expect(said(tester), allOf(contains(windowsLog), contains('not there yet')));
     expect(opened, isEmpty);
@@ -91,6 +112,7 @@ void main() {
     World.shell.goTo(Section.attention);
     await World.settle(tester);
     await openOptions(tester, 1280);
+    await openSubmenu(tester, 'Logs');
     await World.tapInView(tester, 'log.window');
     expect(said(tester), allOf(contains(windowsLog), contains('not there yet')));
   });
@@ -102,6 +124,7 @@ void main() {
       ..writeAsStringSync('a line\n');
     await start(tester);
     await openOptions(tester, 1280);
+    await openSubmenu(tester, 'Logs');
     await World.tapInView(tester, 'log.window');
     expect(opened, [
       ['xdg-open', windowsLog],
@@ -112,17 +135,32 @@ void main() {
   testWidgets('a level chosen in Options is the window\'s, and the planner at another level is said', (tester) async {
     await start(tester, plannerLevel: LogLevel.error);
     await openOptions(tester, 1280);
+    await openSubmenu(tester, 'Log level');
     expect(find.text('The planner’s log is at ERROR, not INFO'), findsOneWidget);
+    expect(find.widgetWithText(MenuItemButton, 'INFO (the usual)'), findsOneWidget);
+    expect(
+      find.descendant(of: find.widgetWithText(MenuItemButton, 'INFO (the usual)'), matching: find.byIcon(Icons.check)),
+      findsOneWidget,
+    );
 
     await World.tapInView(tester, 'log.level.debug');
     expect(World.settings.logLevel.value, LogLevel.debug);
+
+    await World.tapInView(tester, 'options-menu');
+    await openSubmenu(tester, 'Log level');
+    expect(
+      find.descendant(of: find.widgetWithText(MenuItemButton, 'DEBUG'), matching: find.byIcon(Icons.check)),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.check), findsOneWidget);
   });
 
   // Harm: a guessed path is opened where the planner names none, or the person is told nothing.
   testWidgets('a planner that names no log is said so, and nothing is opened', (tester) async {
     await start(tester);
     await openOptions(tester, 1280);
-    expect(find.textContaining(plannerNamesNoLog), findsOneWidget);
+    await openSubmenu(tester, 'Logs');
+    expect(find.text('The planner’s log: not named yet'), findsOneWidget, reason: 'no file is guessed');
     await World.tapInView(tester, 'log.planner');
     expect(said(tester), contains(plannerNamesNoLog));
     expect(opened, isEmpty);

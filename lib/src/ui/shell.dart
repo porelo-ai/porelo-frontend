@@ -4607,7 +4607,22 @@ class _ShellState extends State<Shell> {
                                 command.run();
                               }
                             : null,
-                        child: Text(command.label),
+                        // As in the menu: a log by its file alone, and the choice in force marked.
+                        child: Row(
+                          children: [
+                            Icon(command.checked ?? false ? Icons.check : null),
+                            const SizedBox(width: Space.small),
+                            Expanded(
+                              child: Text(
+                                group == logsGroup &&
+                                        command.id.startsWith('log.') &&
+                                        !command.id.startsWith('log.level')
+                                    ? _logFileWords(command)
+                                    : command.label,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                 ],
               ],
@@ -5798,30 +5813,7 @@ class _ShellState extends State<Shell> {
                 icon: const Icon(Icons.dns_outlined),
                 onPressed: command.available ? command.run : null,
               ),
-          PopupMenuButton<String>(
-            key: const Key('options-menu'),
-            tooltip: 'Options',
-            icon: const Icon(Icons.tune),
-            onSelected: (id) {
-              for (final command in commands) {
-                if (command.id == id && command.available) command.run();
-              }
-            },
-            itemBuilder: (context) => <PopupMenuEntry<String>>[
-              for (final command in commands)
-                if (command.home == Home.appBar && command.group == 'Options')
-                  CheckedPopupMenuItem<String>(
-                    value: command.id,
-                    checked: command.checked ?? false,
-                    child: Text(command.label),
-                  ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(enabled: false, child: Text(logsGroup)),
-              for (final command in commands)
-                if (command.home == Home.appBar && command.group == logsGroup)
-                  PopupMenuItem<String>(key: Key(command.id), value: command.id, child: Text(command.label)),
-            ],
-          ),
+          _optionsMenu(commands),
           if (widget.walk case final walk?)
             ListenableBuilder(
               listenable: walk,
@@ -5842,6 +5834,70 @@ class _ShellState extends State<Shell> {
           ),
         ],
       ],
+    );
+  }
+
+  /// A log's entry by its file alone, never its folder; a planner that names none says so.
+  static String _logFileWords(Command command) {
+    final at = command.label.indexOf(': ');
+    if (at < 0) return 'The planner’s log: not named yet';
+    final file = command.label.substring(at + 2).split(RegExp(r'[/\\]')).last;
+    return file.isEmpty ? command.label : file;
+  }
+
+  /// The settings menu, the tune icon: what has alternatives (appearance, refresh, log level, the logs) is one entry
+  /// opening a submenu of them, the one in force checked; the rest are single entries. The commands keep their whole
+  /// labels for the finder; the menu shows only the part after the group's name.
+  Widget _optionsMenu(List<Command> commands) {
+    List<Command> inGroup(String group) => [
+      for (final command in commands)
+        if (command.home == Home.appBar && command.group == group) command,
+    ];
+    final options = inGroup('Options');
+    final logs = inGroup(logsGroup);
+    bool startsWith(Command command, String prefix) => command.id.startsWith(prefix);
+
+    Widget entry(Command command, String label, {bool? mark}) => MenuItemButton(
+      key: Key(command.id),
+      leadingIcon: mark == null ? null : Icon(mark ? Icons.check : null),
+      onPressed: command.available ? command.run : null,
+      child: Text(label),
+    );
+    String after(Command command) {
+      final at = command.label.indexOf(': ');
+      return at < 0 ? command.label : command.label.substring(at + 2);
+    }
+
+    Widget submenu(String name, List<Widget> children) => SubmenuButton(menuChildren: children, child: Text(name));
+    String fileOf(Command command) => _logFileWords(command);
+
+    final appearance = options.where((command) => startsWith(command, 'appearance.')).toList();
+    final refresh = options.where((command) => startsWith(command, 'refresh.every/')).toList();
+    final others = options.where((command) => !appearance.contains(command) && !refresh.contains(command));
+    final levels = logs.where((command) => startsWith(command, 'log.level.') && command.id != 'log.level.planner');
+    final files = logs.where((command) => command.id == 'log.window' || command.id == 'log.planner');
+    final levelNote = logs.where((command) => command.id == 'log.level.planner');
+
+    return MenuAnchor(
+      menuChildren: [
+        if (appearance.isNotEmpty)
+          submenu('Appearance', [for (final c in appearance) entry(c, after(c), mark: c.checked ?? false)]),
+        if (refresh.isNotEmpty)
+          submenu('Refresh automatically', [for (final c in refresh) entry(c, after(c), mark: c.checked ?? false)]),
+        for (final c in others) entry(c, c.label, mark: c.checked),
+        if (levels.isNotEmpty || levelNote.isNotEmpty)
+          submenu('Log level', [
+            for (final c in levels) entry(c, after(c), mark: c.checked ?? false),
+            for (final c in levelNote) MenuItemButton(key: Key(c.id), child: Text(c.label)),
+          ]),
+        if (files.isNotEmpty) submenu(logsGroup, [for (final c in files) entry(c, fileOf(c))]),
+      ],
+      builder: (context, controller, _) => IconButton(
+        key: const Key('options-menu'),
+        tooltip: 'Options',
+        icon: const Icon(Icons.tune),
+        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+      ),
     );
   }
 
