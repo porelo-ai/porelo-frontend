@@ -142,6 +142,7 @@ Feature: Planning moves are saved at once
         And I unfold closed planning states
         And I fold the planning phase {'Build'}
         And I drag planning story {'ST293'} to {'Finished'}
+        And I confirm the planning move
         Then planning story {'ST293'} is not being saved
         And the planning story {'ST293'} is in {'Finished'}
 

@@ -79,7 +79,6 @@ Feature: Start and decide story work from the planning board
     # Harm: a stopped reading the person saw keeps its story card saying needs you, so the board sends them back to it.
     Scenario: A stopped reading put away leaves its story's card
         Given story work is prepared with {'stopped reading'}
-        When I choose story work {'fold the card'}
         Then story work proves {'card needs you'}
         When I choose story work {'needs you'}
         And I choose story work {'put the reading away'}

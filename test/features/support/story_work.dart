@@ -270,9 +270,6 @@ Future<void> chooseWork(WidgetTester tester, String choice) async {
       await tester.ensureVisible(perIssue);
       await tester.tap(perIssue);
       await World.settle(tester);
-    case 'fold the card':
-      // A folded card says needs you by its warning alone, the mark a row seen takes off.
-      await workTap(tester, 'planning-fold-story ST291');
     case 'show closed cards':
       await workTap(tester, 'planning-fold-phase Done');
     case 'change builder and rounds':
@@ -404,8 +401,9 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       final card = workKey('planning-card ST291');
       await revealPlanning(tester, card);
       expect(card, findsOneWidget);
+      // A stopped reading says so on its card until the person has seen it in Needs you.
       expect(
-        find.descendant(of: card, matching: workKey('planning-warning ST291')),
+        find.descendant(of: card, matching: find.text('stopped in Reading - needs you')),
         proof == 'card needs you' ? findsOneWidget : findsNothing,
       );
     case 'working work missing':

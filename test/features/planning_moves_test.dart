@@ -221,6 +221,7 @@ void main() {
       await iUnfoldClosedPlanningStates(tester);
       await iFoldThePlanningPhase(tester, 'Build');
       await iDragPlanningStoryTo(tester, 'ST293', 'Finished');
+      await iConfirmThePlanningMove(tester);
       await planningStoryIsNotBeingSaved(tester, 'ST293');
       await thePlanningStoryIsIn(tester, 'ST293', 'Finished');
     });
