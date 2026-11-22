@@ -293,7 +293,7 @@ void main() {
     final listeners = <_Failing>[];
     final tunnels = tunnelsWith(
       bind: (address, port) async {
-        final listener = _Failing(await LoopbackCarrier.bindExclusive(address, port));
+        final listener = _Failing(address, port);
         listeners.add(listener);
         return listener;
       },
@@ -522,26 +522,21 @@ class _In extends Fake implements IOSink {
   Future<void> get done => _done.future;
 }
 
-/// A real listener whose errors the test gives instead of the system.
+/// A listener at [address] and [port] whose errors the test gives instead of the system. It holds no port of the
+/// system, so no other program on a busy machine can take one between a bind and the next.
 class _Failing extends Stream<RawSocket> implements RawServerSocket {
-  _Failing(this._real) {
-    _accepting = _real.listen(events.add, onError: events.addError, onDone: events.close);
-  }
+  _Failing(this.address, this.port);
 
-  final RawServerSocket _real;
   final events = StreamController<RawSocket>();
-  late final StreamSubscription<RawSocket> _accepting;
 
   @override
-  InternetAddress get address => _real.address;
+  final InternetAddress address;
 
   @override
-  int get port => _real.port;
+  final int port;
 
   @override
   Future<RawServerSocket> close() async {
-    await _accepting.cancel();
-    await _real.close();
     if (!events.isClosed) unawaited(events.close());
     return this;
   }
