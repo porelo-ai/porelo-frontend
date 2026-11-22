@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The settings menu takes the keyboard when it opens, so the arrows walk its entries and submenus rather than the page behind it; in a guided walk the zoom leaves the walk's panel at its own size.
 - The *Planning* board is headed *Board* and gives a folded column its number; a Reload's progress stands beside its button; *Needs your review*, and its number beside *Needs you*, count the stories in review; *Open work* sorts and filters its rows; a card's count of issues leaves out the rejected ones.
 - The window zooms everything, text and icons, as a browser does: Ctrl+Plus, Ctrl+Minus and Ctrl+0 (the keypad's keys too), or the *Zoom* row of the settings menu with − and + and the size in force between them, from 50 % to 200 %; the zoom is kept for the next start.
 - The settings menu offers *Appearance*, *Refresh automatically*, *Log level* and *Logs* each as one entry opening a submenu, which marks the choice in force; a log is named there by its file alone, such as `frontend.log`. The finder still finds each choice by its whole words.

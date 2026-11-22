@@ -201,16 +201,17 @@ class PoreloApp extends StatelessWidget {
       darkTheme: PoreloTheme.dark,
       themeMode: settings.appearance,
       // Around the navigator, so the walk's panel stays usable while a dialog is open, and the zoom reaches dialogs and
-      // menus too.
-      builder: (context, child) => ZoomKeys(
-        zoomIn: settings.zoomIn,
-        zoomOut: settings.zoomOut,
-        reset: settings.zoomReset,
-        child: Zoomed(
-          percent: settings.zoomPercent,
-          child: walk == null ? child! : WalkFrame(walk: walk!, texts: poreloWalkTexts, child: child!),
-        ),
-      ),
+      // menus too. The zoom stands inside the walk's frame: its panel keeps its own size beside the window, which a
+      // zoomed panel would leave no room for.
+      builder: (context, child) {
+        final zoomed = Zoomed(percent: settings.zoomPercent, child: child!);
+        return ZoomKeys(
+          zoomIn: settings.zoomIn,
+          zoomOut: settings.zoomOut,
+          reset: settings.zoomReset,
+          child: walk == null ? zoomed : WalkFrame(walk: walk!, texts: poreloWalkTexts, child: zoomed),
+        );
+      },
       home: ListenableBuilder(
         listenable: Listenable.merge(<Listenable>[
           machines,

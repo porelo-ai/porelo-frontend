@@ -160,4 +160,39 @@ void main() {
     expect(World.settings.zoomPercent, 110);
     expect(tester.takeException(), isNull);
   });
+
+  // Harm: a person on the keyboard opens the settings menu but cannot reach a choice in it: the arrows walk the page
+  // behind it.
+  testWidgets('the settings menu is walked by the keyboard alone, into a submenu and its choice', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    await World.settle(tester);
+    final button = find.byKey(const Key('options-menu'));
+    Focus.of(tester.element(find.descendant(of: button, matching: find.byType(Icon)).first)).requestFocus();
+    await World.settle(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await World.settle(tester);
+
+    bool onAppearance() {
+      final focused = FocusManager.instance.primaryFocus?.context;
+      return focused != null &&
+          find.descendant(of: find.byWidget(focused.widget), matching: find.text('Appearance')).evaluate().isNotEmpty;
+    }
+
+    for (var step = 0; step < 8 && !onAppearance(); step++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await World.settle(tester);
+    }
+    expect(onAppearance(), isTrue, reason: 'the arrows walk the menu, not the page behind it');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await World.settle(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await World.settle(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await World.settle(tester);
+    expect(World.settings.appearance, isNot(ThemeMode.system), reason: 'a choice in the submenu is taken by Enter');
+  });
 }
