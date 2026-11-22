@@ -129,4 +129,32 @@ void main() {
     expect((await client.leaveDefault('checkout')).removed, isTrue);
     expect(removed, <String, dynamic>{'name': 'checkout'});
   });
+
+  // Harm: the work page cannot tell which project names a repository of Default, by which of its repositories, or how
+  // to take it out at a terminal; or a Porelo without the call is taken as one that names none.
+  test("the repositories the organization's projects name come with the project, its key and the command", () async {
+    answering('NamedDefaultRepositories', <String, dynamic>{
+      'repositories': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'name': 'checkout',
+          'upstream': 'git@github.com:acme/checkout.git',
+          'project': 'payments',
+          'projectRepository': 'checkout-service',
+          'removal': 'porelo project default remove checkout',
+        },
+      ],
+    });
+    final found = (await (await connect()).namedDefaultRepositories()).single;
+    expect(found.name, 'checkout');
+    expect(found.upstream, 'git@github.com:acme/checkout.git');
+    expect(found.project, 'payments');
+    expect(found.projectRepository, 'checkout-service');
+    expect(found.removal, 'porelo project default remove checkout');
+
+    final older = MockDaemon();
+    await older.start();
+    addTearDown(older.stop);
+    final client = await PoreloClient.connect(Backend(socketPath: older.socketPath, label: 'older'));
+    await expectLater(client.namedDefaultRepositories(), throwsA(isA<FeatureNotSupported>()));
+  });
 }

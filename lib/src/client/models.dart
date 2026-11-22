@@ -1643,6 +1643,43 @@ class DefaultRepository {
   );
 }
 
+/// A repository of `default` that a project of the organization names (`NamedDefaultRepositories`): its next task
+/// starts in that project, and it stays in `default` until the person takes it out.
+class NamedDefaultRepository {
+  /// Its name in `default`, what `LeaveDefault` takes.
+  final String name;
+
+  /// Where its history comes from and its approved work goes in `default`.
+  final String upstream;
+
+  /// The organization's project that names it.
+  final String project;
+
+  /// The repository's key in [project], or empty where the machine did not say.
+  final String projectRepository;
+
+  /// The command that takes it out of `default` at a terminal, or empty where the machine did not say.
+  final String removal;
+
+  /// Constructor taking every field.
+  const NamedDefaultRepository({
+    required this.name,
+    required this.upstream,
+    required this.project,
+    this.projectRepository = '',
+    this.removal = '',
+  });
+
+  /// Reads one from a reply.
+  factory NamedDefaultRepository.from(Map<String, dynamic> map) => NamedDefaultRepository(
+    name: _string(map, 'name'),
+    upstream: _string(map, 'upstream'),
+    project: _string(map, 'project'),
+    projectRepository: _string(map, 'projectRepository'),
+    removal: _string(map, 'removal'),
+  );
+}
+
 /// What bringing a task up to its source did (`RefreshTask`).
 class TaskRefreshed {
   /// `MOVED`, `UNCHANGED`, `NOT_GATED` or `FAILED`; another is said as it comes.

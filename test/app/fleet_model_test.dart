@@ -219,6 +219,9 @@ class _Wedged implements FleetBackend {
   Future<List<DefaultRepository>> defaultRepositories() async => const <DefaultRepository>[];
 
   @override
+  Future<List<NamedDefaultRepository>> namedDefaultRepositories() async => const <NamedDefaultRepository>[];
+
+  @override
   Future<DefaultRepository> addToDefault(String upstream, {String? name}) async => throw UnimplementedError();
 
   @override
@@ -667,6 +670,9 @@ class _Machine implements FleetBackend {
 
   @override
   Future<List<DefaultRepository>> defaultRepositories() async => const <DefaultRepository>[];
+
+  @override
+  Future<List<NamedDefaultRepository>> namedDefaultRepositories() async => const <NamedDefaultRepository>[];
 
   @override
   Future<DefaultRepository> addToDefault(String upstream, {String? name}) async => throw UnimplementedError();

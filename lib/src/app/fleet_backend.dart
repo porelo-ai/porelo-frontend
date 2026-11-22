@@ -506,6 +506,10 @@ abstract class FleetBackend {
   /// The repositories worked on in the Default project, in `default`.
   Future<List<DefaultRepository>> defaultRepositories();
 
+  /// The repositories of `default` a project of the organization names; a Porelo without it throws
+  /// `FeatureNotSupported`.
+  Future<List<NamedDefaultRepository>> namedDefaultRepositories();
+
   /// Adds the repository at [upstream] to `default`, under [name] where one is given.
   Future<DefaultRepository> addToDefault(String upstream, {String? name});
 
@@ -1270,6 +1274,9 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
 
   @override
   Future<List<DefaultRepository>> defaultRepositories() => _opened().defaultRepositories();
+
+  @override
+  Future<List<NamedDefaultRepository>> namedDefaultRepositories() => _opened().namedDefaultRepositories();
 
   @override
   Future<DefaultRepository> addToDefault(String upstream, {String? name}) =>

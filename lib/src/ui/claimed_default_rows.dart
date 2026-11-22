@@ -21,7 +21,7 @@ class ClaimedDefaultRows extends StatefulWidget {
 
 class _ClaimedDefaultRowsState extends State<ClaimedDefaultRows> {
   /// Each machine's repositories of `default` a project names, by the machine's name.
-  final _claimed = <String, List<DefaultRepository>>{};
+  final _claimed = <String, List<NamedDefaultRepository>>{};
 
   /// What a leaving came to, by `machine/repository`.
   final _said = <String, String>{};
@@ -47,30 +47,39 @@ class _ClaimedDefaultRowsState extends State<ClaimedDefaultRows> {
 
   Future<void> _readAll() => Future.wait([for (final machine in widget.machines) _read(machine)]);
 
+  /// The organization's projects that name a repository of `default`, or, from a Porelo that cannot list them, the
+  /// placed projects its list of `default` says name one.
+  Future<List<NamedDefaultRepository>> _named(FleetBackend backend) async {
+    try {
+      return await backend.namedDefaultRepositories();
+    } on FeatureNotSupported {
+      return [
+        for (final each in await backend.defaultRepositories())
+          if (each.claimedBy.isNotEmpty)
+            NamedDefaultRepository(name: each.name, upstream: each.upstream, project: each.claimedBy),
+      ];
+    }
+  }
+
   Future<void> _read(({String name, FleetBackend backend}) machine) async {
     try {
-      final found = await machine.backend.defaultRepositories();
+      final found = await _named(machine.backend);
       if (!mounted) return;
-      setState(
-        () => _claimed[machine.name] = [
-          for (final each in found)
-            if (each.claimedBy.isNotEmpty) each,
-        ],
-      );
+      setState(() => _claimed[machine.name] = found);
     } on Object {
       // A machine that cannot say now offers nothing; the Default dialog says why where it is opened.
     }
   }
 
-  Future<void> _leave(({String name, FleetBackend backend}) machine, DefaultRepository repository) async {
+  Future<void> _leave(({String name, FleetBackend backend}) machine, NamedDefaultRepository repository) async {
     final key = '${machine.name}/${repository.name}';
     final asked = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Take ${repository.name} out of Default?'),
         content: Text(
-          '${repository.claimedBy} names it now, so its next task on ${machine.name} starts there. A task running '
-          'in Default keeps its project. Its mirror on ${machine.name}, and anything waiting in it, stay.',
+          '${_names(repository)}, so its next task on ${machine.name} starts there. A task running in Default keeps '
+          'its project. Its mirror on ${machine.name}, and anything waiting in it, stay.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -92,7 +101,7 @@ class _ClaimedDefaultRowsState extends State<ClaimedDefaultRows> {
       final done = await machine.backend.leaveDefault(repository.name);
       said = [
         if (done.removed)
-          '${repository.name} is out of Default on ${machine.name}; its next task starts in ${repository.claimedBy}.'
+          '${repository.name} is out of Default on ${machine.name}; its next task starts in ${repository.project}.'
         else
           '${repository.name} was not in Default on ${machine.name} any more.',
         for (final each in done.keys) each.title,
@@ -117,19 +126,34 @@ class _ClaimedDefaultRowsState extends State<ClaimedDefaultRows> {
     await _read(machine);
   }
 
+  /// Which project names [repository], and by which of its repositories where the machine says.
+  static String _names(NamedDefaultRepository repository) => repository.projectRepository.isEmpty
+      ? '${repository.project} names it now'
+      : '${repository.project} names it now as ${repository.projectRepository}';
+
   @override
   Widget build(BuildContext context) {
     final rows = <Widget>[
       for (final machine in widget.machines)
-        for (final repository in _claimed[machine.name] ?? const <DefaultRepository>[])
+        for (final repository in _claimed[machine.name] ?? const <NamedDefaultRepository>[])
           ListTile(
             key: ValueKey<String>('default-claimed ${machine.name}/${repository.name}'),
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.drive_file_move_outline),
             title: Text('${repository.name}, in Default on ${machine.name}'),
-            subtitle: Text(
-              '${repository.claimedBy} names it now: its next task starts in ${repository.claimedBy}. It stays in '
-              'Default until it is taken out.',
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_names(repository)}: its next task starts in ${repository.project}. It stays in Default until '
+                  'it is taken out.',
+                ),
+                if (repository.removal.isNotEmpty)
+                  SelectableText(
+                    'At a terminal: ${repository.removal}',
+                    key: ValueKey<String>('default-removal ${machine.name}/${repository.name}'),
+                  ),
+              ],
             ),
             trailing: TextButton(
               key: ValueKey<String>('default-leave ${machine.name}/${repository.name}'),

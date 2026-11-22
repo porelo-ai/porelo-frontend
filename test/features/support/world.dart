@@ -2268,6 +2268,25 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     return List<DefaultRepository>.of(inDefault);
   }
 
+  /// The repositories of [inDefault] a project names, as `NamedDefaultRepositories` answers them: each by the project
+  /// its `claimedBy` names, under its own name there.
+  @override
+  Future<List<NamedDefaultRepository>> namedDefaultRepositories() async {
+    await _answering();
+    if (defaultReadFails case final fault?) throw fault;
+    return [
+      for (final each in inDefault)
+        if (each.claimedBy.isNotEmpty)
+          NamedDefaultRepository(
+            name: each.name,
+            upstream: each.upstream,
+            project: each.claimedBy,
+            projectRepository: each.name,
+            removal: 'porelo project default remove ${each.name}',
+          ),
+    ];
+  }
+
   @override
   Future<DefaultRepository> addToDefault(String upstream, {String? name}) async {
     addedToDefault.add(upstream);

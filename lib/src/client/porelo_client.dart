@@ -1535,6 +1535,16 @@ class PoreloClient {
         : const <DefaultRepository>[];
   }
 
+  /// The repositories of [defaultProject] that a project of the organization names, each with that project and its
+  /// key there; empty where the organization names none. A Porelo without it throws [FeatureNotSupported].
+  Future<List<NamedDefaultRepository>> namedDefaultRepositories() async {
+    final reply = await _call('NamedDefaultRepositories');
+    final listed = reply['repositories'];
+    return listed is List
+        ? listed.whereType<Map<String, dynamic>>().map(NamedDefaultRepository.from).toList()
+        : const <NamedDefaultRepository>[];
+  }
+
   /// Adds the repository at [upstream] to [defaultProject], under [name] where one is given. The
   /// same address again answers the one already there.
   Future<DefaultRepository> addToDefault(String upstream, {String? name}) async {
