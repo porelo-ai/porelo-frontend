@@ -355,9 +355,12 @@ class _ShellState extends State<Shell> {
   /// The settings menu's button, which the menu leads the arrow keys from, and gives the keyboard back to once closed.
   final _optionsFocus = FocusNode(debugLabel: 'options-menu');
 
-  /// The menu's first entry, the zoom in force, which takes the keyboard when the menu opens, as a popup's first entry
-  /// did; it is never disabled, and a submenu given the keyboard would open at once.
+  /// The menu's first entry, the zoom in force, which takes the keyboard when the keyboard opens the menu, as a popup's
+  /// first entry did; it is never disabled, and a submenu given the keyboard would open at once.
   final _firstChoiceFocus = FocusNode(debugLabel: 'options-menu first choice');
+
+  /// Whether a pointer pressed the settings menu's button since the menu last opened.
+  var _optionsByPointer = false;
 
   /// What is on the machine being acted on while it is watched; null while it is listed and not watched yet, as while
   /// it reconnects, which every reader draws or answers as not answering. Switching machine changes everything drawn
@@ -5910,17 +5913,34 @@ class _ShellState extends State<Shell> {
       ],
       // Opened from the keyboard, the arrows walk the menu from its button, never the page behind it.
       childFocusNode: _optionsFocus,
-      onOpen: () => WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_firstChoiceFocus.context != null) _firstChoiceFocus.requestFocus();
-      }),
-      builder: (context, controller, _) => IconButton(
-        key: const Key('options-menu'),
-        focusNode: _optionsFocus,
-        tooltip: 'Options',
-        icon: const Icon(Icons.tune),
-        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+      onOpen: _optionsOpened,
+      builder: (context, controller, _) => Listener(
+        onPointerDown: (_) => _optionsByPointer = true,
+        // The press's tap, which opens the menu, runs right after its release; a press that opens nothing, as one slid
+        // off the button, leaves no mark for the keyboard's next opening.
+        onPointerUp: (_) => scheduleMicrotask(() => _optionsByPointer = false),
+        onPointerCancel: (_) => _optionsByPointer = false,
+        child: IconButton(
+          key: const Key('options-menu'),
+          focusNode: _optionsFocus,
+          tooltip: 'Options',
+          icon: const Icon(Icons.tune),
+          onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+        ),
       ),
     );
+  }
+
+  /// Gives the menu's first entry the keyboard only where the keyboard opened it: a menu a pointer opened shows no
+  /// entry as focused, so Enter must not press one. Once the menu closes, its focus scope gives the keyboard back to
+  /// where it was.
+  void _optionsOpened() {
+    final byPointer = _optionsByPointer;
+    _optionsByPointer = false;
+    if (byPointer) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _firstChoiceFocus.context != null) _firstChoiceFocus.requestFocus();
+    });
   }
 
   /// The zoom as a browser shows it: smaller, the size in force (pressed, the usual size), larger. The menu closes
