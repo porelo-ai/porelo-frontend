@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 
 import '../app/desk.dart';
+import '../app/earlier_output.dart';
+import '../app/fleet_backend.dart';
 import '../app/session.dart';
 import '../app/vault_devices.dart' show clockTime;
 
@@ -14,6 +18,7 @@ import 'terminal_copy.dart';
 import 'session_terminal.dart';
 import 'terminal_links.dart';
 import 'terminal_look.dart';
+import 'earlier_output_pane.dart';
 
 /// A shell inside running work, drawn in the window.
 ///
@@ -26,7 +31,18 @@ import 'terminal_look.dart';
 /// elsewhere is leaving it.
 class SessionView extends StatefulWidget {
   /// Constructor taking the session, and what opens another where this way in failed.
-  const SessionView({required this.session, required this.focusNode, this.nextStep, this.onKey, super.key});
+  const SessionView({
+    required this.session,
+    required this.focusNode,
+    this.backend,
+    this.nextStep,
+    this.onKey,
+    super.key,
+  });
+
+  /// The daemon of the machine this session's task runs on, which holds its earlier output; null where none is
+  /// offered, and then no *Earlier output* is.
+  final FleetBackend? backend;
 
   /// Sees a key before the far end does; what it handles never gets there.
   final FocusOnKeyEventCallback? onKey;
@@ -62,6 +78,13 @@ class _SessionViewState extends State<SessionView> {
   /// Whether the person has scrolled back from the latest line, and *Jump to latest* shows.
   bool _back = false;
 
+  /// What is selected in the earlier output pane, or null: the pane cannot hold the keyboard, so a copy key is
+  /// answered here, and goes to the terminal only where nothing is selected there.
+  String? _paneSelection;
+
+  /// The session's earlier output, fetched once the person asks for it; null until then and where no backend is given.
+  EarlierOutput? _earlier;
+
   Session get session => widget.session;
 
   /// Whether the terminal held the keyboard when last told: a report goes out only on a change.
@@ -71,6 +94,7 @@ class _SessionViewState extends State<SessionView> {
   void initState() {
     super.initState();
     _scroll.addListener(_moved);
+    _selection.addListener(_terminalSelected);
     _focused = widget.focusNode.hasFocus;
     widget.focusNode.addListener(_focusChanged);
   }
@@ -89,6 +113,53 @@ class _SessionViewState extends State<SessionView> {
     final at = _scroll.position;
     final back = at.pixels < at.maxScrollExtent;
     if (back != _back) setState(() => _back = back);
+  }
+
+  /// Ctrl+C and Ctrl+Shift+C copy the pane's selection where it has one; the key then never reaches the program in
+  /// the session, which Ctrl+C would interrupt. Anywhere else the key goes on as before.
+  KeyEventResult _key(FocusNode node, KeyEvent event) {
+    final selected = _paneSelection;
+    final copy =
+        selected != null &&
+        selected.isNotEmpty &&
+        _earlier != null &&
+        event.logicalKey == LogicalKeyboardKey.keyC &&
+        HardwareKeyboard.instance.isControlPressed &&
+        !HardwareKeyboard.instance.isAltPressed;
+    if (copy) {
+      if (event is KeyDownEvent) unawaited(copyToClipboard(selected));
+      return KeyEventResult.handled;
+    }
+    return widget.onKey?.call(node, event) ?? KeyEventResult.ignored;
+  }
+
+  /// A selection made in the terminal replaces the pane's: a copy key copies the one made last.
+  void _terminalSelected() {
+    if (_selection.selection != null) _paneSelection = null;
+  }
+
+  /// Opens the pane of earlier output above the terminal, which starts fetching when it is shown.
+  void _openEarlier() {
+    final backend = widget.backend;
+    if (backend == null || _earlier != null) return;
+    setState(
+      () => _earlier = EarlierOutput(
+        backend: backend,
+        task: session.task,
+        heldLines: session.terminal.buffer.lines.length,
+      ),
+    );
+  }
+
+  void _closeEarlier() {
+    final earlier = _earlier;
+    if (earlier == null) return;
+    setState(() {
+      _earlier = null;
+      _paneSelection = null;
+    });
+    earlier.dispose();
+    widget.focusNode.requestFocus();
   }
 
   /// Goes to the latest line, and gives the keyboard back to the terminal the button took it from.
@@ -110,6 +181,10 @@ class _SessionViewState extends State<SessionView> {
     }
     if (old.session != widget.session) {
       _selection.clearSelection();
+      _paneSelection = null;
+      final earlier = _earlier;
+      _earlier = null;
+      earlier?.dispose();
       if (was) old.session.focused(gained: false);
       if (_focused) session.focused(gained: true);
     }
@@ -118,7 +193,10 @@ class _SessionViewState extends State<SessionView> {
   @override
   void dispose() {
     widget.focusNode.removeListener(_focusChanged);
-    _selection.dispose();
+    _earlier?.dispose();
+    _selection
+      ..removeListener(_terminalSelected)
+      ..dispose();
     _scroll
       ..removeListener(_moved)
       ..dispose();
@@ -163,7 +241,34 @@ class _SessionViewState extends State<SessionView> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
+          if (_earlier case final earlier?)
+            Expanded(
+              flex: 2,
+              child: EarlierOutputPane(
+                key: const Key('earlier-output'),
+                earlier: earlier,
+                onClose: _closeEarlier,
+                onSelected: (text) => _paneSelection = text,
+              ),
+            ),
+          if (widget.backend != null && _earlier == null)
+            ColoredBox(
+              color: TerminalLook.screen.background,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ExcludeFocus(
+                  child: TextButton.icon(
+                    key: const Key('terminal-earlier-open'),
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    onPressed: _openEarlier,
+                    icon: const Icon(Icons.arrow_upward, size: Sizes.terminalText),
+                    label: const Text('Earlier output'),
+                  ),
+                ),
+              ),
+            ),
           Expanded(
+            flex: 3,
             child: ColoredBox(
               color: TerminalLook.screen.background,
               // On Windows the wheel is reported to tmux by the session itself; see
@@ -175,16 +280,23 @@ class _SessionViewState extends State<SessionView> {
                       // Shift+drag selects here whatever the program asked for, as in other terminals: the
                       // whole gesture, press and release included, then never reaches the program.
                       onPointerDown: (_) => _selection.setSuspendPointerInput(HardwareKeyboard.instance.isShiftPressed),
-                      onPointerSignal: desk.isWindows
-                          ? (event) {
-                              // Where the program did ask for the mouse, the terminal reports the wheel itself.
-                              if (event is PointerScrollEvent &&
-                                  event.scrollDelta.dy != 0 &&
-                                  !session.terminal.mouseMode.reportScroll) {
-                                session.wheel(up: event.scrollDelta.dy < 0);
-                              }
-                            }
-                          : null,
+                      onPointerSignal: (event) {
+                        if (event is! PointerScrollEvent || event.scrollDelta.dy == 0) return;
+                        // The wheel past the oldest line the terminal holds goes on into the earlier output.
+                        final atOldest =
+                            !_scroll.hasClients || _scroll.position.pixels <= _scroll.position.minScrollExtent;
+                        if (event.scrollDelta.dy < 0 &&
+                            atOldest &&
+                            !session.terminal.isUsingAltBuffer &&
+                            !session.terminal.mouseMode.reportScroll) {
+                          _openEarlier();
+                        }
+                        // On Windows the wheel is reported to tmux by the session itself, where the program did not
+                        // ask for the mouse; the terminal reports it itself where it did.
+                        if (desk.isWindows && !session.terminal.mouseMode.reportScroll) {
+                          session.wheel(up: event.scrollDelta.dy < 0);
+                        }
+                      },
                       child: WalkSecret(
                         child: CopiesAsShown(
                           terminal: session.terminal,
@@ -198,13 +310,13 @@ class _SessionViewState extends State<SessionView> {
                             theme: TerminalLook.themeOf(context),
                             controller: _selection,
                             focusNode: widget.focusNode,
-                            onKey: widget.onKey,
+                            onKey: _key,
                             padding: const EdgeInsets.symmetric(horizontal: Sizes.terminalSide, vertical: Space.normal),
                             // On Windows every key, letters included, is read from the keyboard's own
                             // events: there the text-input path this widget uses elsewhere delivered
                             // Enter, Backspace and the page keys and no letter at all.
                             hardwareKeyboardOnly: desk.isWindows,
-                            textStyle: const TerminalStyle(fontSize: 13),
+                            textStyle: const TerminalStyle(fontSize: Sizes.sessionText),
                           ),
                         ),
                       ),

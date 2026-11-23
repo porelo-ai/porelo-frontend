@@ -291,6 +291,10 @@ class _Wedged implements FleetBackend {
       throw const FeatureNotSupported('Screen');
 
   @override
+  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false}) async =>
+      throw const FeatureNotSupported('ScreenBefore');
+
+  @override
   Future<Usage> usage(String task) async => throw const FeatureNotSupported('Usage');
 
   @override
@@ -764,6 +768,10 @@ class _Machine implements FleetBackend {
   @override
   Future<Screen> screen(String task, {required int last, bool escapes = false}) async =>
       throw const FeatureNotSupported('Screen');
+
+  @override
+  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false}) async =>
+      throw const FeatureNotSupported('ScreenBefore');
 
   @override
   Future<Usage> usage(String task) async => throw const FeatureNotSupported('Usage');

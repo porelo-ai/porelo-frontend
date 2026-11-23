@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'carrying.dart';
+import '../../support/session_recording.dart';
 import 'legacy_forge_key.dart';
 export 'legacy_forge_key.dart';
 
@@ -3113,16 +3114,60 @@ diff --git a/lib/money.dart b/lib/money.dart
   /// Screen replies held back until completed, by task: a slow machine, or one answering late.
   final Map<String, Completer<void>> screenHolds = <String, Completer<void>>{};
 
+  /// The `last` of every Screen asked of each task, in order.
+  final Map<String, List<int>> screenLastAsked = <String, List<int>>{};
+
   /// How many times a session's screen was asked for, by task.
   final Map<String, int> screensAsked = <String, int>{};
+
+  /// What the daemon recorded of each task's terminal session: the source of Screen's `end` and of every page
+  /// ScreenBefore gives. A task with none has no `end`, as a session the daemon records nothing of.
+  final Map<String, SessionRecording> recordings = <String, SessionRecording>{};
+
+  /// Tasks whose machine answers every ScreenBefore with an empty page that is not the start.
+  final Set<String> screenBeforeEmptyNotAtStart = <String>{};
+
+  /// A refusal each task's next ScreenBefore answers with, while one is set.
+  final Map<String, VarlinkException> screenBeforeRefusals = <String, VarlinkException>{};
+
+  /// Pages of earlier output held back until completed, by task.
+  final Map<String, Completer<void>> screenBeforeHolds = <String, Completer<void>>{};
+
+  /// The `lines` of every ScreenBefore asked of each task, in order.
+  final Map<String, List<int>> screenBeforeSizes = <String, List<int>>{};
 
   @override
   Future<Screen> screen(String task, {required int last, bool escapes = false}) async {
     screensAsked[task] = (screensAsked[task] ?? 0) + 1;
+    (screenLastAsked[task] ??= <int>[]).add(last);
     await screenHolds[task]?.future;
     final shown = screens[task];
+    final recording = recordings[task];
+    if (recording != null) {
+      final (lines, end) = recording.screen(last);
+      return Screen(lines: shown?.lines ?? lines, live: shown?.live ?? true, end: end);
+    }
     if (shown == null) throw const FeatureNotSupported('Screen');
     return shown;
+  }
+
+  @override
+  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false}) async {
+    (screenBeforeSizes[task] ??= <int>[]).add(lines);
+    await screenBeforeHolds[task]?.future;
+    final refusal = screenBeforeRefusals[task];
+    if (refusal != null) throw refusal;
+    final recording = recordings[task];
+    if (recording == null) throw const VarlinkException('org.fuin.porelo.Tasks1.InvalidParameter', {'before': 0});
+    if (screenBeforeEmptyNotAtStart.contains(task)) {
+      return ScreenPage(lines: const <String>[], offset: before, atStart: false);
+    }
+    try {
+      final page = recording.before(before, lines);
+      return ScreenPage(lines: page.lines, offset: page.offset, atStart: page.atStart);
+    } on BadPosition {
+      throw VarlinkException('org.fuin.porelo.Tasks1.InvalidParameter', {'before': before});
+    }
   }
 
   /// What each task used, by task; none where the machine has no `Usage`.

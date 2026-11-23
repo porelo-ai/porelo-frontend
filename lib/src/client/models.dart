@@ -1016,17 +1016,60 @@ class HandInPart {
 
 /// What a task's terminal session shows: its last lines, and whether there is a session at all.
 class Screen {
-  /// Constructor taking both.
-  const Screen({required this.lines, required this.live});
+  /// Constructor taking the lines and whether the session is live; [end] where a recording is kept.
+  const Screen({required this.lines, required this.live, this.end, this.endMalformed = false});
 
   /// Reads one from a reply.
-  factory Screen.from(Map<String, dynamic> map) => Screen(lines: _strings(map, 'lines'), live: map['live'] == true);
+  factory Screen.from(Map<String, dynamic> map) {
+    final end = map['end'];
+    // An end that is there but no whole number is kept apart from an absent one, and does not hide `live`.
+    return Screen(
+      lines: _strings(map, 'lines'),
+      live: map['live'] == true,
+      end: end is int ? end : null,
+      endMalformed: end != null && end is! int,
+    );
+  }
 
   /// The last lines, oldest first.
   final List<String> lines;
 
   /// False where the task has no terminal session: unattended work, or a session that ended.
   final bool live;
+
+  /// The byte position of the end of the daemon's recording of the session's output, which is the first position
+  /// [ScreenPage] is asked before; null where the daemon keeps no recording of this session, and then no earlier
+  /// output exists to ask for.
+  final int? end;
+
+  /// Whether the reply had an `end` that is no whole number: a reply this window cannot read, which is not a
+  /// recording that is not kept.
+  final bool endMalformed;
+}
+
+/// A page of a terminal session's earlier output, from the daemon's recording of it.
+class ScreenPage {
+  /// Constructor taking every field.
+  const ScreenPage({required this.lines, required this.offset, required this.atStart});
+
+  /// Reads one from a reply; a reply without its position or its end is refused rather than taken as the start.
+  factory ScreenPage.from(Map<String, dynamic> map) {
+    final offset = map['offset'];
+    final atStart = map['atStart'];
+    if (offset is! int || atStart is! bool || map['lines'] is! List) {
+      throw const FormatException('a page of earlier output without its lines, position or end');
+    }
+    return ScreenPage(lines: _strings(map, 'lines'), offset: offset, atStart: atStart);
+  }
+
+  /// The page's lines, oldest first.
+  final List<String> lines;
+
+  /// Where the first line starts: the next page is asked before this.
+  final int offset;
+
+  /// True when nothing older is kept.
+  final bool atStart;
 }
 
 /// [key]'s object in [map], empty where it is none: a field read as absent, never a throw.

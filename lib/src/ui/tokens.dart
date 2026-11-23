@@ -561,6 +561,9 @@ abstract final class Sizes {
   /// The same, small, on a tile.
   static const terminalTextSmall = 11.0;
 
+  /// A task's terminal session, and its earlier output read back above it.
+  static const sessionText = 13.0;
+
   /// The line height of terminal text, as a terminal spaces its rows.
   static const terminalLineHeight = 1.25;
 

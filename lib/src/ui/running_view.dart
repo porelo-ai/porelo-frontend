@@ -550,6 +550,8 @@ class _RunningViewState extends State<RunningView> {
     }
     return SessionView(
       session: session!,
+      // The leaf's own machine's daemon, which holds this task's earlier output.
+      backend: tile.fleet.backend,
       focusNode: widget.focusNode,
       onKey: (_, event) => _nextAgent(event) ? KeyEventResult.handled : KeyEventResult.ignored,
       nextStep: OutlinedButton(

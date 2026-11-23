@@ -1289,6 +1289,15 @@ class PoreloClient {
   Future<Screen> screen(String task, {required int last, bool escapes = false}) async =>
       Screen.from(await _call('Screen', {'task': task, 'last': last, if (escapes) 'escapes': true}));
 
+  /// The lines of [task]'s terminal session that lie before the byte position [before], at most [lines] of them (1 to
+  /// 1000), from the recording the daemon keeps. [before] is the `end` of [screen] or the offset of the page before.
+  ///
+  /// Every answer the daemon refuses with, a method it does not serve included, stays its own [VarlinkException].
+  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false}) async =>
+      ScreenPage.from(
+        await _call('ScreenBefore', {'task': task, 'before': before, 'lines': lines, if (escapes) 'escapes': true}),
+      );
+
   /// What [task] used, as far as its agent's requests reported it, without network access.
   Future<Usage> usage(String task) async {
     final reply = await _call('Usage', {'task': task});

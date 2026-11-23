@@ -669,6 +669,10 @@ abstract class FleetBackend {
   /// What [task]'s terminal session shows now; [FeatureNotSupported] from a Porelo without `Screen`.
   Future<Screen> screen(String task, {required int last, bool escapes = false});
 
+  /// A page of [task]'s terminal session's earlier output, the [lines] before the byte position [before];
+  /// the daemon's own refusal otherwise.
+  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false});
+
   /// What [task] used so far; [FeatureNotSupported] from a Porelo without `Usage`.
   Future<Usage> usage(String task);
 
@@ -1454,6 +1458,10 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
   @override
   Future<Screen> screen(String task, {required int last, bool escapes = false}) =>
       _opened().screen(task, last: last, escapes: escapes);
+
+  @override
+  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false}) =>
+      _opened().screenBefore(task, before: before, lines: lines, escapes: escapes);
 
   @override
   Future<Usage> usage(String task) => _opened().usage(task);
