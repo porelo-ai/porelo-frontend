@@ -558,12 +558,57 @@ class LocalPlanner extends ChangeNotifier
     final runtime = runtimeDirectory ?? _environment[_onWindows ? 'LOCALAPPDATA' : 'XDG_RUNTIME_DIR'];
     if (runtime == null || runtime.trim().isEmpty) return false;
     final file = File([runtime, 'porelo-planner', 'planner.json'].join(Platform.pathSeparator));
+    // Taken aside by one rename before it is read, so a new planner's file written between a read and a delete is
+    // never the one deleted: a file taken aside that is not the gone planner's goes back where no newer one stands
+    // yet. A planner writing in the moment between that look and the move back can still lose its file, which the
+    // next follow then finds missing.
+    final aside = File('${file.path}.gone-$pid');
     try {
-      if (await file.readAsString() != address) return false;
-      await file.delete();
-    } on FileSystemException {
-      // Gone meanwhile, as when the planner took it away at its end: nothing is left to take.
+      await file.rename(aside.path);
+    } on PathNotFoundException {
+      // Gone meanwhile, as when the planner took it away at its end, or taken aside by another window for a moment:
+      // only a file still missing on a second look leaves room for a start.
+      return await file.exists() ? false : _tookAway();
+    } on FileSystemException catch (error) {
+      windowLog.warn('The window could not take away the address file of a planner that is gone: $error');
+      return false;
     }
+    final String taken;
+    try {
+      taken = await aside.readAsString();
+    } on Object catch (error) {
+      windowLog.warn('The window could not read the planner\'s address file it took aside: $error');
+      await _putBack(aside, file);
+      return false;
+    }
+    if (taken != address) {
+      await _putBack(aside, file);
+      return false;
+    }
+    try {
+      await aside.delete();
+    } on FileSystemException catch (error) {
+      windowLog.warn('The window could not delete the address file of a planner that is gone, set aside: $error');
+    }
+    return _tookAway();
+  }
+
+  /// Moves [aside], the address file of a planner that may run, back to [file], or deletes it where a newer one
+  /// stands there already; says in the window's log what failed.
+  Future<void> _putBack(File aside, File file) async {
+    try {
+      if (await file.exists()) {
+        await aside.delete();
+      } else {
+        await aside.rename(file.path);
+      }
+    } on FileSystemException catch (error) {
+      windowLog.warn('The window could not put the planner\'s address file back in place: $error');
+    }
+  }
+
+  /// Says that a gone planner's address file was taken away, and leaves room for one more start.
+  bool _tookAway() {
     windowLog.info('The planner\'s address file named a planner that is gone; the window took it away.');
     // A planner of this window's that ended leaves room for one more start.
     _started = false;
