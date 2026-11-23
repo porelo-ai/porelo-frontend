@@ -298,6 +298,64 @@ void main() {
     ]);
   });
 
+  // Harm: a pull request confirmed ended by a snapshot skipped for a newer one is kept as open, asking for a merge
+  // that was made.
+  test('the ends a skipped snapshot confirmed go with the next one given', () async {
+    final held = Completer<void>();
+    daemon.method('PullRequestsPage', (parameters) async {
+      if (parameters['from'] == 1) await held.future;
+      return pageOfFour(parameters['from'] as int);
+    });
+    final changes = StreamController<Map<String, dynamic>>();
+    addTearDown(changes.close);
+    daemon.pushes('WatchPullRequests', (_) => changes.stream);
+    final watched = <PullRequestsSeen>[];
+    final watching = (await connect()).watchPullRequests('foo').listen(watched.add);
+    addTearDown(watching.cancel);
+
+    changes.add(firstOfFour());
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    changes.add(<String, dynamic>{
+      'pullRequests': <Map<String, dynamic>>[row(2)],
+      'ended': <Map<String, dynamic>>[row(3, state: 'merged')],
+    });
+    changes.add(<String, dynamic>{
+      'pullRequests': <Map<String, dynamic>>[row(2)],
+      'ended': <Object>[],
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    held.complete();
+    await _until(() => watched.length == 2);
+
+    expect(watched.last.open.map((each) => each.number), <int>[2]);
+    expect(watched.last.ended.map((each) => (each.number, each.state)), <(int, String)>[(3, 'merged')]);
+  });
+
+  // Harm: a watch the window let go of goes on asking the machine for pages, or gives a list after it was cancelled.
+  test('a watch cancelled while a page is read asks for no further page and gives nothing', () async {
+    final held = Completer<void>();
+    final asked = <int>[];
+    daemon.method('PullRequestsPage', (parameters) async {
+      asked.add(parameters['from'] as int);
+      await held.future;
+      return pageOfFour(parameters['from'] as int);
+    });
+    final changes = StreamController<Map<String, dynamic>>();
+    addTearDown(changes.close);
+    daemon.pushes('WatchPullRequests', (_) => changes.stream);
+    final watched = <PullRequestsSeen>[];
+    final watching = (await connect()).watchPullRequests('foo').listen(watched.add);
+
+    changes.add(firstOfFour());
+    await _until(() => asked.isNotEmpty);
+    await watching.cancel();
+    held.complete();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    expect(asked, <int>[1]);
+    expect(watched, isEmpty);
+  });
+
   // Harm: a reading the machine let go of leaves an old list shown as current, or overtakes a newer one waiting.
   test('a reading let go of goes over to a newer snapshot waiting, and with none ends the watch', () async {
     final held = Completer<void>();

@@ -1382,7 +1382,8 @@ class PoreloClient {
       GateState.from(await _call('Pending', {'project': project, 'upstream': ?upstream, 'repository': ?repository}));
 
   /// The pull requests open on the forge of the host that carries [project], read with the person's forge token.
-  /// Refused with [MissingHostForgeToken] or [HostPullRequestsRefused].
+  /// Refused with [MissingHostForgeToken] or [HostPullRequestsRefused]. A list in pages is read whole; one the machine
+  /// let go of meanwhile is refused with `PullRequestsReadingGone`, and the caller asks again.
   Future<PullRequestsSeen> pullRequests(String project) async {
     try {
       return await _wholePullRequests(project, await _call('PullRequests', {'project': project}));
@@ -1398,7 +1399,8 @@ class PoreloClient {
   /// time, to its end, so a list that keeps changing still reaches the window; of those that come meanwhile only the
   /// newest waits, and it is read next. A reading the machine let go of goes over to that newest one; with none
   /// waiting, it ends the stream, as a page the machine refused and pages that do not fit together do: an unchanged
-  /// list is not sent again, so waiting for the next snapshot could leave an old list unmarked.
+  /// list is not sent again, so waiting for the next snapshot could leave an old list unmarked. The ends a skipped
+  /// snapshot confirmed go with the next one given, so a pull request that ended is not kept as open.
   Stream<PullRequestsSeen> watchPullRequests(String project) {
     final whole = StreamController<PullRequestsSeen>();
     StreamSubscription<Map<String, dynamic>>? raw;
@@ -1407,6 +1409,20 @@ class PoreloClient {
     var rawDone = false;
     var cancelled = false;
     bool wanted() => !cancelled && !whole.isClosed;
+    // The ends confirmed by snapshots skipped for the one waiting, as far as their first rows hold them: they go with
+    // that one, never with the one read meanwhile, which came before them.
+    var carried = <String, HostPullRequest>{};
+    void carry(Map<String, dynamic> skipped, [Map<String, HostPullRequest> also = const {}]) {
+      carried.addAll(also);
+      try {
+        for (final each in PullRequestsSeen.from(skipped).ended) {
+          carried[each.key] = each;
+        }
+      } on Object {
+        // A skipped snapshot that cannot be read carries nothing.
+      }
+    }
+
     void end(Object error, [StackTrace? stack]) {
       if (whole.isClosed) return;
       whole.addError(HostPullRequestsRefused.typed(error), stack);
@@ -1419,20 +1435,36 @@ class PoreloClient {
       while (waiting != null && wanted()) {
         final reply = waiting!;
         waiting = null;
+        final withIt = carried;
+        carried = <String, HostPullRequest>{};
         final PullRequestsSeen seen;
         try {
           seen = await _wholePullRequests(project, reply, wanted: wanted);
         } on _Overtaken {
           break;
         } on VarlinkException catch (gone, stack) {
-          if (gone.simpleName == 'PullRequestsReadingGone' && waiting != null) continue;
+          // A reading the machine let go of, or a page it no longer takes, while a newer snapshot waits: that one is
+          // read instead.
+          if (waiting != null && const {'PullRequestsReadingGone', 'InvalidParameter'}.contains(gone.simpleName)) {
+            carry(reply, withIt);
+            continue;
+          }
           end(gone, stack);
           break;
         } on Object catch (error, stack) {
           end(error, stack);
           break;
         }
-        if (wanted()) whole.add(seen);
+        if (!wanted()) break;
+        final open = {for (final each in seen.open) each.key};
+        final ends = {for (final each in seen.ended) each.key};
+        final also = [
+          for (final MapEntry(:key, :value) in withIt.entries)
+            if (!open.contains(key) && !ends.contains(key)) value,
+        ];
+        whole.add(
+          also.isEmpty ? seen : PullRequestsSeen(open: seen.open, ended: [...seen.ended, ...also], refused: seen.refused),
+        );
       }
       reading = false;
       if (rawDone && !whole.isClosed) unawaited(whole.close());
@@ -1442,6 +1474,7 @@ class PoreloClient {
       ..onListen = () {
         raw = _callMore('WatchPullRequests', {'project': project}).listen(
           (reply) {
+            if (waiting case final skipped?) carry(skipped);
             waiting = reply;
             if (!reading) unawaited(readOn());
           },
@@ -1475,10 +1508,10 @@ class PoreloClient {
     Map<String, dynamic> reply, {
     bool Function()? wanted,
   }) async {
-    final first = PullRequestsSeen.from(reply);
     final paged = reply['paged'];
-    if (paged == null) return first;
+    if (paged == null) return PullRequestsSeen.from(reply);
     Never broken(String what) => throw PullRequestsPagingBroken(project, what);
+    final first = PullRequestsSeen.from(reply);
     if (paged is! Map) broken('it named its pages in a form this window cannot read');
     final reading = paged['reading'];
     final counted = paged['pullRequests'];
