@@ -1463,7 +1463,9 @@ class PoreloClient {
             if (!open.contains(key) && !ends.contains(key)) value,
         ];
         whole.add(
-          also.isEmpty ? seen : PullRequestsSeen(open: seen.open, ended: [...seen.ended, ...also], refused: seen.refused),
+          also.isEmpty
+              ? seen
+              : PullRequestsSeen(open: seen.open, ended: [...seen.ended, ...also], refused: seen.refused),
         );
       }
       reading = false;
