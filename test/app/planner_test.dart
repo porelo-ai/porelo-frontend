@@ -31,7 +31,13 @@ class _Planner {
           HttpStatus.ok,
           jsonEncode(
             path.endsWith('/workflow')
-                ? {'revision': 'r1', 'states': <Object>[], 'phases': <Object>[]}
+                // The planner names where it keeps the project's items: a workflow without that is not one it serves.
+                ? {
+                    'revision': 'r1',
+                    'states': <Object>[],
+                    'phases': <Object>[],
+                    'tracker': {'kind': 'github'},
+                  }
                 : {'revision': 'r1', 'stories': <Object>[]},
           ),
         );

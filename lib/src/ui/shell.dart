@@ -191,6 +191,9 @@ import 'host_dialog.dart';
 import 'image_settings_view.dart';
 import '../wire/limit_factors.dart';
 
+/// What a local project's planning directory is chosen with: the desktop's folder dialog, stood in for in tests.
+PickAFolder pickAPlanningDirectory = pickFolderWithTheDesktop;
+
 /// The one window: a rail saying where you are, and that place beside it.
 ///
 /// The rail is what needs a person and then every machine. A machine's place holds everything
@@ -4698,6 +4701,7 @@ class _ShellState extends State<Shell> {
           taskChanges: _planningTaskChanges,
           agents: _planningAgents!,
           wizards: const WindowPlanningWizards(),
+          chooseDirectory: (initial) => pickAPlanningDirectory(initialDirectory: initial),
           pageButton: PageExplanationButton(id: 'planning', settings: widget.settings),
           pageNote: switch (planning.client) {
             StartedItsPlanner(startedProgram: final program?) => Column(
