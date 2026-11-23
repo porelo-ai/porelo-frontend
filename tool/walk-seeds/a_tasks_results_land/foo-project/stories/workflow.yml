@@ -1,5 +1,5 @@
-# The states of work, in board order, and their phases. One file for stories and every repository's issue index:
-# porelo-project keeps it as stories/workflow.yml, every other repository a byte-identical copy as issues/workflow.yml.
+# The states of work, in board order, and their phases, for stories and issues alike.
+# The planner reads it from the project repository as stories/workflow.yml.
 # closed: the work is over. measured: moving an issue into this state needs a stage record.
 states:
   - {name: Idea, closed: false}

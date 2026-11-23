@@ -1,0 +1,5 @@
+--- foo-project/project.yml (the template's, with the central and the local tracker walk_idea.sh gives every copy)
++++ foo-project/project.yml (the run's: online, so the builder's work passes the gate on to the forge by itself)
+@@ project:
+-  security_class: guarded
++  security_class: online

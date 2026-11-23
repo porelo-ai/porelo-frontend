@@ -10,12 +10,12 @@ Future<void> eachIssueIsInReadingForAReader(WidgetTester tester) =>
         // findings, which leaves it in Reading for the person, as a later step reads.
         if (await probeHolds(['attention', issue.id, 'BLOCKING_FINDINGS'])) {
           noteStep('   ${issue.id} was read already and its reading stopped on blocking findings');
-          await inTheForge(['store-issue', Walk.urlOf(issue.repository), issue.id, 'Reading']);
+          await theIssueStandsIn(issue.id, 'Reading');
           continue;
         }
         // Or moved it on to Review.
         final read = await probeHolds(['issue-state', issue.id, 'Review']);
-        await theIssueStandsIn(issue.id, issue.repository, read ? 'Review' : 'Reading');
+        await theIssueStandsIn(issue.id, read ? 'Review' : 'Reading');
         if (read) noteStep('   ${issue.id} was read already and stands in Review');
       }
       // Still held once the reading began: nothing took the landed work away.

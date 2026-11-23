@@ -16,17 +16,6 @@ Future<void> theWindowRunsTheReworkAndItEnds(WidgetTester tester) =>
       // The window posts STARTED a while after porelo lists the task, and the planner sets Reworking only on that
       // word: nothing is judged before the rework is bound to its offer.
       await untilEveryTaskBound(tester, [rework], 'the rework');
-      // Judged by the move itself, not by where the issue stands now: it stood in Reading before, and a quick rework
-      // moves it on again. The second's repository holds that issue alone, and the run started it at its seed, so a
-      // move to Reworking since the seed is the planner's for this rework; its push lands a while after the answer.
-      final url = Walk.urlOf(second.repository);
-      final seed = Walk.issueHeadOf(second.repository);
-      await pumpUntil(
-        tester,
-        () async => (await probe(['forge-moved', url, seed])).contains('Move an issue to Reworking'),
-        timeout: const Duration(minutes: 2),
-        what: 'the forge of ${second.repository} to hold the move of ${second.id} to Reworking',
-      );
       final standing = <String>[
         for (final state in ['Reworking', 'Reading', 'Review'])
           if (await probeHolds(['issue-state', second.id, state])) state,
@@ -39,6 +28,22 @@ Future<void> theWindowRunsTheReworkAndItEnds(WidgetTester tester) =>
       }
       noteStep('   the rework runs in $rework');
       await untilItEnds(tester, rework, within: Walk.taskDeadline, issue: second.id);
+      // The proof of the rework is the planner's own answer: the task bound to the rework offer of the second issue
+      // ended, and the issue moved on from Reworking by that end.
+      await pumpUntil(
+        tester,
+        () async => !await probeHolds(['issue-state', second.id, 'Reworking']),
+        timeout: const Duration(minutes: 2),
+        what: '${second.id} to move on from Reworking once its rework ended',
+      );
+      final after = <String>[
+        for (final state in ['Reading', 'Review'])
+          if (await probeHolds(['issue-state', second.id, state])) state,
+      ];
+      if (after.isEmpty) {
+        fail('${second.id} left Reworking once its rework ended, but stands in neither Reading nor Review');
+      }
+      noteStep('   its rework ended and ${second.id} moved on from Reworking to ${after.first}');
       // A guarded project's gate holds the rework's push as it held the builders': the person forwards it, and only
       // then can its reader see it.
       await forwardTheWorkOf(tester, rework);

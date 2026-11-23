@@ -15,7 +15,7 @@ Future<void> iMoveEachIssueOfTheStoryToBacklogOneStateAtATime(WidgetTester teste
           // A run taken up again finds an issue the window already moved on.
           if (await probeHolds(['issue-state', issue.id, state])) continue;
           await moveAndSave(tester, issue.id, state);
-          await theIssueStandsIn(issue.id, issue.repository, state);
+          await theIssueStandsIn(issue.id, state);
           noteStep('   ${issue.id} moved to $state and read there');
         }
         await probe(['story-state', Walk.story!, state]);

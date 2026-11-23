@@ -8,13 +8,7 @@ Future<void> theForgeHoldsTheWorkOfTheBuilderAgent(WidgetTester tester) =>
       for (final builder in Walk.builders) {
         expect(hasEnded(await theTask(builder)), isTrue, reason: 'porelo says $builder ended');
       }
-      for (final repository in Walk.issueRepositories) {
-        noteStep(
-          (await probe(['forge-moved', Walk.urlOf(repository), Walk.issueHeadOf(repository)]))
-              .trimRight()
-              .replaceAll(RegExp('^', multiLine: true), '   '),
-        );
-      }
-      // The very commit each builder landed, as porelo records it, held by the forge.
+      // The very commit each builder landed, as porelo records it, held by the forge on whichever ref the gate passed
+      // it on as: an online task's work reaches the forge as a branch of its own, never the default branch.
       await theForgeHoldsTheLandedCommits();
     });

@@ -14,7 +14,7 @@ Feature: A real idea walks to Finished through the window
         When the window hands the idea in
         Then the planner holds the story with its issues in Idea
         When I move each issue of the story to Backlog one state at a time
-        Then each issue stands in Backlog on the board and in its file
+        Then each issue stands in Backlog on the board
         When I ask for the work of the story to Implementing with the walk agent
         Then the proposal moved nothing
         When I order the work and start its builder task

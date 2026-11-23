@@ -600,8 +600,10 @@ EOF
 
 # The porelo project's own repository is followed from the story's copy in the organization, where the planner reads
 # its planning: porelo names a project's own upstream only from `central` under project.yml's `project:`, so a copy that
-# names none there is given its own. The planner reads a repository only with the prefixes of its issues, so each
-# repository that names none is given its own, F and a letter in the order they stand (FA, FB, ...).
+# names none there is given its own. The walk's stories and issues are kept by the planner in a local directory on the
+# VM, never in Git: the copy names `tracker: {kind: local}` in place of any tracker its template names. The planner
+# reads a repository only with the prefixes of its issues, so each repository that names none is given its own, F and a
+# letter in the order they stand (FA, FB, ...).
 cat >"$work/central.py" <<'EOF'
 import re, sys
 central = sys.argv[1]
@@ -627,6 +629,13 @@ for n, at in reversed(list(enumerate(entries))):
     pad = re.match(r"[ \t]*", inner[0])[0] if inner else " " * (outer + 2)
     if not any(re.match(re.escape(pad) + r"issues\s*:", line) for line in inner):
         lines.insert(at + 1, f"{pad}issues: [F{chr(ord('A') + n)}]")
+at = next((i for i, line in enumerate(lines) if re.match(r"tracker\s*:", line)), None)
+if at is not None:
+    end = next((i for i in range(at + 1, len(lines)) if lines[i].strip() and not lines[i][:1].isspace()), len(lines))
+    del lines[at:end]
+while lines and not lines[-1].strip():
+    lines.pop()
+lines += ["tracker:", "  kind: local", ""]
 open("project.yml", "w", encoding="utf-8").write("\n".join(lines))
 EOF
 
@@ -864,9 +873,10 @@ cleanup() {
     # The planner's state and cache of the story's project, once its repositories are gone: a later run of the story
     # makes them anew under the same names, and would read this run's as its own.
     if [ -n "$own_planner" ]; then
-        on_vm "rm -rf -- ~/.local/state/porelo-planner/'$project' ~/.cache/porelo-planner/'$project'" </dev/null ||
-            left+=("the planner's state and cache of $project on $vm"
-                "(~/.local/state/porelo-planner/$project, ~/.cache/porelo-planner/$project)")
+        on_vm "rm -rf -- ~/.local/state/porelo-planner/'$project' ~/.cache/porelo-planner/'$project' \\
+            ~/.local/share/porelo-planner/items/'$project'" </dev/null ||
+            left+=("the planner's state, cache and items of $project on $vm"
+                "(~/.local/state/porelo-planner/$project, ~/.cache/porelo-planner/$project, ~/.local/share/porelo-planner/items/$project)")
     fi
     if [ -n "$declared" ]; then
         as_the_person_on_vm "porelo credentials forget '$central_match'" </dev/null >/dev/null 2>&1 ||
@@ -1320,8 +1330,11 @@ print("https://" + a["forge"] + "/" + m[1] + "/" if m else "")') || true
     if [ -n "$planner" ] && [ "$project" = "$porelo_project" ]; then
         own_planner=yes
         planned=yes
-        on_vm "rm -rf -- ~/.local/state/porelo-planner/'$project' ~/.cache/porelo-planner/'$project'" </dev/null || {
-            echo "walk: the planner's state and cache of $project on $vm could not be taken away" >&2
+        # Its stories and issues too, which a local tracker keeps there: an issue of an earlier run would read as
+        # this run's.
+        on_vm "rm -rf -- ~/.local/state/porelo-planner/'$project' ~/.cache/porelo-planner/'$project' \\
+            ~/.local/share/porelo-planner/items/'$project'" </dev/null || {
+            echo "walk: the planner's state, cache and items of $project on $vm could not be taken away" >&2
             exit 1
         }
     elif [ -n "$planner" ]; then

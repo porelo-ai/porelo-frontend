@@ -45,7 +45,7 @@ Future<void> theStoryStandsInReview(WidgetTester tester) =>
         what: 'the planner to move ${Walk.story} to Review',
       );
       for (final issue in Walk.issues) {
-        await theIssueStandsIn(issue.id, issue.repository, 'Review');
+        await theIssueStandsIn(issue.id, 'Review');
       }
       await probe(['story-state', Walk.story!, 'Review']);
       await probe(['work', Walk.story!, 'ended']);

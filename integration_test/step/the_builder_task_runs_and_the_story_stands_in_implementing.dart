@@ -54,6 +54,7 @@ Future<void> theBuilderTaskRunsAndTheStoryStandsInImplementing(WidgetTester test
         return false;
       }
 
+      final standing = <String>{};
       for (final issue in Walk.issues) {
         // A quick reader may even have read it already and moved it on to Review.
         final ended = await builderEnded(issue.repository);
@@ -67,18 +68,18 @@ Future<void> theBuilderTaskRunsAndTheStoryStandsInImplementing(WidgetTester test
         if (state != 'Implementing') {
           noteStep('   ${issue.id}: its builder ended before this read; it stands in $state');
         }
-        await theIssueStandsIn(issue.id, issue.repository, state);
+        await theIssueStandsIn(issue.id, state);
+        standing.add(state);
       }
-      var allEnded = true;
-      for (final issue in Walk.issues) {
-        if (!await builderEnded(issue.repository)) allEnded = false;
+      // The story stands where one of its issues stands, as its workflow derives it: with one builder ended and
+      // another still at work it may stand in Reading already.
+      var story = 'Implementing';
+      for (final state in const ['Review', 'Reading', 'Implementing']) {
+        if (standing.contains(state) && await probeHolds(['story-state', Walk.story!, state])) {
+          story = state;
+          break;
+        }
       }
-      final story = !allEnded
-          ? 'Implementing'
-          : await probeHolds(['story-state', Walk.story!, 'Review'])
-          ? 'Review'
-          : await probeHolds(['story-state', Walk.story!, 'Reading'])
-          ? 'Reading'
-          : 'Implementing';
+      if (story != 'Implementing') noteStep('   the story stands in $story');
       await probe(['story-state', Walk.story!, story]);
     });

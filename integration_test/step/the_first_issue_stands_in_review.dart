@@ -14,5 +14,5 @@ Future<void> theFirstIssueStandsInReview(WidgetTester tester) =>
         timeout: const Duration(minutes: 5),
         what: 'the planner to set ${first.id} to Review',
       );
-      await theIssueStandsIn(first.id, first.repository, 'Review');
+      await theIssueStandsIn(first.id, 'Review');
     });

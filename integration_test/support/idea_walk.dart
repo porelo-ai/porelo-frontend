@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/ui/operations.dart';
 import 'package:xterm/xterm.dart';
 
 import 'e2e.dart';
@@ -651,8 +653,38 @@ Future<List<({String id, String repository, String state})>> theStorysIssues(Str
 ];
 
 /// Opens the story's page in the planning place, from its card on the board.
-Future<void> toTheStory(WidgetTester tester) async {
+/// Scrolls each phase of the board down until [card] is built, as the person scrolls to a state below the phase's view:
+/// a phase builds only the cards in its view. Answers whether it was found.
+Future<bool> _scrolledToInAPhase(WidgetTester tester, Finder card) async {
+  final phases = find.byWidgetPredicate(
+    (widget) =>
+        widget is CustomScrollView &&
+        widget.key is ValueKey<String> &&
+        (widget.key! as ValueKey<String>).value.startsWith('planning-phase-scroll '),
+  );
+  // Moved through the phase's scroll position, never by a drag, which would take a card along as a move.
+  for (var at = 0; at < phases.evaluate().length; at++) {
+    final position = tester
+        .state<ScrollableState>(find.descendant(of: phases.at(at), matching: find.byType(Scrollable)).first)
+        .position;
+    while (card.evaluate().isEmpty && position.pixels < position.maxScrollExtent) {
+      position.jumpTo(math.min(position.pixels + 200, position.maxScrollExtent));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    if (card.evaluate().isNotEmpty) return true;
+  }
+  return false;
+}
+
+/// The story's card on the board, shown and in view.
+Future<Finder> theCardOnTheBoard(WidgetTester tester) async {
   await toThePlace(tester, 'planning');
+  // A follow-up task the window started shows its start over the board; the person closes it to see the board again.
+  final start = find.descendant(of: find.byType(OperationOutputView), matching: find.byTooltip('Close (Esc)'));
+  if (start.evaluate().isNotEmpty) {
+    await tester.tap(start.first);
+    await pumpFor(tester);
+  }
   final crumb = find.byKey(const Key('planning-crumb 0'));
   if (crumb.evaluate().isNotEmpty) {
     await tester.tap(crumb.first);
@@ -661,12 +693,51 @@ Future<void> toTheStory(WidgetTester tester) async {
   final card = find.byKey(Key('planning-story ${Walk.story}'));
   await pumpUntil(
     tester,
-    () => card.evaluate().isNotEmpty,
+    () async => card.evaluate().isNotEmpty || await _scrolledToInAPhase(tester, card),
     timeout: const Duration(minutes: 2),
     what: 'the card of ${Walk.story}',
   );
   await tester.ensureVisible(card.first);
-  await tester.tap(card.first);
+  await pumpFor(tester);
+  return card;
+}
+
+/// Drags the story's card onto [state]'s heading, as the person closes a story whose issues are all done: the planner
+/// gives an open story no closed state of its own. Waits until the planner holds the story there.
+Future<void> dropTheStoryOn(WidgetTester tester, String state) async {
+  final card = await theCardOnTheBoard(tester);
+  final target = find.byKey(Key('planning-drop $state'));
+  await pumpUntil(tester, () => target.evaluate().isNotEmpty, what: 'the heading of $state on the board');
+  final gesture = await tester.startGesture(tester.getTopLeft(card.first) + const Offset(24, 16));
+  await tester.pump(const Duration(milliseconds: 100));
+  final to = tester.getCenter(target.first);
+  final from = tester.getTopLeft(card.first) + const Offset(24, 16);
+  for (var step = 1; step <= 10; step++) {
+    await gesture.moveTo(Offset.lerp(from, to, step / 10)!);
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  await gesture.up();
+  await pumpFor(tester);
+  // A move that can do harm is warned of first, and the person goes on.
+  final confirm = find.byKey(const Key('planning-move-confirm'));
+  await pumpUntil(
+    tester,
+    () async {
+      if (confirm.evaluate().isNotEmpty) {
+        await tester.tap(confirm.first);
+        await pumpFor(tester);
+      }
+      return probeHolds(['story-state', Walk.story!, state]);
+    },
+    timeout: const Duration(minutes: 2),
+    what: 'the planner to hold ${Walk.story} in $state',
+  );
+}
+
+Future<void> toTheStory(WidgetTester tester) async {
+  final card = await theCardOnTheBoard(tester);
+  // On the card's id line: its middle may hold the fold of its issues, which unfolds them instead of opening the story.
+  await tester.tapAt(tester.getTopLeft(card.first) + const Offset(24, 16));
   await pumpFor(tester);
   await pumpUntil(
     tester,
@@ -678,6 +749,16 @@ Future<void> toTheStory(WidgetTester tester) async {
 
 /// The states a person may move [issue] to, in the board's order, as its menu offers them; the menu is closed again.
 Future<List<String>> theMovesOffered(WidgetTester tester, String issue) async {
+  // A menu that takes no moves yet opens empty; the reason it gives stands under it, on screen where this fails.
+  await pumpUntil(
+    tester,
+    () {
+      final button = find.byKey(Key('planning-move $issue'));
+      return button.evaluate().isNotEmpty && tester.widget<PopupMenuButton<Object?>>(button.first).enabled;
+    },
+    timeout: const Duration(minutes: 1),
+    what: 'the state menu of $issue to take moves',
+  );
   await tester.ensureVisible(find.byKey(Key('planning-move $issue')).first);
   await pumpFor(tester);
   await tester.tap(find.byKey(Key('planning-move $issue')).first);
@@ -706,6 +787,17 @@ Future<List<String>> theMovesOffered(WidgetTester tester, String issue) async {
   return offered;
 }
 
+/// Scrolls each sideways list around [found] to its end, where a table wider than its pane keeps the issue's state;
+/// through the scroll position, as no drag may take a card along.
+Future<void> _sidewaysToTheEnd(WidgetTester tester, Finder found) async {
+  final around = find.ancestor(of: found, matching: find.byType(Scrollable));
+  for (final state in tester.stateList<ScrollableState>(around)) {
+    if (axisDirectionToAxis(state.axisDirection) != Axis.horizontal) continue;
+    state.position.jumpTo(state.position.maxScrollExtent);
+  }
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
 /// Opens [issue]'s state menu on the story's page and picks the entry keyed [pick], [what] in the words of a failure.
 Future<void> pickFromTheMoveMenu(WidgetTester tester, String issue, Key pick, String what) async {
   final move = find.byKey(Key('planning-move $issue'));
@@ -726,6 +818,7 @@ Future<void> pickFromTheMoveMenu(WidgetTester tester, String issue, Key pick, St
       }
       await pumpUntil(tester, () => move.evaluate().isNotEmpty, what: 'the move menu of $issue');
       await tester.ensureVisible(move.first);
+      await _sidewaysToTheEnd(tester, move.first);
       await pumpFor(tester);
       await tester.tap(move.first);
       await pumpFor(tester);
@@ -865,17 +958,5 @@ Future<void> chooseTheWalkAgent(WidgetTester tester, List<String> repositories) 
   }
 }
 
-/// The probe's reads that an issue stands in [state] on the board and in its repository's file.
-Future<void> theIssueStandsIn(String issue, String repository, String state) async {
-  await probe(['issue-state', issue, state]);
-  await inTheForge(['store-issue', Walk.urlOf(repository), issue, state]);
-}
-
-/// Probes [check], a read of the forge: the planner answers before its push lands, so this asks again for two minutes.
-Future<String> inTheForge(List<String> check) async {
-  final by = DateTime.now().add(const Duration(minutes: 2));
-  while (!await probeHolds(check) && DateTime.now().isBefore(by)) {
-    await Future<void>.delayed(const Duration(seconds: 5));
-  }
-  return probe(check);
-}
+/// The probe's read that an issue stands in [state] on the board, as the planner's API answers it.
+Future<void> theIssueStandsIn(String issue, String state) => probe(['issue-state', issue, state]);

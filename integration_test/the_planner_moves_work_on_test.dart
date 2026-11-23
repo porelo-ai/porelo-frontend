@@ -13,7 +13,7 @@ import './step/porelo_on_the_machine_says_the_discussion_ran_and_ended.dart';
 import './step/the_window_hands_the_idea_in.dart';
 import './step/the_planner_holds_the_story_with_its_issues_in_idea.dart';
 import './step/i_move_each_issue_of_the_story_to_backlog_one_state_at_a_time.dart';
-import './step/each_issue_stands_in_backlog_on_the_board_and_in_its_file.dart';
+import './step/each_issue_stands_in_backlog_on_the_board.dart';
 import './step/i_ask_for_the_work_of_the_story_to_implementing_with_the_walk_agent.dart';
 import './step/the_proposal_moved_nothing.dart';
 import './step/i_order_the_work_and_start_its_builder_task.dart';
@@ -46,7 +46,7 @@ void main() {
       await theWindowHandsTheIdeaIn(tester);
       await thePlannerHoldsTheStoryWithItsIssuesInIdea(tester);
       await iMoveEachIssueOfTheStoryToBacklogOneStateAtATime(tester);
-      await eachIssueStandsInBacklogOnTheBoardAndInItsFile(tester);
+      await eachIssueStandsInBacklogOnTheBoard(tester);
       await iAskForTheWorkOfTheStoryToImplementingWithTheWalkAgent(tester);
       await theProposalMovedNothing(tester);
       await iOrderTheWorkAndStartItsBuilderTask(tester);

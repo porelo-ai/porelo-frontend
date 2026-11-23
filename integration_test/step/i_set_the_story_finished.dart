@@ -10,9 +10,15 @@ Future<void> iSetTheStoryFinished(WidgetTester tester) =>
         for (final issue in Walk.issues)
           if (!await probeHolds(['issue-state', issue.id, 'Finished'])) issue,
       ];
-      if (open.isEmpty) return noteStep('   every issue stands in Finished already');
-      await toTheStory(tester);
-      for (final issue in open) {
-        await moveAndSave(tester, issue.id, 'Finished');
+      if (open.isEmpty) {
+        noteStep('   every issue stands in Finished already');
+      } else {
+        await toTheStory(tester);
+        for (final issue in open) {
+          await moveAndSave(tester, issue.id, 'Finished');
+        }
       }
+      // The story waits in Review once its issues are done; the person closes it on the board.
+      if (await probeHolds(['story-state', Walk.story!, 'Finished'])) return;
+      await dropTheStoryOn(tester, 'Finished');
     });
