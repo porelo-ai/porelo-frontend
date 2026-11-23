@@ -119,11 +119,12 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
   switch (condition) {
     case 'closed story':
       final board = planningFixture();
-      planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291')['state'] = 'Finished';
+      // A story closes with its issues: the planner refuses to finish one whose issues stay open.
+      planningStoryStands(board, 'ST291', 'Finished');
       await pushPlanning(tester, board);
     case 'working without work':
       final board = planningFixture();
-      planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291')['state'] = 'In analysis';
+      planningStoryStands(board, 'ST291', 'In analysis');
       World.planning.work.statuses['ST291'] = {};
       await pushPlanning(tester, board);
     case 'unknown work':
@@ -175,7 +176,7 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
       );
     case 'ended blocked':
       final board = planningFixture();
-      planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291')['state'] = 'In analysis';
+      planningStoryStands(board, 'ST291', 'In analysis');
       planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291')['work'] = {
         'atWork': false,
         'tasks': [
@@ -219,6 +220,8 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
       final story = planningMaps(board, 'stories').firstWhere((story) => story['id'] == 'ST291');
       final issue = (story['issues'] as List).first as Map<String, dynamic>;
       issue.addAll({'state': 'Reading', 'rounds': 3, 'roundsMost': 3, 'readingStopped': true});
+      // An issue under reading puts its open story there, as the planner derives it.
+      story['state'] = 'Reading';
       World.planning.work.findings[issue['id'] as String] = [
         {'number': 1, 'severity': 'NOTE', 'text': 'A small concern.'},
         // Rework with a blocking finding takes it as its reason; only without one does it need the person's words.

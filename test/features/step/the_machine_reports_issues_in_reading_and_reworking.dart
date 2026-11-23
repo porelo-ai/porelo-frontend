@@ -9,5 +9,7 @@ Future<void> theMachineReportsIssuesInReadingAndReworking(WidgetTester tester) a
   final issues = (story['issues'] as List<dynamic>).cast<Map<String, dynamic>>();
   issues[0].addAll({'state': 'Reading', 'rounds': 2, 'roundsMost': 5});
   issues[1].addAll({'state': 'Reworking', 'rounds': 4, 'roundsMost': 7});
+  // The open story stands in the furthest state its issues are built in, as the planner derives it.
+  story['state'] = 'Reworking';
   await pushPlanning(tester, board);
 }

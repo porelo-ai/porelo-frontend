@@ -20,16 +20,17 @@ Future<WorkView> _pendingPlanning(WidgetTester tester) async {
   World.planning.boards['checkout'] = {
     'states': [
       {'name': 'Ready', 'kind': 'WAITING'},
-      {'name': 'Review', 'kind': 'WAITING'},
+      {'name': 'Done', 'kind': 'CLOSED'},
     ],
     'phases': [
       {
         'name': 'Work',
-        'states': ['Ready', 'Review'],
+        'states': ['Ready', 'Done'],
       },
     ],
     'stories': [
-      {'id': 'StoryOne', 'title': 'A pending story', 'state': 'Ready', 'issues': <Map<String, dynamic>>[]},
+      // A closed story, reopened by the move: an open one follows its issues and is moved only to close it.
+      {'id': 'StoryOne', 'title': 'A pending story', 'state': 'Done', 'issues': <Map<String, dynamic>>[]},
     ],
     'revision': 'initial',
   };
@@ -40,7 +41,7 @@ Future<WorkView> _pendingPlanning(WidgetTester tester) async {
   World.shell.goTo(Section.planning);
   await World.settle(tester);
   final board = tester.widget<PlanningScreen>(find.byType(PlanningScreen)).boards.selected!;
-  unawaited(board.move('StoryOne', 'Review'));
+  unawaited(board.move('StoryOne', 'Ready'));
   await World.settle(tester);
   expect(board.pending, isNotEmpty, reason: 'the move the planner has not answered is still awaited');
   expect(board.saving, isFalse, reason: 'only a move no longer saved may be left');

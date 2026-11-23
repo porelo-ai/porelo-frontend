@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
@@ -10,7 +12,8 @@ Future<void> anotherMachineOffersTheSameProjectPlanning(WidgetTester tester) asy
   World.elsewhere.theProjectsItHas = [
     Project.from({'name': 'checkout'}),
   ];
-  final board = planningFixture();
+  // The same board as this machine's, so only the story's words tell the two machines apart.
+  final board = jsonDecode(jsonEncode(World.planning.boards['checkout'] ?? planningFixture())) as Map<String, dynamic>;
   planningMaps(board, 'stories').singleWhere((story) => story['id'] == 'ST291')['title'] =
       'Story supplied by another machine';
   World.planningOn(World.elsewhere).boards['checkout'] = board;

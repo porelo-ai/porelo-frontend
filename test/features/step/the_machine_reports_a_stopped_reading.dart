@@ -8,5 +8,7 @@ Future<void> theMachineReportsAStoppedReading(WidgetTester tester) async {
   final story = planningMaps(board, 'stories').singleWhere((story) => story['id'] == 'ST291');
   final issue = (story['issues'] as List<dynamic>).first as Map<String, dynamic>;
   issue.addAll({'state': 'Reading', 'rounds': 3, 'roundsMost': 4, 'readingStopped': true});
+  // An issue under reading puts its open story there, as the planner derives it.
+  story['state'] = 'Reading';
   await pushPlanning(tester, board);
 }

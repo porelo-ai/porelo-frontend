@@ -20,7 +20,7 @@ Future<void> theFoldedPlanningBuildRetainsItsCountAndMarks(WidgetTester tester) 
   var counted = false;
   await walkPlanning(tester, only: planningPhaseScroll(tester, 'Build'), () {
     if (!counted) {
-      expect(find.descendant(of: phase, matching: find.text('10')), findsOneWidget);
+      expect(find.descendant(of: phase, matching: find.text('9')), findsOneWidget);
       counted = true;
     }
     expect(find.descendant(of: phase, matching: find.byType(Card)), findsNothing);
@@ -40,7 +40,7 @@ Future<void> theFoldedPlanningBuildRetainsItsCountAndMarks(WidgetTester tester) 
     expect(find.descendant(of: phase, matching: find.text('▼')).evaluate().length, down);
     return false;
   });
-  expect(marks, hasLength(10));
+  expect(marks, hasLength(9));
   expect(marks.values.fold<int>(0, (sum, mark) => sum + mark.$1), 7);
-  expect(marks.values.fold<int>(0, (sum, mark) => sum + mark.$2), 3);
+  expect(marks.values.fold<int>(0, (sum, mark) => sum + mark.$2), 2);
 }

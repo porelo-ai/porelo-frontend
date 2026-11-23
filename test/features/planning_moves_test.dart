@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import './step/a_backend_with_planning.dart';
+import './step/the_planning_story_was_closed_in.dart';
 import './step/the_app_is_running.dart';
 import './step/i_open_the_planning_board.dart';
 import './step/i_search_planning_for.dart';
+import './step/i_unfold_closed_planning_states.dart';
 import './step/i_drag_planning_story_to.dart';
 import './step/the_planning_save_sent_the_digest_its_preview_answered.dart';
 import './step/no_planning_move_warning_is_shown.dart';
@@ -17,7 +19,7 @@ import './step/planning_warns_that_carries_issues_along.dart';
 import './step/no_planning_move_was_saved.dart';
 import './step/i_confirm_the_planning_move.dart';
 import './step/i_expand_planning_story_issues.dart';
-import './step/advanced_planning_issues_keep_their_state.dart';
+import './step/planning_issues_of_are_in.dart';
 import './step/i_cancel_the_planning_move.dart';
 import './step/the_planning_move_reply_is_held.dart';
 import './step/planning_story_is_being_saved.dart';
@@ -35,9 +37,7 @@ import './step/the_planning_machine_refuses_story_with.dart';
 import './step/the_planning_move_error_no_longer_says.dart';
 import './step/i_fold_the_planning_phase.dart';
 import './step/planning_start_was_requested_for_in.dart';
-import './step/i_unfold_closed_planning_states.dart';
 import './step/planning_warns_that_carries_issues_along_whose_files_are_deleted.dart';
-import './step/planning_issues_of_are_in.dart';
 import './step/i_hold_planning_story_over.dart';
 import './step/the_planning_drop_hint_names.dart';
 import './step/i_drop_the_planning_story.dart';
@@ -74,34 +74,41 @@ void main() {
   group('''Planning moves are saved at once''', () {
     Future<void> bddSetUp(WidgetTester tester) async {
       await aBackendWithPlanning(tester);
+      await thePlanningStoryWasClosedIn(tester, 'ST293', 'Finished');
       await theAppIsRunning(tester);
       await iOpenThePlanningBoard(tester);
       await iSearchPlanningFor(tester, 'ST29');
+      await iUnfoldClosedPlanningStates(tester);
     }
 
     testWidgets('''A drop is previewed and saved at once''', (tester) async {
       await bddSetUp(tester);
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await thePlanningSaveSentTheDigestItsPreviewAnswered(tester);
       await noPlanningMoveWarningIsShown(tester);
       await planningStoryIsNotBeingSaved(tester, 'ST293');
-      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
     });
     testWidgets('''A move that carries issues along asks first and takes the daemon confirmation''', (tester) async {
       await bddSetUp(tester);
-      await iDragPlanningStoryTo(tester, 'ST291', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST291', 'Rejected');
       await planningWarnsThatCarriesIssuesAlong(tester, 'ST291');
       await noPlanningMoveWasSaved(tester);
       await iConfirmThePlanningMove(tester);
       await noPlanningMoveWarningIsShown(tester);
       await planningStoryIsNotBeingSaved(tester, 'ST291');
-      await thePlanningStoryIsIn(tester, 'ST291', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST291', 'Rejected');
       await iExpandPlanningStoryIssues(tester, 'ST291');
-      await advancedPlanningIssuesKeepTheirState(tester);
+      await planningIssuesOfAreIn(
+        tester,
+        'B540 B541 B542 B543 B544 B545 B546 B547 B548 B549 B550 B551 B552 HO156 HO157 B540.1',
+        'ST291',
+        'Rejected',
+      );
     });
     testWidgets('''A canceled warning sends nothing''', (tester) async {
       await bddSetUp(tester);
-      await iDragPlanningStoryTo(tester, 'ST291', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST291', 'Rejected');
       await iCancelThePlanningMove(tester);
       await noPlanningMoveWarningIsShown(tester);
       await noPlanningMoveWasSaved(tester);
@@ -111,100 +118,101 @@ void main() {
     testWidgets('''A move shows as saving until the planner answers''', (tester) async {
       await bddSetUp(tester);
       await thePlanningMoveReplyIsHeld(tester);
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await planningStoryIsBeingSaved(tester, 'ST293');
       await thePlanningMoveReplyArrives(tester);
       await planningStoryIsNotBeingSaved(tester, 'ST293');
-      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
     });
     testWidgets('''A saved move takes the planner's new revision for the next move''', (tester) async {
       await bddSetUp(tester);
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
       await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Finished');
+      await iConfirmThePlanningMove(tester);
       await noPlanningMoveErrorIsShown(tester);
       await planningStoryIsNotBeingSaved(tester, 'ST293');
-      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Finished');
     });
     testWidgets('''A partly saved move says so in the planner's words and reads the board again''', (tester) async {
       await bddSetUp(tester);
-      await thePlanningSaveIsPartlySavedWithStorySavedIn(tester, 'ST293', 'Review');
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await thePlanningSaveIsPartlySavedWithStorySavedIn(tester, 'ST293', 'Backlog');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await thePlanningMoveErrorSays(
         tester,
         'The repository refused the push. Pushed: porelo. Not pushed: porelo-host.',
       );
       await planningStoryIsNotBeingSaved(tester, 'ST293');
-      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
     });
     testWidgets('''A stale revision moves nothing and the next move clears its feedback''', (tester) async {
       await bddSetUp(tester);
       await thePlanningRevisionChangesOnTheMachine(tester);
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await thePlanningMoveErrorSays(
         tester,
         'Planning changed while ST293 was moved; nothing was moved. Move it again.',
       );
       await planningStoryIsNotBeingSaved(tester, 'ST293');
-      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Finished');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await noPlanningMoveErrorIsShown(tester);
-      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
     });
     testWidgets('''A save that meets planning already showing the target state counts as done''', (tester) async {
       await bddSetUp(tester);
-      await thePlanningSaveMeetsAChangedPlanningShowingStoryIn(tester, 'ST293', 'Review');
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
-      await thePlanningMoveNoticeSays(tester, 'Planning already shows ST293 in Review.');
+      await thePlanningSaveMeetsAChangedPlanningShowingStoryIn(tester, 'ST293', 'Backlog');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
+      await thePlanningMoveNoticeSays(tester, 'Planning already shows ST293 in Backlog.');
       await noPlanningMoveErrorIsShown(tester);
       await planningStoryIsNotBeingSaved(tester, 'ST293');
-      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
     });
     testWidgets('''An unnamed refusal leaves the card where it stands with the daemon words''', (tester) async {
       await bddSetUp(tester);
       await thePlanningMachineRefusesMovesWith(tester, 'The board cannot be written');
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await thePlanningMoveErrorSays(tester, 'The board cannot be written');
       await planningStoryIsNotBeingSaved(tester, 'ST293');
-      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Finished');
       await iReloadPlanningMoves(tester);
-      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Finished');
     });
     testWidgets('''A refusal naming the story shows its words''', (tester) async {
       await bddSetUp(tester);
       await thePlanningSaveRefusesForStoryWith(tester, 'NoSuchStory', 'ST293', 'The story is unknown');
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await thePlanningMoveErrorSays(tester, 'The story is unknown');
       await planningStoryIsNotBeingSaved(tester, 'ST293');
-      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Finished');
     });
     testWidgets('''A refusal of one story leaves the next move free''', (tester) async {
       await bddSetUp(tester);
       await thePlanningMachineRefusesStoryWith(tester, 'ST291', 'Work is still running');
-      await iDragPlanningStoryTo(tester, 'ST291', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST291', 'Rejected');
       await iConfirmThePlanningMove(tester);
       await thePlanningMoveErrorSays(tester, 'Work is still running');
       await thePlanningStoryIsIn(tester, 'ST291', 'Backlog');
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await noPlanningMoveErrorIsShown(tester);
-      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
       await thePlanningStoryIsIn(tester, 'ST291', 'Backlog');
     });
     testWidgets('''A new move clears the previous problem before showing its new refusal''', (tester) async {
       await bddSetUp(tester);
       await thePlanningMachineRefusesStoryWith(tester, 'ST293', 'Work is still running');
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await thePlanningMoveErrorSays(tester, 'Work is still running');
       await thePlanningSaveRefusesForStoryWith(tester, 'AnotherRefusal', 'ST293', 'This story cannot move');
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await thePlanningMoveErrorSays(tester, 'This story cannot move');
       await thePlanningMoveErrorNoLongerSays(tester, 'Work is still running');
-      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Finished');
     });
     testWidgets('''A refusal stays readable when its card is folded''', (tester) async {
       await bddSetUp(tester);
       await thePlanningMachineRefusesMovesWith(tester, 'Work is still running');
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
-      await iFoldThePlanningPhase(tester, 'Backlog');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
+      await iFoldThePlanningPhase(tester, 'Done');
       await thePlanningMoveErrorSays(tester, 'Work is still running');
     });
     testWidgets('''A working state requests a start and moves nothing''', (tester) async {
@@ -217,18 +225,16 @@ void main() {
     });
     testWidgets('''A closed destination accepts a drop''', (tester) async {
       await bddSetUp(tester);
-      await iSearchPlanningFor(tester, 'ST293');
-      await iUnfoldClosedPlanningStates(tester);
+      await iSearchPlanningFor(tester, 'ST6');
       await iFoldThePlanningPhase(tester, 'Build');
-      await iDragPlanningStoryTo(tester, 'ST293', 'Finished');
+      await iDragPlanningStoryTo(tester, 'ST6', 'Finished');
       await iConfirmThePlanningMove(tester);
-      await planningStoryIsNotBeingSaved(tester, 'ST293');
-      await thePlanningStoryIsIn(tester, 'ST293', 'Finished');
+      await planningStoryIsNotBeingSaved(tester, 'ST6');
+      await thePlanningStoryIsIn(tester, 'ST6', 'Finished');
     });
     testWidgets('''A story finished takes its issues in Review along, said with their files deleted''', (tester) async {
       await bddSetUp(tester);
       await iSearchPlanningFor(tester, 'ST10');
-      await iUnfoldClosedPlanningStates(tester);
       await iDragPlanningStoryTo(tester, 'ST10', 'Finished');
       await planningWarnsThatCarriesIssuesAlongWhoseFilesAreDeleted(tester, 'ST10');
       await iConfirmThePlanningMove(tester);
@@ -240,10 +246,10 @@ void main() {
     });
     testWidgets('''Hover names the destination''', (tester) async {
       await bddSetUp(tester);
-      await iHoldPlanningStoryOver(tester, 'ST293', 'Review');
-      await thePlanningDropHintNames(tester, 'Review');
+      await iHoldPlanningStoryOver(tester, 'ST293', 'Backlog');
+      await thePlanningDropHintNames(tester, 'Backlog');
       await iDropThePlanningStory(tester);
-      await thePlanningStoryIsIn(tester, 'ST293', 'Review');
+      await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
     });
     testWidgets('''A working card does not offer its own state as a destination''', (tester) async {
       await bddSetUp(tester);
@@ -258,7 +264,7 @@ void main() {
     testWidgets('''Leaving Planning while a move is saved waits for the planner''', (tester) async {
       await bddSetUp(tester);
       await thePlanningMoveReplyIsHeld(tester);
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await iTryToLeavePlanningMoves(tester);
       await planningAsksToWaitForTheSave(tester);
       await iKeepEditingPlanningMoves(tester);
@@ -271,7 +277,7 @@ void main() {
     testWidgets('''Closing the window while a move is saved asks first and can be canceled''', (tester) async {
       await bddSetUp(tester);
       await thePlanningMoveReplyIsHeld(tester);
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await iAskToCloseIt(tester);
       await planningAsksToWaitForTheSave(tester);
       await iKeepEditingPlanningMoves(tester);
@@ -281,7 +287,7 @@ void main() {
     testWidgets('''Window close keeps one existing planning question''', (tester) async {
       await bddSetUp(tester);
       await thePlanningMoveReplyIsHeld(tester);
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await iTryToLeavePlanningMoves(tester);
       await iAskToCloseIt(tester);
       await planningAsksToWaitForTheSave(tester);
@@ -291,7 +297,7 @@ void main() {
     testWidgets('''A move the planner answers late can be left and is still awaited on the return''', (tester) async {
       await bddSetUp(tester);
       await thePlanningSaveTimesOut(tester);
-      await iDragPlanningStoryTo(tester, 'ST293', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await thePlanningMoveNoticeSays(tester, 'Still saving.');
       await iTryToLeavePlanningMoves(tester);
       await planningAsksBeforeLeaving(tester);
@@ -304,7 +310,7 @@ void main() {
       await bddSetUp(tester);
       await iOpenStoryWorkFor(tester, 'ST291');
       await iChooseStoryWork(tester, 'start');
-      await iDragPlanningStoryTo(tester, 'ST291', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST291', 'Rejected');
       await planningWarnsThatMovingStopsItsRunningWork(tester, 'ST291');
       await planningWarnsThatCarriesIssuesAlong(tester, 'ST291');
       await iCancelThePlanningMove(tester);
@@ -318,7 +324,7 @@ void main() {
       await iOpenStoryWorkFor(tester, 'ST291');
       await iChooseStoryWork(tester, 'start');
       await storyWorkIsPreparedWith(tester, 'every started task ended');
-      await iDragPlanningStoryTo(tester, 'ST291', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST291', 'Rejected');
       await planningDoesNotWarnThatMovingStopsWork(tester, 'ST291');
       await planningWarnsThatCarriesIssuesAlong(tester, 'ST291');
     });
@@ -352,7 +358,7 @@ void main() {
       await bddSetUp(tester);
       await iOpenStoryWorkFor(tester, 'ST291');
       await iChooseStoryWork(tester, 'start');
-      await iDragPlanningStoryTo(tester, 'ST291', 'Review');
+      await iDragPlanningStoryTo(tester, 'ST291', 'Rejected');
       await planningWarnsThatMovingStopsItsRunningWork(tester, 'ST291');
       await iConfirmThePlanningMove(tester);
       await noPlanningMoveErrorIsShown(tester);

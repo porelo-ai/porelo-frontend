@@ -30,7 +30,7 @@ Map<String, dynamic> _issue() => planningMaps(_story(), 'issues').singleWhere((i
 /// Sets up source fields explicitly reported by this scenario's machine.
 Future<void> startPlanningDetails(WidgetTester tester) async {
   await aBackendWithPlanning(tester);
-  World.planning.boards['checkout'] = planningFixture();
+  World.planning.boards['checkout'] = planningFixture(storyBuilt: true);
   _heldStory = null;
   _boardOffsets = null;
   _folded = null;
