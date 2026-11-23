@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The *Planning* board names the workflow's first state *New*, and a new issue too long for the forge is refused at once, naming its field, never tried again.
 - An idea a task hands in is no longer refused for a size a forge accepts: a title may have 256 characters, what must be true 65,536 characters, and the idea 1 MiB, and a stage's result may have 1 MiB. Anything larger is still said as not handed, with its bound. A task's proposal still meets the bounds its machine's Porelo holds proposals to first.
 - A setup or host run's record keeps every line it printed, no longer only the last 2000, in a file of its own beside the record of what was run. Opening a run read back shows its end, holds only a bounded window of its lines, and reads older lines from the file when scrolled to, until its first line.
 - The *Planning* board stays open to moves while it reloads or saves, and queues a move of another card or a card's next move; a move to a closed state first asks for an optional reason in one sentence; a card shows whole, with only its issue list folding; an issue in a state the workflow does not know stands in a column of that state, warned, and an issue outside the project can be added to it; a story's description no longer shows the planner's hidden mark of the request it was made from.

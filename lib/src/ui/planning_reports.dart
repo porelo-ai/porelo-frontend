@@ -93,7 +93,7 @@ class ProposedIssue {
   final String task;
 }
 
-/// Hands [issue] to [source] as a new issue in Idea of [project], with no size, and answers its id.
+/// Hands [issue] to [source] as a new issue in the state New of [project], with no size, and answers its id.
 typedef IssueFromIdea = Future<String> Function(PlanningSource source, String project, ProposedIssue issue);
 
 /// The task names the planner takes, matched whole; a name outside them would hold its idea back at every start.
@@ -140,7 +140,7 @@ List<PlanningLanding> plannedLandings(Task task) => [
 
 /// Reports each task this window started for a planner's offer: its start right after Start confirmed it, each new end
 /// of its agent once, also across restarts of the window, and the planner's follow-up orders started once each. Hands
-/// each idea a task on a watched machine proposed to the planner once, as a new issue in Idea.
+/// each idea a task on a watched machine proposed to the planner once, as a new issue in the state New.
 ///
 /// A task the planning screen's run handed to Start in this window's life is reported through that run, as the screen's
 /// own client reports, so the run no longer counts its start as unreported and starts the follow-up orders itself. A

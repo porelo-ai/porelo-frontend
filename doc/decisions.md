@@ -994,8 +994,8 @@ window ends; they find or start their own.
 The planner runs on this computer and talks to no Porelo, while the ideas it plans come from tasks on machines, a rented
 host as often as not. The window reaches both, so it carries them: the idea file an ended discussion names, read from
 its machine with `Result` and handed as `POST /projects/{project}/ideas` with the offer it came from, and each idea a
-task on a watched machine proposes, handed as a new issue in Idea of the task's repository and then taken from its task
-with `TakeIdea`. Each is handed once, also across restarts, by a mark kept in the settings.
+task on a watched machine proposes, handed as a new issue in the state New of the task's repository and then taken from
+its task with `TakeIdea`. Each is handed once, also across restarts, by a mark kept in the settings.
 
 **What it costs:** an idea reaches the planner only while a window runs. The planner's new issue takes no key that makes
 a second send harmless, so a window that ends between the planner's save and its mark hands that idea once more at its
