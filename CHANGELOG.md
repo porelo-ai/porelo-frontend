@@ -20,7 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- The *Planning* board stays open to moves while it reloads or saves, and queues a move of another card or a card's next move; a move to a closed state first asks for an optional reason in one sentence; a card shows whole, with only its issue list folding; an issue in a state the workflow does not know stands in a column of that state, warned, and an issue outside the project can be added to it.
+- The *Planning* board stays open to moves while it reloads or saves, and queues a move of another card or a card's next move; a move to a closed state first asks for an optional reason in one sentence; a card shows whole, with only its issue list folding; an issue in a state the workflow does not know stands in a column of that state, warned, and an issue outside the project can be added to it; a story's description no longer shows the planner's hidden mark of the request it was made from.
 - The settings menu takes the keyboard when it opens, so the arrows walk its entries and submenus rather than the page behind it; in a guided walk the zoom leaves the walk's panel at its own size.
 - The *Planning* board is headed *Board* and gives a folded column its number; a Reload's progress stands beside its button; *Needs your review*, and its number beside *Needs you*, count the stories in review; *Open work* sorts and filters its rows; a card's count of issues leaves out the rejected ones.
 - The window zooms everything, text and icons, as a browser does: Ctrl+Plus, Ctrl+Minus and Ctrl+0 (the keypad's keys too), or the *Zoom* row of the settings menu with − and + and the size in force between them, from 50 % to 200 %; the zoom is kept for the next start.
