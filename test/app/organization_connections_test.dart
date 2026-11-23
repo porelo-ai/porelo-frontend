@@ -1227,6 +1227,66 @@ void main() {
     expect(made.connected('build'), isTrue);
   });
 
+  // Harm: a host forgotten here, as when its rental was given back, leaves its SSH files behind, and setting it up again
+  // once rebuilt under the same name stops on them until the person deletes them by hand.
+  test('a host forgotten here takes its files along, so its rebuilt self connects', () async {
+    final organization = Organization(FixtureOrganization(_mia()));
+    addTearDown(organization.dispose);
+    await organization.refresh();
+    final made = CardHostConnections(
+      organization: organization,
+      machines: machines,
+      publicKey: () async => _key,
+      endpoint: (host) => path.join(folder.path, '$host.socket'),
+    );
+    addTearDown(made.dispose);
+    await made.connect('build');
+    await machines.forget(machines.all.singleWhere((machine) => machine.name == 'build'));
+
+    for (final file in [config('build'), '${config('build')}.known_hosts', '${config('build')}.pub']) {
+      expect(File(file).existsSync(), isFalse, reason: file);
+    }
+    (organization.source as FixtureOrganization).view = _mia(
+      host: const OrganizationHost(
+        name: 'build',
+        address: '203.0.113.7',
+        port: 22,
+        hostKey: _otherHostKey,
+        webPort: 8081,
+        gitPort: 8082,
+        matrixPort: 8083,
+        admins: ['hana'],
+        projects: ['demo'],
+      ),
+    );
+    await organization.refresh();
+    await made.connect('build');
+    expect(made.connected('build'), isTrue);
+    expect(File('${config('build')}.known_hosts').readAsStringSync(), contains(_otherHostKey));
+  });
+
+  // Harm: a file the window did not write is replaced, or the person is sent back once per file in the way.
+  test('files in the way that the window did not write are refused, all named at once', () async {
+    final made = await connections(_mia());
+    await Directory(path.dirname(config('build'))).create(recursive: true);
+    File(config('build')).writeAsStringSync('Host build\n  HostName written.by.hand\n');
+    File('${config('build')}.pub').writeAsStringSync('ssh-ed25519 AAAA written by hand\n');
+
+    await expectLater(
+      made.connect('build'),
+      throwsA(
+        isA<OrganizationRefused>().having(
+          // Each path whole, whatever their order: one is the start of the other.
+          (refused) => refused.words.split(RegExp(r', | already ')).toSet(),
+          'the paths named',
+          containsAll(<String>[config('build'), '${config('build')}.pub']),
+        ),
+      ),
+    );
+    expect(File(config('build')).readAsStringSync(), contains('written.by.hand'));
+    expect(File('${config('build')}.pub').readAsStringSync(), contains('written by hand'));
+  });
+
   // Harm: an address or host key the admin corrected stays pinned at the old one for good.
   test('a changed host key replaces the connection', () async {
     final organization = Organization(FixtureOrganization(_mia()));

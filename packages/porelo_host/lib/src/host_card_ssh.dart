@@ -326,9 +326,16 @@ class HostCardSsh {
     }
     await files.protectDirectory(folder);
     final contents = _contents(config, windows: onWindows);
+    // Every file in the way is named at once, so the person clears them in one go.
+    final inTheWay = <String>[];
     for (final entry in contents.entries) {
-      await files.check(File(entry.key), utf8.encode(entry.value));
+      try {
+        await files.check(File(entry.key), utf8.encode(entry.value));
+      } on HostFilesRefused {
+        inTheWay.add(entry.key);
+      }
     }
+    if (inTheWay.isNotEmpty) HostFileWriter.conflict(inTheWay.join(', '), several: inTheWay.length > 1);
     for (final entry in contents.entries) {
       await files.write(File(entry.key), utf8.encode(entry.value));
     }

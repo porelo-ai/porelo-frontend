@@ -17,6 +17,7 @@ import 'host_keys.dart';
 import 'loopback_carrier.dart';
 import 'machine_setup.dart';
 import 'tunnel.dart';
+import 'window_log.dart' show windowLog;
 import 'wsl.dart';
 import 'settings.dart';
 
@@ -900,7 +901,21 @@ class Machines extends ChangeNotifier {
   ///
   /// Forgetting the one being acted on moves to another rather than leaving nothing selected: a
   /// frame with no machine behind it has nothing to say and no way to say why.
-  Future<void> forget(Machine machine) => _change(() => _forget(machine));
+  ///
+  /// A host's SSH files go with it once the list is saved, so the host set up again under its name, as once rebuilt, is
+  /// not refused for them: only files still holding exactly its card's bytes are taken, and anything else stays. The
+  /// wait for its forward to come down holds only this forget, never another change of the list.
+  Future<void> forget(Machine machine) async {
+    var forgotten = false;
+    await _change(() async => forgotten = await _forget(machine));
+    if (!forgotten || machine.hostCard == null) return;
+    try {
+      await tunnels.dropAndUnpublish(machine);
+    } on Object catch (error) {
+      // Forgotten all the same: files that cannot be taken stay, and the next setup under its name names them.
+      windowLog.warn('The SSH files of ${machine.name} stay where they are: $error');
+    }
+  }
 
   /// Ends this computer's connection and keeps the entry, marked, so that nothing raises it again.
   Future<void> disconnect(Machine machine) => _change(() => _mark(machine, disconnected: true));
@@ -930,12 +945,13 @@ class Machines extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> _forget(Machine machine) async {
+  /// Whether [machine] was taken off the list.
+  Future<bool> _forget(Machine machine) async {
     // Only the entry as it was asked for: one changed meanwhile, as by a disconnect, stays, and so does what watches it.
-    if (!_machines.contains(machine)) return;
+    if (!_machines.contains(machine)) return false;
     _raiseHolds.remove(machine.name);
     if (_machines.length == 1) {
-      if (machine.kind != 'host') return;
+      if (machine.kind != 'host') return false;
       await _add(Machine.local());
     }
     _machines.remove(machine);
@@ -944,6 +960,7 @@ class Machines extends ChangeNotifier {
     if (_selected == machine.name) _selected = _machines.first.name;
     await _remember();
     _notify();
+    return true;
   }
 
   /// Chooses which machine actions land on.

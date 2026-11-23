@@ -100,6 +100,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A host set up again under its name, as once rebuilt or rented anew, is no longer refused for the SSH files of its earlier setup. Forgetting a host, giving its rental back included, now takes along its files that still hold exactly what the window wrote; anything else stays. A setup that finds files in the way names all of them at once.
 - A porelo-planner that restarts at once keeps its new address file: the window, taking away the file of the planner that ended, no longer deletes the one the new planner wrote between its read and its delete, which left *Planning* out of reach.
 - The *Planning* board takes back the line that the planner has no access to a forge, and its offer to hand on the token, as soon as the planner reports a new read of the board, not only once the whole board has come; a Reload of a project whose first board is still being read is answered at once.
 - An address file a porelo-planner left when it ended no longer keeps *Planning* out of reach: the window takes a dead planner's file away (by its process id, or where it names none, by a port nothing listens on) and starts its own planner, also when the planner dies while the window runs. A start that fails offers *Start the planner* on the *Planning* page, and the window gives a planner it ends 3 s after SIGTERM, so the planner takes its file away itself.
