@@ -1281,8 +1281,38 @@ class PoreloClient {
   /// With [last], it starts from the log's last that many lines rather than its first; with
   /// [formatted], every line comes as the task's agent shows it, hidden ones left out. Both are sent
   /// only when given, so a Porelo older than them is asked what it knows.
-  Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
-      _callMore('Tail', {'task': task, 'log': log, 'last': ?last, if (formatted) 'formatted': true}).map(_linesOf);
+  Stream<LogChunk> tailLog(String task, String log, {int? last, bool formatted = false}) =>
+      _callMore('Tail', {'task': task, 'log': log, 'last': ?last, if (formatted) 'formatted': true}).map(_chunkOf);
+
+  /// The [lines] of a task's log that lie just before the byte position [before], which `Tail` or an earlier
+  /// call of this gave as its offset; [lines] is 1 to 1000.
+  ///
+  /// A page, not a stream. A log replaced by a new run is the `NoSuchLog` refusal, which the caller answers by
+  /// reading from `Tail` again; any other refusal is raised as it came. A reply missing a part is a
+  /// [FormatException], never taken for the log's start.
+  Future<LogPage> logBefore(
+    String task,
+    String log, {
+    required int before,
+    required int lines,
+    bool formatted = false,
+  }) async {
+    RangeError.checkValueInInterval(lines, 1, 1000, 'lines');
+    final reply = await _call('LogBefore', {
+      'task': task,
+      'log': log,
+      'before': before,
+      'lines': lines,
+      if (formatted) 'formatted': true,
+    });
+    final read = reply['lines'];
+    final offset = reply['offset'];
+    final atStart = reply['atStart'];
+    if (read is! List || offset is! int || atStart is! bool) {
+      throw const FormatException('LogBefore answered without its lines, offset and atStart');
+    }
+    return LogPage(lines: read.whereType<String>().toList(), offset: offset, atStart: atStart);
+  }
 
   /// What [task]'s terminal session shows now, its last [last] lines, without attaching: nobody in
   /// the session sees anything happen. With [escapes], the lines keep the terminal's colours.
@@ -1829,6 +1859,14 @@ class PoreloClient {
   static List<Task> _tasksOf(Map<String, dynamic> reply) {
     final tasks = reply['tasks'];
     return tasks is List ? tasks.whereType<Map<String, dynamic>>().map(Task.from).toList() : const [];
+  }
+
+  // A reply without the position of its first line is malformed: read as a log with nothing before it, it would
+  // hide the lines that lie earlier.
+  static LogChunk _chunkOf(Map<String, dynamic> reply) {
+    final offset = reply['offset'];
+    if (offset is! int) throw const FormatException('Tail answered without the offset of its first line');
+    return LogChunk(_linesOf(reply), offset: offset);
   }
 
   static List<String> _linesOf(Map<String, dynamic> reply) {

@@ -308,8 +308,17 @@ class _Wedged implements FleetBackend {
       throw const FeatureNotSupported('ConfirmFirstStart');
 
   @override
-  Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
-      const Stream<List<String>>.empty();
+  Stream<LogChunk> tailLog(String task, String log, {int? last, bool formatted = false}) =>
+      const Stream<LogChunk>.empty();
+
+  @override
+  Future<LogPage> logBefore(
+    String task,
+    String log, {
+    required int before,
+    required int lines,
+    bool formatted = false,
+  }) => throw UnimplementedError();
   @override
   Future<Widened> widenTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) async =>
       throw UnimplementedError();
@@ -787,8 +796,17 @@ class _Machine implements FleetBackend {
       throw const FeatureNotSupported('ConfirmFirstStart');
 
   @override
-  Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
-      const Stream<List<String>>.empty();
+  Stream<LogChunk> tailLog(String task, String log, {int? last, bool formatted = false}) =>
+      const Stream<LogChunk>.empty();
+
+  @override
+  Future<LogPage> logBefore(
+    String task,
+    String log, {
+    required int before,
+    required int lines,
+    bool formatted = false,
+  }) => throw UnimplementedError();
   @override
   Future<Widened> widenTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) async =>
       throw UnimplementedError();

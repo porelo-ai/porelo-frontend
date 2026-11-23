@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:porelo_frontend/client.dart';
@@ -39,7 +41,45 @@ class LogView extends StatefulWidget {
 
 class _LogViewState extends State<LogView> {
   final _scroll = ScrollController();
+  static const _center = ValueKey<String>('log-newer-lines');
   int _drawn = 0;
+  int _generation = 0;
+
+  // Set while this view moves itself to the end, so that the move is not taken for a person's scroll.
+  bool _jumping = false;
+
+  /// How near the top, in logical pixels, the view asks for the lines before the first one held.
+  static const double _nearTheTop = 400;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_scrolled);
+  }
+
+  // Reaching the top is what asks for earlier lines. Reading back means not being taken to the end by
+  // what arrives meanwhile, so following is let go of at the same time.
+  void _scrolled() {
+    if (_jumping || !_scroll.hasClients) return;
+    final position = _scroll.position;
+    if (position.pixels - position.minScrollExtent > _nearTheTop) return;
+    final tail = widget.tail;
+    widget.logs.scrolledToTheTop(tail);
+    if (!tail.wantsOlder) return;
+    widget.logs.follow(tail, following: false);
+    unawaited(widget.logs.readOlder(tail));
+  }
+
+  void _fillTheView() {
+    if (!mounted || !_scroll.hasClients) return;
+    final position = _scroll.position;
+    final tail = widget.tail;
+    // Lines too few to scroll, or a page that came back short and left the view still at the top.
+    final fits = position.maxScrollExtent - position.minScrollExtent <= _nearTheTop;
+    final stillAtTheTop = tail.earlier > 0 && position.pixels - position.minScrollExtent <= _nearTheTop;
+    if (!fits && !stillAtTheTop) return;
+    if (tail.wantsOlder && tail.lines.isNotEmpty) unawaited(widget.logs.readOlder(tail));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,13 +109,32 @@ class _LogViewState extends State<LogView> {
             ),
           ),
         if (tail.problem != null) _Problem(words: tail.problem!),
+        if (tail.notice != null) _Said(words: tail.notice!, id: 'log-replaced'),
         if (tail.dropped > 0)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Space.normal, Space.tight, Space.normal, 0),
-            child: Text(
-              'The ${tail.dropped} earlier lines are not kept here; the whole log stays on the machine.',
-              key: const Key('log-dropped'),
-              style: Theme.of(context).textTheme.bodySmall,
+          _Said(
+            words: 'The ${tail.dropped} earlier lines are not kept here; the whole log stays on the machine.',
+            id: 'log-dropped',
+          ),
+        if (tail.older == OlderLines.loading) const _Said(words: 'Reading earlier lines...', id: 'log-older-loading'),
+        if (tail.older == OlderLines.failed)
+          _Said(
+            words: tail.olderWords ?? 'Earlier lines could not be read.',
+            id: 'log-older-failed',
+            action: TextButton(
+              key: const Key('log-older-retry'),
+              onPressed: () => unawaited(widget.logs.retryOlder(tail)),
+              child: const Text('Try again'),
+            ),
+          ),
+        if (tail.atStart && tail.lines.isNotEmpty) const _Said(words: 'This is the start of the log.', id: 'log-start'),
+        if (tail.newerDropped)
+          _Said(
+            words: 'Newer lines are not kept while you read back.',
+            id: 'log-newer-dropped',
+            action: TextButton(
+              key: const Key('log-newest'),
+              onPressed: () => widget.logs.readNewest(tail),
+              child: const Text('Show the newest'),
             ),
           ),
         Expanded(child: _lines(context, tail)),
@@ -100,23 +159,43 @@ class _LogViewState extends State<LogView> {
     // tell of each line; a plain log keeps the window's look.
     final terminal = tail.formatted;
     final scheme = Theme.of(context).colorScheme;
+    final padding = terminal
+        ? const EdgeInsets.symmetric(horizontal: Sizes.terminalSide)
+        : const EdgeInsets.symmetric(horizontal: Space.normal);
+    final vertical = terminal ? Space.normal : Space.small;
+    Widget line(int index) => SelectableText.rich(
+      terminal
+          ? markedLine(context, _shortened(tail.lines[index]))
+          : TextSpan(
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              children: ansiSpans(_shortened(tail.lines[index]), scheme),
+            ),
+    );
+    // Two lists around one centre: the lines read before the first reply grow upward from it, so that
+    // putting earlier lines in front leaves what is being read where it is.
     final list = Scrollbar(
       controller: _scroll,
-      child: ListView.builder(
+      child: CustomScrollView(
         controller: _scroll,
         primary: false,
-        padding: terminal
-            ? const EdgeInsets.symmetric(horizontal: Sizes.terminalSide, vertical: Space.normal)
-            : const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
-        itemCount: tail.lines.length,
-        itemBuilder: (context, index) => SelectableText.rich(
-          terminal
-              ? markedLine(context, _shortened(tail.lines[index]))
-              : TextSpan(
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  children: ansiSpans(_shortened(tail.lines[index]), scheme),
-                ),
-        ),
+        center: _center,
+        slivers: <Widget>[
+          SliverPadding(
+            padding: padding.copyWith(top: vertical),
+            sliver: SliverList.builder(
+              itemCount: tail.earlier,
+              itemBuilder: (context, index) => line(tail.earlier - 1 - index),
+            ),
+          ),
+          SliverPadding(
+            key: _center,
+            padding: padding.copyWith(bottom: vertical),
+            sliver: SliverList.builder(
+              itemCount: tail.lines.length - tail.earlier,
+              itemBuilder: (context, index) => line(tail.earlier + index),
+            ),
+          ),
+        ],
       ),
     );
     return terminal ? ColoredBox(color: TerminalLook.screen.background, child: list) : list;
@@ -135,8 +214,14 @@ class _LogViewState extends State<LogView> {
   /// The whole point of suspending is to read back: moving the view under somebody who has just
   /// scrolled up is the same as not having a switch at all.
   void _keepUp(LogTail tail) {
-    if (!tail.following || tail.lines.length == _drawn) return;
-    _drawn = tail.lines.length;
+    if (tail.generation != _generation) {
+      // Read again from its end: what arrives counts from nothing again.
+      _generation = tail.generation;
+      _drawn = 0;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fillTheView());
+    if (!tail.following || tail.arrived == _drawn) return;
+    _drawn = tail.arrived;
     WidgetsBinding.instance.addPostFrameCallback((_) => _toTheEnd(tail, 3));
   }
 
@@ -147,7 +232,12 @@ class _LogViewState extends State<LogView> {
     if (!mounted || !tail.following || !_scroll.hasClients) return;
     final end = _scroll.position.maxScrollExtent;
     if (_scroll.offset == end) return;
-    _scroll.jumpTo(end);
+    _jumping = true;
+    try {
+      _scroll.jumpTo(end);
+    } finally {
+      _jumping = false;
+    }
     if (tries > 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _toTheEnd(tail, tries - 1));
       WidgetsBinding.instance.scheduleFrame();
@@ -156,9 +246,32 @@ class _LogViewState extends State<LogView> {
 
   @override
   void dispose() {
+    _scroll.removeListener(_scrolled);
     _scroll.dispose();
     super.dispose();
   }
+}
+
+/// A line above the log saying how it stands, with what a person may do about it.
+class _Said extends StatelessWidget {
+  const _Said({required this.words, required this.id, this.action});
+
+  final String words;
+  final String id;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(Space.normal, Space.tight, Space.normal, 0),
+    child: Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: Space.small,
+      children: <Widget>[
+        Text(words, key: Key(id), style: Theme.of(context).textTheme.bodySmall),
+        ?action,
+      ],
+    ),
+  );
 }
 
 class _Problem extends StatelessWidget {

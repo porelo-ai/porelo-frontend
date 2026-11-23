@@ -1840,11 +1840,15 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
         'agent: waiting',
       ],
     };
+    // Each reply names where its line starts in the log, in bytes: a line and its end.
+    var offset = 0;
     for (final line in lines) {
       if (pace > Duration.zero) await Future<void>.delayed(pace);
       yield <String, dynamic>{
         'lines': <String>[line],
+        'offset': offset,
       };
+      offset += utf8.encode(line).length + 1;
     }
   }
 

@@ -4597,6 +4597,33 @@ class Panicked {
   );
 }
 
+/// One reply of a followed log: its lines, and where the first of them starts.
+class LogChunk {
+  /// Constructor taking the lines and, where the daemon said it, the byte position of the first.
+  const LogChunk(this.lines, {required this.offset});
+
+  /// The lines of this reply.
+  final List<String> lines;
+
+  /// Byte position in the log where the first of [lines] starts, the `before` of the call for what lies earlier.
+  final int offset;
+}
+
+/// One page of a log's earlier lines, as `LogBefore` answers.
+class LogPage {
+  /// Constructor taking the three parts of the answer.
+  const LogPage({required this.lines, required this.offset, required this.atStart});
+
+  /// The lines, oldest first, ending just before the position asked for.
+  final List<String> lines;
+
+  /// Byte position where the first of [lines] starts: the next call's `before`.
+  final int offset;
+
+  /// Whether nothing lies before [offset].
+  final bool atStart;
+}
+
 /// One of a task's log files.
 class Log {
   /// File name. **Pass it to `Tail` unchanged** — it is a name, never a path.

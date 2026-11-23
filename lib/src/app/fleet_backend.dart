@@ -664,7 +664,12 @@ abstract class FleetBackend {
   /// The name comes from [logsOf] unchanged: it is a file in the task's state directory, never a
   /// path, and `Tail` refuses anything else. [last] and [formatted] are asked for only where the
   /// machine's `Tail` takes them; an older one reads from the start, raw.
-  Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false});
+  Stream<LogChunk> tailLog(String task, String log, {int? last, bool formatted = false});
+
+  /// The [lines] of a log that lie just before byte position [before], which a [tailLog] chunk or an earlier
+  /// page gave; the `NoSuchLog`
+  /// refusal for a log a new run replaced.
+  Future<LogPage> logBefore(String task, String log, {required int before, required int lines, bool formatted = false});
 
   /// What [task]'s terminal session shows now; [FeatureNotSupported] from a Porelo without `Screen`.
   Future<Screen> screen(String task, {required int last, bool escapes = false});
@@ -1443,7 +1448,7 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
   Future<List<Log>> logsOf(String task) => _opened().logsOf(task);
 
   @override
-  Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) async* {
+  Stream<LogChunk> tailLog(String task, String log, {int? last, bool formatted = false}) async* {
     final takes = await (_tailTakes ??= _whatTailTakes());
     yield* _opened().tailLog(
       task,
@@ -1452,6 +1457,15 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
       formatted: formatted && takes.contains('formatted'),
     );
   }
+
+  @override
+  Future<LogPage> logBefore(
+    String task,
+    String log, {
+    required int before,
+    required int lines,
+    bool formatted = false,
+  }) => _opened().logBefore(task, log, before: before, lines: lines, formatted: formatted);
 
   Future<Set<String>>? _tailTakes;
 

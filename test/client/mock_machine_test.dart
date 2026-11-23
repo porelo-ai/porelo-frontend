@@ -196,7 +196,7 @@ void main() {
     final client = await connect();
 
     final read = await client.tailLog('porelo-checkout-shell', 'agent.log').take(2).toList();
-    expect(read.expand((lines) => lines), isNotEmpty);
+    expect(read.expand((chunk) => chunk.lines), isNotEmpty);
 
     await expectLater(
       client.tailLog('porelo-checkout-shell', 'nowhere.log').first,
@@ -961,7 +961,7 @@ void main() {
     expect(found.map((log) => log.name), containsAll(<String>['agent.log', 'gate.log']));
     expect(found.first.bytes, greaterThan(0));
     // The name goes to Tail unchanged; it is a file name and never a path.
-    expect(await client.tailLog('porelo-checkout-shell', found.first.name).first, isNotEmpty);
+    expect((await client.tailLog('porelo-checkout-shell', found.first.name).first).lines, isNotEmpty);
   });
 
   test('a log whose name is not .log is offered and reads like any other', () async {
@@ -975,7 +975,7 @@ void main() {
     // record, and its name says nothing about that. A suffix rule at this end would hide exactly
     // it, so the wire is asserted on a name that would not survive one.
     expect(names, contains('events.jsonl'));
-    expect(await client.tailLog('porelo-checkout-shell', 'events.jsonl').first, isNotEmpty);
+    expect((await client.tailLog('porelo-checkout-shell', 'events.jsonl').first).lines, isNotEmpty);
 
     // And an empty one is still a log: a size rule would hide it as surely as a suffix rule.
     final empty = found.firstWhere((log) => log.name == 'reader.err');

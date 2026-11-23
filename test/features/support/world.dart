@@ -3191,20 +3191,126 @@ diff --git a/lib/money.dart b/lib/money.dart
   /// Each formatted tail by its task: what a tile's console reads, separate from [tailing].
   final Map<String, StreamController<List<String>>> formattedTails = <String, StreamController<List<String>>>{};
 
+  /// The lines the log holds before the first one its tail sends, oldest first. A position is a byte of the log:
+  /// each line takes its UTF-8 length and one for the line end.
+  List<String> earlierLines = <String>[];
+
+  /// Every line the tail has sent, in order, which `LogBefore` serves from beside [earlierLines].
+  final List<String> _written = <String>[];
+
+  /// The positions this log handed out, in `Tail` chunks and in pages: the only ones `LogBefore` takes.
+  final Set<int> _handed = <int>{};
+
+  /// Every `LogBefore` asked, as the position and the lines asked for.
+  final List<({int before, int lines})> logBeforeAsked = <({int before, int lines})>[];
+
+  /// What `LogBefore` answers instead of a page while it is set, as the client raises it.
+  Object? logBeforeRefusal;
+
+  /// While set, `LogBefore` waits for it before it answers.
+  Completer<void>? logBeforeHeld;
+
+  /// Called as each `LogBefore` arrives, before it answers: where a test lets the log go on being written.
+  Future<void> Function()? whileLogBefore;
+
+  /// What `LogBefore` answers once a new run replaced the log: the daemon's `NoSuchLog`, or, from one that
+  /// does not tell, a refusal of the position as `InvalidParameter`.
+  Object replacedAnswer = const VarlinkException('org.fuin.porelo.Tasks1.NoSuchLog', <String, dynamic>{});
+
+  /// Indexes of lines of the log that a formatted read hides, so that a page of them comes back with no lines.
+  Set<int> hiddenLines = <int>{};
+
+  bool _replaced = false;
+
+  List<String> get _log => <String>[...earlierLines, ..._written];
+
+  /// The byte position where line [index] of the log starts.
+  int positionOf(int index) {
+    final all = _log;
+    var position = 0;
+    for (var at = 0; at < index && at < all.length; at++) {
+      position += utf8.encode(all[at]).length + 1;
+    }
+    return position;
+  }
+
+  /// A new run replaced the log: what it holds before its tail is [earlier] now, and the next `LogBefore` is
+  /// refused as `NoSuchLog`, since the position it carries belongs to the old one.
+  void replaceTheLog(List<String> earlier) {
+    earlierLines = earlier;
+    _written.clear();
+    _handed.clear();
+    _replaced = true;
+  }
+
+  LogChunk _chunkOf(List<String> lines) {
+    final position = positionOf(earlierLines.length + _written.length);
+    _handed.add(position);
+    _written.addAll(lines);
+    return LogChunk(lines, offset: position);
+  }
+
   @override
-  Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) {
+  Stream<LogChunk> tailLog(String task, String log, {int? last, bool formatted = false}) {
     tailsAsked.add((task: task, log: log, last: last, formatted: formatted));
+    _written.clear();
+    _replaced = false;
     if (formatted) {
       final tail = StreamController<List<String>>.broadcast();
       formattedTails[task] = tail;
-      return tail.stream;
+      return tail.stream.map(_chunkOf);
     }
     tailing = StreamController<List<String>>();
     if (!theLogsItHas.contains(log)) {
       tailing.addError(const VarlinkException('org.fuin.porelo.Tasks1.NoSuchLog', <String, dynamic>{}));
       tailing.close();
     }
-    return tailing.stream;
+    return tailing.stream.map(_chunkOf);
+  }
+
+  @override
+  Future<LogPage> logBefore(
+    String task,
+    String log, {
+    required int before,
+    required int lines,
+    bool formatted = false,
+  }) async {
+    logBeforeAsked.add((before: before, lines: lines));
+    final hook = whileLogBefore;
+    if (hook != null) await hook();
+    final held = logBeforeHeld;
+    if (held != null) await held.future;
+    final refusal = logBeforeRefusal;
+    if (refusal != null) throw refusal;
+    if (_replaced) {
+      _replaced = false;
+      throw replacedAnswer;
+    }
+    const invalid = VarlinkException('org.fuin.porelo.Tasks1.InvalidParameter', <String, dynamic>{});
+    // As the daemon does: a position it never handed out, or a page size it does not give, is refused.
+    if (!_handed.contains(before) || lines < 1 || lines > 1000) throw invalid;
+    final all = _log;
+    // Where each line starts, summed once: a position is a byte, not a line.
+    final starts = <int>[];
+    var position = 0;
+    for (final line in all) {
+      starts.add(position);
+      position += utf8.encode(line).length + 1;
+    }
+    final found = starts.indexOf(before);
+    final end = found < 0 ? all.length : found;
+    final first = end > lines ? end - lines : 0;
+    final offset = first < starts.length ? starts[first] : 0;
+    _handed.add(offset);
+    return LogPage(
+      lines: <String>[
+        for (var at = first; at < end; at++)
+          if (!formatted || !hiddenLines.contains(at)) all[at],
+      ],
+      offset: offset,
+      atStart: first == 0,
+    );
   }
 
   /// What the machine has on it right now.

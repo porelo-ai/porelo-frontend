@@ -53,7 +53,7 @@ class UnattendedRun extends ChangeNotifier {
   /// Why the task report or last line cannot be read.
   String? problem;
 
-  StreamSubscription<List<String>>? _tail;
+  StreamSubscription<LogChunk>? _tail;
   Timer? _refreshing;
   bool _readingReport = false;
   String? _container;
@@ -101,9 +101,9 @@ class UnattendedRun extends ChangeNotifier {
         _tail = fleet.backend
             .tailLog(listed.name, 'task.log', last: 1, formatted: true)
             .listen(
-              (lines) {
-                if (!_following || lines.isEmpty) return;
-                lastLine = lines.last;
+              (chunk) {
+                if (!_following || chunk.lines.isEmpty) return;
+                lastLine = chunk.lines.last;
                 // lastWrote alone does not trigger Watch; read its timestamp after output, coalescing bursts.
                 _refreshing ??= Timer(const Duration(seconds: 3), () {
                   _refreshing = null;
