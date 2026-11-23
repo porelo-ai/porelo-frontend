@@ -169,6 +169,13 @@ abstract interface class PlanningReach implements Listenable {
   Future<void> reach();
 }
 
+/// A planner the window may have started itself, where none was serving.
+abstract interface class StartedItsPlanner {
+  /// The program the window started, while the planner that answers is the one it started; null for a planner it found
+  /// running, and while none answers.
+  String? get startedProgram;
+}
+
 /// A planner the window starts only when the person asks, as on Windows.
 abstract interface class StartsWhenAsked {
   /// Whether the planning place offers to start the planner now.
@@ -189,7 +196,8 @@ class LocalPlanner extends ChangeNotifier
         NamesItsLog,
         TakesTheLogLevel,
         EndsWithTheWindow,
-        NamesItsBuild {
+        NamesItsBuild,
+        StartedItsPlanner {
   /// Takes the projects the window knows and their repositories; [runtimeDirectory] is the one the planner writes its
   /// address under, `XDG_RUNTIME_DIR` when null and none on Windows, and [candidates] where the planner may be, in the
   /// order they are tried.
@@ -331,6 +339,19 @@ class LocalPlanner extends ChangeNotifier
   bool get started => _started;
   bool _started = false;
 
+  @override
+  String? get startedProgram => switch ((_process, _startedFirst, _address)) {
+    (_?, final first?, final address?) when _source != null && _answersAt(address) == first => _startedProgram,
+    _ => null,
+  };
+
+  /// The program of the planner the window started last.
+  String? _startedProgram;
+
+  /// Where the planner the window started first answered: an address read later that names another is another
+  /// planner's, such as a person's own that took the address while the started one still runs.
+  _Answers? _startedFirst;
+
   /// The planner this window started, until it ended or was ended; null where the window found one serving.
   Process? _process;
 
@@ -452,6 +473,7 @@ class LocalPlanner extends ChangeNotifier
           'XDG_RUNTIME_DIR': ?runtimeDirectory,
           poreloExecutableVariable: ?_poreloExecutable,
         });
+        _startedProgram = program;
         _keep(process);
         // An end that began during the start waits for it, so the planner just started is stopped here: the end could
         // not tell it from one that took its place once it wrote its address.
@@ -493,7 +515,10 @@ class LocalPlanner extends ChangeNotifier
       _address = address;
       // While the started planner runs, it holds the address file against any other, so an address read is its own,
       // a new one included.
-      if (_process != null && address != null) _startedAt = _answersAt(address);
+      if (_process != null && address != null) {
+        _startedAt = _answersAt(address);
+        _startedFirst ??= _startedAt;
+      }
       if (address != null) _log = plannerLogOf(address) ?? _log;
       _missing = 0;
       _notReached = null;
@@ -731,6 +756,7 @@ class LocalPlanner extends ChangeNotifier
   void _keep(Process process) {
     _process = process;
     _startedAt = null;
+    _startedFirst = null;
     _endedEarly = null;
     _intoTheLog(process.stdout, LogLevel.debug);
     _intoTheLog(process.stderr, LogLevel.info);
@@ -739,6 +765,8 @@ class LocalPlanner extends ChangeNotifier
         if (!identical(_process, process)) return;
         _process = null;
         if (_startedAt == null) _endedEarly = code;
+        // The planning head no longer says the window started the planner that answers.
+        if (!_disposed) notifyListeners();
         // Under its option the planner answers 0 for a clean end and 1 where its stop failed or its input could not be
         // read.
         if (code == 0) {

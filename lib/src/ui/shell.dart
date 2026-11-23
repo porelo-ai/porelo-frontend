@@ -82,7 +82,8 @@ import 'central_release_view.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
-import '../app/planner.dart' show EndsWithTheWindow, NamesItsLog, PlanningReach, StartsWhenAsked, TakesTheLogLevel;
+import '../app/planner.dart'
+    show EndsWithTheWindow, NamesItsLog, PlanningReach, StartedItsPlanner, StartsWhenAsked, TakesTheLogLevel;
 import '../app/planner_build.dart';
 import 'discussion_start_dialog.dart';
 import 'planning_embedding.dart';
@@ -4696,7 +4697,13 @@ class _ShellState extends State<Shell> {
           agents: _planningAgents!,
           wizards: const WindowPlanningWizards(),
           pageButton: PageExplanationButton(id: 'planning', settings: widget.settings),
-          pageNote: _planningWords(),
+          pageNote: switch (planning.client) {
+            StartedItsPlanner(startedProgram: final program?) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [_plannerStartedHere(program), _planningWords()],
+            ),
+            _ => _planningWords(),
+          },
         ),
       },
     ),
@@ -4748,6 +4755,17 @@ class _ShellState extends State<Shell> {
       _planningWords(),
       Expanded(child: _planningReason(words, start: start)),
     ],
+  );
+
+  /// The head's word that no planner was serving, so the window started [program], whose planner answers now: a person
+  /// expecting a planner of their own sees that another one answers.
+  Widget _plannerStartedHere(String program) => Padding(
+    padding: const EdgeInsets.only(bottom: Space.small),
+    child: Text(
+      'No planner was serving, so the window started $program.',
+      key: const Key('planning-started-here'),
+      style: Theme.of(context).textTheme.bodyMedium,
+    ),
   );
 
   /// Planning's first-time words, standing under its head. The screen draws them in a different place on the board, a

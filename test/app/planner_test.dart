@@ -681,6 +681,62 @@ void main() {
     expect(file.existsSync(), isTrue, reason: 'a port that took the connection is no proof the planner is gone');
   });
 
+  // Harm: a person who expected a planner of their own is not told that the window started another one, or is told so
+  // of a planner they run themselves, or after the one the window started ended.
+  test('the program the window started is named while its planner answers, and only then', () async {
+    final started = await planner();
+    final process = PlannerProcess();
+    final path = await program();
+    final local = client(
+      candidates: [path],
+      start: (_, _) async {
+        await started.announce(runtime.path, pid: pid);
+        return process;
+      },
+    );
+
+    await local.reach();
+    expect(local.startedProgram, path);
+
+    process.endWith(0);
+    await until(local, () => local.startedProgram == null);
+  });
+
+  // Harm: a person's own planner takes the address while the one the window started still runs, and the head goes on
+  // saying the window started the planner that answers.
+  test('a planner that takes the address while the started one runs is not the one the window started', () async {
+    final started = await planner();
+    final own = await planner();
+    final path = await program();
+    final local = client(
+      candidates: [path],
+      follow: const Duration(milliseconds: 20),
+      start: (_, _) async {
+        await started.announce(runtime.path, pid: pid);
+        return PlannerProcess();
+      },
+    );
+    await local.reach();
+    expect(local.startedProgram, path);
+    final before = local.providers.single.source;
+
+    await own.announce(runtime.path, token: 'token-of-their-own', pid: pid);
+    await until(local, () => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
+
+    expect(local.startedProgram, isNull, reason: 'the planner that answers now is not the one the window started');
+  });
+
+  test('a planner the window found running names no program the window started', () async {
+    final running = await planner();
+    await running.announce(runtime.path, pid: pid);
+    final local = client();
+
+    await local.reach();
+
+    expect(local.notReached, isNull);
+    expect(local.startedProgram, isNull);
+  });
+
   // Harm: a planner that answers is taken for gone, and a second one is started beside it.
   test('an address file whose process runs is kept, and no planner is started', () async {
     final running = await planner();
