@@ -74,4 +74,21 @@ void main() {
       expect(task.atTheGate, 'its own work is waiting for review', reason: securityClass);
     }
   });
+
+  // Harm: a task that declared BLOCKED reads as done, or an outcome this build does not know is dropped on its way on.
+  test('the end a task declared is read as Porelo names it, and absent where the row has none', () {
+    final blocked = taskWith({
+      'ended': {'outcome': 'BLOCKED', 'why': 'The key is missing.', 'at': '2026-11-12T10:00:00Z'},
+    }).ended!;
+    expect((blocked.outcome, blocked.why, blocked.at), ('BLOCKED', 'The key is missing.', '2026-11-12T10:00:00Z'));
+
+    final unknown = taskWith({
+      'ended': {'outcome': 'PARKED', 'at': '2026-11-12T10:00:00Z'},
+    }).ended!;
+    expect((unknown.outcome, unknown.why), ('PARKED', ''));
+
+    expect(taskWith({}).ended, isNull);
+    expect(taskWith({'ended': null}).ended, isNull);
+    expect(taskWith({'ended': 'DONE'}).ended, isNull);
+  });
 }

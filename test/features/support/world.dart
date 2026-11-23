@@ -3778,6 +3778,7 @@ class World {
     String since = '',
     bool running = true,
     Map<String, dynamic>? agentEnded,
+    Map<String, dynamic>? ended,
     int waiting = 0,
     String mode = 'UNATTENDED',
   }) {
@@ -3804,6 +3805,7 @@ class World {
             'waitingFor': waitingFor,
             'repository': was.repository,
             'agentEnded': ?agentEnded,
+            'ended': ?ended,
             'waiting': waiting,
           }),
     ]);

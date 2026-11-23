@@ -53,6 +53,7 @@ void main() {
     bool Function()? reached,
     IssueFromIdea? handIssue,
     DateTime Function()? now,
+    Future<void> Function()? waitForOutcome,
   }) {
     final starts = WindowTaskStarts(
       machineFor: (_) => on,
@@ -64,6 +65,7 @@ void main() {
     final reports = WindowTaskReports(
       settings: kept ?? settings,
       starts: starts,
+      waitForOutcome: waitForOutcome ?? () async {},
       sourceNamed: (name) => name == _provider && (reached?.call() ?? true) ? planner : null,
       tasksOn: (name) => name == on.name ? machine.listed : null,
       stopOn: (machine, container) async {
@@ -246,6 +248,164 @@ void main() {
       'answer': 'Outcome: blocked.',
       'unpushed': 2,
     });
+  });
+
+  // Harm: a task that declared BLOCKED and ended its run normally reads to the planner as done, and its issue moves on.
+  test('an end goes with the outcome the task declared and its reason, once', () async {
+    final (starts, reports) = window();
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+
+    machine.end(
+      started.container,
+      {'at': '2026-11-12T10:00:05Z', 'finished': true},
+      declared: {'outcome': 'BLOCKED', 'why': 'The vault key is missing.', 'at': '2026-11-12T10:00:00Z'},
+    );
+    reports.sweep();
+    await reports.idle;
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+
+    final ends = planner.calls.where((call) => call.event == PlanningTaskEvent.ended).toList();
+    expect(ends, hasLength(1));
+    final ended = ends.single.ended!;
+    expect((ended.outcome, ended.why, ended.finished), ('BLOCKED', 'The vault key is missing.', true));
+  });
+
+  // Harm: the row shows the run's end a moment before the outcome the task declared; the end goes out without it and is
+  // never told again, so a task that declared BLOCKED reads to the planner as done.
+  test('an end whose row has no outcome yet waits for it', () async {
+    final shown = Completer<void>();
+    final (starts, reports) = window(waitForOutcome: () => shown.future);
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+
+    machine.end(started.container, {'at': '2026-11-12T10:00:05Z', 'finished': true});
+    reports.sweep();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    machine.end(
+      started.container,
+      {'at': '2026-11-12T10:00:05Z', 'finished': true},
+      declared: {'outcome': 'BLOCKED', 'why': 'The vault key is missing.', 'at': '2026-11-12T10:00:00Z'},
+    );
+    shown.complete();
+    await reports.idle;
+
+    final ends = planner.calls.where((call) => call.event == PlanningTaskEvent.ended).toList();
+    expect(ends, hasLength(1));
+    expect(ends.single.ended!.outcome, 'BLOCKED');
+  });
+
+  /// The end record the planner is told once the one task started ends as [agent] and its row's [declared] say.
+  Future<PlanningTaskEnded> reportedEnd(Map<String, dynamic> agent, {Map<String, dynamic>? declared}) async {
+    final (starts, reports) = window();
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+    machine.end(started.container, agent, declared: declared);
+    reports.sweep();
+    await reports.idle;
+    return planner.calls.singleWhere((call) => call.event == PlanningTaskEvent.ended).ended!;
+  }
+
+  // Harm: a run that failed is told to the planner as done.
+  test('a run that failed is told as FAILED with its error', () async {
+    final ended = await reportedEnd(
+      {'at': 'a', 'finished': false, 'error': 'The provider refused the key.'},
+      declared: {'outcome': 'FAILED', 'why': 'The provider refused the key.', 'at': 'a'},
+    );
+
+    expect((ended.outcome, ended.why), ('FAILED', 'The provider refused the key.'));
+  });
+
+  // Harm: an outcome this build does not know is dropped or mapped on its way to the planner.
+  test('an outcome this build does not know is told as Porelo named it', () async {
+    final ended = await reportedEnd({'at': 'b', 'finished': true}, declared: {'outcome': 'PARKED', 'at': 'b'});
+
+    expect((ended.outcome, ended.why), ('PARKED', ''));
+  });
+
+  // Harm: an outcome is invented for a finished run that declared nothing.
+  test('a finished run that declared nothing is told with no outcome, as before', () async {
+    final ended = await reportedEnd({'at': 'c', 'finished': true});
+
+    expect(ended.outcome, isNull);
+    expect(ended.toMap(), {'at': 'c', 'finished': true, 'why': '', 'answer': '', 'unpushed': 0});
+  });
+
+  // Harm: an empty outcome goes to the planner as a word, neither DONE, BLOCKED nor FAILED.
+  test('an empty outcome is told as none', () async {
+    final ended = await reportedEnd({'at': 'd', 'finished': true}, declared: {'outcome': '', 'why': 'w', 'at': 'd'});
+
+    expect((ended.outcome, ended.why), (null, 'w'));
+  });
+
+  // Harm: a declared end with no reason of its own hides the error the run ended with.
+  test('a declared end without a reason keeps the run\'s error', () async {
+    final ended = await reportedEnd(
+      {'at': 'e', 'finished': false, 'error': 'The provider refused the key.'},
+      declared: {'outcome': 'FAILED', 'at': 'e'},
+    );
+
+    expect((ended.outcome, ended.why), ('FAILED', 'The provider refused the key.'));
+  });
+
+  // Harm: another change of a machine while an end waits for its outcome sends the end without it, and it is never
+  // told again, so a task that declared BLOCKED reads to the planner as done.
+  test('an end waiting for its outcome still waits when the machines are looked at again', () async {
+    final shown = Completer<void>();
+    final (starts, reports) = window(waitForOutcome: () => shown.future);
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+
+    machine.end(started.container, {'at': '2026-11-12T10:00:05Z', 'finished': true});
+    reports.sweep();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    reports.sweep();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(planner.calls.where((call) => call.event == PlanningTaskEvent.ended), isEmpty);
+    machine.end(
+      started.container,
+      {'at': '2026-11-12T10:00:05Z', 'finished': true},
+      declared: {'outcome': 'BLOCKED', 'why': 'The vault key is missing.', 'at': '2026-11-12T10:00:00Z'},
+    );
+    shown.complete();
+    await reports.idle;
+
+    final ends = planner.calls.where((call) => call.event == PlanningTaskEvent.ended).toList();
+    expect(ends, hasLength(1));
+    expect(ends.single.ended!.outcome, 'BLOCKED');
+  });
+
+  // Harm: a wait that fails keeps every later end from being told, and the window never settles.
+  test('an end is told after a wait for its outcome that failed', () async {
+    final (starts, reports) = window(waitForOutcome: () async => throw StateError('the wait broke'));
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+
+    machine.end(started.container, {'at': 'f', 'finished': true});
+    reports.sweep();
+    await reports.idle;
+
+    expect(planner.calls.where((call) => call.event == PlanningTaskEvent.ended), hasLength(1));
+  });
+
+  // Harm: the end of a task the window stopped reaches the planner without the outcome the task declared.
+  test('a stopped task\'s end goes with the outcome it declared', () async {
+    final (starts, reports) = window();
+    final started = await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
+    await reports.idle;
+
+    machine.end(
+      started.container,
+      {'at': 'g', 'finished': false},
+      declared: {'outcome': 'BLOCKED', 'why': 'The vault key is missing.', 'at': 'g'},
+    );
+    await reports.stop(planner, 'demo', 'ST291', [started]);
+    await reports.idle;
+
+    final ended = planner.calls.singleWhere((call) => call.event == PlanningTaskEvent.ended).ended!;
+    expect((ended.outcome, ended.why), ('BLOCKED', 'The vault key is missing.'));
   });
 
   // Harm: a planner not reached floods the window with the same line on every change of a machine, or its reports
@@ -2035,8 +2195,13 @@ class _Machine extends Fake implements FleetBackend {
     });
   }
 
-  /// The agent of [container] ended as [ended] says, its work landed where [landed] says.
-  void end(String container, Map<String, dynamic> ended, {List<Map<String, dynamic>>? landed}) {
+  /// The agent of [container] ended as [ended] says, the task declared [declared], its work landed where [landed] says.
+  void end(
+    String container,
+    Map<String, dynamic> ended, {
+    List<Map<String, dynamic>>? landed,
+    Map<String, dynamic>? declared,
+  }) {
     final index = listed.indexWhere((task) => task.name == container);
     final task = listed[index];
     listed[index] = Task.from({
@@ -2046,6 +2211,7 @@ class _Machine extends Fake implements FleetBackend {
       'running': false,
       'run': ?task.run,
       'agentEnded': ended,
+      'ended': ?declared,
       'landed': ?landed,
       'callerKey': ?_keyOf(task),
     });

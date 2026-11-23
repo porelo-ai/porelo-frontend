@@ -612,6 +612,7 @@ class Task {
     this.credentials = const <String, String>{},
     this.grants = const <String, Authorization>{},
     this.agentEnded,
+    this.ended,
     this.result,
     this.run,
     this.callerKey = '',
@@ -629,6 +630,9 @@ class Task {
 
   /// How its agent ended, or null while it has not or the machine does not say.
   final AgentEnded? agentEnded;
+
+  /// How the task itself said its work ended, else how its run failed; null where Porelo records neither.
+  final TaskEnd? ended;
 
   /// The result file it was asked to hand back and how it stands now, also where no agent end is recorded (an attended
   /// session that was left); null where none was asked or the machine does not say.
@@ -726,6 +730,7 @@ class Task {
     agentEnded: map['agentEnded'] is Map<String, dynamic>
         ? AgentEnded.from(map['agentEnded'] as Map<String, dynamic>)
         : null,
+    ended: map['ended'] is Map<String, dynamic> ? TaskEnd.from(map['ended'] as Map<String, dynamic>) : null,
     run: map['run'] is String ? map['run'] as String : null,
     callerKey: _string(map, 'callerKey'),
     landed: map['landed'] is List
@@ -1236,6 +1241,28 @@ class ProposedIdea {
   final String mustBeTrue;
 
   /// When the machine kept it, ISO-8601.
+  final String at;
+}
+
+/// How a task's work ended, as Porelo answers it on the task's row: the task's own declaration (`DONE`, or `BLOCKED`
+/// with its reason), else `FAILED` with the run's error.
+///
+/// [outcome] stays Porelo's word, so one this build does not know is passed on, never dropped or mapped.
+class TaskEnd {
+  /// Constructor taking every field.
+  const TaskEnd({required this.outcome, this.why = '', this.at = ''});
+
+  /// Reads one from a reply, field by field.
+  factory TaskEnd.from(Map<String, dynamic> map) =>
+      TaskEnd(outcome: _string(map, 'outcome'), why: _string(map, 'why'), at: _string(map, 'at'));
+
+  /// `DONE`, `BLOCKED`, `FAILED`, or a word this build does not know; empty where the machine named none.
+  final String outcome;
+
+  /// The reason the task gave, or the run's error; empty where none was given.
+  final String why;
+
+  /// When it ended, as the machine wrote it.
   final String at;
 }
 

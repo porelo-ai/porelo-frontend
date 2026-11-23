@@ -198,10 +198,18 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
         activity: 'ENDED',
         running: false,
         agentEnded: {'at': 'the end', 'finished': false, 'error': 'Outcome: blocked - the key is missing.'},
+        ended: {'outcome': 'FAILED', 'why': 'Outcome: blocked - the key is missing.', 'at': 'the end'},
       );
     case 'every started task ended':
       for (final task in World.backend.tasksNow.where((task) => task.name.startsWith('mock-st291-')).toList()) {
-        World.theWorkIs(task.name, activity: 'ENDED', running: false, agentEnded: {'at': 'the end', 'finished': true});
+        // The row shows the outcome the task declared beside the run's end, as the machine lists an ended task.
+        World.theWorkIs(
+          task.name,
+          activity: 'ENDED',
+          running: false,
+          agentEnded: {'at': 'the end', 'finished': true},
+          ended: {'outcome': 'DONE', 'at': 'the end'},
+        );
       }
       await World.settle(tester);
     case 'stopped reading':

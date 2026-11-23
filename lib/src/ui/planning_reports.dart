@@ -13,7 +13,7 @@ import '../app/planner_stage_results.dart';
 import '../app/report_at_planner.dart';
 import '../app/settings.dart';
 import '../app/window_log.dart';
-import '../client/models.dart' show AgentEnded, ProposedIdea, ResultState, Task, TaskResult, defaultProject;
+import '../client/models.dart' show AgentEnded, ProposedIdea, ResultState, Task, TaskEnd, TaskResult, defaultProject;
 import 'planning_embedding.dart';
 import '../wire/limit_factors.dart';
 
@@ -116,15 +116,25 @@ Future<String> issueFromIdea(PlanningSource source, String project, ProposedIssu
 
 /// Porelo's record of how an agent ended, as the planner takes it: every field as the machine gave it, none mapped.
 ///
-/// [landed] is where its work landed, from the task's row; none while it waits at the gate.
-PlanningTaskEnded plannedTaskEnded(AgentEnded ended, {List<PlanningLanding> landed = const []}) => PlanningTaskEnded(
-  at: ended.at,
-  finished: ended.finished,
-  why: ended.error,
-  answer: ended.lastAnswer,
-  unpushed: ended.unpushed,
-  landed: landed,
-);
+/// [declared] is the end the task's row shows: its outcome goes with the record, and its why, the task's reason or
+/// the run's error, stands for the agent's error where it says one. [landed] is where its work landed, from the task's
+/// row; none while it waits at the gate.
+PlanningTaskEnded plannedTaskEnded(AgentEnded ended, {TaskEnd? declared, List<PlanningLanding> landed = const []}) =>
+    PlanningTaskEnded(
+      at: ended.at,
+      finished: ended.finished,
+      why: switch (declared?.why) {
+        final why? when why.isNotEmpty => why,
+        _ => ended.error,
+      },
+      answer: ended.lastAnswer,
+      unpushed: ended.unpushed,
+      landed: landed,
+      outcome: switch (declared?.outcome) {
+        final outcome? when outcome.isNotEmpty => outcome,
+        _ => null,
+      },
+    );
 
 /// Where a task's work landed, each entry of its row as Porelo gave it; an entry missing a field is passed as empty
 /// there, for the planner to refuse rather than the window to judge.
@@ -168,6 +178,7 @@ class WindowTaskReports {
     this.handIssue = issueFromIdea,
     this.missingSettles = const Duration(minutes: 1),
     this.now = DateTime.now,
+    this.waitForOutcome = _aMoment,
   }) {
     starts.onConfirmed = started;
   }
@@ -220,6 +231,12 @@ class WindowTaskReports {
 
   /// Where offers are kept.
   final Settings settings;
+
+  /// Waits while an ended run's row does not show the outcome its task declared yet; the end is told after it either
+  /// way, without one where the row still shows none.
+  final Future<void> Function() waitForOutcome;
+
+  static Future<void> _aMoment() => Future<void>.delayed(const Duration(seconds: 5));
 
   /// How a task is started.
   final WindowTaskStarts starts;
@@ -340,13 +357,38 @@ class WindowTaskReports {
   /// Reports through the screen's run, as the screen's own client sends them.
   final _screen = _ScreenRunReports();
 
+  /// Ends seen while their row showed no outcome yet, by machine, container and end: false while the wait for the
+  /// outcome runs, true once it is over and the end goes with whatever the row then shows.
+  final _heldForOutcome = <(String, String, String), bool>{};
+
+  /// The waits for an outcome still running, each looking at the machines again when it is over.
+  final _waits = <Future<void>>{};
+
+  /// Whether the end [held] still waits for its outcome; its wait starts the first time it is seen.
+  bool _stillHeld((String, String, String) held) {
+    if (_heldForOutcome[held] case final over?) return !over;
+    _heldForOutcome[held] = false;
+    // A wait that fails is over all the same: the end is told without its outcome rather than never.
+    late final Future<void> wait;
+    wait = waitForOutcome().catchError((Object _) {}).whenComplete(() {
+      _heldForOutcome[held] = true;
+      _waits.remove(wait);
+      sweep();
+    });
+    _waits.add(wait);
+    return true;
+  }
+
   /// Completes once nothing is left to report.
   Future<void> get idle async {
     Future<void> seen;
     do {
+      while (_waits.isNotEmpty) {
+        await Future.wait(_waits.toList());
+      }
       seen = _tail;
       await seen;
-    } while (!identical(seen, _tail));
+    } while (!identical(seen, _tail) || _waits.isNotEmpty);
   }
 
   Future<T> _queued<T>(Future<T> Function() job) {
@@ -451,7 +493,11 @@ class WindowTaskReports {
     if (current == null || current.offer != kept.offer) return;
     final listed = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
     final ended = switch (listed?.agentEnded) {
-      final ended? when plannedEndKey(ended) != kept.ended => plannedTaskEnded(ended, landed: plannedLandings(listed!)),
+      final ended? when plannedEndKey(ended) != kept.ended => plannedTaskEnded(
+        ended,
+        declared: listed!.ended,
+        landed: plannedLandings(listed),
+      ),
       _ => PlanningTaskEnded(
         at: now().toUtc().toIso8601String(),
         finished: false,
@@ -510,6 +556,10 @@ class WindowTaskReports {
         }
       }
       final landed = plannedLandings(task);
+      // The row may show the run's end before the outcome its task declared: told without it, it is never told again.
+      if (task.agentEnded case final ended? when plannedEndKey(ended) != kept.ended && task.ended == null) {
+        if (_stillHeld((kept.machine, kept.container, plannedEndKey(ended)))) continue;
+      }
       if (task.agentEnded case final ended? when plannedEndKey(ended) != kept.ended) {
         // A planned stage's end is reported only once the planner has what it produced: it moves the issue on that.
         if (kept.result != null && kept.resultHanded != plannedEndKey(ended)) {
@@ -518,7 +568,11 @@ class WindowTaskReports {
         }
         await _quietly(
           kept,
-          () => _deliver(kept, PlanningTaskEvent.ended, ended: plannedTaskEnded(ended, landed: landed)),
+          () => _deliver(
+            kept,
+            PlanningTaskEvent.ended,
+            ended: plannedTaskEnded(ended, declared: task.ended, landed: landed),
+          ),
         );
       }
       // Work that still waited at the gate when its task ended is told once it has landed, so its reader is offered.
