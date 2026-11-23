@@ -68,14 +68,8 @@ final _unsafe = RegExp(
 
 /// A new issue the window hands to the planner for an idea a task proposed.
 class ProposedIssue {
-  /// Takes where it goes, what it says, the board's revision it is made against, and the task it came from.
-  const ProposedIssue({
-    required this.repository,
-    required this.title,
-    required this.mustBeTrue,
-    required this.revision,
-    required this.task,
-  });
+  /// Takes where it goes, what it says, and the task it came from.
+  const ProposedIssue({required this.repository, required this.title, required this.mustBeTrue, required this.task});
 
   /// The repository the task works in.
   final String repository;
@@ -85,9 +79,6 @@ class ProposedIssue {
 
   /// What must be true, as the task wrote it.
   final String mustBeTrue;
-
-  /// The board's revision read just before.
-  final String revision;
 
   /// The task's name in its project.
   final String task;
@@ -99,7 +90,8 @@ typedef IssueFromIdea = Future<String> Function(PlanningSource source, String pr
 /// The task names the planner takes, matched whole; a name outside them would hold its idea back at every start.
 final _plannerTaskName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$');
 
-/// The planner's `createIssue`, naming the task the idea came from where the planner takes its name.
+/// The planner's `createIssue`, naming the task the idea came from where the planner takes its name. The issue joins
+/// no story, so the write names no item it changes and carries no versions seen.
 Future<String> issueFromIdea(PlanningSource source, String project, ProposedIssue issue) async {
   final task = _plannerTaskName.hasMatch(issue.task) ? issue.task : null;
   final added = await source.createIssue(
@@ -108,7 +100,7 @@ Future<String> issueFromIdea(PlanningSource source, String project, ProposedIssu
     issue.title,
     issue.mustBeTrue,
     null,
-    issue.revision,
+    const <String, String>{},
     task: task,
   );
   return added.id;
@@ -722,36 +714,22 @@ class WindowTaskReports {
         _proposedUnreached(provider, task.project, '$named waits: no watched machine names its repository yet.');
         return true;
       }
-      // Against the board as it stands now, read once more when it moved on meanwhile.
-      Future<String> hand() async => handIssue(
-        source,
-        task.project,
-        ProposedIssue(
-          repository: repository,
-          title: idea.title,
-          mustBeTrue: idea.mustBeTrue,
-          revision: (await source.stories(task.project)).revision,
-          task: task.task.isNotEmpty ? task.task : task.name,
-        ),
-      );
       final String id;
       try {
-        id = await hand().catchError(
-          (Object _) => hand(),
-          test: (error) => error is PlanningRefusal && error.name == 'StaleRevision',
+        id = await handIssue(
+          source,
+          task.project,
+          ProposedIssue(
+            repository: repository,
+            title: idea.title,
+            mustBeTrue: idea.mustBeTrue,
+            task: task.task.isNotEmpty ? task.task : task.name,
+          ),
         );
       } on PlanningRefusal catch (refusal) {
-        if (_transient(refusal) ||
-            const {
-              'StaleRevision',
-              'RevisionMoved',
-              'Busy',
-              'Http503',
-              'Http504',
-              'Unreachable',
-            }.contains(refusal.name)) {
+        if (_transient(refusal) || const {'Busy', 'Http503', 'Http504', 'Unreachable'}.contains(refusal.name)) {
           _proposedUnreached(provider, task.project, '$named waits: ${planningFailureWords(refusal)}');
-          return const {'NoRepository', 'StaleRevision', 'RevisionMoved'}.contains(refusal.name);
+          return refusal.name == 'NoRepository';
         }
         // Only a refusal of the idea's own words is final; one of the planner's own, such as a store it could not
         // write, is tried again at the next start of the window.

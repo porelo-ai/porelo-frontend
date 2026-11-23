@@ -63,9 +63,9 @@ Feature: Planning moves are saved at once
         And planning story {'ST293'} is not being saved
         And the planning story {'ST293'} is in {'Backlog'}
 
-    # Harm: a move against a board that changed overwrites somebody else's change, or stale feedback stays after the next move.
-    Scenario: A stale revision moves nothing and the next move clears its feedback
-        When the planning revision changes on the machine
+    # Harm: a move against a story that changed overwrites somebody else's change, or stale feedback stays after the next move.
+    Scenario: A story changed elsewhere moves nothing and the next move clears its feedback
+        When planning story {'ST293'} changes on the machine
         And I drag planning story {'ST293'} to {'Backlog'}
         Then the planning move error says {'Planning changed while ST293 was moved; nothing was moved. Move it again.'}
         And planning story {'ST293'} is not being saved

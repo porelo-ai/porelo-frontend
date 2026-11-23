@@ -495,12 +495,13 @@ PlanningTaskOrder discussionOrder() => PlanningTaskOrder.from({
 Future<List<PlanningTaskOrder>> plannedOrders() async {
   final source = MockPlanningSource('planner');
   final proposal = await source.proposeStoryWork('demo', 'ST291', 'In analysis');
+  final board = await source.stories('demo');
   final request = StoryWorkRequest(
     project: 'demo',
     story: 'ST291',
     to: 'In analysis',
     mode: proposal.modes.first,
-    revision: proposal.revision,
+    seen: board.versionsOf({'ST291'}),
     subAgents: [
       for (final repo in proposal.repositories)
         for (final sub in repo.subAgents) StoryWorkChoice(repository: repo.repository, name: sub.id, choice: 'DROP'),

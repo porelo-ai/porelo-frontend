@@ -20,5 +20,7 @@ Future<void> thePlanningSaveMeetsAChangedPlanningShowingStoryIn(WidgetTester tes
   held['revision'] = '${held['revision']}:elsewhere';
   World.planning
     ..heldWhenRefused = held
-    ..moveFailure = const PlanningRefusal('StaleRevision', {}, 'The board changed since it was read.');
+    ..moveFailure = PlanningRefusal('ItemChanged', {
+      'changed': [id],
+    }, 'A story changed since it was read.');
 }

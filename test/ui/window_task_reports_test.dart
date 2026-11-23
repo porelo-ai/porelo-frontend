@@ -857,7 +857,7 @@ void main() {
   // Harm: a task whose start the planner refused after offering it stays started there, so its story can never be
   // started again; or it runs on unreported, or its end is told twice.
   // Each of the store's refusals halts the run when the start's save meets it, not only the ones a save alone throws.
-  for (final name in const ['StaleRevision', 'Unreachable', 'Busy', 'NoSuchStory']) {
+  for (final name in const ['ItemChanged', 'Unreachable', 'Busy', 'NoSuchStory']) {
     test('a start the planner refused with $name is stopped and its end reported once', () async {
       final (starts, reports) = window();
       final problems = <String>[];
@@ -877,7 +877,7 @@ void main() {
         (PlanningTaskEvent.ended, order.offer),
       ]);
       expect((await loaded()).planningOffer('laptop', started.container), isNull);
-      expect(problems, ['The board could not be saved.']);
+      expect(problems, [planningFailureWords(PlanningRefusal(name, const {}, 'The board could not be saved.'))]);
     });
   }
 
@@ -1715,9 +1715,9 @@ void main() {
       await swept(window(kept: await loaded()).$2);
 
       expect(planner.issues.map((issue) => issue.toString()), [
-        '(demo, shop, Idea 1, What idea 1 makes true., null, r7)',
+        '(demo, shop, Idea 1, What idea 1 makes true., null, {})',
       ]);
-      expect(planner.boardsRead, ['demo']);
+      expect(planner.boardsRead, isEmpty, reason: 'an idea is handed without reading the board first');
 
       lists('porelo-demo-pi', [idea(1), idea(2)]);
       await swept(reports);
@@ -1755,7 +1755,6 @@ void main() {
             repository: issue.repository,
             title: issue.title,
             mustBeTrue: issue.mustBeTrue,
-            revision: issue.revision,
             task: '-not a name',
           ),
         ),
@@ -1784,15 +1783,21 @@ void main() {
       expect(named, ['pi']);
     });
 
-    // Harm: an idea is lost because the board moved on while it was handed.
-    test('is read against the board again and sent once more when the board moved on', () async {
-      planner.issueAnswers.add(const PlanningRefusal('StaleRevision', {}, 'The board changed.'));
+    // Harm: an idea is put on the board twice, or a refusal of a write that names no item is passed over unsaid.
+    test('refused as changed under it is said once and not sent again while the window runs', () async {
+      planner.issueAnswers.add(
+        const PlanningRefusal('ItemChanged', {
+          'changed': <String>['ST291'],
+        }, 'The story changed since it was read.'),
+      );
+      final reports = said(window().$2);
       lists('porelo-demo-pi', [idea(1)]);
 
-      await swept();
+      await swept(reports);
+      await swept(reports);
 
-      expect(planner.issues.map((issue) => issue.$3), ['Idea 1', 'Idea 1']);
-      expect(planner.boardsRead, ['demo', 'demo']);
+      expect(planner.issues.map((issue) => issue.$3), ['Idea 1']);
+      expect(problems, hasLength(1));
     });
 
     // Harm: an idea proposed while no planner answers is lost, its successor overtakes it, or the person is told of
@@ -2096,8 +2101,8 @@ class _Planner extends Fake implements PlanningSource {
   final calls = <_Call>[];
   final answers = <Object>[];
 
-  /// Each new issue asked for: project, repository, title, what must be true, size and revision.
-  final issues = <(String, String, String, String, String?, String)>[];
+  /// Each new issue asked for: project, repository, title, what must be true, size and the versions seen.
+  final issues = <(String, String, String, String, String?, Map<String, String>)>[];
 
   /// The task each issue was handed with, in the order of [issues].
   final tasksNamed = <String?>[];
@@ -2121,11 +2126,11 @@ class _Planner extends Fake implements PlanningSource {
     String title,
     String mustBeTrue,
     String? size,
-    String revision, {
+    Map<String, String> seen, {
     IssueWorker worker = IssueWorker.agent,
     String? task,
   }) async {
-    issues.add((project, repository, title, mustBeTrue, size, revision));
+    issues.add((project, repository, title, mustBeTrue, size, seen));
     tasksNamed.add(task);
     final next = issueAnswers.isEmpty ? null : issueAnswers.removeAt(0);
     if (next is Exception) throw next;

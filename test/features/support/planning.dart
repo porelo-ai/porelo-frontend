@@ -146,8 +146,8 @@ class WindowPlanningSource extends MockPlanningSource implements TellsTaskReport
   }
 
   @override
-  Future<PlanningMovePreview> previewMoves(String project, List<PlanningMove> moves, String revision) async {
-    final preview = await super.previewMoves(project, moves, revision);
+  Future<PlanningMovePreview> previewMoves(String project, List<PlanningMove> moves) async {
+    final preview = await super.previewMoves(project, moves);
     final running = [
       for (final MapEntry(key: story, value: work) in _running(project, moves).entries)
         PlanningMoveWarning.from({
@@ -160,6 +160,7 @@ class WindowPlanningSource extends MockPlanningSource implements TellsTaskReport
     return PlanningMovePreview(
       revision: preview.revision,
       digest: preview.digest,
+      targets: preview.targets,
       issues: preview.issues,
       warnings: [...preview.warnings, ...running],
     );
@@ -169,7 +170,7 @@ class WindowPlanningSource extends MockPlanningSource implements TellsTaskReport
   Future<PlanningMoveResult> saveMoves(
     String project,
     List<PlanningMove> moves,
-    String revision, {
+    Map<String, String> seen, {
     required String digest,
     bool confirm = false,
   }) async {
@@ -182,7 +183,7 @@ class WindowPlanningSource extends MockPlanningSource implements TellsTaskReport
     }
     final PlanningMoveResult reply;
     try {
-      reply = await super.saveMoves(project, moves, revision, digest: digest, confirm: confirm);
+      reply = await super.saveMoves(project, moves, seen, digest: digest, confirm: confirm);
     } on PlanningRefusal {
       if (heldWhenRefused case final held?) boards[project] = held;
       rethrow;

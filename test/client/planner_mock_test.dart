@@ -113,22 +113,26 @@ void main() {
     expect(issues.issues.map((each) => each.id), contains('B541'));
   }, skip: skip);
 
-  // Harm: moves saved over a board that changed since it was read overwrite another window's moves.
-  test('a batch saved at a revision the board has left is refused as stale, with the planner\'s words', () async {
+  // Harm: moves saved over a story that changed since it was read overwrite another window's moves.
+  test('a batch saved over a story changed since it was read is refused as changed, naming it', () async {
     final source = window.providers.single.source;
     final read = await source.stories('demo');
+    final seen = read.versionsOf({'ST293'});
+    expect(seen.keys, ['ST293'], reason: 'the board names the version it shows');
 
     await expectLater(
       source.saveMoves(
         'demo',
         const [PlanningStoryMove('ST293', 'Accepted')],
-        'not-${read.revision}',
+        {'ST293': seen['ST293'] == '0' * 40 ? '1' * 40 : '0' * 40},
         digest: _noPreview,
       ),
       throwsA(
-        isA<PlanningRefusal>()
-            .having((refusal) => refusal.name, 'name', 'StaleRevision')
-            .having((refusal) => planningFailureWords(refusal), 'words shown', 'The board moved since that revision.'),
+        isA<PlanningRefusal>().having((refusal) => refusal.name, 'name', 'ItemChanged').having(
+          (refusal) => refusal.parameters['changed'],
+          'changed',
+          ['ST293'],
+        ),
       ),
     );
     expect((await source.stories('demo')).revision, read.revision, reason: 'a refused batch writes nothing');
@@ -144,7 +148,7 @@ void main() {
       source.saveMoves(
         'demo',
         const [PlanningStoryMove('ST293', 'Accepted'), PlanningStoryMove('ST293', 'Idea')],
-        read.revision,
+        read.versionsOf({'ST293'}),
         digest: _noPreview,
       ),
       throwsA(
@@ -164,10 +168,14 @@ void main() {
   // Harm: a move of a story the planner does not hold is lost silently or shown as saved.
   test('a move of a story the planner does not hold is refused as unknown, in the planner\'s words', () async {
     final source = window.providers.single.source;
-    final read = await source.stories('demo');
 
     await expectLater(
-      source.saveMoves('demo', const [PlanningStoryMove('ST9999', 'Accepted')], read.revision, digest: _noPreview),
+      source.saveMoves(
+        'demo',
+        const [PlanningStoryMove('ST9999', 'Accepted')],
+        {'ST9999': '0' * 40},
+        digest: _noPreview,
+      ),
       throwsA(
         isA<PlanningRefusal>()
             .having((refusal) => refusal.name, 'name', 'NoSuchStory')

@@ -27,7 +27,7 @@ import './step/the_planning_move_reply_arrives.dart';
 import './step/no_planning_move_error_is_shown.dart';
 import './step/the_planning_save_is_partly_saved_with_story_saved_in.dart';
 import './step/the_planning_move_error_says.dart';
-import './step/the_planning_revision_changes_on_the_machine.dart';
+import './step/planning_story_changes_on_the_machine.dart';
 import './step/the_planning_save_meets_a_changed_planning_showing_story_in.dart';
 import './step/the_planning_move_notice_says.dart';
 import './step/the_planning_machine_refuses_moves_with.dart';
@@ -144,9 +144,9 @@ void main() {
       await planningStoryIsNotBeingSaved(tester, 'ST293');
       await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');
     });
-    testWidgets('''A stale revision moves nothing and the next move clears its feedback''', (tester) async {
+    testWidgets('''A story changed elsewhere moves nothing and the next move clears its feedback''', (tester) async {
       await bddSetUp(tester);
-      await thePlanningRevisionChangesOnTheMachine(tester);
+      await planningStoryChangesOnTheMachine(tester, 'ST293');
       await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await thePlanningMoveErrorSays(
         tester,

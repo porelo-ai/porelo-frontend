@@ -565,10 +565,16 @@ Future<void> completePlanningMove(WidgetTester tester) async {
   await World.settle(tester);
 }
 
-/// Changes the backing store without sending a watch event, exercising the daemon's stale-revision reply.
+/// Changes the backing store without sending a watch event, as another window's save does: B540 moves on and B541 is
+/// renamed, so the planner holds B541 at a version other than the one the board shows.
 void stalePlanningMoves() {
   _story()['issues'] = [
-    for (final issue in planningMaps(_story(), 'issues')) {...issue, if (issue['id'] == 'B540') 'state': 'Review'},
+    for (final issue in planningMaps(_story(), 'issues'))
+      {
+        ...issue,
+        if (issue['id'] == 'B540') 'state': 'Review',
+        if (issue['id'] == 'B541') 'title': '${issue['title']} (renamed elsewhere)',
+      },
   ];
   World.planning.boards['checkout']!['revision'] = 'external-change';
 }
