@@ -207,6 +207,215 @@ void main() {
     expect(refused.message, contains('unlock or repair it'));
   });
 
+  const reading = '0123456789abcdef0123456789abcdef';
+  Map<String, dynamic> paged(int open, int ended, int next) => <String, dynamic>{
+    'reading': reading,
+    'pullRequests': open,
+    'ended': ended,
+    'next': next,
+  };
+
+  // A reading of three open and one ended pull request: its first row in the reply, the rest in two pages.
+  Map<String, dynamic> firstOfFour() => <String, dynamic>{
+    'pullRequests': <Map<String, dynamic>>[row(1)],
+    'ended': <Object>[],
+    'paged': paged(3, 1, 1),
+  };
+  Map<String, dynamic> pageOfFour(int from) => switch (from) {
+    1 => <String, dynamic>{
+      'pullRequests': <Map<String, dynamic>>[row(2)],
+      'ended': <Object>[],
+      'next': 2,
+    },
+    _ => <String, dynamic>{
+      'pullRequests': <Map<String, dynamic>>[row(3)],
+      'ended': <Map<String, dynamic>>[row(4, state: 'merged')],
+    },
+  };
+
+  // Harm: a pull request waiting for the person is never shown because the machine's list did not fit one message,
+  // or a page is asked for with a position the machine did not give.
+  test('a list in pages is read whole, each page asked where the last one ended, on a call and on a watch', () async {
+    final asked = <Map<String, dynamic>>[];
+    daemon.method('PullRequestsPage', (parameters) {
+      asked.add(parameters);
+      return pageOfFour(parameters['from'] as int);
+    });
+    daemon.method('PullRequests', (_) => firstOfFour());
+    final changes = StreamController<Map<String, dynamic>>();
+    addTearDown(changes.close);
+    daemon.pushes('WatchPullRequests', (_) => changes.stream);
+    final client = await connect();
+
+    final seen = await client.pullRequests('foo');
+    expect(seen.open.map((each) => each.number), <int>[1, 2, 3]);
+    expect(seen.ended.map((each) => each.number), <int>[4]);
+    expect(asked, <Map<String, dynamic>>[
+      <String, dynamic>{'project': 'foo', 'reading': reading, 'from': 1},
+      <String, dynamic>{'project': 'foo', 'reading': reading, 'from': 2},
+    ]);
+
+    final watched = <PullRequestsSeen>[];
+    final watching = client.watchPullRequests('foo').listen(watched.add);
+    addTearDown(watching.cancel);
+    changes.add(firstOfFour());
+    await _until(() => watched.isNotEmpty);
+    expect(watched.single.open.map((each) => each.number), <int>[1, 2, 3]);
+    expect(watched.single.ended.map((each) => each.number), <int>[4]);
+  });
+
+  // Harm: a list that keeps changing while it is read in pages never reaches the window, so an old one stays shown as
+  // current; or a snapshot overtaken meanwhile is shown after the newer one.
+  test('a watch reads one snapshot to its end, then only the newest of those that came meanwhile', () async {
+    final held = Completer<void>();
+    daemon.method('PullRequestsPage', (parameters) async {
+      if (parameters['from'] == 1) await held.future;
+      return pageOfFour(parameters['from'] as int);
+    });
+    final changes = StreamController<Map<String, dynamic>>();
+    addTearDown(changes.close);
+    daemon.pushes('WatchPullRequests', (_) => changes.stream);
+    final watched = <PullRequestsSeen>[];
+    final watching = (await connect()).watchPullRequests('foo').listen(watched.add);
+    addTearDown(watching.cancel);
+
+    changes.add(firstOfFour());
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    for (final number in <int>[7, 8]) {
+      changes.add(<String, dynamic>{
+        'pullRequests': <Map<String, dynamic>>[row(number)],
+        'ended': <Object>[],
+      });
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    held.complete();
+    await _until(() => watched.length == 2);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(watched.map((each) => each.open.map((row) => row.number).toList()), <List<int>>[
+      <int>[1, 2, 3],
+      <int>[8],
+    ]);
+  });
+
+  // Harm: a reading the machine let go of leaves an old list shown as current, or overtakes a newer one waiting.
+  test('a reading let go of goes over to a newer snapshot waiting, and with none ends the watch', () async {
+    final held = Completer<void>();
+    var pages = 0;
+    daemon.method('PullRequestsPage', (parameters) async {
+      if (pages++ == 0) await held.future;
+      throw const MockRefusal('org.fuin.porelo.Tasks1.PullRequestsReadingGone', <String, dynamic>{
+        'project': 'foo',
+        'reading': reading,
+      });
+    });
+    final changes = StreamController<Map<String, dynamic>>();
+    addTearDown(changes.close);
+    daemon.pushes('WatchPullRequests', (_) => changes.stream);
+    final watched = <PullRequestsSeen>[];
+    Object? ended;
+    final watching = (await connect()).watchPullRequests('foo').listen(watched.add, onError: (Object e) => ended = e);
+    addTearDown(watching.cancel);
+
+    changes.add(firstOfFour());
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    changes.add(<String, dynamic>{
+      'pullRequests': <Map<String, dynamic>>[row(9)],
+      'ended': <Object>[],
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    held.complete();
+    await _until(() => watched.isNotEmpty);
+    expect(watched.single.open.single.number, 9);
+    expect(ended, isNull);
+
+    changes.add(firstOfFour());
+    await _until(() => ended != null);
+    expect(ended, isA<VarlinkException>().having((e) => e.simpleName, 'name', 'PullRequestsReadingGone'));
+    expect(watched, hasLength(1), reason: 'no partial list is given');
+  });
+
+  // Harm: pages that do not fit together are shown as the whole list, or asked for without end.
+  final breaches = <String, ({Map<String, dynamic> first, Map<String, dynamic>? page})>{
+    'a page held no row': (
+      first: firstOfFour(),
+      page: <String, dynamic>{'pullRequests': <Object>[], 'ended': <Object>[], 'next': 1},
+    ),
+    'it named row 1 as next after 2 rows': (
+      first: firstOfFour(),
+      page: <String, dynamic>{
+        'pullRequests': <Map<String, dynamic>>[row(2)],
+        'ended': <Object>[],
+        'next': 1,
+      },
+    ),
+    'it gave more rows than it counted': (
+      first: firstOfFour(),
+      page: <String, dynamic>{
+        'pullRequests': <Map<String, dynamic>>[row(2), row(3), row(5)],
+        'ended': <Object>[],
+        'next': 4,
+      },
+    ),
+    'it gave ended pull requests before every open one': (
+      first: firstOfFour(),
+      page: <String, dynamic>{
+        'pullRequests': <Object>[],
+        'ended': <Map<String, dynamic>>[row(4, state: 'merged')],
+        'next': 2,
+      },
+    ),
+    'its pages ended with 2 open and 0 ended of 3 and 1': (
+      first: firstOfFour(),
+      page: <String, dynamic>{
+        'pullRequests': <Map<String, dynamic>>[row(2)],
+        'ended': <Object>[],
+      },
+    ),
+    'its pages gave a pull request twice': (
+      first: firstOfFour(),
+      page: <String, dynamic>{
+        'pullRequests': <Map<String, dynamic>>[row(1), row(3)],
+        'ended': <Map<String, dynamic>>[row(4, state: 'merged')],
+      },
+    ),
+    'it named a next page after all 1 rows': (
+      first: <String, dynamic>{
+        'pullRequests': <Map<String, dynamic>>[row(1)],
+        'ended': <Object>[],
+        'paged': paged(1, 0, 1),
+      },
+      page: null,
+    ),
+    'more than the 100000 read at most': (
+      first: <String, dynamic>{
+        'pullRequests': <Map<String, dynamic>>[row(1)],
+        'ended': <Object>[],
+        'paged': paged(100000, 1, 1),
+      },
+      page: null,
+    ),
+    'it named pages but gives none': (first: firstOfFour(), page: null),
+  };
+  for (final MapEntry(key: what, value: (:first, :page)) in breaches.entries) {
+    test('pages where $what end the watch, said as such', () async {
+      if (page != null) daemon.method('PullRequestsPage', (_) => page);
+      final changes = StreamController<Map<String, dynamic>>();
+      addTearDown(changes.close);
+      daemon.pushes('WatchPullRequests', (_) => changes.stream);
+      final watched = <PullRequestsSeen>[];
+      Object? ended;
+      final watching = (await connect()).watchPullRequests('foo').listen(watched.add, onError: (Object e) => ended = e);
+      addTearDown(watching.cancel);
+
+      changes.add(first);
+      await _until(() => ended != null);
+
+      expect(ended, isA<PullRequestsPagingBroken>().having((e) => e.what, 'what', contains(what)));
+      expect(watched, isEmpty);
+    });
+  }
+
   // Harm: a machine older than the calls reads as one with no pull requests, or takes the window down.
   test('a machine without the calls says so for them alone', () async {
     final client = await connect();

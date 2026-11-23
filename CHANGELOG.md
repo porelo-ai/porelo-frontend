@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The pull requests on a host's forge are read whole when the machine gives them in pages: each list is shown only once all its pages are read, and one that keeps changing meanwhile still reaches the window. Pages that do not fit together are said and leave the list marked out of date; they are asked for again once the machine is reached anew, never on a timer.
 - The *Planning* board names the workflow's first state *New*, and a new issue too long for the forge is refused at once, naming its field, never tried again.
 - An idea a task hands in is no longer refused for a size a forge accepts: a title may have 256 characters, what must be true 65,536 characters, and the idea 1 MiB, and a stage's result may have 1 MiB. Anything larger is still said as not handed, with its bound. A task's proposal still meets the bounds its machine's Porelo holds proposals to first.
 - A setup or host run's record keeps every line it printed, no longer only the last 2000, in a file of its own beside the record of what was run. Opening a run read back shows its end, holds only a bounded window of its lines, and reads older lines from the file when scrolled to, until its first line.

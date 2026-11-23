@@ -81,6 +81,14 @@ class PullRequestsRefusedRow {
             '; until then no pull request waiting for you there is shown.',
       HostPullRequestsRefused(:final reason, :final message) =>
         '$which: ${_why(reason)}${message.isEmpty ? '' : ' The machine says: $message.'}',
+      PullRequestsPagingBroken(:final what) =>
+        '$which whole: the machine gave them in pages that do not fit together ($what). '
+            'They are asked for again once the machine is reached anew.',
+      VarlinkException(simpleName: 'PullRequestsReadingGone') =>
+        '$which whole: the machine let go of its list before all of it was read. They are asked for again.',
+      VarlinkException(simpleName: 'InvalidParameter', :final parameters) =>
+        '$which whole: the machine refused a page it had named itself.'
+            '${_says(parameters['message'])} They are asked for again once the machine is reached anew.',
       VarlinkException(:final parameters) =>
         '$which: the machine refused.'
             '${_says(parameters['message'])} They are asked for again.',
@@ -150,6 +158,8 @@ class PullRequestsRefusedRow {
       HostPullRequestsRefused(reason: 'vault-unreadable') => 'Unlock the vault on $on.',
       HostPullRequestsRefused(reason: 'settings') => "Put the forge settings of $on in order there.",
       HostPullRequestsRefused(reason: 'not-carried') => 'Ask an admin of $on to carry $project for you.',
+      PullRequestsPagingBroken() || VarlinkException(simpleName: 'InvalidParameter') =>
+        "This is a fault of Porelo on $on, not of its forge; the window asks again once it reaches $on anew.",
       _ => 'If this stays, look at the forge of $on; the window asks again by itself.',
     };
   }
@@ -424,6 +434,13 @@ class HostPullRequests extends ChangeNotifier {
       ..stale = true
       ..refusal = error ?? StateError('the watch ended without a word');
     watched.again?.cancel();
+    watched.again = null;
+    // Pages that do not fit together, or a page refused that the machine named itself, come again the same way:
+    // asked again only when the person asks or the machine is reached anew, never on a timer.
+    if (error is PullRequestsPagingBroken || (error is VarlinkException && error.simpleName == 'InvalidParameter')) {
+      _notify();
+      return;
+    }
     watched.again = Timer(pollEvery(askAgainAfter), () {
       watched.again = null;
       if (!_disposed && identical(_projects[project], watched) && watched.wanted) _start(project, watched);

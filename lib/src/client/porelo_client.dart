@@ -274,6 +274,27 @@ class HostPullRequestsRefused extends VarlinkException {
   final String message;
 }
 
+/// A pull request list the machine gave in pages that do not fit together, or never end: [what] says how. Its watch
+/// ends with it, and it is not asked for again until the person asks or the machine is reached anew.
+class PullRequestsPagingBroken implements Exception {
+  /// Constructor taking the project and what did not fit.
+  const PullRequestsPagingBroken(this.project, this.what);
+
+  /// The project whose pull requests were read.
+  final String project;
+
+  /// What did not fit, in words.
+  final String what;
+
+  @override
+  String toString() => 'PullRequestsPagingBroken($project): $what';
+}
+
+/// A reading no longer wanted: its watch was cancelled or ended meanwhile.
+class _Overtaken implements Exception {
+  const _Overtaken();
+}
+
 /// The machine did not bring a host's `main` to central, and says why, as one of the answers `PushToCentral` names:
 /// [kind] is the answer's name (`CentralVaultShut`, `MissingCentralToken`, `CentralTokenRefused`, `NothingToPush`,
 /// `HostPushTokenUnavailable`, `CentralPushRefused`, `CentralPushUncertain`, `HostPushRefused`), and each field is
@@ -1364,7 +1385,7 @@ class PoreloClient {
   /// Refused with [MissingHostForgeToken] or [HostPullRequestsRefused].
   Future<PullRequestsSeen> pullRequests(String project) async {
     try {
-      return PullRequestsSeen.from(await _call('PullRequests', {'project': project}));
+      return await _wholePullRequests(project, await _call('PullRequests', {'project': project}));
     } on VarlinkException catch (refusal) {
       throw HostPullRequestsRefused.typed(refusal);
     }
@@ -1372,12 +1393,146 @@ class PoreloClient {
 
   /// The same, then each change: the whole open list again, with those seen to end. It ends only on an error, after
   /// which what it said is stale and is asked for again.
-  Stream<PullRequestsSeen> watchPullRequests(String project) => _callMore('WatchPullRequests', {'project': project})
-      .map(PullRequestsSeen.from)
-      .handleError(
-        (Object refusal) => throw HostPullRequestsRefused.typed(refusal),
-        test: (error) => error is VarlinkException,
-      );
+  ///
+  /// A snapshot too large for one message is read whole with `PullRequestsPage` before it is given. One is read at a
+  /// time, to its end, so a list that keeps changing still reaches the window; of those that come meanwhile only the
+  /// newest waits, and it is read next. A reading the machine let go of goes over to that newest one; with none
+  /// waiting, it ends the stream, as a page the machine refused and pages that do not fit together do: an unchanged
+  /// list is not sent again, so waiting for the next snapshot could leave an old list unmarked.
+  Stream<PullRequestsSeen> watchPullRequests(String project) {
+    final whole = StreamController<PullRequestsSeen>();
+    StreamSubscription<Map<String, dynamic>>? raw;
+    Map<String, dynamic>? waiting;
+    var reading = false;
+    var rawDone = false;
+    var cancelled = false;
+    bool wanted() => !cancelled && !whole.isClosed;
+    void end(Object error, [StackTrace? stack]) {
+      if (whole.isClosed) return;
+      whole.addError(HostPullRequestsRefused.typed(error), stack);
+      unawaited(raw?.cancel());
+      unawaited(whole.close());
+    }
+
+    Future<void> readOn() async {
+      reading = true;
+      while (waiting != null && wanted()) {
+        final reply = waiting!;
+        waiting = null;
+        final PullRequestsSeen seen;
+        try {
+          seen = await _wholePullRequests(project, reply, wanted: wanted);
+        } on _Overtaken {
+          break;
+        } on VarlinkException catch (gone, stack) {
+          if (gone.simpleName == 'PullRequestsReadingGone' && waiting != null) continue;
+          end(gone, stack);
+          break;
+        } on Object catch (error, stack) {
+          end(error, stack);
+          break;
+        }
+        if (wanted()) whole.add(seen);
+      }
+      reading = false;
+      if (rawDone && !whole.isClosed) unawaited(whole.close());
+    }
+
+    whole
+      ..onListen = () {
+        raw = _callMore('WatchPullRequests', {'project': project}).listen(
+          (reply) {
+            waiting = reply;
+            if (!reading) unawaited(readOn());
+          },
+          onError: end,
+          onDone: () {
+            rawDone = true;
+            if (!reading && !whole.isClosed) unawaited(whole.close());
+          },
+          cancelOnError: true,
+        );
+      }
+      ..onCancel = () async {
+        cancelled = true;
+        waiting = null;
+        await raw?.cancel();
+      };
+    return whole.stream;
+  }
+
+  /// At most this many pages are asked for one reading: past it, its pages are taken for ones that never end.
+  static const pullRequestPagesAtMost = 10000;
+
+  /// At most this many rows are taken from one reading: a count above it is refused before any page is asked.
+  static const pullRequestRowsAtMost = 100000;
+
+  /// [reply] as the whole reading: as it came where it is whole, else with every page `PullRequestsPage` gives after
+  /// it, checked to fit together. Throws [PullRequestsPagingBroken] where they do not, and [_Overtaken] once [wanted]
+  /// says the reading is no longer wanted.
+  Future<PullRequestsSeen> _wholePullRequests(
+    String project,
+    Map<String, dynamic> reply, {
+    bool Function()? wanted,
+  }) async {
+    final first = PullRequestsSeen.from(reply);
+    final paged = reply['paged'];
+    if (paged == null) return first;
+    Never broken(String what) => throw PullRequestsPagingBroken(project, what);
+    if (paged is! Map) broken('it named its pages in a form this window cannot read');
+    final reading = paged['reading'];
+    final counted = paged['pullRequests'];
+    final countedEnded = paged['ended'];
+    var next = paged['next'];
+    if (reading is! String || !RegExp(r'^[0-9a-f]{32}$').hasMatch(reading)) broken('it named no reading');
+    if (counted is! int || countedEnded is! int || next is! int || counted < 0 || countedEnded < 0) {
+      broken('it named no counts or no next page');
+    }
+    final open = [...first.open];
+    final ended = [...first.ended];
+    final all = counted + countedEnded;
+    if (all > pullRequestRowsAtMost) broken('it counted $all rows, more than the $pullRequestRowsAtMost read at most');
+    // The rows so far must be the first of the reading, open ones before ended ones, and [at] must follow them.
+    void fits(int at) {
+      if (open.length > counted || ended.length > countedEnded) broken('it gave more rows than it counted');
+      if (ended.isNotEmpty && open.length < counted) broken('it gave ended pull requests before every open one');
+      final held = open.length + ended.length;
+      if (at != held) broken('it named row $at as next after $held rows');
+      if (held >= all) broken('it named a next page after all $all rows');
+    }
+
+    fits(next);
+    for (var pages = 0; ; pages++) {
+      if (pages >= pullRequestPagesAtMost) broken('it gave more than $pullRequestPagesAtMost pages');
+      if (wanted != null && !wanted()) throw const _Overtaken();
+      final Map<String, dynamic> page;
+      try {
+        page = await _call('PullRequestsPage', {'project': project, 'reading': reading, 'from': next});
+      } on FeatureNotSupported {
+        // It named pages it cannot give: not a machine older than pull requests, whose list would then go unsaid.
+        broken('it named pages but gives none');
+      }
+      if (wanted != null && !wanted()) throw const _Overtaken();
+      final rows = PullRequestsSeen.from(page);
+      if (rows.open.isEmpty && rows.ended.isEmpty) broken('a page held no row');
+      open.addAll(rows.open);
+      ended.addAll(rows.ended);
+      final after = page['next'];
+      if (after == null) {
+        if (open.length != counted || ended.length != countedEnded) {
+          broken('its pages ended with ${open.length} open and ${ended.length} ended of $counted and $countedEnded');
+        }
+        if ({for (final each in open) each.key}.length != open.length ||
+            {for (final each in ended) each.key}.length != ended.length) {
+          broken('its pages gave a pull request twice');
+        }
+        return PullRequestsSeen(open: open, ended: ended, refused: first.refused);
+      }
+      if (after is! int) broken('a page named its next in a form this window cannot read');
+      fits(after);
+      next = after;
+    }
+  }
 
   /// Brings the host's approved `main` of [project]'s [repositories] (all its push configuration names, where null)
   /// to the central forge, stage by stage; it ends on the reply naming what was pushed, or on a [CentralPushRefusal].

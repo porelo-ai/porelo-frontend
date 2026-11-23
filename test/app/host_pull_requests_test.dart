@@ -325,6 +325,23 @@ void main() {
     expect((rows(AttentionKind.pullRequest).single.value as PullRequestRow).stale, isFalse);
   });
 
+  // Harm: a machine whose pages never fit together is asked for them again and again, every pause, without end.
+  test('pages that do not fit together keep the rows stale, are said, and are not asked again on a timer', () async {
+    final first = backend.pullRequestWatches.single;
+    first.answer(<HostPullRequest>[_request(1)]);
+    await _until(() => rows(AttentionKind.pullRequest).isNotEmpty);
+
+    first.fail(const PullRequestsPagingBroken('foo', 'a page held no row'));
+    await _until(() => rows(AttentionKind.pullRequestsRefused).isNotEmpty);
+    await Future<void>.delayed(HostPullRequests.askAgainAfter * 5);
+
+    expect(backend.pullRequestWatches, hasLength(1), reason: 'asked again only once the machine is reached anew');
+    expect((rows(AttentionKind.pullRequest).single.value as PullRequestRow).stale, isTrue);
+    final said = rows(AttentionKind.pullRequestsRefused).single.value as PullRequestsRefusedRow;
+    expect(said.words, contains('a page held no row'));
+    expect(said.action, contains('fault of Porelo'));
+  });
+
   // Harm: one repository the forge refuses silences the others, or its pull requests vanish as if merged, also when
   // a watch asked again first answers with it refused; or it stays said after it answers again.
   test("a refused repository's rows stay, stale, its refusal is a row of its own, and the others answer", () async {
