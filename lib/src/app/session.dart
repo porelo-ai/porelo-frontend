@@ -361,7 +361,9 @@ class Session extends ChangeNotifier with QuietAfterDispose {
       unawaited(channel.ended.then(_itEnded));
     } on PtyRefused catch (refused) {
       state = SessionState.over;
-      problem = machine.needsATunnel
+      // A program this window runs itself, such as porelo-host or a vault's command, is no task's
+      // way in: a refusal there is about that program, never a container.
+      problem = machine.needsATunnel || run != null
           ? 'The way in could not be opened: ${refused.words}.'
           : 'The way in could not be opened: ${refused.words}. A session lives in the container, '
                 'so it is reachable only from the machine the daemon runs on.';
