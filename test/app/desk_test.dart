@@ -113,6 +113,19 @@ void main() {
     });
   });
 
+  // Harm: a chmod or icacls that failed, or a system with none, is taken for a file kept to its owner.
+  test('keeping a file to its owner fails loudly where it could not be done', () async {
+    final refused = Desk.of(
+      'linux',
+      const <String, String>{},
+      run: (executable, arguments) async => ProcessResult(0, 1, '', 'Operation not permitted'),
+    );
+    final nothing = Desk.of('windows', const <String, String>{});
+
+    await expectLater(refused.keepPrivate('/x/file'), throwsA(isA<ProcessException>()));
+    await expectLater(nothing.keepPrivate(r'C:\x\file'), throwsA(isA<FileSystemException>()));
+  });
+
   group('on Linux', () {
     const linux = <String, String>{'HOME': '/home/somebody'};
 

@@ -157,6 +157,10 @@ class OperationOutputView extends StatefulWidget {
 
 class _OperationOutputViewState extends State<OperationOutputView> {
   final _scroll = ScrollController();
+  final _newer = GlobalKey();
+  final _view = GlobalKey();
+  bool _openedAtEnd = false;
+  bool _reading = false;
   int _lastSeen = 0;
   bool _startEnded = false;
   Timer? _age;
@@ -166,11 +170,106 @@ class _OperationOutputViewState extends State<OperationOutputView> {
     super.initState();
     widget.run?.addListener(_changed);
     widget.run?.follow();
+    _scroll.addListener(_wantsMore);
+    if (widget.operation.recordOf != null) unawaited(_open(rebuild: false));
     if (widget.run != null) _age = Timer.periodic(const Duration(minutes: 1), (_) => _changed());
+  }
+
+  /// The line on screen nearest the top, and where its top is in the view, for [_keepPlace].
+  ({int index, double top})? _probe() {
+    final view = _view.currentContext;
+    final box = view?.findRenderObject();
+    if (view == null || box is! RenderBox || !box.attached) return null;
+    final viewTop = box.localToGlobal(Offset.zero).dy;
+    ({int index, double top})? nearest;
+    void visit(Element element) {
+      final widget = element.widget;
+      if (widget is _Line) {
+        final line = element.renderObject;
+        if (line is RenderBox && line.attached && line.hasSize) {
+          final top = line.localToGlobal(Offset.zero).dy - viewTop;
+          if (top >= 0 && top < box.size.height && (nearest == null || top < nearest!.top)) {
+            nearest = (index: widget.index, top: top);
+          }
+        }
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    view.visitChildElements(visit);
+    return nearest;
+  }
+
+  /// Puts the reader back where they were after lines were let go of.
+  ///
+  /// Where the lines are counted from moved to [probe], a line the reader sees: its place is known exactly, which a
+  /// distance over lines that were never built is not.
+  Future<void> _keepPlace(bool moved, ({int index, double top})? probe) async {
+    if (!mounted) return;
+    // The lines were let go of just now, also where nothing moved: what is built must be built from them.
+    setState(() {});
+    if (!moved || probe == null) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || !_scroll.hasClients) return;
+    // The line at the center of the view lies at scroll offset zero.
+    _scroll.jumpTo(-probe.top);
+  }
+
+  /// Opens the record at its end, as it is each time it is shown: a window left where an earlier opening ended is
+  /// not where this one starts.
+  Future<void> _open({bool rebuild = true}) async {
+    final operation = widget.operation;
+    operation.opened = false;
+    if (rebuild) setState(() {});
+    await operation.openAtEnd();
+    if (!mounted) return;
+    _openedAtEnd = false;
+    setState(() {});
   }
 
   void _changed() {
     if (mounted) setState(() {});
+  }
+
+  /// Reads the next page of the record when the reader is near the end of what is held, at either end.
+  ///
+  /// Only a bounded window of the record is held: reading at one end lets go of the other.
+  void _wantsMore() {
+    final operation = widget.operation;
+    if (_reading || operation.opening || !_scroll.hasClients || operation.source == null) return;
+    if (operation.readProblem != null) return;
+    final position = _scroll.position;
+    if (!position.hasContentDimensions) return;
+    const near = 400.0;
+    final older = operation.hasOlder && position.pixels - position.minScrollExtent < near;
+    final newer = !older && operation.hasNewer && position.maxScrollExtent - position.pixels < near;
+    if (!older && !newer) return;
+    _reading = true;
+    // After the frame that follows: where the lines lie on screen is known only once it is laid out, and the lines
+    // change under it, which it is told at once.
+    final probed = Completer<({int index, double top})?>();
+    WidgetsBinding.instance
+      ..addPostFrameCallback((_) => probed.complete(mounted ? _probe() : null))
+      ..ensureVisualUpdate();
+    unawaited(
+      probed.future
+          .then((probe) {
+            if (!mounted) return false;
+            return older
+                ? operation.loadOlder(keep: probe?.index, settle: (moved) => _keepPlace(moved, probe))
+                : operation.loadNewer(keep: probe?.index, settle: (moved) => _keepPlace(moved, probe));
+          })
+          .whenComplete(() {
+            _reading = false;
+            if (!mounted) return;
+            setState(() {});
+            // A page may not fill the view, and a failed one is shown rather than asked for again.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _wantsMore();
+            });
+          }),
+    );
   }
 
   @override
@@ -202,43 +301,125 @@ class _OperationOutputViewState extends State<OperationOutputView> {
             padding: const EdgeInsets.symmetric(horizontal: Space.normal),
             child: signIn,
           ),
-        if (operation.linesNotKept > 0)
+        if (operation.readProblem case final problem?)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
-            child: Text(
-              'The first ${operation.linesNotKept} lines it printed were not kept.',
-              key: const Key('lines-not-kept'),
-              style: Theme.of(context).textTheme.bodySmall,
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Reading what it printed failed: $problem',
+                    key: const Key('record-read-failed'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                TextButton(
+                  key: const Key('record-read-again'),
+                  onPressed: () async {
+                    operation.readProblem = null;
+                    if (operation.source == null && operation.recordOf != null) {
+                      // Opening the record is what failed: that is what is tried again.
+                      await _open();
+                      return;
+                    }
+                    setState(() {});
+                    _wantsMore();
+                  },
+                  child: const Text('Try again'),
+                ),
+              ],
             ),
           ),
+        if (operation.linesMissing)
+          _Note(
+            key: const Key('lines-missing'),
+            text: operation.source == null
+                ? 'Its ${operation.linesGone} lines are missing: the file that held them is not there.'
+                : '${operation.linesGone} of the lines it printed are missing from the file that holds them.',
+          ),
+        if (operation.linesLost > 0)
+          _Note(
+            key: const Key('lines-lost'),
+            text: '${operation.linesLost} lines it printed could not be kept in its record.',
+          ),
         Expanded(
-          child: operation.output.isEmpty && steps.isEmpty && (run == null || operation.running || operation.failed)
+          child: operation.recordOf != null && !operation.opened
               ? Center(
                   child: Text(
-                    operation.running ? 'Nothing printed yet.' : 'It printed nothing at all.',
+                    'Reading what it printed…',
+                    key: const Key('record-opening'),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 )
-              : Scrollbar(
-                  controller: _scroll,
-                  child: ListView.builder(
-                    controller: _scroll,
-                    primary: false,
-                    padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
-                    itemCount:
-                        steps.length +
-                        operation.output.length +
-                        (run != null && !operation.running && !operation.failed ? 1 : 0),
-                    itemBuilder: (context, index) => index == steps.length + operation.output.length
-                        ? _RunState(run: run!, restart: widget.restart)
-                        : index < steps.length
-                        ? _StartStepView(step: steps[index])
-                        : SelectableText(
-                            operation.output[index - steps.length],
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                          ),
+              : operation.output.isEmpty && steps.isEmpty && (run == null || operation.running || operation.failed)
+              ? Center(
+                  child: Text(
+                    operation.running
+                        ? 'Nothing printed yet.'
+                        : operation.readProblem != null
+                        ? 'What it printed could not be read.'
+                        : operation.linesMissing
+                        ? 'What it printed is not there to be read.'
+                        : operation.fromBefore && operation.linesPrinted == null
+                        ? 'The record does not say whether it printed anything.'
+                        : 'It printed nothing at all.',
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                ),
+                )
+              : Scrollbar(controller: _scroll, child: _lines(operation, steps, run)),
+        ),
+      ],
+    );
+  }
+
+  /// The lines, growing up from where the record was opened and down from it, so that reading older lines
+  /// never moves what is on screen.
+  Widget _lines(Operation operation, List<StartStep> steps, UnattendedRun? run) {
+    final before = operation.anchor;
+    final after = operation.output.length - before;
+    final starts = !operation.hasOlder;
+    // Nothing that was read from the file lies above where the lines begin, so the steps start the lines below.
+    final stepsBelow = operation.source == null || (starts && before == 0);
+    final upward = before + (stepsBelow ? 0 : (starts ? steps.length + 1 : 1));
+    final runState = run != null && !operation.running && !operation.failed && !operation.hasNewer;
+    const padding = EdgeInsets.symmetric(horizontal: Space.normal);
+    const style = TextStyle(fontFamily: 'monospace', fontSize: 12);
+    return CustomScrollView(
+      key: _view,
+      controller: _scroll,
+      primary: false,
+      center: _newer,
+      slivers: <Widget>[
+        SliverPadding(
+          padding: padding.copyWith(top: Space.small),
+          sliver: SliverList.builder(
+            itemCount: upward,
+            // Counted from the middle outward: the line just before it first, the start last.
+            itemBuilder: (context, index) => index < before
+                ? _Line(before - 1 - index, operation.output[before - 1 - index], style)
+                : starts && index - before < steps.length
+                ? _StartStepView(step: steps[steps.length - 1 - (index - before)])
+                // The same row, same height, whether older lines wait or the start is reached: nothing under the
+                // reader moves when the last page is read.
+                : Text(
+                    starts ? 'This is where it began.' : 'Older lines are read from the file as you scroll up.',
+                    key: Key(starts ? 'record-start' : 'older-lines'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+          ),
+        ),
+        SliverPadding(
+          key: _newer,
+          padding: padding.copyWith(bottom: Space.small),
+          sliver: SliverList.builder(
+            itemCount: (stepsBelow ? steps.length : 0) + after + (runState ? 1 : 0),
+            itemBuilder: (context, index) {
+              final at = index - (stepsBelow ? steps.length : 0);
+              if (at < 0) return _StartStepView(step: steps[index]);
+              if (at == after) return _RunState(run: run!, restart: widget.restart);
+              return _Line(before + at, operation.output[before + at], style);
+            },
+          ),
         ),
       ],
     );
@@ -249,6 +430,15 @@ class _OperationOutputViewState extends State<OperationOutputView> {
   /// The start's end is followed once so the task state is visible; later updates keep the reader's place.
   void _followTheEnd(int lines) {
     final justEnded = widget.run != null && !widget.operation.running && !widget.operation.failed && !_startEnded;
+    if (!_openedAtEnd && widget.operation.source != null && widget.operation.opened && !widget.operation.opening) {
+      // A record read back opens at its end, where what happened last is.
+      _openedAtEnd = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scroll.hasClients) return;
+        _scroll.jumpTo(_scroll.position.maxScrollExtent);
+        _wantsMore();
+      });
+    }
     if (!justEnded && (!widget.operation.running || lines == _lastSeen)) return;
     if (justEnded) _startEnded = true;
     _lastSeen = lines;
@@ -261,11 +451,36 @@ class _OperationOutputViewState extends State<OperationOutputView> {
   @override
   void dispose() {
     _age?.cancel();
+    _scroll.removeListener(_wantsMore);
     widget.run?.removeListener(_changed);
     widget.run?.unfollow();
     _scroll.dispose();
     super.dispose();
   }
+}
+
+/// One line of what was printed, knowing which it is, so that the reader's place can be kept by it.
+class _Line extends StatelessWidget {
+  const _Line(this.index, this.text, this.style);
+
+  final int index;
+  final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) => SelectableText(text, style: style);
+}
+
+class _Note extends StatelessWidget {
+  const _Note({required this.text, super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
+    child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+  );
 }
 
 class _RunState extends StatelessWidget {

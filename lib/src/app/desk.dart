@@ -86,9 +86,16 @@ abstract class Desk {
   }
 
   /// Keeps [path] to its owner: nobody else on this computer reads it.
+  ///
+  /// Throws where it could not: a program that exits with an error, or a system with nothing that can. A caller
+  /// that went on would take a file for private that is not.
   Future<void> keepPrivate(String path, {bool directory = false}) async {
     final command = privateCommand(path, directory: directory);
-    if (command != null) await run(command.first, command.sublist(1));
+    if (command == null) throw FileSystemException('Nothing here can keep it to its owner', path);
+    final result = await run(command.first, command.sublist(1));
+    if (result.exitCode != 0) {
+      throw ProcessException(command.first, command.sublist(1), '${result.stderr}'.trim(), result.exitCode);
+    }
   }
 
   /// The program and arguments that keep [path] to its owner here, or null where nothing can.

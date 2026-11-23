@@ -486,8 +486,11 @@ Every operation — what ran, on which machine, what it printed and how it ended
 the list of what was run shows earlier ones beside this run's, marked *earlier*, and names the file.
 The finder opens it with the desktop's opener.
 
-- **Thirty days**, and only an operation's last 2,000 lines, with how many were not kept said where
-  it is read. Older operations are dropped when the file is read, and the list says how many.
+- **Thirty days**, and every line an operation printed, kept in a file of its own beside
+  `operations.json` (one JSON string a line, appended as it is printed). A record read back holds only a
+  bounded window of its lines, opens at its end and reads older ones from the file when scrolled to,
+  until its start. Older operations, and their lines, are dropped when the file is read, and the list says
+  how many.
 - **One file for every machine.** One place to open, and forgetting a machine does not forget what
   was run on it.
 - **A failure nobody opened still waits under Needs you after a restart.** Whether it was seen is

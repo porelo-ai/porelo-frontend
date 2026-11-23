@@ -123,7 +123,7 @@ void main() {
         cause: '',
       )
       ..steps['CONVERSATION'] = failed;
-    final reopened = Operation.fromStored(operation.toStored(Operations.linesKept))!;
+    final reopened = Operation.fromStored(operation.toStored())!;
     expect(reopened.failed, isTrue);
     expect(reopened.steps.keys, <String>['SOURCE', 'CONVERSATION']);
     expect(reopened.steps['CONVERSATION']?.cause, cause);

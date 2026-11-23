@@ -461,12 +461,7 @@ class Attention extends ChangeNotifier {
       yield _causeRow(cause);
     }
     for (final operation in failedUnseen) {
-      yield AttentionRow(
-        AttentionKind.operation,
-        'operation ${operation.id}',
-        operation.machine,
-        Operation.fromStored(operation.toStored(operation.output.length))!,
-      );
+      yield AttentionRow(AttentionKind.operation, 'operation ${operation.id}', operation.machine, operation.copy());
     }
     for (final cause in causes.where((cause) => cause.demand != Demand.question)) {
       yield _causeRow(cause);
