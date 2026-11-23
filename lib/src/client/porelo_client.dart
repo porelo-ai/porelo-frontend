@@ -1586,7 +1586,10 @@ class PoreloClient {
   /// newest first with who made each, is null from a Porelo older than that field. With
   /// [ignoreLineEndings] `true` the diff leaves out what changed at line ends; only a machine whose
   /// `Review` declares it may be sent it.
-  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> review(
+  ///
+  /// A `paged` that does not match what the answer holds - a next where a part is already whole, none
+  /// where it is not, or more held than its size - is refused as a [FormatException].
+  Future<PushReview> review(
     String project,
     String name, {
     String? upstream,
@@ -1607,7 +1610,8 @@ class PoreloClient {
     final log = reply['log'];
     final files = reply['files'];
     final asked = reply['asked'];
-    return (
+    final commit = reply['commit'];
+    final review = PushReview(
       diff: diff is String ? diff : '',
       log: log is String ? log : '',
       files: files is List
@@ -1615,7 +1619,78 @@ class PoreloClient {
           : const <ReviewFile>[],
       asked: asked is String ? asked : null,
       commits: ReviewCommit.allIn(reply['commits']),
+      commit: commit is String && commit.isNotEmpty ? commit : null,
+      cut: reply['cut'] == null ? null : ReviewCut.from(reply['cut']),
+      paged: reply['paged'] == null ? null : ReviewPaged.from(reply['paged']),
     );
+    final paged = review.paged;
+    if (paged != null) {
+      void held(String part, int count, int size, int? next) {
+        if (count > size) throw FormatException('Review holds more $part than paged says there are');
+        if ((next == null) != (count == size)) {
+          throw FormatException('Review.paged names a next page of $part that does not match what it holds');
+        }
+      }
+
+      held('files', review.files.length, paged.files, paged.filesNext);
+      held('commits', review.commits?.length ?? 0, paged.commits, paged.commitsNext);
+      held('log', utf8.encode(review.log).length, paged.logBytes, paged.logNext);
+      // A cut diff says itself that it is not whole, and its size is not the one the pages count.
+      if (review.cut == null) held('diff', utf8.encode(review.diff).length, paged.diffBytes, paged.diffNext);
+    }
+    return review;
+  }
+
+  /// One more page of a part of [name]'s review, for [commit], read [against] as `Review.paged.base` names it,
+  /// from [from]: a position the machine gave. [part] is `files`, `commits`, `log` or `diff`.
+  ///
+  /// An answer without the part asked for, or with a next that is no whole number, is refused as a
+  /// [FormatException]. A machine without `ReviewPage` answers [FeatureNotSupported].
+  Future<ReviewPage> reviewPage(
+    String project,
+    String name, {
+    String? upstream,
+    String? repository,
+    required String commit,
+    required String against,
+    required bool ignoreLineEndings,
+    required String part,
+    required int from,
+  }) async {
+    final reply = await _call('ReviewPage', {
+      'project': project,
+      'upstream': ?upstream,
+      'repository': ?repository,
+      'name': name,
+      'commit': commit,
+      'against': against,
+      'ignoreLineEndings': ignoreLineEndings,
+      'part': part,
+      'from': from,
+    });
+    final next = reply['next'];
+    if (next != null && next is! int) throw const FormatException('ReviewPage.next is not a position');
+    switch (part) {
+      case 'files':
+        final files = reply['files'];
+        if (files is! List || files.any((each) => each is! Map<String, dynamic>)) {
+          throw const FormatException('ReviewPage holds no files');
+        }
+        return (
+          files: files.cast<Map<String, dynamic>>().map(ReviewFile.from).toList(),
+          commits: null,
+          text: null,
+          next: next as int?,
+        );
+      case 'commits':
+        final commits = ReviewCommit.allIn(reply['commits']);
+        if (commits == null) throw const FormatException('ReviewPage holds no commits');
+        return (files: null, commits: commits, text: null, next: next as int?);
+      default:
+        final text = reply['text'];
+        if (text is! String) throw FormatException('ReviewPage holds no text of $part');
+        return (files: null, commits: null, text: text, next: next as int?);
+    }
   }
 
   /// Forwards a pending push upstream.

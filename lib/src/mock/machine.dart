@@ -132,6 +132,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     daemon.method('WidenTask', _widenTask);
     daemon.method('Pending', _pending);
     daemon.method('Review', _review);
+    daemon.method('ReviewPage', _reviewPage);
     daemon.method('Approve', _approve);
     daemon.method('Reject', _reject);
     // Prompts streams and only streams: answering it once would look like it worked and then
@@ -528,15 +529,148 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     'pending': _waiting.values.toList(),
   };
 
-  Map<String, dynamic> _review(Map<String, dynamic> parameters) {
-    final oneFile = parameters['name'] == 'drop-dead-code';
-    return <String, dynamic>{
-      'diff': oneFile ? _deletionDiff : _changeDiff,
-      'log':
+  /// How many files or commits one page of a review holds, and at most how many bytes of its log or
+  /// diff, cut at a line end; null answers every review whole.
+  int? reviewPageSize;
+
+  /// One waiting push's whole review, every part of it, as `Review` and `ReviewPage` serve it.
+  ({String diff, String log, List<Map<String, dynamic>> files, List<Map<String, dynamic>> commits}) _wholeReview(
+    String name,
+  ) {
+    final oneFile = name == 'drop-dead-code';
+    final diff = oneFile ? _deletionDiff : _changeDiff;
+    final subject = '${_waiting[name]?['subject'] ?? ''}';
+    final commit = '${_waiting[name]?['commit'] ?? ''}';
+    return (
+      diff: diff,
+      log:
           'commit ${oneFile ? '7f21b0e' : '9a3c1f2'}\n'
           'Author: an agent <agent@porelo>\n\n'
-          '    ${_waiting[parameters['name']]?['subject'] ?? ''}',
+          '    $subject',
+      files: <Map<String, dynamic>>[
+        for (final patch in diff.split(RegExp(r'^(?=diff --git )', multiLine: true)))
+          if (patch.startsWith('diff --git '))
+            <String, dynamic>{
+              'path': RegExp(r' b/(\S+)').firstMatch(patch)?.group(1) ?? '',
+              'status': patch.contains('\ndeleted file mode') ? 'D' : 'M',
+              'added': RegExp(r'^\+(?!\+\+ )', multiLine: true).allMatches(patch).length,
+              'removed': RegExp(r'^-(?!-- )', multiLine: true).allMatches(patch).length,
+              'rank': 'ORDINARY',
+              'reason': '',
+            },
+      ],
+      commits: <Map<String, dynamic>>[
+        <String, dynamic>{
+          'commit': commit,
+          'subject': subject,
+          'author': 'an agent <agent@porelo>',
+          'committer': 'an agent <agent@porelo>',
+          'trailers': const <String>[],
+          'message': subject,
+        },
+      ],
+    );
+  }
+
+  Map<String, dynamic> _review(Map<String, dynamic> parameters) {
+    final name = '${parameters['name']}';
+    final whole = _wholeReview(name);
+    final size = reviewPageSize;
+    if (size == null) {
+      return <String, dynamic>{
+        'commit': '${_waiting[name]?['commit'] ?? ''}',
+        'diff': whole.diff,
+        'log': whole.log,
+        'files': whole.files,
+        'commits': whole.commits,
+      };
+    }
+    final files = _entriesPage(whole.files, 0, size);
+    final commits = _entriesPage(whole.commits, 0, size);
+    final log = _textPage(whole.log, 0, size);
+    final diff = _textPage(whole.diff, 0, size);
+    return <String, dynamic>{
+      'commit': '${_waiting[name]?['commit'] ?? ''}',
+      'diff': diff.text,
+      'log': log.text,
+      'files': files.entries,
+      'commits': commits.entries,
+      if (files.next != null || commits.next != null || log.next != null || diff.next != null)
+        'paged': <String, dynamic>{
+          'files': whole.files.length,
+          'commits': whole.commits.length,
+          'logBytes': utf8.encode(whole.log).length,
+          'diffBytes': utf8.encode(whole.diff).length,
+          'filesNext': ?files.next,
+          'commitsNext': ?commits.next,
+          'logNext': ?log.next,
+          'diffNext': ?diff.next,
+          'base': '',
+        },
     };
+  }
+
+  /// The rest of a review, page by page, for the commit `Review` named; refused as the daemon refuses it.
+  Map<String, dynamic> _reviewPage(Map<String, dynamic> parameters) {
+    final name = '${parameters['name']}';
+    final waiting = _waiting[name];
+    if (waiting == null) {
+      throw MockRefusal('org.fuin.porelo.Tasks1.Failed', <String, dynamic>{'message': 'nothing waits as $name'});
+    }
+    if (parameters['commit'] != waiting['commit']) {
+      throw MockRefusal('org.fuin.porelo.Tasks1.MovedSinceReview', <String, dynamic>{
+        'name': name,
+        'reviewed': parameters['commit'],
+        'now': waiting['commit'],
+      });
+    }
+    final against = parameters['against'];
+    if (against is! String || (against.isNotEmpty && !RegExp(r'^([0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(against))) {
+      throw const MockRefusal('org.varlink.service.InvalidParameter', <String, dynamic>{'parameter': 'against'});
+    }
+    final from = parameters['from'];
+    final whole = _wholeReview(name);
+    final size = reviewPageSize ?? 1 << 30;
+    Never refuseFrom() =>
+        throw const MockRefusal('org.varlink.service.InvalidParameter', <String, dynamic>{'parameter': 'from'});
+    if (from is! int) refuseFrom();
+    switch (parameters['part']) {
+      case 'files' || 'commits':
+        final entries = parameters['part'] == 'files' ? whole.files : whole.commits;
+        if (from < 0 || from >= entries.length) refuseFrom();
+        final page = _entriesPage(entries, from, size);
+        return <String, dynamic>{'${parameters['part']}': page.entries, 'next': ?page.next};
+      case 'log' || 'diff':
+        final text = parameters['part'] == 'log' ? whole.log : whole.diff;
+        final bytes = utf8.encode(text);
+        if (from < 0 || from >= bytes.length || (from > 0 && bytes[from - 1] != 0x0a)) refuseFrom();
+        final page = _textPage(text, from, size);
+        return <String, dynamic>{'text': page.text, 'next': ?page.next};
+      default:
+        throw const MockRefusal('org.varlink.service.InvalidParameter', <String, dynamic>{'parameter': 'part'});
+    }
+  }
+
+  static ({List<Map<String, dynamic>> entries, int? next}) _entriesPage(
+    List<Map<String, dynamic>> all,
+    int from,
+    int size,
+  ) {
+    final end = from + size < all.length ? from + size : all.length;
+    return (entries: all.sublist(from, end), next: end < all.length ? end : null);
+  }
+
+  /// At most [size] bytes of [text] from [from], cut at a line end, and at least one line.
+  static ({String text, int? next}) _textPage(String text, int from, int size) {
+    final bytes = utf8.encode(text);
+    var end = from;
+    while (end < bytes.length) {
+      final lineEnd = bytes.indexOf(0x0a, end);
+      final next = lineEnd < 0 ? bytes.length : lineEnd + 1;
+      if (end > from && next - from > size) break;
+      end = next;
+    }
+    return (text: utf8.decode(bytes.sublist(from, end)), next: end < bytes.length ? end : null);
   }
 
   Map<String, dynamic> _approve(Map<String, dynamic> parameters) {

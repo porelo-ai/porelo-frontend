@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_host/porelo_host.dart' show quoteForAShell;
 
 import '../app/diff.dart';
 import '../app/forge_connection.dart' show hostOf;
@@ -221,11 +222,15 @@ class ReviewView extends StatelessWidget {
     this.onKeepKey,
     this.onKeyTerminal,
     this.onWithoutLineEndings,
+    this.onReadMoreDiff,
     super.key,
   });
 
   /// What reads the review again with or without what changed at line ends.
   final ValueChanged<bool>? onWithoutLineEndings;
+
+  /// What reads the next part of the diff, where it is not whole.
+  final VoidCallback? onReadMoreDiff;
 
   /// The machine's name, as the window shows it.
   final String machine;
@@ -280,23 +285,40 @@ class ReviewView extends StatelessWidget {
         ),
         if (gate.problem != null) GateProblem(words: gate.problem!),
         Expanded(
-          child: gate.busy && files.isEmpty
+          child: gate.busy && !gate.listsWhole
               ? const Align(
                   alignment: Alignment.topCenter,
                   child: Reading(words: 'Reading what this push changes…', inset: true),
                 )
               : ListView(
                   padding: const EdgeInsets.symmetric(vertical: Space.small),
-                  children: gate.ranked.isEmpty
+                  children: !gate.listsWhole
+                      // Nothing of a list that is not whole is drawn: a part of it would be taken for all of it.
+                      ? <Widget>[
+                          ..._refusedKey(),
+                          Padding(
+                            padding: const EdgeInsets.all(Space.normal),
+                            child: Text(
+                              gate.reviewHeld
+                                  ? '${Gate.notWholeWords}, so no file and no commit of it is shown.'
+                                  : 'What this push changes could not be read.',
+                              key: const Key('review-not-whole'),
+                            ),
+                          ),
+                          if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
+                        ]
+                      : gate.ranked.isEmpty
                       ? <Widget>[
                           ..._refusedKey(),
                           WhoMadeIt(push: push, commits: gate.commits),
-                          for (final file in files) _File(file: file),
-                          if (files.isEmpty)
+                          for (final (place, file) in files.indexed)
+                            _File(file: file, inPart: place == files.length - 1 && gate.diffContinues),
+                          if (files.isEmpty && gate.diffWhole)
                             const Padding(
                               padding: EdgeInsets.all(Space.loose),
                               child: Text('This push changes no files.'),
                             ),
+                          if (!gate.diffWhole) _DiffRead(gate: gate, onReadMore: onReadMoreDiff),
                           // After what it touched: reading it elsewhere is the second way, not the first.
                           if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
                         ]
@@ -304,6 +326,7 @@ class ReviewView extends StatelessWidget {
                           ..._refusedKey(),
                           WhoMadeIt(push: push, commits: gate.commits),
                           ..._ranked(context, gate, files, onWithoutLineEndings),
+                          if (!gate.diffWhole) _DiffRead(gate: gate, onReadMore: onReadMoreDiff),
                           if (push.fetch.isNotEmpty) _OwnClone(fetch: push.fetchFrom(login, sshConfig: sshConfig)),
                         ],
                 ),
@@ -449,6 +472,19 @@ List<Widget> _ranked(
 ) {
   final text = Theme.of(context).textTheme;
   final byPath = <String, ChangedFile>{for (final each in hunks) each.path: each};
+  final lastRead = hunks.isEmpty ? null : hunks.last.path;
+  final leftOut = <String>{...?gate.cut?.omitted};
+  // Decided from what the machine said of the diff alone: a patch absent from what is read is further on
+  // while the diff goes on, and the last one read may stop in its middle.
+  _Patch patchOf(ReviewFile file) {
+    final hunks = byPath[file.path];
+    if (hunks != null) return gate.diffContinues && file.path == lastRead ? _Patch.inPart : _Patch.read;
+    if (leftOut.contains(file.path)) return _Patch.leftOut;
+    if (gate.diffNext != null) return _Patch.notReadYet;
+    if (gate.diffStopped != null) return _Patch.notGiven;
+    return _Patch.read;
+  }
+
   final read = <ReviewFile>[
     for (final file in gate.ranked)
       if (!file.volume) file,
@@ -491,7 +527,8 @@ List<Widget> _ranked(
     ),
     ..._lineEndings(context, gate, onWithoutLineEndings),
     const SizedBox(height: Space.small),
-    for (final file in read) _RankedFile(file: file, hunks: byPath[file.path], without: gate.withoutLineEndings),
+    for (final file in read)
+      _RankedFile(file: file, hunks: byPath[file.path], without: gate.withoutLineEndings, patch: patchOf(file)),
     if (volume.isNotEmpty) ...<Widget>[
       Padding(
         padding: const EdgeInsets.fromLTRB(Space.normal, Space.normal, Space.normal, Space.tight),
@@ -501,7 +538,8 @@ List<Widget> _ranked(
           style: text.labelMedium,
         ),
       ),
-      for (final file in volume) _RankedFile(file: file, hunks: byPath[file.path], without: gate.withoutLineEndings),
+      for (final file in volume)
+        _RankedFile(file: file, hunks: byPath[file.path], without: gate.withoutLineEndings, patch: patchOf(file)),
     ],
   ];
 }
@@ -550,12 +588,42 @@ List<Widget> _lineEndings(BuildContext context, Gate gate, ValueChanged<bool>? o
   ];
 }
 
+/// How much of a file's patch is in the diff read.
+enum _Patch {
+  /// All of it, or it has none.
+  read,
+
+  /// Its start: the diff read ends inside it.
+  inPart,
+
+  /// None of it yet: it is further on in the diff.
+  notReadYet,
+
+  /// None of it: it is further on in a diff whose rest could not be read.
+  notGiven,
+
+  /// None of it: the machine cut the diff before it.
+  leftOut,
+}
+
+/// What a file's row says of its patch, where not all of it is read; null where it is.
+String? _patchWords(_Patch patch) => switch (patch) {
+  _Patch.read => null,
+  _Patch.inPart => 'Read in part: the rest of its patch is further on in the diff.',
+  _Patch.notReadYet => 'Its patch is further on in the diff, not read yet.',
+  _Patch.notGiven => 'Its patch is further on in the diff, which could not be read.',
+  _Patch.leftOut => 'Left out by the machine: its patch did not fit one answer.',
+};
+
 /// One file as the machine ranked it: its rank and reason beside its name, its hunks on opening.
 class _RankedFile extends StatefulWidget {
-  const _RankedFile({required this.file, this.hunks, this.without = false});
+  const _RankedFile({required this.file, this.hunks, this.without = false, this.patch = _Patch.read});
 
   final ReviewFile file;
   final ChangedFile? hunks;
+
+  /// How much of its patch is read.
+  final _Patch patch;
 
   /// Whether the diff shown leaves out line ends, so every count that changes with that is given twice.
   final bool without;
@@ -630,6 +698,15 @@ class _RankedFileState extends State<_RankedFile> {
                         style: text.bodySmall,
                       ),
                     ),
+                  if (_patchWords(widget.patch) case final words?)
+                    Padding(
+                      padding: const EdgeInsets.only(left: Space.loose),
+                      child: Text(
+                        words,
+                        key: ValueKey<String>('review-patch ${widget.patch.name} ${file.path}'),
+                        style: text.bodySmall,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -662,9 +739,12 @@ class _RankedFileState extends State<_RankedFile> {
 /// Collapsed to its name until it is opened: a review of thirty files that opens them all is one
 /// nobody reads to the end.
 class _File extends StatefulWidget {
-  const _File({required this.file});
+  const _File({required this.file, this.inPart = false});
 
   final ChangedFile file;
+
+  /// Whether the diff read ends inside its patch.
+  final bool inPart;
 
   @override
   State<_File> createState() => _FileState();
@@ -704,6 +784,15 @@ class _FileState extends State<_File> {
             ),
           ),
         ),
+        if (widget.inPart)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.loose, 0, Space.normal, Space.small),
+            child: Text(
+              _patchWords(_Patch.inPart)!,
+              key: ValueKey<String>('review-patch inPart ${file.path}'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
         if (_open)
           Container(
             width: double.infinity,
@@ -744,6 +833,53 @@ class _Line extends StatelessWidget {
   }
 }
 
+/// How much of the diff is read, where it is not whole, and the way to read its next part.
+class _DiffRead extends StatelessWidget {
+  const _DiffRead({required this.gate, required this.onReadMore});
+
+  final Gate gate;
+  final VoidCallback? onReadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final cut = gate.cut;
+    final stopped = gate.diffStopped;
+    return Padding(
+      key: const Key('review-diff-read'),
+      padding: const EdgeInsets.all(Space.normal),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text('${gate.diffReadWords}.', key: const Key('review-diff-read-words')),
+          if (cut != null && cut.command.isNotEmpty) ...<Widget>[
+            const SizedBox(height: Space.tight),
+            Text('On the machine, this prints the whole review:', style: text.bodySmall),
+            SelectableText(cut.command.map(quoteForAShell).join(' '), style: codeText),
+          ],
+          if (stopped != null) ...<Widget>[
+            const SizedBox(height: Space.tight),
+            Text('The rest is not read: $stopped', style: text.bodySmall),
+          ],
+          if (gate.diffNext != null) ...<Widget>[
+            const SizedBox(height: Space.small),
+            OutlinedButton(
+              key: const Key('review-read-more'),
+              onPressed: gate.readingDiff || onReadMore == null ? null : onReadMore,
+              child: const Text('Read the next part of the diff'),
+            ),
+            if (gate.readingDiff)
+              Padding(
+                padding: const EdgeInsets.only(top: Space.tight),
+                child: Text('The next part is being read.', style: text.bodySmall),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// The decision, and the way to take the diff elsewhere.
 class _Decision extends StatelessWidget {
   const _Decision({required this.gate, required this.onApprove, required this.onReject});
@@ -753,31 +889,61 @@ class _Decision extends StatelessWidget {
   final VoidCallback onReject;
 
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
-    ),
-    padding: const EdgeInsets.all(Space.normal),
-    child: Wrap(
-      spacing: Space.small,
-      runSpacing: Space.small,
-      children: <Widget>[
-        // First and plain: the common case is somebody wanting the diff in the tool they
-        // review in, immediately. Nothing about it sends anything anywhere.
-        OutlinedButton.icon(
-          icon: const Icon(Icons.copy_outlined, size: Sizes.rowIcon),
-          label: const Text('Copy the diff'),
-          onPressed: gate.diff.isEmpty ? null : () => Clipboard.setData(ClipboardData(text: gate.diff)),
-        ),
-        OutlinedButton(onPressed: gate.looking == null ? null : onReject, child: const Text('Drop the request')),
-        FilledButton(
-          onPressed: gate.looking == null ? null : onApprove,
-          // Work in the Default project goes to its repository's origin, never to a project's upstream.
-          child: Text(gate.project?.name == defaultProject ? 'Forward it to its origin…' : 'Forward it upstream…'),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final refused = gate.looking == null ? null : gate.forwardRefused;
+    final partly = gate.diffReadWords;
+    final small = Theme.of(context).textTheme.bodySmall;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      padding: const EdgeInsets.all(Space.normal),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Wrap(
+            spacing: Space.small,
+            runSpacing: Space.small,
+            children: <Widget>[
+              // First and plain: the common case is somebody wanting the diff in the tool they
+              // review in, immediately. Nothing about it sends anything anywhere.
+              OutlinedButton.icon(
+                key: const Key('review-copy'),
+                icon: const Icon(Icons.copy_outlined, size: Sizes.rowIcon),
+                label: Text(gate.diffWhole ? 'Copy the diff' : 'Copy the diff read so far'),
+                onPressed: gate.diff.isEmpty ? null : () => Clipboard.setData(ClipboardData(text: gate.diff)),
+              ),
+              OutlinedButton(onPressed: gate.looking == null ? null : onReject, child: const Text('Drop the request')),
+              FilledButton(
+                key: const Key('review-forward'),
+                onPressed: gate.looking == null || refused != null ? null : onApprove,
+                // Work in the Default project goes to its repository's origin, never to a project's upstream.
+                child: Text(
+                  gate.project?.name == defaultProject ? 'Forward it to its origin…' : 'Forward it upstream…',
+                ),
+              ),
+            ],
+          ),
+          if (refused != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.tight),
+              child: Text(refused, key: const Key('review-forward-refused'), style: small),
+            ),
+          // Forwarding sends the whole push: what was not read is said here, never hidden.
+          if (refused == null && partly != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.tight),
+              child: Text(
+                '$partly. Forwarding sends all of it, read or not.',
+                key: const Key('review-forward-partly-read'),
+                style: small,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Why the gate could not be read or acted on.
@@ -914,6 +1080,7 @@ Future<String?> askWhichBranch(
   String upstream = '',
   String initialBranch = '',
   String branchSource = '',
+  String? partlyRead,
 }) => showDialog<String>(
   context: context,
   builder: (context) => _WhichBranch(
@@ -924,6 +1091,7 @@ Future<String?> askWhichBranch(
     upstream: upstream,
     initialBranch: initialBranch,
     branchSource: branchSource,
+    partlyRead: partlyRead,
   ),
 );
 
@@ -956,9 +1124,13 @@ class _WhichBranch extends StatefulWidget {
     this.upstream = '',
     this.initialBranch = '',
     this.branchSource = '',
+    this.partlyRead,
   });
 
   final String subject;
+
+  /// How much of the diff was read, where it was not all of it; null where it was.
+  final String? partlyRead;
 
   /// The repository's branches, as its forge lists them; empty where no forge here could be asked.
   final List<String> branches;
@@ -1034,6 +1206,10 @@ class _WhichBranchState extends State<_WhichBranch> {
             Text(_destination),
             const SizedBox(height: Space.small),
             Text(widget.subject, style: Theme.of(context).textTheme.bodyMedium),
+            if (widget.partlyRead case final partly?) ...<Widget>[
+              const SizedBox(height: Space.small),
+              Text('$partly. Forwarding sends all of it, read or not.', key: const Key('forward-partly-read')),
+            ],
             const SizedBox(height: Space.normal),
             // Chosen from the repository's own where its forge says them, the default first.
             if (_offered.isNotEmpty) ...<Widget>[

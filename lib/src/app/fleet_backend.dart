@@ -631,12 +631,24 @@ abstract class FleetBackend {
   /// What one waiting push contains, so it can be judged before it is forwarded.
   ///
   /// [against] diffs against something other than the upstream's default branch.
-  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
+  Future<PushReview> reviewOf(
     String projectFile,
     String name, {
     String? against,
     String? repository,
     bool? ignoreLineEndings,
+  });
+
+  /// One more page of a part of a waiting push's review; see [PoreloClient.reviewPage].
+  Future<ReviewPage> reviewPageOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+    required String against,
+    required bool ignoreLineEndings,
+    required String part,
+    required int from,
   });
 
   /// Forwards a waiting push upstream, onto a branch the caller names.
@@ -1417,21 +1429,40 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
       _opened().gate(projectFile, repository: repository);
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
+  Future<PushReview> reviewOf(
     String projectFile,
     String name, {
     String? against,
     String? repository,
     bool? ignoreLineEndings,
-  }) async {
-    return _opened().review(
-      projectFile,
-      name,
-      against: against,
-      repository: repository,
-      ignoreLineEndings: ignoreLineEndings,
-    );
-  }
+  }) => _opened().review(
+    projectFile,
+    name,
+    against: against,
+    repository: repository,
+    ignoreLineEndings: ignoreLineEndings,
+  );
+
+  @override
+  Future<ReviewPage> reviewPageOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+    required String against,
+    required bool ignoreLineEndings,
+    required String part,
+    required int from,
+  }) => _opened().reviewPage(
+    projectFile,
+    name,
+    repository: repository,
+    commit: commit,
+    against: against,
+    ignoreLineEndings: ignoreLineEndings,
+    part: part,
+    from: from,
+  );
 
   @override
   Future<ForwardedPush> approve(String projectFile, String name, String branch, {String? repository, String? commit}) =>

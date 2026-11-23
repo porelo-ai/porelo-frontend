@@ -3784,6 +3784,7 @@ class _ShellState extends State<Shell> {
           : initialBranch.isNotEmpty
           ? 'last used for this task'
           : '',
+      partlyRead: widget.gate.diffReadWords,
     );
     if (branch == null || !stillJudging()) return;
     final answer = await widget.gate.approve(fleet.backend, branch);
@@ -7705,6 +7706,8 @@ class _ShellState extends State<Shell> {
           onWithoutLineEndings: (without) => fleet == null
               ? _notWatchedYet(machine)
               : unawaited(widget.gate.showWithoutLineEndings(fleet.backend, without)),
+          onReadMoreDiff: () =>
+              fleet == null ? _notWatchedYet(machine) : unawaited(widget.gate.readMoreDiff(fleet.backend)),
           // Offered only where a terminal opens on the machine from here.
           onKeyTerminal: onTheMachine(machine, const <String>['porelo'], terminal: true) == null
               ? null

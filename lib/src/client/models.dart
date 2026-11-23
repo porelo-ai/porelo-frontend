@@ -4957,6 +4957,167 @@ class ReviewCommit {
   }
 }
 
+/// What `Review` answers about one waiting push.
+///
+/// Where [paged] is present, [files], [commits], [log] or [diff] holds only its first page, and
+/// `ReviewPage` gives the rest for [commit].
+class PushReview {
+  /// Constructor taking every field; what is not given is what an older machine leaves out.
+  const PushReview({
+    this.diff = '',
+    this.log = '',
+    this.files = const <ReviewFile>[],
+    this.asked,
+    this.commits,
+    this.commit,
+    this.cut,
+    this.paged,
+  });
+
+  /// The unified diff, in the order of [files].
+  final String diff;
+
+  /// The commit log over the same range.
+  final String log;
+
+  /// What the push changes, ranked; empty from a Porelo older than the ranked review.
+  final List<ReviewFile> files;
+
+  /// What the task that pushed was asked: null where the machine does not say, empty where the task
+  /// was started without an instruction.
+  final String? asked;
+
+  /// The commits, newest first, with who made each; null where the machine does not list them.
+  final List<ReviewCommit>? commits;
+
+  /// The full commit this review is of, which `Approve` takes; null where the machine does not name it.
+  final String? commit;
+
+  /// Where the diff was cut to fit one answer; null where it was not.
+  final ReviewCut? cut;
+
+  /// How much of each part there is, where a part holds only its first page; null where all of it is here.
+  final ReviewPaged? paged;
+}
+
+/// Where a `Review`'s diff was cut to fit one answer: it ends at a file boundary, and the files in
+/// [omitted] have no patch in it.
+class ReviewCut {
+  /// Constructor taking every field.
+  const ReviewCut({required this.shownFiles, required this.omittedFiles, required this.omitted, required this.command});
+
+  /// How many files' patches are in the diff.
+  final int shownFiles;
+
+  /// How many files' patches are not.
+  final int omittedFiles;
+
+  /// The paths of the files left out, in the diff's order.
+  final List<String> omitted;
+
+  /// The command that prints the whole review on the machine, as arguments.
+  final List<String> command;
+
+  /// Reads one from a reply; a field that is missing or of another kind makes the whole answer unread.
+  factory ReviewCut.from(Object? value) {
+    if (value is! Map<String, dynamic>) throw const FormatException('Review.cut is not an object');
+    final shown = value['shownFiles'];
+    final omittedFiles = value['omittedFiles'];
+    final omitted = _lines(value['omitted']);
+    final command = _lines(value['command']);
+    if (shown is! int || omittedFiles is! int || omitted == null || command == null) {
+      throw const FormatException('Review.cut lacks a field');
+    }
+    return ReviewCut(shownFiles: shown, omittedFiles: omittedFiles, omitted: omitted, command: command);
+  }
+}
+
+/// How much of a `Review` there is where a part of it holds only its first page.
+///
+/// Sizes are entries for files and commits, UTF-8 bytes for log and diff. A next is where that
+/// part's next page starts, as `ReviewPage.from` takes it, and null where `Review` holds all of it.
+class ReviewPaged {
+  /// Constructor taking every field.
+  const ReviewPaged({
+    required this.files,
+    required this.commits,
+    required this.logBytes,
+    required this.diffBytes,
+    required this.base,
+    this.filesNext,
+    this.commitsNext,
+    this.logNext,
+    this.diffNext,
+  });
+
+  /// How many files the push changes.
+  final int files;
+
+  /// How many commits it holds.
+  final int commits;
+
+  /// How many bytes its log has.
+  final int logBytes;
+
+  /// How many bytes its diff has.
+  final int diffBytes;
+
+  /// Where the next page of files starts; null where `Review` holds them all.
+  final int? filesNext;
+
+  /// Where the next page of commits starts; null where `Review` holds them all.
+  final int? commitsNext;
+
+  /// Where the next page of the log starts; null where `Review` holds all of it.
+  final int? logNext;
+
+  /// Where the next page of the diff starts; null where `Review` holds all of it.
+  final int? diffNext;
+
+  /// The full base commit `Review` read against, "" for the whole history: what `ReviewPage.against` takes.
+  final String base;
+
+  /// Reads one from a reply. A size that is no whole number, a negative size or next, or a next at or
+  /// past its size is refused as a [FormatException]: a position the machine did not mean is never sent back.
+  factory ReviewPaged.from(Object? value) {
+    if (value is! Map<String, dynamic>) throw const FormatException('Review.paged is not an object');
+    int size(String key) {
+      final size = value[key];
+      if (size is! int || size < 0) throw FormatException('Review.paged.$key is not a size');
+      return size;
+    }
+
+    int? next(String key, int size) {
+      final next = value[key];
+      if (next == null) return null;
+      if (next is! int || next < 0 || next >= size) throw FormatException('Review.paged.$key is not within its part');
+      return next;
+    }
+
+    final base = value['base'];
+    if (base is! String) throw const FormatException('Review.paged.base is missing');
+    final files = size('files');
+    final commits = size('commits');
+    final logBytes = size('logBytes');
+    final diffBytes = size('diffBytes');
+    return ReviewPaged(
+      files: files,
+      commits: commits,
+      logBytes: logBytes,
+      diffBytes: diffBytes,
+      base: base,
+      filesNext: next('filesNext', files),
+      commitsNext: next('commitsNext', commits),
+      logNext: next('logNext', logBytes),
+      diffNext: next('diffNext', diffBytes),
+    );
+  }
+}
+
+/// One page of a `ReviewPage` answer: the part asked for, and where its next page starts, null where
+/// this page ends it.
+typedef ReviewPage = ({List<ReviewFile>? files, List<ReviewCommit>? commits, String? text, int? next});
+
 /// Lines of text, or null where [value] is not a list of strings alone: one line that is not text
 /// makes the whole list unread, so a trailer is never silently dropped from a check.
 List<String>? _lines(Object? value) {

@@ -111,13 +111,25 @@ class _Wedged implements FleetBackend {
   Future<GateState> gateOf(String projectFile, {String? repository}) async => GateState.from(const <String, dynamic>{});
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
+  Future<PushReview> reviewOf(
     String projectFile,
     String name, {
     String? against,
     String? repository,
     bool? ignoreLineEndings,
-  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null, commits: null);
+  }) async => const PushReview();
+
+  @override
+  Future<ReviewPage> reviewPageOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+    required String against,
+    required bool ignoreLineEndings,
+    required String part,
+    required int from,
+  }) async => (files: null, commits: null, text: null, next: null);
 
   @override
   Future<ForwardedPush> approve(
@@ -603,13 +615,25 @@ class _Machine implements FleetBackend {
   Future<GateState> gateOf(String projectFile, {String? repository}) async => GateState.from(const <String, dynamic>{});
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
+  Future<PushReview> reviewOf(
     String projectFile,
     String name, {
     String? against,
     String? repository,
     bool? ignoreLineEndings,
-  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null, commits: null);
+  }) async => const PushReview();
+
+  @override
+  Future<ReviewPage> reviewPageOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+    required String against,
+    required bool ignoreLineEndings,
+    required String part,
+    required int from,
+  }) async => (files: null, commits: null, text: null, next: null);
 
   @override
   Future<ForwardedPush> approve(

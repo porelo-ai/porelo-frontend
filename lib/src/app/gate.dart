@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_host/porelo_host.dart' show quoteForAShell;
 
 import 'diff.dart';
 import 'fleet_backend.dart';
+import 'hand_in.dart' show HandingIn;
 
 /// What is waiting at one project's gate, and what is being made of it.
 ///
@@ -47,14 +51,96 @@ class Gate extends ChangeNotifier {
   /// The push being looked at, or null.
   PendingPush? looking;
 
-  /// Its diff, as the gate answered it.
+  /// Its diff as far as it is read: the gate's first page, and each page read since, joined.
   String diff = '';
 
-  /// Its commit log over the same range.
-  String log = '';
+  /// The files that diff touches, the last of them in part while [diffNext] is not null.
+  List<ChangedFile> get changed {
+    final parsed = _parsed;
+    if (parsed != null && identical(parsed.$1, diff)) return parsed.$2;
+    final files = parseUnifiedDiff(diff);
+    _parsed = (diff, files);
+    return files;
+  }
 
-  /// The files that diff touches.
-  List<ChangedFile> get changed => parseUnifiedDiff(diff);
+  (String, List<ChangedFile>)? _parsed;
+
+  /// Where the diff's next page starts, as the machine named it; null where none is to be read, because
+  /// the diff is whole or the rest of it could not be read.
+  int? diffNext;
+
+  /// How many bytes of the diff are read, in UTF-8.
+  int diffRead = 0;
+
+  /// How many bytes the whole diff has, as the machine counted them; null where it does not say.
+  int? diffBytes;
+
+  /// Why the rest of the diff is not read, in words; null while it can be, or is whole.
+  String? diffStopped;
+
+  /// Whether a page of the diff is being read now.
+  bool readingDiff = false;
+
+  /// Where the machine cut the diff to fit one answer; null where it did not.
+  ReviewCut? cut;
+
+  /// The commit this review is of, as the machine named it, which forwarding sends; null until a review
+  /// that names one is read.
+  String? get reviewed => _read?.commit;
+
+  /// Whether the push's file list and commits were read whole; false while they are read, and where a
+  /// page of them could not be read or did not fit what the machine said.
+  bool listsWhole = false;
+
+  /// Whether the diff shown is all of it: nothing left to read, nothing stopped and nothing cut.
+  bool get diffWhole => diffNext == null && diffStopped == null && cut == null;
+
+  /// Whether the diff goes on past what is read, so the last file read may be read in part. A cut diff ends
+  /// at a file boundary, so it does not.
+  bool get diffContinues => diffNext != null || diffStopped != null;
+
+  /// Whether a `Review` answer is held for the push looked at.
+  bool get reviewHeld => _read != null;
+
+  /// How much of the diff is read, in words, where it is not whole; null where it is.
+  String? get diffReadWords {
+    if (diffWhole) return null;
+    final whole = diffBytes;
+    final cut = this.cut;
+    if (whole != null && cut == null) {
+      return '${HandingIn.inWords(diffRead)} of ${HandingIn.inWords(whole)} of the diff read';
+    }
+    if (cut != null) {
+      return 'The diff holds the patches of ${cut.shownFiles} of ${cut.shownFiles + cut.omittedFiles} files; '
+          'the machine left the others out';
+    }
+    return 'Only part of the diff is read';
+  }
+
+  /// Why the push cannot be forwarded from here now, in words; null where it can.
+  String? get forwardRefused {
+    if (looking == null) return 'No push is open.';
+    final read = _read;
+    if (read == null) {
+      return busy
+          ? 'Its review is still being read.'
+          : 'Its review could not be read, so it is not forwarded from here.';
+    }
+    if (!listsWhole) return '$notWholeWords, so it is not forwarded from here.';
+    if (read.commit == null) {
+      return 'The machine did not name the commit this review is of, so it is not forwarded from here.';
+    }
+    return null;
+  }
+
+  /// Said in place of the files where the machine's list of them, or of the commits, is not whole.
+  static const notWholeWords = "The machine's list of what this push changes could not be read whole";
+
+  /// The one Review answer being shown, and what every page of it is asked with.
+  _ReviewRead? _read;
+
+  /// Which look is the newest: bumped by every look, and by the line-end switch, which looks again.
+  int _looks = 0;
 
   /// The push's files as the machine ranked them, in the order to show them: dangerous by kind
   /// first, the volume that is almost never a finding last. Empty from a Porelo older than the ranked
@@ -116,11 +202,7 @@ class Gate extends ChangeNotifier {
     this.project = project;
     looking = null;
     _forgetTheRefusal();
-    diff = '';
-    log = '';
-    ranked = const <ReviewFile>[];
-    asked = null;
-    commits = null;
+    _forgetTheReview();
     unread = const <({String name, String words})>[];
     if (!project.canBeActedOn) {
       waiting = const <PendingPush>[];
@@ -133,23 +215,49 @@ class Gate extends ChangeNotifier {
     await _asking(() => _readAgain(backend, project.name, round: round), round: round);
   }
 
-  /// Opens one waiting push, so it can be judged before it is forwarded.
-  Future<void> look(FleetBackend backend, PendingPush push, {String? against}) async {
-    if (!identical(looking, push)) withoutLineEndings = false;
-    looking = push;
-    _forgetTheRefusal();
+  void _forgetTheReview() {
+    _read = null;
     diff = '';
-    log = '';
+    _parsed = null;
+    diffNext = null;
+    diffRead = 0;
+    diffBytes = null;
+    diffStopped = null;
+    readingDiff = false;
+    _diffPages = 0;
+    cut = null;
+    listsWhole = false;
     ranked = const <ReviewFile>[];
     asked = null;
     commits = null;
+  }
+
+  /// Opens one waiting push, so it can be judged before it is forwarded.
+  ///
+  /// Every page of its files and commits is read before it is drawn, so a list is never taken for the
+  /// whole while it is not; its diff keeps its first page, and [readMoreDiff] reads on.
+  Future<void> look(FleetBackend backend, PendingPush push, {String? against}) =>
+      _look(backend, push, against: against, afterAMove: false);
+
+  Future<void> _look(FleetBackend backend, PendingPush push, {String? against, required bool afterAMove}) async {
+    if (!identical(looking, push)) withoutLineEndings = false;
+    looking = push;
+    final looks = ++_looks;
+    _forgetTheRefusal();
+    _forgetTheReview();
     notifyListeners();
     final file = project?.name;
     if (file == null || file.isEmpty) return;
     _against = against;
     final round = _round;
-    await _asking(() async {
+    // A push of a project no longer shown, or one looked at before the newest look, is not drawn.
+    bool current() => round == _round && looks == _looks;
+    busy = true;
+    problem = null;
+    notifyListeners();
+    try {
       servesWithoutLineEndings = await _reviewTakes(backend, 'ignoreLineEndings');
+      if (!current()) return;
       // Never sent to a machine that does not take it, which would refuse the whole review; what the
       // window says follows what was asked.
       withoutLineEndings = withoutLineEndings && servesWithoutLineEndings;
@@ -160,28 +268,289 @@ class Gate extends ChangeNotifier {
         repository: _where(push),
         ignoreLineEndings: withoutLineEndings ? true : null,
       );
-      // A push of a project no longer shown is not drawn under the one shown now.
-      if (round != _round) return;
-      diff = review.diff;
-      log = review.log;
-      ranked = review.files;
+      if (!current()) return;
+      final paged = review.paged;
+      final read = _ReviewRead(
+        project: file,
+        name: push.name,
+        repository: _where(push),
+        commit: review.commit == null || review.commit!.isEmpty ? null : review.commit,
+        base: paged?.base ?? '',
+        ignoreLineEndings: withoutLineEndings,
+        files: paged?.files,
+        commits: paged?.commits,
+        looks: looks,
+        afterAMove: afterAMove,
+      );
+      _read = read;
       asked = review.asked;
-      commits = review.commits;
-    });
+      cut = review.cut;
+      diff = review.diff;
+      diffRead = utf8.encode(review.diff).length;
+      diffBytes = paged?.diffBytes;
+      diffNext = paged?.diffNext;
+      if (diffNext != null && read.commit == null) {
+        diffNext = null;
+        diffStopped = 'The machine did not name the commit this review is of, so the rest of the diff cannot be asked.';
+      }
+      final files = await _allOf(backend, read, 'files', review.files, paged?.filesNext, current);
+      if (!current()) return;
+      // Once a page of the files could not be read, nothing more of this review is asked.
+      final commits = files == null
+          ? null
+          : await _allOf(
+              backend,
+              read,
+              'commits',
+              review.commits ?? const <ReviewCommit>[],
+              paged?.commitsNext,
+              current,
+            );
+      if (!current()) return;
+      if (files == null || commits == null) {
+        listsWhole = false;
+        if (diffNext != null) {
+          diffNext = null;
+          diffStopped = 'nothing more of this review is asked once its list of files or commits could not be read.';
+        }
+        if (afterAMove) problem = '${_movedWords(push)} ${problem ?? ''}'.trim();
+        return;
+      }
+      ranked = files;
+      // Absent from an older machine stays absent, never an empty list.
+      this.commits = review.commits == null && paged == null ? null : commits;
+      listsWhole = true;
+      if (afterAMove) problem = _movedWords(push);
+    } on VarlinkException catch (refusal) {
+      // A move answered to Review itself is said, never read again from here: that would be a loop.
+      if (current()) problem = _wordsFor(refusal);
+    } on VarlinkDisconnected catch (ex) {
+      if (current()) problem = 'Lost contact with the machine: ${ex.message}';
+    } on FeatureNotSupported catch (ex) {
+      if (current()) problem = '$ex';
+    } on FormatException catch (ex) {
+      if (current()) problem = _machinesFault(ex);
+    } finally {
+      if (current()) {
+        busy = false;
+        notifyListeners();
+      }
+    }
   }
 
+  /// Every page of [part] (`files` or `commits`) after [first], joined in order, or null where a page could not
+  /// be read or did not fit what the machine said, which [problem] then says; nothing more is asked after that.
+  Future<List<T>?> _allOf<T>(
+    FleetBackend backend,
+    _ReviewRead read,
+    String part,
+    List<T> first,
+    int? next,
+    bool Function() current,
+  ) async {
+    final size = part == 'files' ? read.files : read.commits;
+    if (size == null) return first;
+    final joined = <T>[...first];
+    var from = next;
+    var pages = 0;
+    String? breach;
+    while (from != null) {
+      final commit = read.commit;
+      if (commit == null) {
+        problem = 'The machine did not name the commit this review is of, so the rest of its $part cannot be asked.';
+        return null;
+      }
+      if (++pages > _mostPages) {
+        breach = 'it gave more than $_mostPages pages of $part';
+        break;
+      }
+      final ReviewPage page;
+      try {
+        page = await backend.reviewPageOf(
+          read.project,
+          read.name,
+          repository: read.repository,
+          commit: commit,
+          against: read.base,
+          ignoreLineEndings: read.ignoreLineEndings,
+          part: part,
+          from: from,
+        );
+      } on VarlinkException catch (refusal) {
+        if (!current()) return null;
+        if (refusal.simpleName == 'MovedSinceReview' && !read.afterAMove && looking != null) {
+          await _readAgainAfterAMove(backend, read, current);
+          return null;
+        }
+        problem = '$notWholeWords: ${_wordsFor(refusal)}';
+        return null;
+      } on VarlinkDisconnected catch (ex) {
+        if (current()) problem = '$notWholeWords: lost contact with the machine: ${ex.message}';
+        return null;
+      } on FeatureNotSupported catch (ex) {
+        if (current()) problem = '$notWholeWords: $ex';
+        return null;
+      } on FormatException catch (ex) {
+        if (current()) problem = '$notWholeWords. ${_machinesFault(ex)}';
+        return null;
+      }
+      if (!current()) return null;
+      final entries = (part == 'files' ? page.files : page.commits)?.cast<T>() ?? <T>[];
+      final after = page.next;
+      if (entries.isEmpty) {
+        breach = 'a page of $part held none';
+      } else if (after != null && after <= from) {
+        breach = 'a page of $part named a next one that is not further on';
+      } else if (joined.length + entries.length > size) {
+        breach = 'it gave more $part than the $size it counted';
+      } else if ((after == null) != (joined.length + entries.length == size)) {
+        breach = after == null
+            ? 'it ended its $part at ${joined.length + entries.length} of the $size it counted'
+            : 'it named a next page of $part after all ${joined.length + entries.length}';
+      }
+      if (breach != null) break;
+      joined.addAll(entries);
+      from = after;
+    }
+    if (breach == null && joined.length != size) {
+      breach = 'it gave ${joined.length} $part of the $size it counted';
+    }
+    if (breach != null) {
+      problem = '$notWholeWords. ${_machinesFault(FormatException(breach))}';
+      return null;
+    }
+    return joined;
+  }
+
+  /// At most this many pages of one part are asked for one review: a machine that never ends a part is not
+  /// asked forever.
+  static const _mostPages = 10000;
+
+  /// Reads the next page of the diff and puts it after what is read; one page at a time, and an answer for
+  /// a review no longer shown is dropped.
+  Future<void> readMoreDiff(FleetBackend backend) async {
+    final read = _read;
+    final from = diffNext;
+    final commit = read?.commit;
+    if (read == null || from == null || commit == null || readingDiff) return;
+    bool current() => identical(_read, read) && read.looks == _looks;
+    readingDiff = true;
+    problem = null;
+    notifyListeners();
+    try {
+      final page = await backend.reviewPageOf(
+        read.project,
+        read.name,
+        repository: read.repository,
+        commit: commit,
+        against: read.base,
+        ignoreLineEndings: read.ignoreLineEndings,
+        part: 'diff',
+        from: from,
+      );
+      if (!current()) return;
+      final text = page.text ?? '';
+      final bytes = utf8.encode(text).length;
+      final after = page.next;
+      final whole = diffBytes;
+      final String? breach;
+      if (bytes == 0) {
+        breach = 'a page of the diff held nothing';
+      } else if (after != null && after <= from) {
+        breach = 'a page of the diff named a next one that is not further on';
+      } else if (whole != null && diffRead + bytes > whole) {
+        breach = 'it gave more of the diff than the ${HandingIn.inWords(whole)} it counted';
+      } else if (whole != null && (after == null) != (diffRead + bytes == whole)) {
+        breach = after == null
+            ? 'it ended the diff at ${HandingIn.inWords(diffRead + bytes)} of the ${HandingIn.inWords(whole)} it counted'
+            : 'it named a next page of the diff after all ${HandingIn.inWords(whole)}';
+      } else if (++_diffPages > _mostPages) {
+        breach = 'it gave more than $_mostPages pages of the diff';
+      } else {
+        breach = null;
+      }
+      if (breach != null) {
+        _stopTheDiff(_machinesFault(FormatException(breach)));
+        return;
+      }
+      diff = '$diff$text';
+      diffRead += bytes;
+      diffNext = after;
+    } on VarlinkException catch (refusal) {
+      if (!current()) return;
+      if (refusal.simpleName == 'MovedSinceReview' && looking != null) {
+        readingDiff = false;
+        await _readAgainAfterAMove(backend, read, current);
+        return;
+      }
+      // Asked again it would be refused again: said, and not asked any more for this review.
+      _stopTheDiff(_wordsFor(refusal));
+    } on FeatureNotSupported catch (ex) {
+      if (current()) _stopTheDiff('$ex');
+    } on FormatException catch (ex) {
+      if (current()) _stopTheDiff(_machinesFault(ex));
+    } on VarlinkDisconnected catch (ex) {
+      // The same page may be asked again once the machine answers.
+      if (current()) problem = 'Lost contact with the machine: ${ex.message}';
+    } finally {
+      if (current()) {
+        readingDiff = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  int _diffPages = 0;
+
+  void _stopTheDiff(String why) {
+    diffNext = null;
+    diffStopped = why;
+    problem = 'The rest of the diff was not read: $why';
+  }
+
+  /// The push moved since its review was read: what waits is read again from the gate's list and its review
+  /// from the top, once, and the person is told.
+  Future<void> _readAgainAfterAMove(FleetBackend backend, _ReviewRead read, bool Function() current) async {
+    final file = project?.name;
+    final push = looking;
+    if (file == null || push == null) return;
+    await _readAgain(backend, file);
+    if (!current()) return;
+    final now = waiting.where((each) => each.name == push.name && each.repository == push.repository).firstOrNull;
+    if (now == null) {
+      looking = null;
+      _forgetTheReview();
+      problem = '${push.subject} moved since it was read, and no longer waits at the gate.';
+      notifyListeners();
+      return;
+    }
+    // Kept as the push looked at, so the line-end choice stays with it.
+    looking = now;
+    await _look(backend, now, against: _against, afterAMove: true);
+  }
+
+  static String _movedWords(PendingPush push) =>
+      '${push.subject} moved since it was read: what it holds now is read again from the top.';
+
+  static String _machinesFault(FormatException ex) =>
+      'The machine answered this review in a way it never should (${ex.message}); nothing more is asked of it '
+      'for this review.';
+
   /// Forwards the push being looked at onto [branch].
+  ///
+  /// Sends the commit the review shown is of, never the one the waiting push named before it was read: a
+  /// push that moved since is then refused, not forwarded unseen.
   Future<({bool forwarded, String said})> approve(FleetBackend backend, String branch) async {
     final file = project?.name;
     final push = looking;
     if (file == null || push == null) return (forwarded: false, said: '');
+    final refused = forwardRefused;
+    final commit = reviewed;
+    if (refused != null || commit == null) return (forwarded: false, said: refused ?? '');
     var said = '';
     // A way through an earlier refusal is for that forward; this one is answered on its own.
     _forgetTheRefusal();
     await _asking(() async {
-      // The commit that was reviewed, where the machine takes it: a push that moved since is then
-      // refused, not forwarded unseen. An older Porelo is not sent it.
-      final commit = push.commit.isNotEmpty && await _takesTheCommit(backend) ? push.commit : null;
       final ForwardedPush answer;
       try {
         answer = await backend.approve(file, push.name, branch, repository: _where(push), commit: commit);
@@ -320,16 +689,6 @@ class Gate extends ChangeNotifier {
     try {
       final contract = await backend.contract();
       return RegExp(r'method Review\((.*?)\)\s*->', dotAll: true).firstMatch(contract)?.group(1)?.contains(parameter) ??
-          false;
-    } on Object {
-      return false;
-    }
-  }
-
-  Future<bool> _takesTheCommit(FleetBackend backend) async {
-    try {
-      final contract = await backend.contract();
-      return RegExp(r'method Approve\((.*?)\)\s*->', dotAll: true).firstMatch(contract)?.group(1)?.contains('commit') ??
           false;
     } on Object {
       return false;
@@ -479,6 +838,61 @@ class Gate extends ChangeNotifier {
           '${_short(refusal.parameters['at'])}, from earlier work. Nothing was forwarded. Forward it '
           'onto another branch, such as ${refusal.parameters['branch']}-2.',
     'Failed' => '${refusal.parameters['message'] ?? 'It did not work.'}',
+    // The numbers are the machine's: what the answer would take, and what one answer may.
+    'ReviewTooLarge' =>
+      'The review of ${refusal.parameters['name'] ?? 'this push'} does not fit one answer: it would take '
+          '${_bytes(refusal.parameters['bytes'])}, and one answer takes at most ${_bytes(refusal.parameters['limit'])}. '
+          '${_command(refusal.parameters['command'])}',
+    'InvalidParameter' =>
+      'The machine refused what it was asked'
+          '${refusal.parameters['parameter'] is String ? ', naming ${refusal.parameters['parameter']}' : ''}. '
+          'It is not asked again for this review.',
     _ => 'Refused: ${refusal.simpleName}.',
   };
+
+  static String _bytes(Object? bytes) => bytes is int ? HandingIn.inWords(bytes) : 'a size it did not say';
+
+  static String _command(Object? command) => command is List && command.isNotEmpty && command.every((e) => e is String)
+      ? 'On the machine, ${command.cast<String>().map(quoteForAShell).join(' ')} prints the whole review.'
+      : 'The machine named no command that prints it.';
+}
+
+/// One `Review` answer, and what every page of it is asked with: a page is never asked for a review other
+/// than the one shown.
+@immutable
+class _ReviewRead {
+  const _ReviewRead({
+    required this.project,
+    required this.name,
+    required this.repository,
+    required this.commit,
+    required this.base,
+    required this.ignoreLineEndings,
+    required this.files,
+    required this.commits,
+    required this.looks,
+    required this.afterAMove,
+  });
+
+  final String project;
+  final String name;
+  final String? repository;
+
+  /// The commit the review is of; null where the machine did not name it, and then no page can be asked.
+  final String? commit;
+
+  /// What the pages are read against, as `Review.paged.base` named it.
+  final String base;
+  final bool ignoreLineEndings;
+
+  /// How many files and commits the machine counted; null where it gave them whole.
+  final int? files;
+  final int? commits;
+
+  /// Which look read it.
+  final int looks;
+
+  /// Whether it was read again because the push moved: a page that says it moved once more is then said,
+  /// not read again.
+  final bool afterAMove;
 }

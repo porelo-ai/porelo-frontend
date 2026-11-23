@@ -2988,7 +2988,7 @@ diff --git a/lib/money.dart b/lib/money.dart
   }
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked, List<ReviewCommit>? commits})> reviewOf(
+  Future<PushReview> reviewOf(
     String projectFile,
     String name, {
     String? against,
@@ -3004,13 +3004,33 @@ diff --git a/lib/money.dart b/lib/money.dart
     }
     reviewedIn.add(repository);
     reviewedWithoutLineEndings.add(ignoreLineEndings);
-    return (
+    // The commit that waits under that name now, as the machine names what its review is of.
+    final waiting = <PendingPush>[...theGate.pending, for (final gate in theGatesIn.values) ...gate.pending];
+    return PushReview(
+      commit: waiting.where((push) => push.name == name).firstOrNull?.commit,
       diff: ignoreLineEndings == true ? theDiffWithoutLineEndings : theDiff,
       log: 'commit 9a3c1f2\n\n    Round to the nearest penny',
       files: theRanking,
       asked: theInstruction,
       commits: theCommits,
     );
+  }
+
+  /// Never paged: its `Review` answers every part whole, so any position asked is one it did not give.
+  @override
+  Future<ReviewPage> reviewPageOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+    required String against,
+    required bool ignoreLineEndings,
+    required String part,
+    required int from,
+  }) async {
+    await _answering();
+    mustBeAProject(projectFile);
+    throw const VarlinkException('org.varlink.service.InvalidParameter', <String, dynamic>{'parameter': 'from'});
   }
 
   /// The address whose forward is refused for its key until a key is declared for it; null where none is.
