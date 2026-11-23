@@ -1022,19 +1022,25 @@ class HandInPart {
 /// What a task's terminal session shows: its last lines, and whether there is a session at all.
 class Screen {
   /// Constructor taking the lines and whether the session is live; [end] where a recording is kept.
-  const Screen({required this.lines, required this.live, this.end, this.endMalformed = false});
+  const Screen({required this.of, required this.lines, required this.live, this.end, this.endMalformed = false});
 
   /// Reads one from a reply.
   factory Screen.from(Map<String, dynamic> map) {
     final end = map['end'];
+    final of = map['of'];
+    if (of is! String) throw const FormatException('Screen answered without its recording name');
     // An end that is there but no whole number is kept apart from an absent one, and does not hide `live`.
     return Screen(
+      of: of,
       lines: _strings(map, 'lines'),
       live: map['live'] == true,
       end: end is int ? end : null,
       endMalformed: end != null && end is! int,
     );
   }
+
+  /// The opaque name of the recording [end] belongs to; empty where none is kept.
+  final String of;
 
   /// The last lines, oldest first.
   final List<String> lines;
@@ -4626,14 +4632,17 @@ class Panicked {
 
 /// One reply of a followed log: its lines, and where the first of them starts.
 class LogChunk {
-  /// Constructor taking the lines and, where the daemon said it, the byte position of the first.
-  const LogChunk(this.lines, {required this.offset});
+  /// Constructor taking the lines, their byte position and the opaque name of that log.
+  const LogChunk(this.lines, {required this.offset, required this.of});
 
   /// The lines of this reply.
   final List<String> lines;
 
   /// Byte position in the log where the first of [lines] starts, the `before` of the call for what lies earlier.
   final int offset;
+
+  /// The opaque name of the log [offset] belongs to.
+  final String of;
 }
 
 /// One page of a log's earlier lines, as `LogBefore` answers.

@@ -3145,6 +3145,9 @@ diff --git a/lib/money.dart b/lib/money.dart
   /// What each task's terminal session shows, by task; none where the machine has no `Screen`.
   final Map<String, Screen> screens = <String, Screen>{};
 
+  /// A refusal each task's Screen answers with while one is set.
+  final Map<String, Object> screenRefusals = <String, Object>{};
+
   /// Screen replies held back until completed, by task: a slow machine, or one answering late.
   final Map<String, Completer<void>> screenHolds = <String, Completer<void>>{};
 
@@ -3167,6 +3170,9 @@ diff --git a/lib/money.dart b/lib/money.dart
   /// Pages of earlier output held back until completed, by task.
   final Map<String, Completer<void>> screenBeforeHolds = <String, Completer<void>>{};
 
+  /// Every recording position asked for, with the name it belongs to.
+  final Map<String, List<({String of, int before})>> screenBeforeAsked = {};
+
   /// The `lines` of every ScreenBefore asked of each task, in order.
   final Map<String, List<int>> screenBeforeSizes = <String, List<int>>{};
 
@@ -3175,24 +3181,35 @@ diff --git a/lib/money.dart b/lib/money.dart
     screensAsked[task] = (screensAsked[task] ?? 0) + 1;
     (screenLastAsked[task] ??= <int>[]).add(last);
     await screenHolds[task]?.future;
+    final refusal = screenRefusals[task];
+    if (refusal != null) throw refusal;
     final shown = screens[task];
     final recording = recordings[task];
     if (recording != null) {
       final (lines, end) = recording.screen(last);
-      return Screen(lines: shown?.lines ?? lines, live: shown?.live ?? true, end: end);
+      return Screen(of: recording.of, lines: shown?.lines ?? lines, live: shown?.live ?? true, end: end);
     }
     if (shown == null) throw const FeatureNotSupported('Screen');
     return shown;
   }
 
   @override
-  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false}) async {
+  Future<ScreenPage> screenBefore(
+    String task, {
+    required String of,
+    required int before,
+    required int lines,
+    bool escapes = false,
+  }) async {
+    (screenBeforeAsked[task] ??= []).add((of: of, before: before));
     (screenBeforeSizes[task] ??= <int>[]).add(lines);
     await screenBeforeHolds[task]?.future;
     final refusal = screenBeforeRefusals[task];
     if (refusal != null) throw refusal;
     final recording = recordings[task];
-    if (recording == null) throw const VarlinkException('org.fuin.porelo.Tasks1.InvalidParameter', {'before': 0});
+    if (recording == null || of != recording.of) {
+      throw const VarlinkException('org.fuin.porelo.Tasks1.NoSuchLog', {});
+    }
     if (screenBeforeEmptyNotAtStart.contains(task)) {
       return ScreenPage(lines: const <String>[], offset: before, atStart: false);
     }
@@ -3254,7 +3271,13 @@ diff --git a/lib/money.dart b/lib/money.dart
   /// Indexes of lines of the log that a formatted read hides, so that a page of them comes back with no lines.
   Set<int> hiddenLines = <int>{};
 
-  bool _replaced = false;
+  int _logNumber = 0;
+
+  /// The opaque name of the current log.
+  String get logOf => 'log-$_logNumber';
+
+  /// The log name sent with each earlier position.
+  final List<String> logBeforeNames = <String>[];
 
   List<String> get _log => <String>[...earlierLines, ..._written];
 
@@ -3274,21 +3297,20 @@ diff --git a/lib/money.dart b/lib/money.dart
     earlierLines = earlier;
     _written.clear();
     _handed.clear();
-    _replaced = true;
+    _logNumber++;
   }
 
   LogChunk _chunkOf(List<String> lines) {
     final position = positionOf(earlierLines.length + _written.length);
     _handed.add(position);
     _written.addAll(lines);
-    return LogChunk(lines, offset: position);
+    return LogChunk(lines, offset: position, of: logOf);
   }
 
   @override
   Stream<LogChunk> tailLog(String task, String log, {int? last, bool formatted = false}) {
     tailsAsked.add((task: task, log: log, last: last, formatted: formatted));
     _written.clear();
-    _replaced = false;
     if (formatted) {
       final tail = StreamController<List<String>>.broadcast();
       formattedTails[task] = tail;
@@ -3306,19 +3328,16 @@ diff --git a/lib/money.dart b/lib/money.dart
   Future<LogPage> logBefore(
     String task,
     String log, {
+    required String of,
     required int before,
     required int lines,
     bool formatted = false,
   }) async {
+    logBeforeNames.add(of);
     logBeforeAsked.add((before: before, lines: lines));
     final hook = whileLogBefore;
     if (hook != null) await hook();
-    final held = logBeforeHeld;
-    if (held != null) await held.future;
-    final refusal = logBeforeRefusal;
-    if (refusal != null) throw refusal;
-    if (_replaced) {
-      _replaced = false;
+    if (of != logOf) {
       throw replacedAnswer;
     }
     const invalid = VarlinkException('org.fuin.porelo.Tasks1.InvalidParameter', <String, dynamic>{});
@@ -3337,7 +3356,7 @@ diff --git a/lib/money.dart b/lib/money.dart
     final first = end > lines ? end - lines : 0;
     final offset = first < starts.length ? starts[first] : 0;
     _handed.add(offset);
-    return LogPage(
+    final page = LogPage(
       lines: <String>[
         for (var at = first; at < end; at++)
           if (!formatted || !hiddenLines.contains(at)) all[at],
@@ -3345,6 +3364,11 @@ diff --git a/lib/money.dart b/lib/money.dart
       offset: offset,
       atStart: first == 0,
     );
+    final held = logBeforeHeld;
+    if (held != null) await held.future;
+    final refusal = logBeforeRefusal;
+    if (refusal != null) throw refusal;
+    return page;
   }
 
   /// What the machine has on it right now.

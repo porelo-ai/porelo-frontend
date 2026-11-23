@@ -121,10 +121,12 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     });
     daemon.stream('Start', _launch, isFinal: (reply) => reply.containsKey('exitCode') || reply.containsKey('action'));
     daemon.method('Stop', _stop);
-    // pushes, not stream: a log being followed does not end, and a held-back stream would
-    // deliver every line one line late.
-    daemon.pushes('Tail', _tail);
+    // The demo's finite output ends on its last chunk, without repeating that chunk as a final reply.
+    daemon.stream('Tail', _tail);
     daemon.method('Logs', _logs);
+    daemon.method('LogBefore', _logBefore);
+    daemon.method('Screen', _screen);
+    daemon.method('ScreenBefore', _screenBefore);
     daemon.method('Projects', _projects);
     daemon.method('Sets', _sets);
     daemon.method('Egress', _egress);
@@ -1917,7 +1919,11 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
   /// Which logs a task has. A task that was purged has none, and that is a normal answer.
   Map<String, dynamic> _logs(Map<String, dynamic> parameters) => <String, dynamic>{
     'logs': <Map<String, dynamic>>[
-      for (final name in logs)
+      for (final name in <String>{
+        ...logs,
+        for (final key in _logOutputs.keys)
+          if (key.$1 == parameters['task']) key.$2,
+      })
         <String, dynamic>{
           'name': name,
           'bytes': _sizes[name] ?? 182_311,
@@ -1944,15 +1950,106 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
 
   static const _sizes = <String, int>{'gate.log': 4096, 'events.jsonl': 9_212, 'reader.err': 0};
 
-  Stream<Map<String, dynamic>> _tail(Map<String, dynamic> parameters) async* {
-    final log = parameters['log'];
-    if (!logs.contains(log)) {
-      throw MockRefusal('org.fuin.porelo.Tasks1.NoSuchLog', <String, dynamic>{'task': parameters['task'], 'log': log});
+  int _nextOutput = 0;
+  final Map<(String, String), _MockOutput> _logOutputs = {};
+  final Map<String, _MockOutput> _recordings = {};
+
+  /// Begins a new log with [lines]; its positions belong to this reading alone.
+  void recordLog(String task, String log, List<String> lines) =>
+      _logOutputs[(task, log)] = _MockOutput('output-${_nextOutput++}', lines);
+
+  /// Begins a new session recording with [lines], or keeps none when null.
+  void recordScreen(String task, List<String>? lines) {
+    if (lines == null) {
+      _recordings.remove(task);
+    } else {
+      _recordings[task] = _MockOutput('output-${_nextOutput++}', lines);
     }
+  }
+
+  _MockOutput _logOutput(Map<String, dynamic> parameters) {
+    final task = parameters['task'] as String;
+    final log = parameters['log'] as String;
+    if (!logs.contains(log) && !_logOutputs.containsKey((task, log))) _noSuchLog(parameters);
+    return _logOutputs.putIfAbsent((task, log), () => _MockOutput('output-${_nextOutput++}', _logLines(log)));
+  }
+
+  Never _noSuchLog(Map<String, dynamic> parameters) => throw MockRefusal(
+    'org.fuin.porelo.Tasks1.NoSuchLog',
+    <String, dynamic>{'task': parameters['task'], 'log': parameters['log'] ?? ''},
+  );
+
+  void _requireOf(Map<String, dynamic> parameters) {
+    if (parameters['of'] is! String) {
+      throw const MockRefusal('org.fuin.porelo.Tasks1.InvalidParameter', <String, dynamic>{'parameter': 'of'});
+    }
+  }
+
+  Map<String, dynamic> _logBefore(Map<String, dynamic> parameters) {
+    _requireOf(parameters);
+    return _before(_logOutput(parameters), parameters);
+  }
+
+  Map<String, dynamic> _screen(Map<String, dynamic> parameters) {
+    final task = parameters['task'];
+    final output = _recordings[task];
+    final last = parameters['last'] as int? ?? 1000;
+    return <String, dynamic>{
+      'lines': output == null
+          ? <String>[]
+          : output.lines.sublist(output.lines.length > last ? output.lines.length - last : 0),
+      'live': tasks.any((each) => each['name'] == task && each['running'] == true && each['mode'] == 'SHELL'),
+      if (output != null) 'end': output.end,
+      'of': output?.of ?? '',
+    };
+  }
+
+  Map<String, dynamic> _screenBefore(Map<String, dynamic> parameters) {
+    _requireOf(parameters);
+    final output = _recordings[parameters['task']];
+    if (output == null) _noSuchLog(parameters);
+    return _before(output, parameters);
+  }
+
+  Map<String, dynamic> _before(_MockOutput output, Map<String, dynamic> parameters) {
+    if (parameters['of'] != output.of) _noSuchLog(parameters);
+    final before = parameters['before'];
+    final count = parameters['lines'];
+    if (before is int && before > output.end) _noSuchLog(parameters);
+    final end = before == output.end ? output.lines.length : output.starts.indexOf(before is int ? before : -1);
+    if (end < 0 || count is! int || count < 1 || count > 1000) {
+      throw const MockRefusal('org.fuin.porelo.Tasks1.InvalidParameter', <String, dynamic>{'parameter': 'before'});
+    }
+    final first = end > count ? end - count : 0;
+    return <String, dynamic>{
+      'lines': output.lines.sublist(first, end),
+      'offset': first < output.starts.length ? output.starts[first] : 0,
+      'atStart': first == 0,
+    };
+  }
+
+  Stream<Map<String, dynamic>> _tail(Map<String, dynamic> parameters) async* {
+    final output = _logOutput(parameters);
+    final last = parameters['last'] as int?;
+    final first = last != null && last < output.lines.length ? output.lines.length - last : 0;
+    if (output.lines.isEmpty) {
+      yield <String, dynamic>{'lines': <String>[], 'offset': 0, 'of': output.of};
+    }
+    for (var at = first; at < output.lines.length; at++) {
+      if (pace > Duration.zero) await Future<void>.delayed(pace);
+      yield <String, dynamic>{
+        'lines': <String>[output.lines[at]],
+        'offset': output.starts[at],
+        'of': output.of,
+      };
+    }
+  }
+
+  List<String> _logLines(String log) {
     const red = '\u001B[31m';
     const green = '\u001B[32m';
     const plain = '\u001B[0m';
-    final lines = switch (log) {
+    return switch (log) {
       'gate.log' => <String>[
         'gate: mirror at refs/porelo/incoming',
         'gate: waiting for a decision',
@@ -1974,16 +2071,6 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
         'agent: waiting',
       ],
     };
-    // Each reply names where its line starts in the log, in bytes: a line and its end.
-    var offset = 0;
-    for (final line in lines) {
-      if (pace > Duration.zero) await Future<void>.delayed(pace);
-      yield <String, dynamic>{
-        'lines': <String>[line],
-        'offset': offset,
-      };
-      offset += utf8.encode(line).length + 1;
-    }
   }
 
   /// The tasks as listed, with what Start would do to each worked out from its state.
@@ -2549,4 +2636,19 @@ deleted file mode 100644
     }
     return name;
   }
+}
+
+/// One stored log or recording, whose byte positions are never reused under another name.
+class _MockOutput {
+  _MockOutput(this.of, List<String> lines) : lines = List<String>.of(lines) {
+    for (final line in lines) {
+      starts.add(end);
+      end += utf8.encode(line).length + 1;
+    }
+  }
+
+  final String of;
+  final List<String> lines;
+  final List<int> starts = <int>[];
+  int end = 0;
 }

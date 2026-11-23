@@ -126,7 +126,7 @@ void main() {
 
   // Harm: lines dropped on a guess where nothing matches what the terminal shows, so the person sees them nowhere.
   testWidgets('no matching line drops nothing and shows the divider beside the terminal', (tester) async {
-    backend.screens[task] = const Screen(lines: <String>['a line the recording never had'], live: true);
+    backend.screens[task] = const Screen(of: '', lines: <String>['a line the recording never had'], live: true);
     await open(tester);
     await askForEarlier(tester);
 
@@ -146,7 +146,7 @@ void main() {
   // above it as certainly not repeated.
   testWidgets('a match shorter than the screen is dropped and still shows the divider', (tester) async {
     final tail = recorded.sublist(recorded.length - 4);
-    backend.screens[task] = Screen(lines: <String>['a line only the screen has', ...tail], live: true);
+    backend.screens[task] = Screen(of: '', lines: <String>['a line only the screen has', ...tail], live: true);
     await open(tester);
     await askForEarlier(tester);
 
@@ -161,7 +161,7 @@ void main() {
   // Harm: an `end` that is not a whole number reads as a recording that is not kept, so a reply this window cannot read
   // looks like a session with nothing older.
   testWidgets('an end that is no whole number is a failure said so, not "not kept"', (tester) async {
-    backend.screens[task] = const Screen(lines: <String>[], live: true, endMalformed: true);
+    backend.screens[task] = const Screen(of: '', lines: <String>[], live: true, endMalformed: true);
     await open(tester, noRecording: true);
     await askForEarlier(tester);
     expect(status(tester), contains('no whole number'));
@@ -263,7 +263,7 @@ void main() {
 
   // Harm: a session the daemon keeps no recording of is shown as one that starts at its last lines.
   testWidgets('no end in Screen says the earlier output is not kept, and no page is asked for', (tester) async {
-    backend.screens[task] = const Screen(lines: <String>['only line'], live: true);
+    backend.screens[task] = const Screen(of: '', lines: <String>['only line'], live: true);
     await open(tester, noRecording: true);
     await askForEarlier(tester);
     expect(status(tester), 'This session’s earlier output is not kept.');

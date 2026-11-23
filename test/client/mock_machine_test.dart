@@ -204,6 +204,73 @@ void main() {
     );
   });
 
+  Future<Map<String, dynamic>> raw(String method, Map<String, dynamic> parameters) async {
+    final connection = await VarlinkConnection.open(daemon.socketPath);
+    try {
+      return await connection.call('${daemon.interfaceName}.$method', parameters);
+    } finally {
+      await connection.close();
+    }
+  }
+
+  // Harm: a permissive stand-in hides scroll-back calls the daemon refuses or mixes logs after replacement.
+  test('mock log paging requires the Tail name and refuses it after a longer replacement', () async {
+    await machineIn('work');
+    const task = 'porelo-checkout-shell';
+    machine.recordLog(task, 'agent.log', <String>['é', 'old last']);
+    final client = await connect();
+    final tail = await client.tailLog(task, 'agent.log', last: 1).first;
+    expect(tail.offset, 3, reason: 'UTF-8 bytes and the line end');
+    expect((await client.logBefore(task, 'agent.log', of: tail.of, before: tail.offset, lines: 10)).lines, <String>[
+      'é',
+    ]);
+    await expectLater(
+      raw('LogBefore', <String, dynamic>{'task': task, 'log': 'agent.log', 'before': tail.offset, 'lines': 10}),
+      throwsA(isA<VarlinkException>().having((error) => error.simpleName, 'refusal', 'InvalidParameter')),
+    );
+    machine.recordLog(task, 'agent.log', <String>['new', 'a replacement longer than the old log']);
+    await expectLater(
+      client.logBefore(task, 'agent.log', of: tail.of, before: tail.offset, lines: 10),
+      throwsA(isA<VarlinkException>().having((error) => error.simpleName, 'refusal', 'NoSuchLog')),
+    );
+    final newest = await client.tailLog(task, 'agent.log', last: 1).first;
+    expect(newest.of, isNot(tail.of));
+    expect((await client.logBefore(task, 'agent.log', of: newest.of, before: newest.offset, lines: 10)).lines, <String>[
+      'new',
+    ]);
+  });
+
+  // Harm: the demo silently serves one session's earlier output under the position of another recording.
+  test('mock screen paging requires its recording name and refuses a replaced recording', () async {
+    await machineIn('work');
+    const task = 'porelo-checkout-shell';
+    machine.recordScreen(task, <String>['old first', 'old last']);
+    final client = await connect();
+    final screen = await client.screen(task, last: 1);
+    expect(screen.of, isNotEmpty);
+    expect((await client.screenBefore(task, of: screen.of, before: screen.end!, lines: 1)).lines, <String>['old last']);
+    await expectLater(
+      raw('ScreenBefore', <String, dynamic>{'task': task, 'before': screen.end, 'lines': 10}),
+      throwsA(isA<VarlinkException>().having((error) => error.simpleName, 'refusal', 'InvalidParameter')),
+    );
+    machine.recordScreen(task, <String>['new first', 'new last', 'more than the old recording']);
+    await expectLater(
+      client.screenBefore(task, of: screen.of, before: screen.end!, lines: 10),
+      throwsA(isA<VarlinkException>().having((error) => error.simpleName, 'refusal', 'NoSuchLog')),
+    );
+    final newest = await client.screen(task, last: 1);
+    expect(newest.of, isNot(screen.of));
+    expect((await client.screenBefore(task, of: newest.of, before: newest.end!, lines: 10)).lines, <String>[
+      'new first',
+      'new last',
+      'more than the old recording',
+    ]);
+    machine.recordScreen(task, null);
+    final absent = await client.screen(task, last: 1);
+    expect(absent.of, isEmpty);
+    expect(absent.end, isNull);
+  });
+
   test('a blocked connection arrives, and its answer comes back on the same stream', () async {
     await machineIn('work');
     final client = await connect();

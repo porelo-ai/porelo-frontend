@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Scrolling back in a task's log or a session's earlier output after a new run starts again from the newest output, keeping the two runs' lines apart.
 - The *Planning* board of a project whose planning is kept in a local directory names that directory, and *Choose…* picks another with the desktop's folder dialog.
 - The *Planning* board shows an open story in the state its issues give it, and an issue closes only by its own end.
 - The pull requests on a host's forge are read whole when the machine gives them in pages: each list is shown only once all its pages are read, and one that keeps changing meanwhile still reaches the window. Pages that do not fit together are said and leave the list marked out of date; they are asked for again once the machine is reached anew, never on a timer.

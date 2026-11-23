@@ -50,6 +50,7 @@ class EarlierOutput extends ChangeNotifier with QuietAfterDispose {
 
   List<String> _lines = const <String>[];
   int? _before;
+  String? _of;
   List<String> _screen = const <String>[];
   bool _matching = false;
   bool _mayOverlap = false;
@@ -106,7 +107,7 @@ class EarlierOutput extends ChangeNotifier with QuietAfterDispose {
     return more();
   }
 
-  Future<void> _fetch() async {
+  Future<void> _fetch({bool restarted = false}) async {
     try {
       if (_before == null) {
         // The terminal's lines end where the recording ends: they are matched against its newest lines, backward.
@@ -117,6 +118,14 @@ class EarlierOutput extends ChangeNotifier with QuietAfterDispose {
           _problem = 'The machine sent a position for the recording that is no whole number.';
           return;
         }
+        if (_of != null) {
+          _lines = const <String>[];
+          _matched = 0;
+          _mayOverlap = false;
+          _screen = const <String>[];
+          _matching = false;
+        }
+        _of = screen.of;
         final end = screen.end;
         if (end == null) {
           _end = EarlierEnd.notKept;
@@ -133,7 +142,7 @@ class EarlierOutput extends ChangeNotifier with QuietAfterDispose {
           _end = EarlierEnd.full;
           break;
         }
-        final page = await backend.screenBefore(task, before: _before!, lines: pageLines);
+        final page = await backend.screenBefore(task, of: _of!, before: _before!, lines: pageLines);
         if (_disposed) return;
         _before = page.offset;
         var lines = page.lines;
@@ -152,6 +161,10 @@ class EarlierOutput extends ChangeNotifier with QuietAfterDispose {
       }
     } on VarlinkException catch (refusal) {
       if (_disposed) return;
+      if (refusal.simpleName == 'NoSuchLog') {
+        _before = null;
+        if (!restarted) return _fetch(restarted: true);
+      }
       _end = EarlierEnd.failed;
       _problem =
           'The machine refused: ${refusal.simpleName}${refusal.parameters.isEmpty ? '' : ' ${refusal.parameters}'}.';

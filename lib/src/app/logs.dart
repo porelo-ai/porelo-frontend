@@ -45,8 +45,11 @@ class LogTail {
   int arrived = 0;
 
   /// The byte position in the log where `lines.first` starts, the `before` of the next call for
-  /// earlier lines; null where the daemon did not say, which an older one does not.
+  /// earlier lines; null before a reply arrives or where the window lost its position.
   int? start;
+
+  /// The opaque name of the log [start] is a position in.
+  String? of;
 
   /// Whether nothing lies before the first line held: the log's start, as the daemon said it.
   bool atStart = false;
@@ -87,6 +90,11 @@ class LogTail {
 
   /// Adds what was read at the end of the log.
   void add(LogChunk chunk) {
+    if (of != null && of != chunk.of) {
+      reset();
+      notice = 'This log was begun anew, as by a new run. It is read from its end.';
+    }
+    of = chunk.of;
     if (newerDropped) return;
     final offset = chunk.offset;
     // Reading back means not being moved by what arrives: past the window, the newest are not taken in,
@@ -165,6 +173,8 @@ class LogTail {
     earlier = 0;
     arrived = 0;
     start = null;
+    of = null;
+    notice = null;
     atStart = false;
     dropped = 0;
     newerDropped = false;
@@ -179,7 +189,8 @@ class LogTail {
   }
 
   /// Whether a request for earlier lines may be made now.
-  bool get wantsOlder => start != null && !atStart && older == OlderLines.idle && problem == null && !waitForScroll;
+  bool get wantsOlder =>
+      of != null && start != null && !atStart && older == OlderLines.idle && problem == null && !waitForScroll;
 
   /// Whether the view is taken to new output as it arrives.
   ///
@@ -305,13 +316,21 @@ class Logs extends ChangeNotifier {
     final key = _keyOf(tail.task, tail.log, tail.formatted);
     final backend = _backends[key];
     final before = tail.start;
-    if (_disposed || _open[key] != tail || backend == null || before == null || !tail.wantsOlder) return;
+    final of = tail.of;
+    if (_disposed || _open[key] != tail || backend == null || before == null || of == null || !tail.wantsOlder) return;
     final generation = tail.generation;
     tail.older = OlderLines.loading;
     _notify();
     LogPage page;
     try {
-      page = await backend.logBefore(tail.task, tail.log, before: before, lines: olderPage, formatted: tail.formatted);
+      page = await backend.logBefore(
+        tail.task,
+        tail.log,
+        of: of,
+        before: before,
+        lines: olderPage,
+        formatted: tail.formatted,
+      );
     } on Object catch (error) {
       if (_stale(key, tail, generation)) return;
       if (error is VarlinkException && error.simpleName == 'NoSuchLog') {

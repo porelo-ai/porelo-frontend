@@ -6,7 +6,7 @@ import 'dart:convert';
 /// It acts on what it is asked and holds the lines it was given; nothing in it is a canned reply.
 class SessionRecording {
   /// A recording of [lines], oldest first.
-  SessionRecording(this.lines) {
+  SessionRecording(this.lines, {String? of}) : of = of ?? 'recording-${_next++}' {
     var at = 0;
     for (final line in lines) {
       _starts.add(at);
@@ -14,6 +14,11 @@ class SessionRecording {
     }
     end = at;
   }
+
+  static int _next = 0;
+
+  /// The opaque name of this recording, unchanged while it grows.
+  final String of;
 
   /// Every line of the session's output, oldest first.
   final List<String> lines;

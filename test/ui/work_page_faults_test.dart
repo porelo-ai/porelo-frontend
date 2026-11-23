@@ -397,7 +397,7 @@ void main() {
       await onRunning(tester);
       await iChooseTheTabOf(tester, other);
       World.terminals.last.endsWith(0);
-      World.backend.screens[other] = const Screen(lines: <String>[], live: false);
+      World.backend.screens[other] = const Screen(of: '', lines: <String>[], live: false);
       await World.settle(tester);
       expect(find.byKey(const Key('running-ended')), findsOneWidget);
       await iOpenTheCommandFinder(tester);
@@ -435,7 +435,7 @@ void main() {
     // Harm: a blank tab: working by hand in an agent that has no terminal of its own yet is refused by a look.
     testWidgets('work by hand opens its terminal whatever a look would say', (tester) async {
       await theApp(tester);
-      World.backend.screens[work] = const Screen(lines: <String>[], live: false);
+      World.backend.screens[work] = const Screen(of: '', lines: <String>[], live: false);
       await toSection(tester, Section.work);
       await iChooseFromTheMenuOfTheTile(tester, 'Work in it by hand', work);
       expect(World.sessions.current?.task, work);
@@ -531,7 +531,7 @@ void main() {
     // Harm: the terminal a person just asked for is closed by what the machine said of the last one.
     testWidgets('a look begun before a new terminal does not end it', (tester) async {
       await onRunning(tester);
-      World.backend.screens[other] = const Screen(lines: <String>[], live: false);
+      World.backend.screens[other] = const Screen(of: '', lines: <String>[], live: false);
       await iChooseTheTabOf(tester, other);
       expect(find.byKey(const Key('running-new-terminal')), findsOneWidget);
       final held = Completer<void>();

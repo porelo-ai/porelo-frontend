@@ -682,16 +682,28 @@ abstract class FleetBackend {
   Stream<LogChunk> tailLog(String task, String log, {int? last, bool formatted = false});
 
   /// The [lines] of a log that lie just before byte position [before], which a [tailLog] chunk or an earlier
-  /// page gave; the `NoSuchLog`
-  /// refusal for a log a new run replaced.
-  Future<LogPage> logBefore(String task, String log, {required int before, required int lines, bool formatted = false});
+  /// page gave, in the log [of] names; `NoSuchLog` refuses a log a new run replaced.
+  Future<LogPage> logBefore(
+    String task,
+    String log, {
+    required String of,
+    required int before,
+    required int lines,
+    bool formatted = false,
+  });
 
   /// What [task]'s terminal session shows now; [FeatureNotSupported] from a Porelo without `Screen`.
   Future<Screen> screen(String task, {required int last, bool escapes = false});
 
   /// A page of [task]'s terminal session's earlier output, the [lines] before the byte position [before];
-  /// the daemon's own refusal otherwise.
-  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false});
+  /// in the recording [of] names; the daemon's own refusal otherwise.
+  Future<ScreenPage> screenBefore(
+    String task, {
+    required String of,
+    required int before,
+    required int lines,
+    bool escapes = false,
+  });
 
   /// What [task] used so far; [FeatureNotSupported] from a Porelo without `Usage`.
   Future<Usage> usage(String task);
@@ -1499,10 +1511,11 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
   Future<LogPage> logBefore(
     String task,
     String log, {
+    required String of,
     required int before,
     required int lines,
     bool formatted = false,
-  }) => _opened().logBefore(task, log, before: before, lines: lines, formatted: formatted);
+  }) => _opened().logBefore(task, log, of: of, before: before, lines: lines, formatted: formatted);
 
   Future<Set<String>>? _tailTakes;
 
@@ -1511,8 +1524,13 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
       _opened().screen(task, last: last, escapes: escapes);
 
   @override
-  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false}) =>
-      _opened().screenBefore(task, before: before, lines: lines, escapes: escapes);
+  Future<ScreenPage> screenBefore(
+    String task, {
+    required String of,
+    required int before,
+    required int lines,
+    bool escapes = false,
+  }) => _opened().screenBefore(task, of: of, before: before, lines: lines, escapes: escapes);
 
   @override
   Future<Usage> usage(String task) => _opened().usage(task);

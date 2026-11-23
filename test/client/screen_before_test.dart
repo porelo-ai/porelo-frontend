@@ -28,10 +28,14 @@ void main() {
     daemon.method('Screen', (parameters) {
       asked?.add(parameters);
       final (shown, end) = recording.screen(parameters['last'] as int);
-      return <String, dynamic>{'lines': shown, 'live': true, 'end': end};
+      return <String, dynamic>{'lines': shown, 'live': true, 'end': end, 'of': recording.of};
     });
     daemon.method('ScreenBefore', (parameters) {
       asked?.add(parameters);
+      if (parameters['of'] is! String) {
+        throw const MockRefusal('org.fuin.porelo.Tasks1.InvalidParameter', {'parameter': 'of'});
+      }
+      if (parameters['of'] != recording.of) throw const MockRefusal('org.fuin.porelo.Tasks1.NoSuchLog');
       try {
         final page = recording.before(parameters['before'] as int, parameters['lines'] as int);
         return <String, dynamic>{'lines': page.lines, 'offset': page.offset, 'atStart': page.atStart};
@@ -50,6 +54,7 @@ void main() {
       (_) => <String, dynamic>{
         'lines': <String>['a'],
         'live': true,
+        'of': '',
       },
     );
     expect((await (await connect()).screen('t', last: 20)).end, isNull);
@@ -59,10 +64,24 @@ void main() {
       (_) => <String, dynamic>{
         'lines': <String>['a'],
         'live': true,
+        'of': 'recording',
         'end': 4096,
       },
     );
     expect((await (await connect()).screen('t', last: 20)).end, 4096);
+  });
+
+  // Harm: a missing recording name makes every later scroll-back unusable.
+  test('Screen requires its recording name even when no recording is kept', () async {
+    for (final invalid in <Object?>[null, 12]) {
+      for (final end in <int?>[null, 20]) {
+        daemon.method(
+          'Screen',
+          (_) => <String, dynamic>{'lines': <String>[], 'live': true, 'end': ?end, 'of': ?invalid},
+        );
+        await expectLater((await connect()).screen('t', last: 5), throwsA(isA<FormatException>()));
+      }
+    }
   });
 
   // Harm: pages asked with a position nobody gave (InvalidParameter), or the walk stopped before the session's start,
@@ -79,22 +98,23 @@ void main() {
     var before = screen.end!;
     ScreenPage page;
     do {
-      page = await client.screenBefore('t', before: before, lines: 10);
+      page = await client.screenBefore('t', of: screen.of, before: before, lines: 10);
       pages.insert(0, page.lines);
       before = page.offset;
     } while (!page.atStart);
 
     expect(pages.expand((page) => page).toList(), lines, reason: 'the whole session, each line once, in order');
     expect(page.atStart, isTrue);
+    expect(asked.where((call) => call.containsKey('before')).map((call) => call['of']), everyElement(screen.of));
     expect(asked.where((call) => call.containsKey('before')).map((call) => call['lines']).toSet(), <int>{10});
   });
 
   // Harm: a position the daemon never gave is sent, and its refusal is shown as the session's start or as an empty page.
   test('a refused position is the daemon’s own refusal, never an empty page', () async {
-    serve(<String>['a', 'b', 'c']);
+    final recording = serve(<String>['a', 'b', 'c']);
     final client = await connect();
     await expectLater(
-      client.screenBefore('t', before: 3, lines: 10),
+      client.screenBefore('t', of: recording.of, before: 3, lines: 10),
       throwsA(isA<VarlinkException>().having((error) => error.simpleName, 'refusal', 'InvalidParameter')),
     );
   });
@@ -104,7 +124,7 @@ void main() {
   test('a call answered with MethodNotImplemented is the daemon’s own refusal', () async {
     daemon.fails('ScreenBefore', 'org.varlink.service.MethodNotImplemented');
     await expectLater(
-      (await connect()).screenBefore('t', before: 3, lines: 10),
+      (await connect()).screenBefore('t', of: 'recording', before: 3, lines: 10),
       throwsA(isA<VarlinkException>().having((error) => error.simpleName, 'refusal', 'MethodNotImplemented')),
     );
   });
@@ -119,14 +139,14 @@ void main() {
     };
     daemon.method('ScreenBefore', (_) => <String, dynamic>{...whole, 'offset': 7.5});
     await expectLater(
-      (await connect()).screenBefore('t', before: 3, lines: 10),
+      (await connect()).screenBefore('t', of: 'recording', before: 3, lines: 10),
       throwsA(isA<FormatException>()),
       reason: 'an offset that is no whole number',
     );
     for (final missing in whole.keys) {
       daemon.method('ScreenBefore', (_) => <String, dynamic>{...whole}..remove(missing));
       await expectLater(
-        (await connect()).screenBefore('t', before: 3, lines: 10),
+        (await connect()).screenBefore('t', of: 'recording', before: 3, lines: 10),
         throwsA(isA<FormatException>()),
         reason: 'a reply without $missing',
       );
@@ -135,13 +155,16 @@ void main() {
 
   // Harm: an end that is no whole number reads as a recording that is not kept, or hides that the terminal ended.
   test('an end that is no whole number is kept apart from an absent one and does not hide live', () async {
-    daemon.method('Screen', (_) => <String, dynamic>{'lines': <String>[], 'live': false, 'end': 'soon'});
+    daemon.method(
+      'Screen',
+      (_) => <String, dynamic>{'lines': <String>[], 'live': false, 'of': 'recording', 'end': 'soon'},
+    );
     final screen = await (await connect()).screen('t', last: 20);
     expect(screen.endMalformed, isTrue);
     expect(screen.end, isNull);
     expect(screen.live, isFalse);
 
-    daemon.method('Screen', (_) => <String, dynamic>{'lines': <String>[], 'live': true});
+    daemon.method('Screen', (_) => <String, dynamic>{'lines': <String>[], 'live': true, 'of': ''});
     expect((await (await connect()).screen('t', last: 20)).endMalformed, isFalse);
   });
 
@@ -151,8 +174,8 @@ void main() {
     final client = await connect();
     final held = daemon.openConnections;
     final screen = await client.screen('t', last: 5);
-    await client.screenBefore('t', before: screen.end!, lines: 10);
-    await client.screenBefore('t', before: 99, lines: 10).then((_) {}, onError: (Object _) {});
+    await client.screenBefore('t', of: screen.of, before: screen.end!, lines: 10);
+    await client.screenBefore('t', of: 'recording', before: 99, lines: 10).then((_) {}, onError: (Object _) {});
     expect(daemon.openConnections, held);
   });
 }

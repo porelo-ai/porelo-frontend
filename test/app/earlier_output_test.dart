@@ -18,6 +18,67 @@ void main() {
     return output;
   }
 
+  // Harm: a new session whose recording grew past the old position is mixed with the previous session or refused.
+  test('NoSuchLog starts again from Screen and keeps only the new recording', () async {
+    final old = SessionRecording(<String>[for (var i = 0; i < 3000; i++) 'old output $i']);
+    backend.recordings[task] = old;
+    final output = earlier(1);
+    await output.more();
+    expect(output.lines, isNotEmpty);
+    final newest = SessionRecording(<String>[for (var i = 0; i < 6000; i++) 'new output $i']);
+    backend.recordings[task] = newest;
+
+    await output.more();
+
+    expect(backend.screensAsked[task], 2);
+    expect(
+      output.lines,
+      newest.lines.sublist(5000, 5999),
+      reason: 'the old session is replaced, newest screen line matched',
+    );
+    expect(output.end, EarlierEnd.more);
+    expect(output.problem, isNull);
+    final asked = backend.screenBeforeAsked[task]!;
+    expect(asked.last, (of: newest.of, before: newest.end));
+    expect(asked[asked.length - 2].of, old.of, reason: 'the old position retains its old name until refused');
+  });
+
+  // Harm: a failed Screen during replacement leaves old output to be prepended to the new session on retry.
+  test('retrying a failed replacement Screen still discards the previous recording', () async {
+    backend.recordings[task] = SessionRecording(<String>[for (var i = 0; i < 3000; i++) 'old output $i']);
+    final output = earlier(1);
+    await output.more();
+    final held = output.lines;
+    final newest = SessionRecording(<String>[for (var i = 0; i < 6000; i++) 'new output $i']);
+    backend.recordings[task] = newest;
+    backend.screenRefusals[task] = const VarlinkDisconnected('the recording could not be read');
+    await output.more();
+    expect(output.end, EarlierEnd.failed);
+    expect(output.lines, held, reason: 'what was read stays until a new Screen answers');
+    backend.screenRefusals.remove(task);
+
+    await output.retry();
+
+    expect(output.lines, newest.lines.sublist(5000, 5999));
+    expect(output.end, EarlierEnd.more);
+    expect(output.problem, isNull);
+    expect(backend.screenBeforeAsked[task]!.last, (of: newest.of, before: newest.end));
+  });
+
+  // Harm: a repeatedly replaced recording loops on Screen forever instead of saying why it could not be read.
+  test('a recording that changes again during recovery stops with the daemon refusal', () async {
+    backend.recordings[task] = SessionRecording(<String>['a', 'b']);
+    backend.screenBeforeRefusals[task] = const VarlinkException('org.fuin.porelo.Tasks1.NoSuchLog');
+    final output = earlier(1);
+
+    await output.more();
+
+    expect(output.end, EarlierEnd.failed);
+    expect(output.problem, contains('NoSuchLog'));
+    expect(backend.screensAsked[task], 2);
+    expect(backend.screenBeforeSizes[task], hasLength(2));
+  });
+
   // Harm: a recording of a million lines is held whole, and the window's memory grows without bound.
   test('it stops at its limit, says it is full and asks for no more', () async {
     backend.recordings[task] = SessionRecording(<String>[for (var i = 0; i < 60000; i++) 'output $i']);
@@ -93,7 +154,7 @@ void main() {
       backend.recordings[task] = SessionRecording(recorded);
       final held = <String>[...recorded.sublist(3500)];
       held[1000] = 'redrawn differently';
-      backend.screens[task] = Screen(lines: held, live: true);
+      backend.screens[task] = Screen(of: '', lines: held, live: true);
       final output = earlier(2500);
       await output.more();
       expect(output.lines.last, 'output 4500', reason: 'the differing line is shown, the lines after it are not');

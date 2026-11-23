@@ -1298,7 +1298,7 @@ class PoreloClient {
 
   /// Reads a task's log once.
   Future<List<String>> readLog(String task, String log) async =>
-      _linesOf(await _call('Tail', {'task': task, 'log': log}));
+      _chunkOf(await _call('Tail', {'task': task, 'log': log})).lines;
 
   /// Follows a task's log as it is written.
   ///
@@ -1309,7 +1309,7 @@ class PoreloClient {
       _callMore('Tail', {'task': task, 'log': log, 'last': ?last, if (formatted) 'formatted': true}).map(_chunkOf);
 
   /// The [lines] of a task's log that lie just before the byte position [before], which `Tail` or an earlier
-  /// call of this gave as its offset; [lines] is 1 to 1000.
+  /// call of this gave as its offset, in the log [of] names; [lines] is 1 to 1000.
   ///
   /// A page, not a stream. A log replaced by a new run is the `NoSuchLog` refusal, which the caller answers by
   /// reading from `Tail` again; any other refusal is raised as it came. A reply missing a part is a
@@ -1317,6 +1317,7 @@ class PoreloClient {
   Future<LogPage> logBefore(
     String task,
     String log, {
+    required String of,
     required int before,
     required int lines,
     bool formatted = false,
@@ -1325,6 +1326,7 @@ class PoreloClient {
     final reply = await _call('LogBefore', {
       'task': task,
       'log': log,
+      'of': of,
       'before': before,
       'lines': lines,
       if (formatted) 'formatted': true,
@@ -1344,13 +1346,24 @@ class PoreloClient {
       Screen.from(await _call('Screen', {'task': task, 'last': last, if (escapes) 'escapes': true}));
 
   /// The lines of [task]'s terminal session that lie before the byte position [before], at most [lines] of them (1 to
-  /// 1000), from the recording the daemon keeps. [before] is the `end` of [screen] or the offset of the page before.
+  /// 1000), from the recording [of] names. [before] is the `end` of [screen] or the offset of the page before.
   ///
   /// Every answer the daemon refuses with, a method it does not serve included, stays its own [VarlinkException].
-  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false}) async =>
-      ScreenPage.from(
-        await _call('ScreenBefore', {'task': task, 'before': before, 'lines': lines, if (escapes) 'escapes': true}),
-      );
+  Future<ScreenPage> screenBefore(
+    String task, {
+    required String of,
+    required int before,
+    required int lines,
+    bool escapes = false,
+  }) async => ScreenPage.from(
+    await _call('ScreenBefore', {
+      'task': task,
+      'of': of,
+      'before': before,
+      'lines': lines,
+      if (escapes) 'escapes': true,
+    }),
+  );
 
   /// What [task] used, as far as its agent's requests reported it, without network access.
   Future<Usage> usage(String task) async {
@@ -2129,12 +2142,14 @@ class PoreloClient {
     return tasks is List ? tasks.whereType<Map<String, dynamic>>().map(Task.from).toList() : const [];
   }
 
-  // A reply without the position of its first line is malformed: read as a log with nothing before it, it would
-  // hide the lines that lie earlier.
+  // Without the log name and position, earlier lines cannot be asked for safely.
   static LogChunk _chunkOf(Map<String, dynamic> reply) {
     final offset = reply['offset'];
-    if (offset is! int) throw const FormatException('Tail answered without the offset of its first line');
-    return LogChunk(_linesOf(reply), offset: offset);
+    final of = reply['of'];
+    if (offset is! int || of is! String) {
+      throw const FormatException('Tail answered without the offset of its first line or its log name');
+    }
+    return LogChunk(_linesOf(reply), offset: offset, of: of);
   }
 
   static List<String> _linesOf(Map<String, dynamic> reply) {

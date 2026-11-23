@@ -98,6 +98,75 @@ void main() {
     expect(backend.logBeforeAsked, hasLength(3), reason: 'nothing is asked for once the start is reached');
   });
 
+  // Harm: a bounded first Tail reply is mistaken for the whole log and hides its earlier lines.
+  testWidgets('a first tail reply shorter than last still offers paging before its byte position', (tester) async {
+    await open(tester, earlier: 2500, printed: lines(200));
+    expect(backend.tailsAsked.single.last, Logs.firstLines);
+    expect(tail.lines.length, lessThan(Logs.firstLines));
+    expect(tail.wantsOlder, isTrue);
+    expect(shows('log-start'), isFalse);
+
+    await toTheTop(tester);
+
+    expect(backend.logBeforeAsked.single, (before: backend.positionOf(2500), lines: 1000));
+    expect(backend.logBeforeNames.single, backend.logOf);
+    expect(tail.lines.first, 'earlier 1501');
+  });
+
+  // Harm: a new run's name is paired with an old position or old lines, mixing two runs or refusing scroll-back.
+  for (final earlier in <int>[2500, 3500]) {
+    testWidgets('a new tail name replaces the old run with $earlier earlier lines', (tester) async {
+      await open(tester, earlier: 2500, printed: lines(200));
+      final before = tail.start!;
+      final oldName = backend.logOf;
+      backend.replaceTheLog(<String>[for (var at = 1; at <= earlier; at++) 'earlier $at']);
+      final newest = lines(200, 'new run');
+      feed(newest);
+      await World.settle(tester);
+
+      final newestPosition = backend.positionOf(earlier);
+      expect(tail.start, newestPosition);
+      if (earlier == 2500) {
+        expect(tail.start, before, reason: 'the same offset can belong to another log');
+      } else {
+        expect(tail.start, isNot(before), reason: 'the new name must retain its own position');
+      }
+      expect(tail.lines, newest, reason: 'no line of the previous run stays');
+      await toTheTop(tester);
+
+      expect(backend.logBeforeAsked.single.before, newestPosition);
+      expect(backend.logBeforeNames.single, backend.logOf);
+      expect(backend.logBeforeNames.single, isNot(oldName));
+      expect(shows('log-older-failed'), isFalse);
+    });
+  }
+
+  // Harm: a page or refusal arriving for the old run mixes its lines into, or restarts, the new run.
+  for (final refused in <bool>[false, true]) {
+    testWidgets('a pending old page with refusal $refused cannot change the new run', (tester) async {
+      await open(tester, earlier: 2500, printed: lines(200));
+      backend.logBeforeHeld = Completer<void>();
+      final pending = logs.readOlder(tail);
+      await tester.pump();
+      expect(tail.older, OlderLines.loading);
+      backend.replaceTheLog(<String>[for (var at = 1; at <= 2500; at++) 'earlier $at']);
+      final newest = lines(200, 'new run');
+      feed(newest);
+      await World.settle(tester);
+      if (refused) {
+        backend.logBeforeRefusal = const VarlinkException('org.fuin.porelo.Tasks1.NoSuchLog');
+      }
+      backend.logBeforeHeld!.complete();
+      await pending;
+      await World.settle(tester);
+
+      expect(tail.lines, newest);
+      expect(backend.tailsAsked, hasLength(1), reason: 'the old answer cannot start another Tail');
+      expect(tail.older, OlderLines.idle);
+      expect(tail.problem, isNull);
+    });
+  }
+
   // Harm: lines put in front move the lines being read, so a person who scrolled up loses their place.
   testWidgets('what is read stays where it was when earlier lines arrive above it', (tester) async {
     await open(tester, earlier: 100, printed: lines(200));
@@ -182,16 +251,25 @@ void main() {
   // Harm: after a new run replaced the log, its old lines stay mixed with the new run's, or the view stays failed.
   testWidgets('a log replaced by a new run is read again from its end', (tester) async {
     await open(tester, earlier: 2500, printed: lines(200));
-    backend.replaceTheLog(<String>['new earlier 1', 'new earlier 2']);
+    backend.replaceTheLog(<String>[for (var at = 1; at <= 3000; at++) 'new earlier $at']);
 
     await toTheTop(tester);
     feed(<String>['new run line']);
     await World.settle(tester);
 
     expect(backend.tailsAsked.where((each) => !each.formatted), hasLength(2));
-    expect(tail.lines, <String>['new earlier 1', 'new earlier 2', 'new run line'], reason: 'the old run is gone');
+    expect(tail.lines, <String>[
+      for (var at = 2001; at <= 3000; at++) 'new earlier $at',
+      'new run line',
+    ], reason: 'the old run is gone');
+    expect(
+      backend.logBeforeNames.first,
+      isNot(backend.logOf),
+      reason: 'the stale name is refused even within the new log',
+    );
+    expect(backend.logBeforeNames.last, backend.logOf);
     expect(backend.logBeforeAsked.last, (
-      before: backend.positionOf(2),
+      before: backend.positionOf(3000),
       lines: 1000,
     ), reason: 'a short view reads the new log back');
     expect(shows('log-replaced'), isTrue);

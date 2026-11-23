@@ -303,8 +303,13 @@ class _Wedged implements FleetBackend {
       throw const FeatureNotSupported('Screen');
 
   @override
-  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false}) async =>
-      throw const FeatureNotSupported('ScreenBefore');
+  Future<ScreenPage> screenBefore(
+    String task, {
+    required String of,
+    required int before,
+    required int lines,
+    bool escapes = false,
+  }) async => throw const FeatureNotSupported('ScreenBefore');
 
   @override
   Future<Usage> usage(String task) async => throw const FeatureNotSupported('Usage');
@@ -327,6 +332,7 @@ class _Wedged implements FleetBackend {
   Future<LogPage> logBefore(
     String task,
     String log, {
+    required String of,
     required int before,
     required int lines,
     bool formatted = false,
@@ -806,8 +812,13 @@ class _Machine implements FleetBackend {
       throw const FeatureNotSupported('Screen');
 
   @override
-  Future<ScreenPage> screenBefore(String task, {required int before, required int lines, bool escapes = false}) async =>
-      throw const FeatureNotSupported('ScreenBefore');
+  Future<ScreenPage> screenBefore(
+    String task, {
+    required String of,
+    required int before,
+    required int lines,
+    bool escapes = false,
+  }) async => throw const FeatureNotSupported('ScreenBefore');
 
   @override
   Future<Usage> usage(String task) async => throw const FeatureNotSupported('Usage');
@@ -830,6 +841,7 @@ class _Machine implements FleetBackend {
   Future<LogPage> logBefore(
     String task,
     String log, {
+    required String of,
     required int before,
     required int lines,
     bool formatted = false,

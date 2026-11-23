@@ -30,14 +30,20 @@ void main() {
     addTearDown(daemon.stop);
     asked = <Map<String, dynamic>>[];
     handed.clear();
-    daemon.pushes('Tail', (parameters) async* {
+    daemon.stream('Tail', (parameters) async* {
       final last = parameters['last'] as int?;
       final first = last == null || last >= log.length ? 0 : log.length - last;
       handed.add(starts[first]);
-      yield <String, dynamic>{'lines': log.sublist(first), 'offset': starts[first]};
+      yield <String, dynamic>{'lines': log.sublist(first), 'offset': starts[first], 'of': 'log-reading'};
     });
     daemon.method('LogBefore', (parameters) {
       asked.add(parameters);
+      if (parameters['of'] is! String) {
+        throw const MockRefusal('org.fuin.porelo.Tasks1.InvalidParameter', {'parameter': 'of'});
+      }
+      if (parameters['of'] != 'log-reading') {
+        throw const MockRefusal('org.fuin.porelo.Tasks1.NoSuchLog');
+      }
       final before = parameters['before'];
       final lines = parameters['lines'];
       // As the daemon does: only a position it handed out, and a page of 1 to 1000 lines.
@@ -60,15 +66,17 @@ void main() {
     final first = await client.tailLog('t', 'task.log', last: 10).first;
 
     expect(first.lines.first, 'line 16');
+    expect(first.of, 'log-reading');
     expect(first.offset, starts[15], reason: 'a byte position, not a line number');
   });
 
   // Harm: a Tail reply without the position of its first line is read as a log with nothing before it, hiding
   // the lines that lie earlier.
   test('a tail reply without a position is malformed, never a log without earlier lines', () async {
-    daemon.pushes('Tail', (_) async* {
+    daemon.stream('Tail', (_) async* {
       yield <String, dynamic>{
         'lines': <String>['a'],
+        'of': 'log-reading',
       };
     });
     final client = await connect();
@@ -76,23 +84,64 @@ void main() {
     await expectLater(client.tailLog('t', 'task.log').first, throwsA(isA<FormatException>()));
   });
 
+  // Harm: paging without the log's name is refused, including after a valid first chunk.
+  test('every tail chunk requires its log name', () async {
+    for (final invalid in <Object?>[null, 12]) {
+      daemon.stream('Tail', (_) async* {
+        yield <String, dynamic>{
+          'lines': <String>['first'],
+          'offset': 10,
+          'of': 'log-reading',
+        };
+        yield <String, dynamic>{
+          'lines': <String>['later'],
+          'offset': 20,
+          'of': ?invalid,
+        };
+      });
+      final client = await connect();
+      await expectLater(client.tailLog('t', 'task.log').toList(), throwsA(isA<FormatException>()));
+      await expectLater(client.readLog('t', 'task.log'), completes);
+    }
+  });
+
+  // Harm: a first Tail reply without a name is accepted and leaves no usable scroll-back position.
+  test('a first tail reply without its log name is malformed', () async {
+    daemon.stream('Tail', (_) async* {
+      yield <String, dynamic>{
+        'lines': <String>['first'],
+        'offset': 10,
+      };
+    });
+    final client = await connect();
+    await expectLater(client.tailLog('t', 'task.log').first, throwsA(isA<FormatException>()));
+    await expectLater(client.readLog('t', 'task.log'), throwsA(isA<FormatException>()));
+  });
+
   // Harm: pages overlap or leave a gap, or the log's start is never reported and the view asks for ever.
   test('pages walk back from the position Tail gave, each from the last offset, to the start', () async {
     final client = await connect();
     final tail = await client.tailLog('t', 'task.log', last: 10).first;
 
-    final second = await client.logBefore('t', 'task.log', before: tail.offset, lines: 10);
+    final second = await client.logBefore('t', 'task.log', of: tail.of, before: tail.offset, lines: 10);
     expect(second.lines, log.sublist(5, 15));
     expect(second.offset, starts[5]);
     expect(second.atStart, isFalse);
 
-    final third = await client.logBefore('t', 'task.log', before: second.offset, lines: 10);
+    final third = await client.logBefore('t', 'task.log', of: tail.of, before: second.offset, lines: 10);
     expect(third.lines, log.sublist(0, 5));
     expect(third.offset, 0);
     expect(third.atStart, isTrue);
 
+    expect(asked.map((each) => each['of']), everyElement(tail.of));
     expect(asked.map((each) => each['before']), <int>[starts[15], starts[5]]);
-    expect(asked.first.keys.toSet(), <String>{'task', 'log', 'before', 'lines'}, reason: 'formatted only when asked');
+    expect(asked.first.keys.toSet(), <String>{
+      'task',
+      'log',
+      'of',
+      'before',
+      'lines',
+    }, reason: 'formatted only when asked');
   });
 
   // Harm: a formatted log's earlier lines come raw, so scrolling up changes what the lines look like.
@@ -100,7 +149,7 @@ void main() {
     final client = await connect();
     final tail = await client.tailLog('t', 'task.log', last: 10).first;
 
-    await client.logBefore('t', 'task.log', before: tail.offset, lines: 5, formatted: true);
+    await client.logBefore('t', 'task.log', of: tail.of, before: tail.offset, lines: 5, formatted: true);
 
     expect(asked.single['formatted'], isTrue);
   });
@@ -111,7 +160,7 @@ void main() {
     final client = await connect();
 
     await expectLater(
-      client.logBefore('t', 'task.log', before: 10, lines: 5),
+      client.logBefore('t', 'task.log', of: 'log-reading', before: 10, lines: 5),
       throwsA(isA<VarlinkException>().having((refusal) => refusal.simpleName, 'simpleName', 'MethodNotImplemented')),
     );
   });
@@ -122,7 +171,7 @@ void main() {
     final client = await connect();
 
     await expectLater(
-      client.logBefore('t', 'task.log', before: 10, lines: 5),
+      client.logBefore('t', 'task.log', of: 'log-reading', before: 10, lines: 5),
       throwsA(isA<VarlinkException>().having((refusal) => refusal.simpleName, 'simpleName', 'NoSuchLog')),
     );
   });
@@ -133,7 +182,7 @@ void main() {
 
     await expectLater(
       // A line number, as a client that counts lines would send, is no position the daemon handed out.
-      client.logBefore('t', 'task.log', before: 15, lines: 5),
+      client.logBefore('t', 'task.log', of: 'log-reading', before: 15, lines: 5),
       throwsA(isA<VarlinkException>().having((refusal) => refusal.simpleName, 'simpleName', 'InvalidParameter')),
     );
   });
@@ -149,15 +198,18 @@ void main() {
     );
     final client = await connect();
 
-    await expectLater(client.logBefore('t', 'task.log', before: 10, lines: 5), throwsA(isA<FormatException>()));
+    await expectLater(
+      client.logBefore('t', 'task.log', of: 'log-reading', before: 10, lines: 5),
+      throwsA(isA<FormatException>()),
+    );
   });
 
   // Harm: a page size the daemon refuses is sent anyway and comes back as a refusal the person cannot act on.
   test('a page of no lines or more than a thousand is not asked for', () async {
     final client = await connect();
 
-    expect(() => client.logBefore('t', 'task.log', before: 10, lines: 0), throwsRangeError);
-    expect(() => client.logBefore('t', 'task.log', before: 10, lines: 1001), throwsRangeError);
+    expect(() => client.logBefore('t', 'task.log', of: 'log-reading', before: 10, lines: 0), throwsRangeError);
+    expect(() => client.logBefore('t', 'task.log', of: 'log-reading', before: 10, lines: 1001), throwsRangeError);
     expect(asked, isEmpty);
   });
 }

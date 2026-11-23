@@ -9,6 +9,7 @@ import '../support/world.dart';
 Future<void> theTerminalOfShows(WidgetTester tester, String work, String line) async {
   // As Claude Code's screen looks: more lines than the tile shows, box drawing, an emoji, the prompt.
   World.backend.screens[work] = Screen(
+    of: '',
     lines: <String>[
       '─' * 120,
       '📁 /workspace  ✻ Welcome',
