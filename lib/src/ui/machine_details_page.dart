@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/commands.dart';
 import '../app/machines.dart';
 import '../app/fleet_model.dart';
+import '../wire/limit_factors.dart';
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
 import 'machine_switcher.dart';
@@ -78,6 +79,31 @@ class MachineDetailsPage extends StatelessWidget {
   /// Whether it stands inside a machine's one page, which has the way back and the name.
   final bool embedded;
 
+  /// What the window's waits for this machine follow, said only where it departs from the factors Porelo sets: none
+  /// given by a Porelo too old to give them, or factors other than 1.0.
+  Widget? _limits(FleetModel? fleet) {
+    if (fleet == null || fleet.reachability != Reachability.connected) return null;
+    if (fleet.limitsProblem case final problem?) {
+      return Text(
+        'Its limit factors could not be read ($problem), so this window waits for it as it last knew.',
+        key: const Key('machine-limits'),
+      );
+    }
+    if (!fleet.gaveLimits) {
+      return const Text(
+        'Its Porelo gives no limit factors, so this window waits for it as by default (1.0).',
+        key: Key('machine-limits'),
+      );
+    }
+    final factors = machineLimits.of(machine.name);
+    if (factors.isStandard) return null;
+    return Text(
+      'Time limits from its Porelo: services ${factors.services}, machines ${factors.machines}, polling '
+      '${factors.polling}, retries ${factors.retries}.',
+      key: const Key('machine-limits'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final menu = CommandMenu(
@@ -119,6 +145,7 @@ class MachineDetailsPage extends StatelessWidget {
                         ? 'Not connected; last known state'
                         : 'This window does not reach its Porelo now; last known state')),
         ),
+      ?_limits(machines.watching(machine)),
       ?tools,
       // Inside a machine's one page its projects join the page's one list of them, with the organization's.
       if (!embedded)

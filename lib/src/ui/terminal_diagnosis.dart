@@ -13,6 +13,7 @@ import '../app/pty.dart';
 import '../app/wsl.dart';
 import 'tokens.dart';
 import 'terminal_look.dart';
+import '../wire/limit_factors.dart';
 
 /// Sends [bytes] into a WSL distribution and answers what `od -c` read there.
 typedef ThroughWsl = Future<String> Function(String distribution, List<int> bytes, {required bool pseudoconsole});
@@ -132,7 +133,7 @@ class _TerminalDiagnosisState extends State<TerminalDiagnosis> {
         distribution,
         bytes,
         pseudoconsole: pseudoconsole,
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(machineWait(const Duration(seconds: 30)));
       _say('od -c read in $distribution:\n$read');
     } on Object catch (failed) {
       _say('could not be sent: $failed');
@@ -296,7 +297,7 @@ Future<String> throughWslForReal(
   // Given a moment to set the terminal raw before anything arrives.
   await Future<void>.delayed(const Duration(seconds: 2));
   channel.send(String.fromCharCodes(bytes));
-  await channel.ended.timeout(const Duration(seconds: 20), onTimeout: () => -1);
+  await channel.ended.timeout(machineWait(const Duration(seconds: 20)), onTimeout: () => -1);
   await reading.cancel();
   await channel.close();
   return read.toString();

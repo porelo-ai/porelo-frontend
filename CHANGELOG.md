@@ -166,6 +166,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The window's time limits for a machine follow the factors its Porelo sets: every wait for an answer from outside (`services`) and for a program, container or machine (`machines`) is its default times that machine's factor, read from its daemon once per connection; the limits tied to no machine follow this computer's. A machine whose Porelo gives no factors runs at 1.0, and its details say so; factors other than 1.0 are named there too.
 - A project a host carries, whose room is not set up yet, offers *Set up the room, taking the project here* on its page. The room is set up before the first task and then opens. A refusal says the machine's words.
 - A remote host's provider row offers *Import from this computer…*. A small dialog lists this computer's vault entries and the local agents' own sign-ins for that provider, never their values. Those that cannot go are greyed with the reason. The one picked is carried to the host's vault, sealed to the host's one-use key, so the window passes only ciphertext.
 - *Import from this computer…* speaks porelo's interface for carrying a credential (`ImportableCredentials`, `CredentialReceiver`, `SealCredential`, `ReceiveCredential`) parameter by parameter and field by field, and once the dialog closes the host's providers are read again, so a provider whose credential was carried reads as authenticated.

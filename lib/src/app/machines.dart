@@ -14,6 +14,7 @@ import 'package:porelo_frontend/client.dart';
 import 'fleet_backend.dart';
 import 'fleet_model.dart';
 import 'host_keys.dart';
+import '../wire/limit_factors.dart';
 import 'loopback_carrier.dart';
 import 'machine_setup.dart';
 import 'tunnel.dart';
@@ -314,7 +315,7 @@ class Machine {
         '-T',
         if (kind != 'host') ...<String>['-o', 'BatchMode=yes'],
         '-o',
-        'ServerAliveInterval=15',
+        'ServerAliveInterval=${machineSeconds(15, machine: name)}',
         if (kind != 'host') ...<String>['-o', 'ControlMaster=no', '-o', 'ControlPath=none'],
         '--',
         host,
@@ -566,7 +567,7 @@ class Machines extends ChangeNotifier {
       final connection = await Socket.connect(
         InternetAddress(socket, type: InternetAddressType.unix),
         0,
-      ).timeout(const Duration(seconds: 1));
+      ).timeout(serviceWait(const Duration(seconds: 1)));
       connection.destroy();
       return true;
     } on Object {
@@ -576,7 +577,7 @@ class Machines extends ChangeNotifier {
 
   /// How [machine] is spoken to over its socket: a start asks for a certificate unless it is this computer.
   static FleetBackend overSocket(Machine machine) =>
-      PoreloBackend(backendFor(machine), asksToCertify: !machine.isThisComputer);
+      PoreloBackend(backendFor(machine), asksToCertify: !machine.isThisComputer, machine: machine.name);
 
   /// Where [machine]'s daemon is: its socket, or the relay into its WSL distribution, which is
   /// asked before each connection whether the distribution runs.
@@ -622,7 +623,7 @@ class Machines extends ChangeNotifier {
     VarlinkConnection? connection;
     try {
       connection = await (open ?? backendFor(machine).open)();
-      await connection.call('org.varlink.service.GetInfo').timeout(within);
+      await connection.call('org.varlink.service.GetInfo').timeout(serviceWait(within, machine: machine.name));
       return true;
     } on Object {
       return false;
@@ -1016,6 +1017,8 @@ class Machines extends ChangeNotifier {
   }
 
   void _open(Machine machine) {
+    // This computer's own machine gives the factors of every limit tied to no machine.
+    if (machine.isAlwaysListed) machineLimits.local = machine.name;
     final fleet = FleetModel(
       _reach(machine),
       machine: machine.name,

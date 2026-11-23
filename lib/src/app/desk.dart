@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:porelo_frontend/src/client/environment.dart';
 
+import '../wire/limit_factors.dart';
+
 /// Runs a program and answers what it printed. Injectable, so a test records what would run.
 typedef RunProgram = Future<ProcessResult> Function(String executable, List<String> arguments);
 
@@ -233,7 +235,7 @@ Future<ProcessResult> runOpener(
     onError: (Object _) => saying.isCompleted ? null : saying.complete(),
     cancelOnError: true,
   );
-  final code = await process.exitCode.timeout(patience, onTimeout: () => 0);
+  final code = await process.exitCode.timeout(machineWait(patience), onTimeout: () => 0);
   // What it said before it ended, without waiting on a program it left holding the stream.
   await saying.future.timeout(const Duration(seconds: 1), onTimeout: () {});
   await listening.cancel();

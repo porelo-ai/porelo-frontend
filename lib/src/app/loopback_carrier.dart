@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:porelo_frontend/client.dart' show RelayAdmission, RelayPlace, RelayUse;
 
+import '../wire/limit_factors.dart';
+
 /// A service of a host's card that the window carries a loopback port to, named by the role the host maps to its one
 /// fixed socket: the host's relay command takes the role alone, never a path.
 enum CarriedRole {
@@ -388,7 +390,7 @@ class LoopbackCarrier {
   }
 
   /// How long [release] waits for the connections' processes to exit.
-  static const exitWithin = Duration(seconds: 5);
+  static Duration get exitWithin => machineWait(const Duration(seconds: 5));
 
   /// Closes every listener and every connection, and ends each connection's process, waiting up to [exitWithin] for
   /// them to exit.
@@ -444,7 +446,7 @@ class _Carried {
   static const _mostPerRead = 16 * 1024;
 
   Future<void> start() async {
-    _handshake = Timer(carrier.budget.handshake, end);
+    _handshake = Timer(serviceWait(carrier.budget.handshake), end);
     client.readEventsEnabled = false;
     _events = client.listen(_event, onError: (Object _) => end(), onDone: end);
     final Process process;
@@ -471,7 +473,7 @@ class _Carried {
     unawaited(
       process.exitCode.then<void>((code) {
         if (!cut) carrier.onExit?.call(role, code);
-        Timer(const Duration(seconds: 2), end);
+        Timer(machineWait(const Duration(seconds: 2)), end);
       }, onError: (Object _) => end()),
     );
     _output = process.stdout.listen(
@@ -515,7 +517,7 @@ class _Carried {
     if (_toProcess < carrier.budget.bufferedBytes) return;
     client.readEventsEnabled = false;
     // Not even the client's end is seen until it reads again, so a child that never takes its bytes ends it.
-    _stall = Timer(carrier.budget.stalled, end);
+    _stall = Timer(serviceWait(carrier.budget.stalled), end);
     process.stdin.flush().then<void>((_) {
       _stall?.cancel();
       _toProcess = 0;
@@ -580,7 +582,7 @@ class _Carried {
     process.kill();
     process.exitCode
         .timeout(
-          const Duration(seconds: 2),
+          machineWait(const Duration(seconds: 2)),
           onTimeout: () {
             process.kill(ProcessSignal.sigkill);
             return process.exitCode;

@@ -13,6 +13,8 @@ import 'settings.dart';
 
 import 'package:porelo_frontend/src/app/desk.dart';
 
+import '../wire/limit_factors.dart';
+
 /// The current person's public identity selected by Core for their local SSH agent.
 class PersonAgentIdentity {
   /// Holds a public key and its public identity file; no private key is imported.
@@ -233,7 +235,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     '-o',
     'ForwardAgent=no',
     '-o',
-    'ConnectTimeout=10',
+    'ConnectTimeout=${machineSeconds(10)}',
     'root@$host',
     'bash',
     '-s',
@@ -259,7 +261,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       '-o',
       'ForwardAgent=no',
       '-o',
-      'ConnectTimeout=10',
+      'ConnectTimeout=${machineSeconds(10)}',
       'root@$host',
       'bash',
       '-s',
@@ -285,11 +287,12 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     final streams = Future.wait(<Future<void>>[follow(process.stdout, out), follow(process.stderr, err)])..ignore();
     final int code;
     try {
-      code = await process.exitCode.timeout(limit);
+      code = await process.exitCode.timeout(machineWait(limit));
     } on TimeoutException {
       await stopOwnedProcess(process).catchError((Object _) {});
       await streams.timeout(const Duration(seconds: 2), onTimeout: () => const <void>[]);
-      final within = limit.inMinutes >= 1 ? '${limit.inMinutes} minutes' : '${limit.inSeconds} seconds';
+      final bound = machineWait(limit);
+      final within = bound.inMinutes >= 1 ? '${bound.inMinutes} minutes' : '${bound.inSeconds} seconds';
       const then = 'Check that this computer still reaches it, then try again.';
       final ended = 'The machine gave no answer within $within and the command was ended. $then';
       err.writeln(ended);
@@ -311,7 +314,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     '-o',
     'ForwardAgent=no',
     '-o',
-    'ConnectTimeout=10',
+    'ConnectTimeout=${machineSeconds(10)}',
     '--',
     alias,
     command,
@@ -326,7 +329,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       '-o',
       'ForwardAgent=no',
       '-o',
-      'ConnectTimeout=10',
+      'ConnectTimeout=${machineSeconds(10)}',
       '--',
       alias,
       command,
@@ -343,7 +346,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       '-o',
       'ForwardAgent=no',
       '-o',
-      'ConnectTimeout=10',
+      'ConnectTimeout=${machineSeconds(10)}',
       '--',
       alias,
       'umask 077 && /usr/bin/base64 -d > ${quoteForAShell(path)}',
@@ -490,7 +493,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       '-o',
       'ForwardAgent=no',
       '-o',
-      'ConnectTimeout=10',
+      'ConnectTimeout=${machineSeconds(10)}',
       'root@$host',
       'true',
     ]);

@@ -11,6 +11,7 @@ import 'outcome_words.dart' show resumedFromWords, startedFromWords;
 import 'owned_process.dart';
 import 'start_refusals.dart' show startRefusalSaid;
 import 'task_certifying.dart';
+import '../wire/limit_factors.dart';
 
 /// Core's public result, independent of SSH authentication or daemon readiness.
 enum HostUnlockState {
@@ -110,8 +111,9 @@ class CoreHostUnlocker implements HostUnlocker {
         return const HostUnlockResult(HostUnlockState.refused, 'Machine unlock was cancelled.');
       }
       _children[host] = process;
-      final code = await process.exitCode.timeout(deadline);
-      final vault = _vault(await answer.timeout(deadline));
+      final bound = serviceWait(deadline);
+      final code = await process.exitCode.timeout(bound);
+      final vault = _vault(await answer.timeout(bound));
       return switch ((code, vault)) {
         (0, 'open') => const HostUnlockResult(HostUnlockState.unlocked),
         (77, 'other-key') => const HostUnlockResult(
@@ -427,6 +429,9 @@ abstract class FleetBackend {
   /// `Machines`.
   Future<String> node();
 
+  /// The limits line of this machine: the four factors its time limits follow.
+  Future<String> limitsLine();
+
   /// Removes what Porelo built for a project, or says what it would remove.
   ///
   /// **Never the project file, the checkout or the upstream**: those are the operator's, and
@@ -721,7 +726,10 @@ abstract interface class SetsUpRooms {
 /// A real Porelo daemon, local or forwarded.
 class PoreloBackend implements CarryingBackend, SetsUpRooms {
   /// Constructor taking where the daemon is.
-  PoreloBackend(this.backend, {this.certify = certifyHere, this.asksToCertify = true});
+  PoreloBackend(this.backend, {this.certify = certifyHere, this.asksToCertify = true, this.machine});
+
+  /// The machine it is, whose factors its calls' bounds follow; this computer's for null.
+  final String? machine;
 
   /// Whether a start asks the person's computer for its certificate: on a machine not its own only,
   /// as the daemon's contract has it. This computer's own daemon starts as the command line does.
@@ -740,7 +748,7 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
 
   @override
   Future<ServiceInfo> open() async {
-    final client = await PoreloClient.connect(backend);
+    final client = await PoreloClient.connect(backend, machine: machine);
     _client = client;
     // Another Porelo may answer now: what its `Tail` takes is asked again.
     _tailTakes = null;
@@ -1186,6 +1194,9 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
 
   @override
   Future<String> node() => _opened().node();
+
+  @override
+  Future<String> limitsLine() => _opened().limitsLine();
 
   @override
   Future<Deletion> removeProject(String project, {bool? dryRun, bool? force}) =>

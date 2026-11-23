@@ -36,6 +36,7 @@ import '../wire/varlink_exception.dart';
 import 'organization_access_dialogs.dart' show planningForgeHost, prepareForgeForPlanning;
 import 'planning_reports.dart';
 import 'start_work_view.dart' show StartAgentChoice;
+import '../wire/limit_factors.dart';
 
 /// What the planning place says where the window was given no planning: planning is the planner's, not the window's.
 const planningNotReached = 'Planning comes from porelo-planner, which this window does not reach yet.';
@@ -712,7 +713,8 @@ class MachinePlanningAgents implements PlanningAgents {
       if (backend == null) throw StateError('${machine.name} is not answering yet: it is being opened.');
       final listed = await backend.agentsOn();
       final models = await Future.wait([
-        for (final agent in listed.agents) _modelsOf(backend, agent, machine.name, modelsWait),
+        for (final agent in listed.agents)
+          _modelsOf(backend, agent, machine.name, serviceWait(modelsWait, machine: machine.name)),
       ]);
       return PlanningAgentList([
         for (final (index, agent) in listed.agents.indexed)

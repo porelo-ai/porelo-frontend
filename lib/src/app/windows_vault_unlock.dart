@@ -13,6 +13,7 @@ import 'fleet_backend.dart' show CoreHostUnlocker, HostUnlockResult, HostUnlockS
 import 'desk.dart' show desk;
 import 'machines.dart' show openSsh;
 import 'owned_process.dart';
+import '../wire/limit_factors.dart';
 
 /// The unlocker of this computer: the window's own on Windows, where Core's `host unlock` does not run, Core's
 /// elsewhere.
@@ -597,8 +598,9 @@ class WindowsHostUnlocker implements HostUnlocker {
       } on Object {
         // It ended before taking its input; its exit says why.
       }
-      final code = await process.exitCode.timeout(deadline);
-      final said = await out.timeout(deadline);
+      final bound = serviceWait(deadline);
+      final code = await process.exitCode.timeout(bound);
+      final said = await out.timeout(bound);
       _stillWanted(run);
       return (code: code, out: said);
     } on TimeoutException {

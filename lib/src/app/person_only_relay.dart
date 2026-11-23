@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'forward_records.dart' show accountUid;
+import '../wire/limit_factors.dart';
 
 /// Binds one loopback port of the window's own, for a test to stand in.
 typedef BindRelayPort = Future<ServerSocket> Function(InternetAddress address, int port);
@@ -132,7 +133,7 @@ class PersonOnlyRelay {
       upstream = await Socket.connect(
         InternetAddress(to, type: InternetAddressType.unix),
         0,
-        timeout: const Duration(seconds: 5),
+        timeout: serviceWait(const Duration(seconds: 5)),
       );
     } on SocketException {
       _open.remove(client);

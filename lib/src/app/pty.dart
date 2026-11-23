@@ -7,6 +7,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import '../wire/limit_factors.dart';
+
 /// A byte channel to something running at the far end, and the two things a terminal needs
 /// beyond bytes: a size, and an ending.
 ///
@@ -57,6 +59,7 @@ Future<void> endedAfterClose(
   Duration bound = closeBound,
   Future<void> Function()? end,
 }) async {
+  bound = machineWait(bound);
   try {
     await settled.timeout(bound);
   } on TimeoutException {
@@ -299,7 +302,9 @@ class Pty implements DrainingSessionChannel {
     _shut = true;
     _signal(signal);
     // A normal window close gives the command a chance to handle SIGHUP.
-    final escalation = signal == _sighup ? Timer(const Duration(seconds: 1), () => _signal(_sigkill)) : null;
+    final escalation = signal == _sighup
+        ? Timer(machineWait(const Duration(seconds: 1)), () => _signal(_sigkill))
+        : null;
     final drained = Future.wait<Object?>([_ended, _output.done]).then((_) {
       _Libc(DynamicLibrary.process()).close(_master);
     });

@@ -26,6 +26,7 @@ import 'planner_log_level.dart';
 import 'porelo_executable.dart';
 import 'report_at_planner.dart';
 import 'window_log.dart' show LogLevel, windowLog;
+import '../wire/limit_factors.dart';
 
 /// Where the package puts the planner, which the window starts as it needs it.
 const plannerInstalled = '/usr/libexec/porelo/planner';
@@ -446,9 +447,11 @@ class LocalPlanner extends ChangeNotifier
         _offered = true;
         return _say('porelo-planner ended with exit code $code before it said where it answers.');
       }
-      if (waited.elapsed >= wait) {
+      if (waited.elapsed >= machineWait(wait)) {
         _offered = true;
-        return _say('porelo-planner was started, but did not say where it answers within ${wait.inSeconds} s.');
+        return _say(
+          'porelo-planner was started, but did not say where it answers within ${machineWait(wait).inSeconds} s.',
+        );
       }
     }
   }
@@ -637,7 +640,7 @@ class LocalPlanner extends ChangeNotifier
     runZonedGuarded(
       () async {
         try {
-          final socket = await Socket.connect(InternetAddress.loopbackIPv4, port, timeout: probeWait);
+          final socket = await Socket.connect(InternetAddress.loopbackIPv4, port, timeout: serviceWait(probeWait));
           socket.done.ignore();
           socket.destroy();
           if (!answer.isCompleted) answer.complete(false);
@@ -867,14 +870,14 @@ class LocalPlanner extends ChangeNotifier
     // The input of a planner that already ended fails to close, which changes nothing here.
     unawaited(process.stdin.close().then<void>((_) {}, onError: (Object _) {}));
     try {
-      await process.exitCode.timeout(inputEndWait);
+      await process.exitCode.timeout(machineWait(inputEndWait));
     } on TimeoutException {
       windowLog.warn(
-        'porelo-planner, which the window started, did not end within ${inputEndWait.inMilliseconds} ms of its input '
+        'porelo-planner, which the window started, did not end within ${machineWait(inputEndWait).inMilliseconds} ms of its input '
         'closing, so it is ended hard; what it was writing may be lost.',
       );
       process.kill(ProcessSignal.sigkill);
-      await process.exitCode.timeout(const Duration(seconds: 2));
+      await process.exitCode.timeout(machineWait(const Duration(seconds: 2)));
     }
   }
 

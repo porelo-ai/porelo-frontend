@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
 
 import 'pty.dart';
+import '../wire/limit_factors.dart';
 
 /// A Windows pseudoconsole, opened and driven with `dart:ffi` against `kernel32`: the terminal of
 /// a task on Windows, behind the same seam as [Pty] on Linux.
@@ -598,7 +599,7 @@ class ConsoleRelease {
     }
     if (jobEnded) return;
     if (await _closeAway() || _closeHereOnceEnded()) return;
-    await Future<void>.delayed(lastResort);
+    await Future<void>.delayed(machineWait(lastResort));
     if (closing || await _closeAway()) return;
     _closeHereOnceEnded();
   }

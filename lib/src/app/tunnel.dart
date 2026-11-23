@@ -18,6 +18,7 @@ import 'person_only_relay.dart';
 import 'owned_process.dart';
 import 'ssh_words.dart';
 import 'windows_vault_unlock.dart' show hostUnlockerHere;
+import '../wire/limit_factors.dart';
 
 /// What an attempt to start a daemon came back with.
 @immutable
@@ -89,8 +90,8 @@ class Tunnel {
        _connect = connect ?? connectToSocket,
        _launch = start ?? _runIt,
        _tighten = run ?? _runAndWait,
-       _untilItBinds = appears,
-       _untilExplained = explains,
+       _bindsWithin = appears,
+       _explainsWithin = explains,
        _unlocker = unlocker ?? hostUnlockerHere(environment: configEnvironment),
        _budget = budget ?? CarrierBudget();
 
@@ -151,8 +152,12 @@ class Tunnel {
 
   final Future<Process> Function(List<String> command) _launch;
   final Future<ProcessResult> Function(List<String> command) _tighten;
-  final Duration _untilItBinds;
-  final Duration _untilExplained;
+  final Duration _bindsWithin;
+  final Duration _explainsWithin;
+
+  // As this machine's factors make them, read where they are used, so a factor read since applies.
+  Duration get _untilItBinds => machineWait(_bindsWithin, machine: machine.name);
+  Duration get _untilExplained => machineWait(_explainsWithin, machine: machine.name);
 
   /// Lets the owner show a dropped forward and any later refusal explanation.
   final VoidCallback? onChanged;
@@ -183,7 +188,7 @@ class Tunnel {
   bool _turnedAway = false;
 
   /// How long after Prepare the machine may take to make the person's account: its follow runs every five minutes.
-  static const admissionWait = Duration(minutes: 5);
+  static Duration get admissionWait => machineWait(const Duration(minutes: 5));
 
   /// The words while a machine just prepared has not yet made the person's account. It is not a refusal: the
   /// machine makes it on its first follow, which runs within five minutes of Prepare.
@@ -216,7 +221,7 @@ class Tunnel {
           '-N',
           if (machine.kind != 'host') ...<String>['-o', 'BatchMode=yes'],
           '-o', 'ExitOnForwardFailure=yes',
-          '-o', 'ServerAliveInterval=15',
+          '-o', 'ServerAliveInterval=${machineSeconds(15, machine: machine.name)}',
           // A connection of its own, whatever the person's ssh config says: through their master the
           // forward would live in the master, and letting go of this process would leave it running.
           if (machine.kind != 'host') ...<String>['-o', 'ControlMaster=no', '-o', 'ControlPath=none'],
@@ -237,7 +242,7 @@ class Tunnel {
       '-o',
       'ExitOnForwardFailure=yes',
       '-o',
-      'ServerAliveInterval=15',
+      'ServerAliveInterval=${machineSeconds(15, machine: machine.name)}',
       '-o',
       'ServerAliveCountMax=2',
       for (final (port, socket) in card.forwards)
@@ -898,7 +903,7 @@ class Tunnel {
   static int? masterOf(String control) => _mastersHere[control]?._process?.pid;
 
   /// How long a forward left behind is given to stop answering once it was asked to end.
-  static const leftoverEnds = Duration(seconds: 2);
+  static Duration get leftoverEnds => machineWait(const Duration(seconds: 2));
 
   static Duration _leftOf(Stopwatch waited, Duration most) {
     final left = leftoverEnds - waited.elapsed;
@@ -1345,7 +1350,7 @@ class Tunnels extends ChangeNotifier {
           '-n',
           if (machine.kind != 'host') ...<String>['-o', 'BatchMode=yes'],
           '-o',
-          'ConnectTimeout=10',
+          'ConnectTimeout=${machineSeconds(10, machine: machine.name)}',
           machine.host,
           inTheLoginShell(startsIt),
         ];
@@ -1393,7 +1398,7 @@ class Tunnels extends ChangeNotifier {
           '-n',
           if (machine.kind != 'host') ...<String>['-o', 'BatchMode=yes'],
           '-o',
-          'ConnectTimeout=10',
+          'ConnectTimeout=${machineSeconds(10, machine: machine.name)}',
           machine.host,
           inTheLoginShell(stopsIt),
         ];
@@ -1487,7 +1492,7 @@ class Tunnels extends ChangeNotifier {
           '-n',
           if (options.isEmpty) ...<String>['-o', 'BatchMode=yes'],
           '-o',
-          'ConnectTimeout=10',
+          'ConnectTimeout=${machineSeconds(10)}',
           host,
           'id -u',
         ];
@@ -1830,11 +1835,8 @@ Future<ConnectionTask<Socket>> connectToSocket(String path) =>
 
 /// Connects to [path] within [within], and cancels a connection that did not finish in time, so no probe is left
 /// pending.
-Future<SocketProbe> probeSocket(
-  String path,
-  ConnectToSocket connect, {
-  Duration within = const Duration(seconds: 1),
-}) async {
+Future<SocketProbe> probeSocket(String path, ConnectToSocket connect, {Duration? within}) async {
+  within ??= machineWait(const Duration(seconds: 1));
   ConnectionTask<Socket>? task;
   Future<ConnectionTask<Socket>>? pending;
   try {

@@ -189,6 +189,7 @@ import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
 import 'image_settings_view.dart';
+import '../wire/limit_factors.dart';
 
 /// The one window: a rail saying where you are, and that place beside it.
 ///
@@ -4094,7 +4095,7 @@ class _ShellState extends State<Shell> {
       if (fleet?.reachability == Reachability.connected && !answering.isCompleted) answering.complete();
     });
     try {
-      await answering.future.timeout(const Duration(seconds: 30));
+      await answering.future.timeout(machineWait(const Duration(seconds: 30), machine: machine.name));
     } on TimeoutException {
       return;
     } finally {
@@ -7464,7 +7465,7 @@ class _ShellState extends State<Shell> {
           identity: '',
           agentOnly: true,
           agentPublicKey: cardKey,
-          deadline: const Duration(seconds: 30),
+          deadline: machineWait(const Duration(seconds: 30)),
         ),
         address,
       ),

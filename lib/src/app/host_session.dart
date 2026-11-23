@@ -9,6 +9,7 @@ import 'product.dart';
 import 'settings.dart';
 import 'task_certifying.dart';
 import 'host_protocol.dart';
+import '../wire/limit_factors.dart';
 
 /// Uses the chosen, digest-checked collection when supplied. A window that takes snapshots asks for `snapshots`,
 /// whatever channel the installed `porelo-host` was built for; a release window leaves it to that porelo-host.
@@ -63,7 +64,7 @@ Future<({int code, String message})> checkHostScalewayKey({
       process.exitCode,
       process.stdout.transform(utf8.decoder).join(),
       process.stderr.transform(utf8.decoder).join(),
-    ]).timeout(const Duration(seconds: 35));
+    ]).timeout(serviceWait(const Duration(seconds: 35)));
     final code = result[0] as int;
     final errors = (result[2] as String).trim();
     return (
@@ -188,7 +189,7 @@ class HostSession extends ChangeNotifier {
     if (!renting || !identical(process, _process)) return;
     process.kill(ProcessSignal.sigterm);
     try {
-      await process.exitCode.timeout(const Duration(seconds: 2));
+      await process.exitCode.timeout(machineWait(const Duration(seconds: 2)));
     } on TimeoutException {
       throw TimeoutException('Setup did not stop. Keep the interface open and try leaving again.');
     }
@@ -480,6 +481,7 @@ class HostSession extends ChangeNotifier {
   /// A host that connects and then says nothing, as behind a stalled helper's lock, must not hold the person's way out
   /// of a billed server, so the read ends after [within].
   Future<List<HostMembership>> readMemberships({Duration within = const Duration(seconds: 30)}) async {
+    within = serviceWait(within);
     final read = _run(['down', ...arguments, '--memberships']);
     try {
       await read.timeout(within);

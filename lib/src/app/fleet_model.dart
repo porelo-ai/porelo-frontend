@@ -8,6 +8,7 @@ import 'authorizations.dart';
 import 'mailboxes.dart';
 import 'fleet_backend.dart';
 import 'host_pull_requests.dart';
+import '../wire/limit_factors.dart';
 import 'outcome_words.dart';
 import 'start_refusals.dart' show isStartRefusal, startRefusalWords;
 import 'window_log.dart';
@@ -359,6 +360,8 @@ class FleetModel extends ChangeNotifier {
       _reachability = Reachability.connected;
       _answered = true;
       _say('Connected to ${backend.label}, ${info.product} ${info.version}.', LogLevel.info, onItsOwn);
+      await _readLimits();
+      if (_disposed) return;
       // Whatever its watches said before is asked again on this connection.
       pullRequests.reconnected();
       await _readOnce();
@@ -382,6 +385,39 @@ class FleetModel extends ChangeNotifier {
     } on StateError catch (ex) {
       _reachability = Reachability.incompatible;
       _say(ex.message, LogLevel.warn, onItsOwn);
+    }
+  }
+
+  /// Whether the machine gave the four factors its time limits follow; false for one too old to give them, or one not
+  /// read yet, which then runs at 1.0, as its details say.
+  bool get gaveLimits => _gaveLimits;
+  bool _gaveLimits = false;
+
+  /// Why its factors could not be read on the last connection, where they could not.
+  String? get limitsProblem => _limitsProblem;
+  String? _limitsProblem;
+
+  /// Reads the machine's factors once per connection and keeps them for its name; a machine too old to give them
+  /// runs at 1.0, and a line Porelo itself would refuse is said and leaves the factors it gave before.
+  Future<void> _readLimits() async {
+    final name = machine;
+    _limitsProblem = null;
+    try {
+      final line = await backend.limitsLine();
+      final factors = LimitFactors.parse(line);
+      _gaveLimits = true;
+      if (name != null) machineLimits.keep(name, line, factors);
+    } on FeatureNotSupported {
+      _gaveLimits = false;
+      if (name != null) machineLimits.forget(name);
+    } on FormatException catch (error) {
+      _limitsProblem = 'it gave limits the window cannot read: ${error.message}';
+      _say('${backend.label} gave limits the window cannot read: ${error.message}', LogLevel.warn, false);
+    } on Exception catch (error) {
+      // Not given this time: the factors it gave before stay, and the next connection asks again. What else this
+      // connection does goes on, and fails by itself where the connection is gone.
+      _limitsProblem = 'it did not give them: $error';
+      _say('${backend.label} did not give its limits: $error', LogLevel.warn, false);
     }
   }
 

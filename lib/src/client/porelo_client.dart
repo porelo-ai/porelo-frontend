@@ -6,6 +6,7 @@ import '../wire/varlink_connection.dart';
 import '../wire/varlink_exception.dart';
 import 'models.dart';
 import 'environment.dart';
+import '../wire/limit_factors.dart';
 
 /// A relay ended before the daemon answered, retaining the transport's own verdict.
 class RelayDisconnected extends VarlinkDisconnected {
@@ -152,7 +153,9 @@ class Backend {
     void end() {
       process.kill();
       // One that does not end when asked would keep its place for good.
-      if (place != null) Timer(const Duration(seconds: 2), () => exited || process.kill(ProcessSignal.sigkill));
+      if (place != null) {
+        Timer(machineWait(const Duration(seconds: 2)), () => exited || process.kill(ProcessSignal.sigkill));
+      }
     }
 
     final lastBytes = <int>[];
@@ -404,20 +407,31 @@ class PoreloClient {
   /// How long a single call may go unanswered. Never applied to a stream.
   final Duration answerWithin;
 
-  PoreloClient._(this.backend, this.interfaceName, this.info, this.answerWithin);
+  PoreloClient._(this.backend, this.interfaceName, this.info, this.answerWithin, this.machine);
+
+  /// The machine whose factors its calls' bounds follow; this computer's for null.
+  final String? machine;
 
   /// Connects and agrees an interface.
   ///
   /// Throws [VarlinkDisconnected] when there is nothing there, and [StateError] when the backend
   /// serves no interface this build knows - which is a backend too new or too old to talk to at
   /// all, and is worth saying plainly rather than failing on the first call.
-  static Future<PoreloClient> connect(Backend backend, {Duration answerWithin = VarlinkConnection.answerWithin}) async {
+  static Future<PoreloClient> connect(
+    Backend backend, {
+    Duration answerWithin = VarlinkConnection.answerWithin,
+    String? machine,
+  }) async {
     final connection = await backend.open();
     try {
       // Shorter than the default: "is there a daemon on the other end of this socket" has to
       // answer quickly, or the window sits on an empty frame saying it is connecting.
       final info = ServiceInfo.from(
-        await connection.call('org.varlink.service.GetInfo', const {}, const Duration(seconds: 5)),
+        await connection.call(
+          'org.varlink.service.GetInfo',
+          const {},
+          serviceWait(const Duration(seconds: 5), machine: machine),
+        ),
       );
       final agreed = supported.where(info.interfaces.contains);
       if (agreed.isEmpty) {
@@ -426,7 +440,7 @@ class PoreloClient {
           '(it knows $supported)',
         );
       }
-      return PoreloClient._(backend, agreed.first, info, answerWithin);
+      return PoreloClient._(backend, agreed.first, info, answerWithin, machine);
     } finally {
       await connection.close();
     }
@@ -546,7 +560,7 @@ class PoreloClient {
 
   /// How long [agentSignInStart] may go unanswered: the machine answers once the login container runs, and the
   /// first sign-in on a machine builds its login image before that, for which the contract names no bound.
-  static const Duration signInStartWithin = Duration(minutes: 15);
+  static Duration get signInStartWithin => serviceWait(const Duration(minutes: 15));
 
   /// Starts [agent]'s own login here, or answers the one that runs already: never a second. [force] signs in
   /// although the machine's own agent directory holds a sign-in; [remote] says the person reaches this machine from
@@ -592,7 +606,7 @@ class PoreloClient {
   }
 
   /// How long [agentSignInWait] may go unanswered: the machine answers within 30 minutes, so a little past that.
-  static const Duration signInWaitWithin = Duration(minutes: 31);
+  static Duration get signInWaitWithin => serviceWait(const Duration(minutes: 31));
 
   /// Waits until [agent]'s sign-in here ends, and answers whether the vault holds its credential then: one reply,
   /// at once where none runs.
@@ -1210,6 +1224,15 @@ class PoreloClient {
     return id is String ? id : '';
   }
 
+  /// The four factors this machine's time limits follow, as porelod read them from its configuration at its start:
+  /// the limits line, passed on unchanged to a Porelo program a client starts, never rebuilt.
+  Future<String> limitsLine() async {
+    final answered = await _call('Limits', const <String, dynamic>{});
+    final line = answered['line'];
+    if (line is! String) throw const FormatException('Limits answered no line');
+    return line;
+  }
+
   /// Brings [task]'s repository at the gate up to its source and tells its agent what moved.
   Future<TaskRefreshed> refreshTask(String task) async =>
       TaskRefreshed.from(await _call('RefreshTask', {'task': task}));
@@ -1725,7 +1748,11 @@ class PoreloClient {
   ]) async {
     final connection = await backend.open();
     try {
-      return await connection.call(qualify ? '$interfaceName.$method' : method, parameters, answerWithin);
+      return await connection.call(
+        qualify ? '$interfaceName.$method' : method,
+        parameters,
+        serviceWait(answerWithin, machine: machine),
+      );
     } on VarlinkException catch (ex) {
       if (ex.isMethodNotFound) throw FeatureNotSupported(method);
       rethrow;

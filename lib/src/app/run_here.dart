@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'owned_process.dart';
+import '../wire/limit_factors.dart';
 
 /// What one local command answered.
 typedef Ran = ({int code, String out, String err});
@@ -65,7 +66,7 @@ Future<Ran> _answered(
 }) async {
   int? code;
   try {
-    code = await process.exitCode.timeout(runHereLimit);
+    code = await process.exitCode.timeout(machineWait(runHereLimit));
   } on TimeoutException {
     await stopOwnedProcess(process).catchError((Object _) {});
   }

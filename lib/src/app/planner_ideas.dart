@@ -4,6 +4,7 @@ import 'package:porelo_planning/porelo_planning.dart'
     show PlannerNotProven, PlannerProject, PlannerProjects, PlanningRefusal;
 
 import 'planner_call.dart';
+import '../wire/limit_factors.dart';
 
 /// Hands the [idea] a discussion of [offer] wrote in [project] to the planner of this account, and answers the id of
 /// the story it was saved as.
@@ -121,7 +122,10 @@ Future<(int, String)> postToPlanner(
   } on PlanningRefusal catch (refusal) {
     throw switch (refusal.name) {
       'NoAddress' || 'BadAddress' => const PlannerDidNotSave('no planner is running for this account', transient: true),
-      'TimedOut' => PlannerDidNotSave('the planner did not answer within ${within.inSeconds} s', transient: true),
+      'TimedOut' => PlannerDidNotSave(
+        'the planner did not answer within ${serviceWait(within).inSeconds} s',
+        transient: true,
+      ),
       'PlannerUnreachable' => PlannerDidNotSave('$refusal', transient: true),
       _ => PlannerDidNotSave('$refusal'),
     };

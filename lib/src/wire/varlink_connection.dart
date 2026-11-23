@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'varlink_exception.dart';
+import 'limit_factors.dart';
 
 /// One connection to a varlink service: over a unix socket, or over any byte stream, such as a
 /// relay's standard input and output.
@@ -126,8 +127,10 @@ class VarlinkConnection {
   Future<Map<String, dynamic>> call(
     String method, [
     Map<String, dynamic> parameters = const {},
-    Duration timeout = answerWithin,
+    Duration? timeout,
   ]) async {
+    // The default follows the services factor; a caller's own bound is taken as it gives it.
+    timeout ??= serviceWait(answerWithin);
     _send(method, parameters, more: false);
     try {
       await for (final reply in _replies.stream.timeout(timeout)) {

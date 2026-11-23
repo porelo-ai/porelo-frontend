@@ -6,6 +6,7 @@ import 'organization_source.dart';
 import 'core_credentials.dart';
 import 'run_here.dart';
 import 'run_porelo.dart';
+import '../wire/limit_factors.dart';
 
 /// How long a stale answer's check is waited for before the kept state is shown.
 Duration refreshLimit = const Duration(seconds: 60);
@@ -182,9 +183,9 @@ class PoreloOrganizationSource implements OrganizationSource, ReadsKeptFirst, Fo
     if (!_reading(() => _flag(kept, 'stale'))) return (kept, null);
     try {
       // A check left behind is ended by the command's own limit.
-      return (await _ask([...arguments, '--refresh']).timeout(refreshLimit), null);
+      return (await _ask([...arguments, '--refresh']).timeout(serviceWait(refreshLimit)), null);
     } on TimeoutException {
-      return (kept, 'the check did not end within ${refreshLimit.inSeconds} seconds');
+      return (kept, 'the check did not end within ${serviceWait(refreshLimit).inSeconds} seconds');
     } on OrganizationRefused catch (refused) {
       if (refused.reason == _declined) rethrow;
       return (kept, 'the check was refused: ${refused.words}');

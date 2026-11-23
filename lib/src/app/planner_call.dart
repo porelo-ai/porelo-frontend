@@ -1,6 +1,7 @@
 import 'package:porelo_planning/porelo_planning.dart' show PlannerAnswer, PlannerNotProven, callPlanner;
 
 import 'window_log.dart';
+import '../wire/limit_factors.dart';
 
 /// Calls this account's planner once, as the window's own calls do, through the planning package's [callPlanner]: it
 /// reads the address file under [runtimeDirectory], has the listener on its port prove the token, signs the request
@@ -23,7 +24,7 @@ Future<PlannerAnswer> callOwnPlanner(
       segments,
       json: json,
       runtimeDirectory: runtimeDirectory,
-      timeout: within,
+      timeout: serviceWait(within),
       maxBody: maxBody,
     );
   } on PlannerNotProven catch (notProven) {

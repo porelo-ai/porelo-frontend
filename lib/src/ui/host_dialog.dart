@@ -21,6 +21,7 @@ import 'tokens.dart';
 import 'host_check_list.dart';
 import 'host_preparation_settings.dart';
 import 'machine_tree.dart' show centralWords;
+import '../wire/limit_factors.dart';
 
 /// Opens confirmed give-back of the existing rental.
 Future<void> openHostTakeDownDialog(
@@ -631,7 +632,7 @@ class _HostDialogState extends State<HostDialog> {
     try {
       final read = widget.readHostProgress;
       if (read == null) throw const OrganizationRefused('The machine is not connected.');
-      final progress = await read(host).timeout(const Duration(seconds: 30));
+      final progress = await read(host).timeout(serviceWait(const Duration(seconds: 30)));
       if (!mounted) return;
       setState(() {
         _centralBlockers = [
@@ -739,7 +740,7 @@ class _HostDialogState extends State<HostDialog> {
         String? refused;
         try {
           // Close waits on this: a removal that does not answer in time is said, and goes on by itself.
-          refused = await remove(record.hostName).timeout(_removalPatience);
+          refused = await remove(record.hostName).timeout(serviceWait(_removalPatience));
         } on TimeoutException {
           refused = 'it did not answer within two minutes, and may still go through: look at the list';
         } on Exception catch (error) {

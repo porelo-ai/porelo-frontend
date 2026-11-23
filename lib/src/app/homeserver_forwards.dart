@@ -7,6 +7,7 @@ import 'login_forward.dart';
 import 'machines.dart';
 import 'settings.dart';
 import 'tunnel.dart';
+import '../wire/limit_factors.dart';
 
 /// The homeservers a person joined from this computer, **forwarded while the window runs**, not
 /// only while the Messages dialog is open (walk 10: nheko lost its server the moment
@@ -178,7 +179,11 @@ class HomeserverForwards extends ChangeNotifier {
 
   static Future<bool> _answersHere(int port) async {
     try {
-      final socket = await Socket.connect(InternetAddress.loopbackIPv4, port, timeout: const Duration(seconds: 2));
+      final socket = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        port,
+        timeout: serviceWait(const Duration(seconds: 2)),
+      );
       socket.destroy();
       return true;
     } on SocketException {

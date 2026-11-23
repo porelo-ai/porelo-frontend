@@ -8,6 +8,7 @@ import 'machines.dart';
 import 'own_sockets.dart';
 import 'person_only_relay.dart';
 import 'tunnel.dart' show Tunnel;
+import '../wire/limit_factors.dart';
 
 /// A forward held open for one agent login, taken down when the login's terminal goes.
 abstract interface class HeldForward {
@@ -109,7 +110,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
   while (FileSystemEntity.typeSync(socket, followLinks: false) != FileSystemEntityType.notFound &&
       !await removeLeftover(socket) &&
       ended &&
-      waited.elapsed < const Duration(seconds: 2)) {
+      waited.elapsed < machineWait(const Duration(seconds: 2))) {
     await Future<void>.delayed(const Duration(milliseconds: 100));
   }
   if (FileSystemEntity.typeSync(socket, followLinks: false) != FileSystemEntityType.notFound) {
@@ -127,7 +128,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
       await relay.hold();
       break;
     } on RelayRefused {
-      if (!ended || waited.elapsed >= const Duration(seconds: 2)) throw _inUse(machine, port);
+      if (!ended || waited.elapsed >= machineWait(const Duration(seconds: 2))) throw _inUse(machine, port);
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
   }
@@ -145,7 +146,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
     final records = forwardRecords?..record(ssh.pid, command);
     final said = ssh.stderr.transform(const SystemEncoding().decoder).join();
     // Proven by the kernel, never by ssh staying up: its own process listens on the very socket the relay goes to.
-    for (var tries = 0; tries < 50; tries++) {
+    for (var tries = 0; tries < machineTries(50); tries++) {
       final exited = await ssh.exitCode.timeout(const Duration(milliseconds: 100), onTimeout: () => -1);
       if (exited != -1) {
         records?.forget(ssh.pid);
@@ -161,7 +162,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
       if (made != null) {
         final held = _Relayed(relay, socket, made, () async {
           ssh.kill();
-          await ssh.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => -1);
+          await ssh.exitCode.timeout(machineWait(const Duration(seconds: 2)), onTimeout: () => -1);
         });
         // An ssh that ends by itself lets go of the port too, so whoever looks finds the forward gone.
         unawaited(
@@ -174,7 +175,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
       }
     }
     ssh.kill();
-    await ssh.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => -1);
+    await ssh.exitCode.timeout(machineWait(const Duration(seconds: 2)), onTimeout: () => -1);
     records?.forget(ssh.pid);
     throw ForwardRefused('Nothing on ${machine.name} answered on port $port for the browser’s answer.');
   } on Object {
@@ -190,7 +191,7 @@ Future<HeldSocket> _askedOfTheMaster(Machine machine, int master, int port, Stri
   unawaited(asked.stdout.drain<void>());
   final said = asked.stderr.transform(const SystemEncoding().decoder).join();
   final exited = await asked.exitCode.timeout(
-    const Duration(seconds: 10),
+    machineWait(const Duration(seconds: 10)),
     onTimeout: () {
       asked.kill();
       return -1;
@@ -203,7 +204,7 @@ Future<HeldSocket> _askedOfTheMaster(Machine machine, int master, int port, Stri
       '${words.isEmpty ? 'ssh ended with $exited' : words}',
     );
   }
-  for (var tries = 0; tries < 50; tries++) {
+  for (var tries = 0; tries < machineTries(50); tries++) {
     if (FileSystemEntity.typeSync(socket, followLinks: false) == FileSystemEntityType.unixDomainSock) {
       if (madeBy(master, socket) case final made?) return made;
     }
@@ -220,7 +221,7 @@ Future<void> _toTheMaster(Machine machine, String operation, int port, String so
     unawaited(told.stdout.drain<void>());
     unawaited(told.stderr.drain<void>());
     await told.exitCode.timeout(
-      const Duration(seconds: 5),
+      machineWait(const Duration(seconds: 5)),
       onTimeout: () {
         told.kill();
         return -1;
@@ -258,7 +259,7 @@ ForwardRefused _inUse(Machine machine, int port) => ForwardRefused(
 Future<HeldForward> _bySshAlone(Machine machine, int port) async {
   if (forwardRecords?.endLeftovers((line) => forwardsPort(line, port)) ?? false) {
     final waited = Stopwatch()..start();
-    while (waited.elapsed < const Duration(seconds: 2) && !await _free(port)) {
+    while (waited.elapsed < machineWait(const Duration(seconds: 2)) && !await _free(port)) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
   }
@@ -271,7 +272,7 @@ Future<HeldForward> _bySshAlone(Machine machine, int port) async {
 
   final said = ssh.stderr.transform(const SystemEncoding().decoder).join();
   // Proven by connecting through it, never by ssh staying up: the login's listener answers.
-  for (var tries = 0; tries < 50; tries++) {
+  for (var tries = 0; tries < machineTries(50); tries++) {
     final exited = await ssh.exitCode.timeout(const Duration(milliseconds: 100), onTimeout: () => -1);
     if (exited != -1) {
       final words = (await said).trim();
@@ -284,7 +285,7 @@ Future<HeldForward> _bySshAlone(Machine machine, int port) async {
       final through = await Socket.connect(
         InternetAddress.loopbackIPv4,
         port,
-        timeout: const Duration(milliseconds: 200),
+        timeout: serviceWait(const Duration(milliseconds: 200)),
       );
       through.destroy();
       return _Ssh(ssh);
@@ -315,7 +316,7 @@ class _Ssh implements HeldForward {
   @override
   Future<void> close() async {
     _process.kill();
-    await _process.exitCode.timeout(const Duration(seconds: 2), onTimeout: () => -1);
+    await _process.exitCode.timeout(machineWait(const Duration(seconds: 2)), onTimeout: () => -1);
   }
 }
 

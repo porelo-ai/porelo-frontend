@@ -279,7 +279,7 @@ Future<void> _handForgeTokenOn(
   final machine = desk.isWindows
       ? Machine.local()
       : Machine(name: 'this machine', socketPath: Backend.local().socketPath);
-  final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine));
+  final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine), machine: machine.name);
   final vault = Vault(keys: deviceKeys ?? PlatformDeviceKeyStore());
   try {
     await backend.open();
@@ -382,7 +382,7 @@ Future<List<Connection>> readThisComputersDeclarations({FleetBackend? localBacke
   final machine = desk.isWindows
       ? Machine.local()
       : Machine(name: 'this machine', socketPath: Backend.local().socketPath);
-  final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine));
+  final backend = localBackend ?? PoreloBackend(Machines.backendFor(machine), machine: machine.name);
   try {
     await backend.open();
     return (await backend.credentials()).connections;
@@ -402,7 +402,7 @@ PoreloBackend thisComputersPorelo() {
   final machine = desk.isWindows
       ? Machine.local()
       : Machine(name: 'this machine', socketPath: Backend.local().socketPath);
-  return PoreloBackend(Machines.backendFor(machine));
+  return PoreloBackend(Machines.backendFor(machine), machine: machine.name);
 }
 
 /// Whether this computer's Porelo-Vault is shut, as its Porelo answers; null where it did not answer.

@@ -5,6 +5,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/fleet_model.dart';
 import 'package:porelo_frontend/src/app/start_refusals.dart';
+import 'package:porelo_frontend/src/wire/limit_factors.dart';
 
 /// A backend that is reachable and useless: the socket opens and nothing is ever answered.
 class _Wedged implements FleetBackend {
@@ -322,6 +323,9 @@ class _Wedged implements FleetBackend {
 
   @override
   Future<String> node() async => '';
+
+  @override
+  Future<String> limitsLine() async => '';
 
   @override
   Stream<PrepareProgress> prepare(String project, {String? agent, String? rebuild, bool? dryRun}) =>
@@ -795,6 +799,18 @@ class _Machine implements FleetBackend {
   @override
   Future<String> node() async => '';
 
+  /// The limits line this machine gives; null for a daemon too old to give one.
+  String? limits = '';
+
+  /// What asking for the limits throws instead, where set.
+  Exception? limitsFail;
+
+  @override
+  Future<String> limitsLine() async {
+    if (limitsFail case final fail?) throw fail;
+    return limits ?? (throw const FeatureNotSupported('Limits'));
+  }
+
   @override
   Stream<PrepareProgress> prepare(String project, {String? agent, String? rebuild, bool? dryRun}) =>
       const Stream<PrepareProgress>.empty();
@@ -1000,6 +1016,40 @@ void main() {
       expect(fleet.saidAbout('porelo-demo-shell-1'), isNot(contains('clean')));
     });
   }
+
+  // Harm: a machine's factors are not the ones its waits follow, or a daemon too old to give them leaves the window
+  // with factors another machine gave.
+  test('the factors a machine gives are kept for it on connecting, and one that gives none runs at 1.0', () async {
+    addTearDown(() => machineLimits.forget('slow-box'));
+    final backend = _Machine()..limits = 'services=2.0,machines=2.0';
+    final fleet = FleetModel(backend, machine: 'slow-box');
+    addTearDown(fleet.dispose);
+    await fleet.connect();
+
+    expect(fleet.gaveLimits, isTrue);
+    expect(machineLimits.lineOf('slow-box'), 'services=2.0,machines=2.0');
+    expect(serviceWait(const Duration(seconds: 30), machine: 'slow-box'), const Duration(seconds: 60));
+    expect(machineWait(const Duration(seconds: 5), machine: 'slow-box'), const Duration(seconds: 10));
+    expect(serviceWait(const Duration(seconds: 30), machine: 'another'), const Duration(seconds: 30));
+
+    // Factors that could not be read are said as such, the ones given before stay, and the machine stays connected.
+    backend.limits = 'services=fast';
+    await fleet.connect();
+    expect(fleet.limitsProblem, contains('cannot read'));
+    expect(fleet.reachability, Reachability.connected);
+    expect(serviceWait(const Duration(seconds: 30), machine: 'slow-box'), const Duration(seconds: 60));
+    backend.limitsFail = const VarlinkDisconnected('Limits was not answered within 30 seconds');
+    await fleet.connect();
+    expect(fleet.limitsProblem, contains('did not give them'));
+    expect(fleet.reachability, Reachability.connected);
+    backend.limitsFail = null;
+
+    backend.limits = null;
+    await fleet.connect();
+    expect(fleet.limitsProblem, isNull);
+    expect(fleet.gaveLimits, isFalse);
+    expect(machineWait(const Duration(seconds: 5), machine: 'slow-box'), const Duration(seconds: 5));
+  });
 
   // What asks a machine just added waits for this, rather than a socket that is not open yet.
   test('waiting until a machine was asked ends only once connecting is over', () async {

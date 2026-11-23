@@ -5,6 +5,7 @@ import 'package:porelo_frontend/client.dart';
 import 'fleet_backend.dart';
 import 'machines.dart';
 import 'tunnel.dart';
+import '../wire/limit_factors.dart';
 
 const _tasks = 'org.fuin.porelo.Tasks1';
 
@@ -59,6 +60,7 @@ Future<Trial> tryAMachine(
         );
       }
     }
+    within = serviceWait(within, machine: machine.name);
     final info = await reach(target).open().timeout(within);
     if (!info.interfaces.contains(_tasks)) {
       return Trial(
@@ -147,6 +149,7 @@ Future<int?> countKeyslots(
       if (tunnel.state != TunnelState.up) return null;
     }
     final backend = reach(target);
+    within = serviceWait(within);
     await backend.open().timeout(within);
     return (await backend.keyslots().timeout(within)).length;
   } on Object {

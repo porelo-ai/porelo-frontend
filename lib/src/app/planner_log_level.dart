@@ -4,6 +4,7 @@ import 'package:porelo_planning/porelo_planning.dart' show PlannerNotProven, Pla
 
 import 'planner_call.dart';
 import 'window_log.dart';
+import '../wire/limit_factors.dart';
 
 /// Tells the planner of this account to log at [level] from now on, and answers the level its log is at then.
 typedef TellPlannerLevel = Future<LogLevel> Function(LogLevel level, {String? runtimeDirectory});
@@ -44,7 +45,7 @@ Future<LogLevel> tellPlannerLevel(
     throw PlannerLevelRefused(notProven.description);
   } on PlanningRefusal catch (refusal) {
     throw switch (refusal.name) {
-      'TimedOut' => PlannerLevelRefused('the planner did not answer within ${within.inSeconds} s'),
+      'TimedOut' => PlannerLevelRefused('the planner did not answer within ${serviceWait(within).inSeconds} s'),
       _ => PlannerLevelRefused('$refusal'),
     };
   }

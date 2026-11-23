@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../wire/limit_factors.dart';
+
 /// The signals that end the window without asking and can be watched here: SIGINT, and SIGTERM where it can be
 /// watched (not on Windows).
 List<Stream<ProcessSignal>> endingSignals() => <Stream<ProcessSignal>>[
@@ -35,7 +37,7 @@ void letGoOnSignals(
 /// one that hangs or throws stops none of the others.
 Future<void> letGoTogether(List<Future<void> Function()> letGo, {Duration within = const Duration(seconds: 5)}) {
   final ended = Completer<void>();
-  final bound = Timer(within, () {
+  final bound = Timer(machineWait(within), () {
     if (!ended.isCompleted) ended.complete();
   });
   Future.wait<void>([

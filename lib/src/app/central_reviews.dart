@@ -6,6 +6,7 @@ import 'quiet_after_dispose.dart';
 
 import 'forge.dart';
 import 'forge_connection.dart';
+import '../wire/limit_factors.dart';
 
 /// One central pull request, separate from approval at the host's gate.
 class CentralPullRequest {
@@ -189,7 +190,7 @@ class CentralReviews extends ChangeNotifier with QuietAfterDispose {
             submitted = true;
             return use(client);
           })
-          .timeout(answerWithin);
+          .timeout(serviceWait(answerWithin));
     } on CentralResponseLost {
       rethrow;
     } on ForgeRefused {

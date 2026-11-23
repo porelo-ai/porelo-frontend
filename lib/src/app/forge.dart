@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:porelo_host/porelo_host.dart';
 
 import 'access_developers.dart' show checkForgeLogin;
+import '../wire/limit_factors.dart';
 
 /// Read access to the private access repository, reported by its forge.
 abstract interface class ForgeCollaborators {
@@ -141,7 +142,7 @@ class GitHub implements Forge, ForgeCollaborators {
   /// over the network that is not answered within [answerWithin] is said as GitHub refusing it.
   GitHub(this._token, {Uri? api, ForgeHttp? http, Duration answerWithin = const Duration(seconds: 30)})
     : _api = api ?? Uri.parse('https://api.github.com'),
-      _http = http ?? _Network(answerWithin).send;
+      _http = http ?? _Network(serviceWait(answerWithin)).send;
 
   /// The API of the GitHub at [address]: `api.github.com` for `github.com`, `/api/v3` on a
   /// self-hosted instance.

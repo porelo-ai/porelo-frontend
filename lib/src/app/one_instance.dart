@@ -10,6 +10,8 @@ import 'package:porelo_frontend/src/app/own_sockets.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart' show ConnectToSocket, SocketProbe, connectToSocket, probeSocket;
 import 'package:porelo_frontend/src/client/environment.dart';
 
+import '../wire/limit_factors.dart';
+
 /// Keeps one interface in charge of a machine.
 ///
 /// Two of these running is not merely untidy: each watches every configured machine, so every
@@ -178,12 +180,16 @@ class OneInstance {
     }
     if (port == null) return false;
     try {
-      final socket = await Socket.connect(InternetAddress.loopbackIPv4, port, timeout: const Duration(seconds: 1));
+      final socket = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        port,
+        timeout: serviceWait(const Duration(seconds: 1)),
+      );
       final said = await socket
           .cast<List<int>>()
           .transform(utf8.decoder)
           .join()
-          .timeout(const Duration(seconds: 1), onTimeout: () => '');
+          .timeout(serviceWait(const Duration(seconds: 1)), onTimeout: () => '');
       socket.destroy();
       return said == _greeting;
     } on SocketException {

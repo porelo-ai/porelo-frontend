@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../wire/limit_factors.dart';
+
 /// Runs `wsl.exe` with arguments and answers its exit code and the bytes it printed. Injectable,
 /// so the distributions of a test are whatever it says.
 typedef RunWsl = Future<({int code, List<int> printed})> Function(List<String> arguments);
@@ -162,7 +164,7 @@ class Wsl {
     final err = <int>[];
     final reading = Future.wait(<Future<void>>[process.stdout.forEach(out.addAll), process.stderr.forEach(err.addAll)]);
     final code = await process.exitCode.timeout(
-      within,
+      machineWait(within),
       onTimeout: () {
         process.kill(ProcessSignal.sigkill);
         return -1;

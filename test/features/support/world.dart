@@ -1957,6 +1957,16 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
   @override
   Future<String> node() async => nodeId;
 
+  /// The limits line this machine gives; null for a daemon too old to give one. All four at 1.0 by default.
+  String? givenLimits = '';
+
+  @override
+  Future<String> limitsLine() async {
+    final line = givenLimits;
+    if (line == null) throw const FeatureNotSupported('Limits');
+    return line;
+  }
+
   /// What the next deletion answers. Set by the scenario.
   DeleteOutcome deletionAnswers = DeleteOutcome.deleted;
 
