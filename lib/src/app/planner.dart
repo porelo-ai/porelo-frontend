@@ -21,6 +21,7 @@ import 'package:porelo_planning/porelo_planning.dart'
 import '../client/models.dart' show Project, defaultProject;
 import 'machines.dart';
 import 'owned_process.dart';
+import 'planner_build.dart';
 import 'planner_log_level.dart';
 import 'porelo_executable.dart';
 import 'report_at_planner.dart';
@@ -181,7 +182,14 @@ abstract interface class StartsWhenAsked {
 /// runs, told each project's repository as the window knows it, and followed to a new address when the planner writes
 /// one, as after a restart on another port.
 class LocalPlanner extends ChangeNotifier
-    implements PlanningClient, PlanningReach, StartsWhenAsked, NamesItsLog, TakesTheLogLevel, EndsWithTheWindow {
+    implements
+        PlanningClient,
+        PlanningReach,
+        StartsWhenAsked,
+        NamesItsLog,
+        TakesTheLogLevel,
+        EndsWithTheWindow,
+        NamesItsBuild {
   /// Takes the projects the window knows and their repositories; [runtimeDirectory] is the one the planner writes its
   /// address under, `XDG_RUNTIME_DIR` when null and none on Windows, and [candidates] where the planner may be, in the
   /// order they are tried.
@@ -206,9 +214,11 @@ class LocalPlanner extends ChangeNotifier
     this._logLevel,
     TellPlannerLevel? tellLevel,
     this._poreloExecutable,
+    AskPlannerBuild? askBuild,
   }) : _onWindows = onWindows ?? Platform.isWindows,
        _environment = environment ?? Platform.environment,
        _tellLevel = tellLevel ?? tellPlannerLevel,
+       _askBuild = askBuild ?? askPlannerBuild,
        _chosen = chosenProject,
        // On Windows the planner keeps its address in its own folder under LOCALAPPDATA, whatever a runtime directory says.
        runtimeDirectory =
@@ -295,6 +305,7 @@ class LocalPlanner extends ChangeNotifier
   final Map<String, String> _environment;
   final ValueListenable<LogLevel>? _logLevel;
   final TellPlannerLevel _tellLevel;
+  final AskPlannerBuild _askBuild;
   int _levelsTold = 0;
 
   @override
@@ -606,6 +617,19 @@ class LocalPlanner extends ChangeNotifier
       await reach();
     } finally {
       _checking = false;
+    }
+  }
+
+  /// Asks the planner found what it was built as; null without asking where no planner is reached, and null where the
+  /// ask failed, said in the window's log.
+  @override
+  Future<PlannerBuild?> build() async {
+    if (_source == null) return null;
+    try {
+      return await _askBuild(runtimeDirectory: runtimeDirectory);
+    } on Object catch (error) {
+      windowLog.warn('The window could not ask porelo-planner what it was built as: $error');
+      return null;
     }
   }
 

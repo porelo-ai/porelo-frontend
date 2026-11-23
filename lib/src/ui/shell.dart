@@ -83,6 +83,7 @@ import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
 import '../app/planner.dart' show EndsWithTheWindow, NamesItsLog, PlanningReach, StartsWhenAsked, TakesTheLogLevel;
+import '../app/planner_build.dart';
 import 'discussion_start_dialog.dart';
 import 'planning_embedding.dart';
 import 'planning_wizards.dart';
@@ -2773,25 +2774,38 @@ class _ShellState extends State<Shell> {
     );
   }
 
-  /// Says what this is and what every machine it watches runs.
-  void _showAbout() => showAboutDialog(
-    context: context,
-    applicationName: productName,
-    applicationVersion: _version,
-    applicationLegalese:
-        'The interface to Porelo: agent work in guarded containers, on '
-        'machines you watch from here.',
-    children: <Widget>[
-      const SizedBox(height: Space.normal),
-      for (final machine in widget.machines.all)
-        Text(
-          '${machine.name}: ${switch (widget.machines.watching(machine)?.info) {
-            final info? => '${info.product} ${info.version}',
-            null => 'not connected',
-          }}',
+  /// Says what this is, what every machine it watches runs and which planner answers the planning.
+  void _showAbout() {
+    final planner = switch (widget.planning?.client) {
+      final NamesItsBuild planner => planner.build(),
+      _ => Future<PlannerBuild?>.value(),
+    };
+    showAboutDialog(
+      context: context,
+      applicationName: productName,
+      applicationVersion: _version,
+      applicationLegalese:
+          'The interface to Porelo: agent work in guarded containers, on '
+          'machines you watch from here.',
+      children: <Widget>[
+        const SizedBox(height: Space.normal),
+        for (final machine in widget.machines.all)
+          Text(
+            '${machine.name}: ${switch (widget.machines.watching(machine)?.info) {
+              final info? => '${info.product} ${info.version}',
+              null => 'not connected',
+            }}',
+          ),
+        FutureBuilder<PlannerBuild?>(
+          future: planner,
+          builder: (context, asked) => Text(
+            key: const Key('about-planner'),
+            asked.connectionState == ConnectionState.done ? plannerInAbout(asked.data) : 'planner: asking…',
+          ),
         ),
-    ],
-  );
+      ],
+    );
+  }
 
   /// Starts work from a recurring job somebody named.
   Future<void> _startFromTemplate(Template job) async {
