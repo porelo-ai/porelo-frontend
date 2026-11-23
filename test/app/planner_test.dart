@@ -541,11 +541,20 @@ void main() {
     });
   });
 
-  /// Waits until [done] holds, failing after a few seconds.
-  Future<void> until(bool Function() done) async {
-    for (var tries = 0; !done(); tries++) {
-      if (tries > 200) fail('it did not happen');
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+  /// Waits until [done] holds, checked whenever [local] tells of a change, as the follow does when it finds a planner
+  /// anew; fails only after a bound a loaded machine still keeps, never after a count of polls.
+  Future<void> until(LocalPlanner local, bool Function() done) async {
+    if (done()) return;
+    final held = Completer<void>();
+    void check() {
+      if (!held.isCompleted && done()) held.complete();
+    }
+
+    local.addListener(check);
+    try {
+      await held.future.timeout(const Duration(seconds: 20), onTimeout: () => fail('it did not happen'));
+    } finally {
+      local.removeListener(check);
     }
   }
 
@@ -567,7 +576,7 @@ void main() {
       await second.announce(runtime.path, token: 'token-after-the-restart');
 
       // A follow between the two may take the first one's file away, which leaves no planner for a moment.
-      await until(() => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
+      await until(local, () => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
       await local.providers.single.source.stories('demo');
 
       expect(local.notReached, isNull);
@@ -585,7 +594,7 @@ void main() {
     expect(local.log, isNull, reason: 'the planner names no log yet');
 
     await running.announce(runtime.path, log: '${runtime.path}/planner.log');
-    await until(() => local.log != null);
+    await until(local, () => local.log != null);
     expect(local.log, '${runtime.path}/planner.log');
   });
 
@@ -609,7 +618,7 @@ void main() {
     await first.server.close(force: true);
     await File('${runtime.path}/porelo-planner/planner.json').delete();
 
-    await until(() => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
+    await until(local, () => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
     await local.providers.single.source.stories('demo');
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
@@ -703,7 +712,7 @@ void main() {
     final before = local.providers.single.source;
 
     await first.server.close(force: true);
-    await until(() => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
+    await until(local, () => local.providers.isNotEmpty && !identical(local.providers.single.source, before));
 
     expect(starts, 1);
     await local.providers.single.source.stories('demo');
