@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../wire/limit_factors.dart';
+
 /// What a hand-over of the declared token, started by itself for a host's waiting projects, came to.
 enum HandOnOutcome {
   /// Porelo handed the entry this computer's Porelo-Vault declares on, and the host took it.
@@ -86,7 +88,7 @@ class DeclaredHandOn extends ChangeNotifier {
     if (waiting.isEmpty) return Future.value(const HandOn(HandOnOutcome.nothingWaits));
     final answered = _answered[host] ?? const <String, HandOn>{};
     if (answered.keys.toSet().containsAll(waiting)) return Future.value(answered[waiting.first]!.asEarlier);
-    if (_notRun[host] case (final at, final done) when _now().difference(at) < retryAfter) {
+    if (_notRun[host] case (final at, final done) when _now().difference(at) < retryWait(retryAfter)) {
       return Future.value(done.asEarlier);
     }
     _runningFor[host] = {...waiting};

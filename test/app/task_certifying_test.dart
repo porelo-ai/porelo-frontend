@@ -11,6 +11,7 @@ import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/task_certifying.dart';
 import 'package:porelo_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/src/wire/limit_factors.dart';
 
 /// A host starts a task only with a key this computer certifies. A host is not trusted to ask for
 /// the right thing, so what it asks is checked here, by the real ssh-agent and ssh-keygen.
@@ -40,6 +41,20 @@ void main() {
     taskKey = await keygen('task');
     final added = await Process.run('ssh-add', ['${home.path}/person'], environment: agent);
     expect(added.exitCode, 0, reason: '${added.stderr}');
+  });
+
+  // This computer's Porelo gave the person's account settings, with the week a certificate may live.
+  final here = Machine.local(environment: const {}).name;
+  setUp(() {
+    machineLimits.local = here;
+    machineSettings.keep(
+      here,
+      const AccountSettings(certificateDays: 7, cardDays: 30, renewNoticeDays: 7, askedAboutDays: 7, keptDays: 30),
+    );
+  });
+  tearDown(() {
+    machineSettings.forget(here);
+    machineLimits.local = null;
   });
 
   tearDownAll(() async {
@@ -81,6 +96,57 @@ void main() {
     expect(certificate, startsWith('ssh-ed25519-cert-v01@openssh.com '));
   });
 
+  // Harm: a certificate is signed for a length nobody set, where this computer's Porelo did not give the settings.
+  test('nothing is certified while the person\'s account settings are not known', () async {
+    machineSettings.forget(here);
+    await expectLater(
+      certified(
+        asking(before: DateTime.now().toUtc().add(const Duration(hours: 1))),
+        project: 'foo-project',
+        task: 'work',
+      ),
+      throwsA(isA<CertifyRefused>().having((r) => r.words, 'words', contains('account settings'))),
+    );
+  });
+
+  // Harm: a host gets a certificate longer than the person set in their account, or one the person allowed is refused.
+  test('the longest certificate a host may ask follows the person\'s certificate days', () async {
+    machineSettings.keep(
+      here,
+      AccountSettings.from(<String, dynamic>{
+        'certificateDays': 2,
+        'cardDays': 30,
+        'renewNoticeDays': 7,
+        'askedAboutDays': 7,
+        'keptDays': 30,
+      }),
+    );
+    await expectLater(
+      certified(
+        asking(before: DateTime.now().toUtc().add(const Duration(days: 3))),
+        project: 'foo-project',
+        task: 'work',
+      ),
+      throwsA(isA<CertifyRefused>().having((r) => r.words, 'words', contains('longer than 2 days'))),
+    );
+    machineSettings.keep(
+      here,
+      AccountSettings.from(<String, dynamic>{
+        'certificateDays': 10,
+        'cardDays': 30,
+        'renewNoticeDays': 7,
+        'askedAboutDays': 7,
+        'keptDays': 30,
+      }),
+    );
+    final certificate = await certified(
+      asking(before: DateTime.now().toUtc().add(const Duration(days: 9))),
+      project: 'foo-project',
+      task: 'work',
+    );
+    expect(certificate, startsWith('ssh-ed25519-cert-v01@openssh.com '));
+  });
+
   group('what the host asks is refused here, unsigned,', () {
     final soon = DateTime.now().toUtc().add(const Duration(days: 1));
     final cases = <String, (StartCertify Function(), String)>{
@@ -97,7 +163,7 @@ void main() {
       ),
       'more than the seven days': (
         () => asking(before: DateTime.now().toUtc().add(const Duration(days: 8))),
-        'longer than seven days',
+        'longer than 7 days',
       ),
       'a key that does not decode': (() => asking(key: 'ssh-ed25519 AAAA', before: soon), 'not Ed25519'),
       'a certifier that does not decode': (

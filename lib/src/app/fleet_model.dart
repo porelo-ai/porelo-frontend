@@ -361,6 +361,7 @@ class FleetModel extends ChangeNotifier {
       _answered = true;
       _say('Connected to ${backend.label}, ${info.product} ${info.version}.', LogLevel.info, onItsOwn);
       await _readLimits();
+      if (_limitsProblem == null && _settingsProblem == null && !_firstLimits.isCompleted) _firstLimits.complete();
       if (_disposed) return;
       // Whatever its watches said before is asked again on this connection.
       pullRequests.reconnected();
@@ -388,28 +389,24 @@ class FleetModel extends ChangeNotifier {
     }
   }
 
-  /// Whether the machine gave the four factors its time limits follow; false for one too old to give them, or one not
-  /// read yet, which then runs at 1.0, as its details say.
-  bool get gaveLimits => _gaveLimits;
-  bool _gaveLimits = false;
+  /// Completes once a connection read the factors and the account settings, or the model is let go; a connection that
+  /// failed, or could not read them, leaves it waiting for the next, so nothing that follows them starts on a default.
+  Future<void> untilLimitsAsked() => _firstLimits.future;
+  final Completer<void> _firstLimits = Completer<void>();
 
   /// Why its factors could not be read on the last connection, where they could not.
   String? get limitsProblem => _limitsProblem;
   String? _limitsProblem;
 
-  /// Reads the machine's factors once per connection and keeps them for its name; a machine too old to give them
-  /// runs at 1.0, and a line Porelo itself would refuse is said and leaves the factors it gave before.
+  /// Reads the machine's factors once per connection and keeps them for its name; a line Porelo itself would refuse,
+  /// or no answer, is said and leaves the factors it gave before (1.0 for one never read).
   Future<void> _readLimits() async {
     final name = machine;
     _limitsProblem = null;
     try {
       final line = await backend.limitsLine();
       final factors = LimitFactors.parse(line);
-      _gaveLimits = true;
       if (name != null) machineLimits.keep(name, line, factors);
-    } on FeatureNotSupported {
-      _gaveLimits = false;
-      if (name != null) machineLimits.forget(name);
     } on FormatException catch (error) {
       _limitsProblem = 'it gave limits the window cannot read: ${error.message}';
       _say('${backend.label} gave limits the window cannot read: ${error.message}', LogLevel.warn, false);
@@ -418,6 +415,25 @@ class FleetModel extends ChangeNotifier {
       // connection does goes on, and fails by itself where the connection is gone.
       _limitsProblem = 'it did not give them: $error';
       _say('${backend.label} did not give its limits: $error', LogLevel.warn, false);
+    }
+    await _readSettings();
+  }
+
+  /// Why the person's account settings could not be read on the last connection, where they could not.
+  String? get settingsProblem => _settingsProblem;
+  String? _settingsProblem;
+
+  /// Reads the person's account settings once per connection, as the factors are read: one that failed is said and
+  /// keeps what it gave before, none where it never gave them, and the connection goes on either way.
+  Future<void> _readSettings() async {
+    final name = machine;
+    _settingsProblem = null;
+    try {
+      final settings = await backend.accountSettings();
+      if (name != null) machineSettings.keep(name, settings);
+    } on Exception catch (error) {
+      _settingsProblem = 'it did not give them: $error';
+      _say('${backend.label} did not give its account settings: $error', LogLevel.warn, false);
     }
   }
 
@@ -679,7 +695,7 @@ class FleetModel extends ChangeNotifier {
         _live = false;
         _followAgain?.cancel();
         if (failed || _disposed || retryAfter == Duration.zero) return;
-        _followAgain = Timer(retryAfter, () {
+        _followAgain = Timer(retryWait(retryAfter, machine: machine), () {
           if (_disposed || _reachability != Reachability.connected) return;
           _follow();
           // A daemon may send nothing on a watch until the work changes: what changed while none was open is read now.
@@ -733,7 +749,7 @@ class FleetModel extends ChangeNotifier {
   void _tryAgainLater() {
     if (_disposed || _retryPaused || retryAfter == Duration.zero) return;
     _retry?.cancel();
-    _retry = Timer(retryAfter, () {
+    _retry = Timer(retryWait(retryAfter, machine: machine), () {
       if (_disposed) return;
       unawaited(connect(onItsOwn: true));
     });
@@ -800,6 +816,7 @@ class FleetModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    if (!_firstLimits.isCompleted) _firstLimits.complete();
     _retry?.cancel();
     _followAgain?.cancel();
     _watching?.cancel();

@@ -101,7 +101,7 @@ class HomeserverForwards extends ChangeNotifier {
       if (machine != null) await _raiseFor(machine, each.project, each.port);
     }
     _looking?.cancel();
-    _looking = Timer.periodic(lookEvery, (_) => unawaited(_look(machines)));
+    _looking = Timer.periodic(pollEvery(lookEvery), (_) => unawaited(_look(machines)));
   }
 
   /// One look at a time: a look that outlasts [lookEvery], over slow ssh, is not started again

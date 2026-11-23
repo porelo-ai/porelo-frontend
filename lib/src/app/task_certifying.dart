@@ -9,6 +9,7 @@ import 'package:porelo_frontend/client.dart';
 import 'machines.dart';
 import 'run_here.dart';
 import 'run_porelo.dart';
+import '../wire/limit_factors.dart';
 
 /// Why this computer does not certify what a host asked, in words a person can act on.
 class CertifyRefused implements Exception {
@@ -22,8 +23,8 @@ class CertifyRefused implements Exception {
   String toString() => words;
 }
 
-/// How long past the seven days a host may ask, for the clocks of two computers.
-const Duration _longest = Duration(days: 7, minutes: 5);
+/// The longest a host may ask: [days], this computer's certificate days, and five minutes for two computers' clocks.
+Duration _longest(int days) => Duration(days: days) + machineWait(const Duration(minutes: 5));
 
 final RegExp _ed25519 = RegExp(r'^ssh-ed25519 ([A-Za-z0-9+/]+={0,2})( [^\r\n]*)?$');
 final RegExp _principal = RegExp(r'^task:([a-z0-9][a-z0-9-]{0,62}):([a-zA-Z0-9][a-zA-Z0-9_.-]*)$');
@@ -140,8 +141,15 @@ void _check(StartCertify asked, {String? project, String? task, required DateTim
   if (!asked.validBefore.isAfter(now)) {
     throw const CertifyRefused('The host asked for a certificate that has already ended, so it was not certified.');
   }
-  if (asked.validBefore.isAfter(now.add(_longest))) {
-    throw const CertifyRefused('The host asked for a certificate longer than seven days, so it was not certified.');
+  final days = machineSettings.of(null)?.certificateDays;
+  if (days == null) {
+    throw const CertifyRefused(
+      'This computer\'s Porelo did not give the person\'s account settings, so how long a certificate may live is '
+      'not known and it was not certified.',
+    );
+  }
+  if (asked.validBefore.isAfter(now.add(_longest(days)))) {
+    throw CertifyRefused('The host asked for a certificate longer than $days days, so it was not certified.');
   }
   if (_printable(asked.keyId).trim().isEmpty) {
     throw const CertifyRefused('The host asked for a certificate with no identity, so it was not certified.');

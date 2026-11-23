@@ -127,7 +127,7 @@ class CardHostConnections extends HostConnections {
       throw OrganizationRefused('The connection to $host is down; Connect brings it back, with its forge.');
     }
     final last = _raisedAt[host];
-    if (last != null && _now().difference(last) < _raiseAgainAfter) {
+    if (last != null && _now().difference(last) < pollEvery(_raiseAgainAfter)) {
       throw OrganizationRefused(
         "The forward to $host's forge was raised anew moments ago and it still gives no answer: its cause is on the "
         'host.',

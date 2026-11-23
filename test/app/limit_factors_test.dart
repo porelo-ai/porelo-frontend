@@ -38,6 +38,28 @@ void main() {
     }
   });
 
+  // Harm: a setting the machine gave wrong is taken, or replaced by its default unsaid.
+  test('account settings out of whole days from 1 to 3650, or missing, are refused', () {
+    final good = <String, dynamic>{
+      'certificateDays': 7,
+      'cardDays': 30,
+      'renewNoticeDays': 7,
+      'askedAboutDays': 7,
+      'keptDays': 30,
+    };
+    expect(
+      AccountSettings.from(good),
+      const AccountSettings(certificateDays: 7, cardDays: 30, renewNoticeDays: 7, askedAboutDays: 7, keptDays: 30),
+    );
+    for (final wrong in <Object?>[0, 3651, 7.5, '7', null]) {
+      expect(
+        () => AccountSettings.from(<String, dynamic>{...good, 'keptDays': wrong}),
+        throwsA(isA<FormatException>().having((e) => e.message, 'message', contains('keptDays'))),
+        reason: '$wrong',
+      );
+    }
+  });
+
   // Harm: a factor of 2 does not double a wait, or a wait rounds down to nothing.
   test('a factor applies to its own kind of limit, rounded up to a millisecond', () {
     final factors = LimitFactors.parse('services=2.0,machines=1.5,polling=0.25,retries=0.1');

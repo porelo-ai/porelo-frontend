@@ -9,6 +9,7 @@ import 'quiet_after_dispose.dart';
 import 'start_refusals.dart' show SignInNeeded;
 import 'task_names.dart';
 import 'templates.dart';
+import '../wire/limit_factors.dart';
 
 /// Starting work: which project, which agent, which way of being involved, and what to ask for.
 ///
@@ -1067,7 +1068,7 @@ class StartWork extends ChangeNotifier with QuietAfterDispose {
       // leaving *Start it* off over an answer the machine itself contradicts.
       if (answer.outcome.name == 'UNKNOWN_AGENT' && !_askedAgain && agents.any((each) => each.name == agent)) {
         _askedAgain = true;
-        await Future<void>.delayed(askAgainAfter);
+        await Future<void>.delayed(pollEvery(askAgainAfter));
         if (asking != _asked) return;
         return await _askWhetherItCanStart(backend);
       }

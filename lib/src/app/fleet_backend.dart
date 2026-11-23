@@ -432,6 +432,9 @@ abstract class FleetBackend {
   /// The limits line of this machine: the four factors its time limits follow.
   Future<String> limitsLine();
 
+  /// The person's account settings on the machine.
+  Future<AccountSettings> accountSettings();
+
   /// Removes what Porelo built for a project, or says what it would remove.
   ///
   /// **Never the project file, the checkout or the upstream**: those are the operator's, and
@@ -1206,6 +1209,9 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
 
   @override
   Future<String> limitsLine() => _opened().limitsLine();
+
+  @override
+  Future<AccountSettings> accountSettings() => _opened().accountSettings();
 
   @override
   Future<Deletion> removeProject(String project, {bool? dryRun, bool? force}) =>

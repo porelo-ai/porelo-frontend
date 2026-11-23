@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../wire/limit_factors.dart';
+
 /// Notices when a newer build of the interface has been installed under it.
 ///
 /// A package upgrade replaces the binary while this one keeps running, so what somebody has open
@@ -33,7 +35,7 @@ class NewerVersion extends ChangeNotifier {
     _asStarted = _changedAt();
     _looking?.cancel();
     if (_asStarted == null) return;
-    _looking = Timer.periodic(every, (_) => _look());
+    _looking = Timer.periodic(pollEvery(every), (_) => _look());
   }
 
   /// Looks now.

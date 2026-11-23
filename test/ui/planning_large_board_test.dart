@@ -41,16 +41,19 @@ Future<int> _timed(Future<void> Function() run) async {
   return watch.elapsedMilliseconds;
 }
 
-/// The cards built in the lane of state Idea.
+/// The workflow's first state, as the board the screen's stand-in reports names it.
+final _first = planningMaps(planningFixture(), 'states').first['name'] as String;
+
+/// The cards built in the lane of the workflow's first state.
 final _ideaCards = find.descendant(
-  of: find.byKey(const Key('planning-state Idea'), skipOffstage: false),
+  of: find.byKey(Key('planning-state $_first'), skipOffstage: false),
   matching: find.byWidgetPredicate(
     (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith('planning-card '),
   ),
 );
 
 /// The wall time, in milliseconds, of a click on Planning until the board stands, and of folding and unfolding the
-/// lane of state Idea on it. Only the click and its pumps are timed; that the lane folded and came back is checked
+/// lane of the workflow's first state on it. Only the click and its pumps are timed; that the lane folded and came back is checked
 /// between them, so a tap that missed cannot pass as a fast fold.
 Future<({int open, int fold})> _openAndFold(WidgetTester tester) async {
   final open = await _timed(() async {
@@ -58,7 +61,7 @@ Future<({int open, int fold})> _openAndFold(WidgetTester tester) async {
     await World.settle(tester);
   });
   expect(find.byKey(const Key('planning-board')), findsOneWidget);
-  final button = find.byKey(const Key('planning-fold-state Idea'));
+  final button = find.byKey(Key('planning-fold-state $_first'));
   expect(button.hitTestable(), findsOneWidget);
   expect(_ideaCards, findsWidgets, reason: 'the lane shows its cards before the fold');
   var fold = await _timed(() async {

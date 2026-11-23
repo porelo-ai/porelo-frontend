@@ -19,8 +19,12 @@ import 'package:porelo_frontend/src/app/settings.dart';
 void main() {
   final today = DateTime(2026, 9, 13, 14);
 
-  Operations over(OperationsStore store, {DateTime? now}) =>
-      Operations(store: store, now: () => now ?? today, saveDelay: Duration.zero);
+  Operations over(OperationsStore store, {DateTime? now, Duration? Function()? keptFor}) => Operations(
+    store: store,
+    now: () => now ?? today,
+    saveDelay: Duration.zero,
+    keptFor: keptFor ?? () => const Duration(days: 30),
+  );
 
   Map<String, Object?> stored(String id, DateTime startedAt, {String state = 'succeeded'}) => <String, Object?>{
     'id': id,
@@ -91,6 +95,27 @@ void main() {
     await after.load();
 
     expect(after.all.single.seen, isTrue);
+  });
+
+  // Harm: a record is deleted for an age nobody set, while this computer's Porelo has not said how long they are kept.
+  test('nothing is dropped for its age until the person\'s settings say how long, then what is older', () async {
+    final store = MemoryOperationsStore();
+    await store.write(<Object?>[
+      stored('operation-1', today.subtract(const Duration(days: 4))),
+      stored('operation-2', today.subtract(const Duration(days: 2))),
+    ]);
+    Duration? kept;
+    final after = over(store, keptFor: () => kept);
+    await after.load();
+    expect(after.all.map((each) => each.id), <String>['operation-1', 'operation-2']);
+    expect(after.droppedAsOld, 0);
+
+    kept = const Duration(days: 3);
+    await after.forgetOld();
+    expect(after.all.map((each) => each.id), <String>['operation-2']);
+    expect(after.droppedAsOld, 1);
+    await after.flush();
+    expect(await store.read(), hasLength(1));
   });
 
   test('anything older than thirty days is dropped, and how many is said', () async {

@@ -341,6 +341,9 @@ class _Wedged implements FleetBackend {
   Future<String> limitsLine() async => '';
 
   @override
+  Future<AccountSettings> accountSettings() async => _someSettings;
+
+  @override
   Stream<PrepareProgress> prepare(String project, {String? agent, String? rebuild, bool? dryRun}) =>
       const Stream<PrepareProgress>.empty();
 
@@ -825,7 +828,7 @@ class _Machine implements FleetBackend {
   @override
   Future<String> node() async => '';
 
-  /// The limits line this machine gives; null for a daemon too old to give one.
+  /// The limits line this machine gives; null for one that does not answer the call.
   String? limits = '';
 
   /// What asking for the limits throws instead, where set.
@@ -836,6 +839,12 @@ class _Machine implements FleetBackend {
     if (limitsFail case final fail?) throw fail;
     return limits ?? (throw const FeatureNotSupported('Limits'));
   }
+
+  /// The account settings this machine gives; null for one that does not answer the call.
+  AccountSettings? settings = _someSettings;
+
+  @override
+  Future<AccountSettings> accountSettings() async => settings ?? (throw const FeatureNotSupported('AccountSettings'));
 
   @override
   Stream<PrepareProgress> prepare(String project, {String? agent, String? rebuild, bool? dryRun}) =>
@@ -1043,16 +1052,16 @@ void main() {
     });
   }
 
-  // Harm: a machine's factors are not the ones its waits follow, or a daemon too old to give them leaves the window
-  // with factors another machine gave.
-  test('the factors a machine gives are kept for it on connecting, and one that gives none runs at 1.0', () async {
+  // Harm: a machine's factors are not the ones its waits follow, or a machine that gives none leaves the window with
+  // factors another machine gave, unsaid.
+  test('the factors a machine gives are kept for it on connecting, and one that gives none is said', () async {
     addTearDown(() => machineLimits.forget('slow-box'));
     final backend = _Machine()..limits = 'services=2.0,machines=2.0';
     final fleet = FleetModel(backend, machine: 'slow-box');
     addTearDown(fleet.dispose);
     await fleet.connect();
 
-    expect(fleet.gaveLimits, isTrue);
+    expect(fleet.limitsProblem, isNull);
     expect(machineLimits.lineOf('slow-box'), 'services=2.0,machines=2.0');
     expect(serviceWait(const Duration(seconds: 30), machine: 'slow-box'), const Duration(seconds: 60));
     expect(machineWait(const Duration(seconds: 5), machine: 'slow-box'), const Duration(seconds: 10));
@@ -1072,9 +1081,54 @@ void main() {
 
     backend.limits = null;
     await fleet.connect();
-    expect(fleet.limitsProblem, isNull);
-    expect(fleet.gaveLimits, isFalse);
-    expect(machineWait(const Duration(seconds: 5), machine: 'slow-box'), const Duration(seconds: 5));
+    expect(fleet.limitsProblem, contains('did not give them'));
+    expect(fleet.reachability, Reachability.connected);
+    expect(machineWait(const Duration(seconds: 5), machine: 'slow-box'), const Duration(seconds: 10));
+    expect(machineWait(const Duration(seconds: 5), machine: 'never-read'), const Duration(seconds: 5));
+  });
+
+  // Harm: what follows a machine's factors from the start (the planner the window starts) starts on a default after a
+  // connection that could not read them, or waits for ever after the machine is let go.
+  test('the first factors are waited for until a connection read them, or the machine is let go', () async {
+    addTearDown(() => machineLimits.forget('late-box'));
+    final backend = _Machine()..limitsFail = const VarlinkDisconnected('Limits was not answered');
+    final fleet = FleetModel(backend, machine: 'late-box');
+    var given = false;
+    unawaited(fleet.untilLimitsAsked().then((_) => given = true));
+    await fleet.connect();
+    await Future<void>.delayed(Duration.zero);
+    expect(given, isFalse, reason: 'released by a connection that did not read the factors');
+
+    backend.limitsFail = null;
+    await fleet.connect();
+    await Future<void>.delayed(Duration.zero);
+    expect(given, isTrue);
+    fleet.dispose();
+
+    final never = FleetModel(_Machine()..limitsFail = const VarlinkDisconnected('no'), machine: 'late-box');
+    var released = false;
+    unawaited(never.untilLimitsAsked().then((_) => released = true));
+    never.dispose();
+    await Future<void>.delayed(Duration.zero);
+    expect(released, isTrue, reason: 'a machine let go leaves its waiters waiting');
+  });
+
+  // Harm: a machine that does not give the person's account settings runs on settings it never gave, unsaid.
+  test('account settings a machine does not give are said and never replaced by a default', () async {
+    addTearDown(() => machineSettings.forget('plain-box'));
+    final backend = _Machine()..settings = null;
+    final fleet = FleetModel(backend, machine: 'plain-box');
+    addTearDown(fleet.dispose);
+    await fleet.connect();
+
+    expect(fleet.settingsProblem, contains('did not give them'));
+    expect(fleet.reachability, Reachability.connected);
+    expect(machineSettings.of('plain-box'), isNull);
+
+    backend.settings = _someSettings;
+    await fleet.connect();
+    expect(fleet.settingsProblem, isNull);
+    expect(machineSettings.of('plain-box'), _someSettings);
   });
 
   // What asks a machine just added waits for this, rather than a socket that is not open yet.
@@ -1322,3 +1376,12 @@ class _Removing extends _Machine {
   Future<Removed> removeTask(String task, {bool? rescue, bool? force}) async =>
       Removed.from(<String, dynamic>{'outcome': removes ? 'REMOVED' : 'HOLDS_WORK', 'removed': removes});
 }
+
+/// Account settings a stand-in machine gives.
+const _someSettings = AccountSettings(
+  certificateDays: 7,
+  cardDays: 30,
+  renewNoticeDays: 7,
+  askedAboutDays: 7,
+  keptDays: 30,
+);

@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/vault_unlock.dart';
+import 'package:porelo_frontend/src/wire/limit_factors.dart';
 
 /// Local vault terminals remain available while host unlock belongs to Core.
 void main() {
@@ -85,7 +86,18 @@ void main() {
       final result = await unlock([70, 70, 70, 0]);
       expect(result.exitCode, 70);
       expect(calls.readAsLinesSync(), ['unlock', 'unlock', 'unlock']);
-      expect('${result.stdout}${result.stderr}', contains('The passphrase was refused three times.'));
+      expect('${result.stdout}${result.stderr}', contains('The passphrase was refused 3 times.'));
+    });
+
+    // Harm: a person whose Porelo sets more retries is cut off after three refused passphrases all the same.
+    test('a retries factor of 1.5 makes three tries five', () async {
+      final here = Machine.local(environment: const {}).name;
+      machineLimits.keep(here, 'retries=1.5', LimitFactors.parse('retries=1.5'));
+      addTearDown(() => machineLimits.forget(here));
+      final result = await unlock([70, 70, 70, 70, 70, 0]);
+      expect(result.exitCode, 70);
+      expect(calls.readAsLinesSync(), hasLength(5));
+      expect('${result.stdout}${result.stderr}', contains('The passphrase was refused 5 times.'));
     });
 
     // Harm: retrying another failure repeats a command that cannot be repaired by a passphrase.

@@ -111,7 +111,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
       !await removeLeftover(socket) &&
       ended &&
       waited.elapsed < machineWait(const Duration(seconds: 2))) {
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await Future<void>.delayed(pollEvery(const Duration(milliseconds: 100)));
   }
   if (FileSystemEntity.typeSync(socket, followLinks: false) != FileSystemEntityType.notFound) {
     throw ForwardRefused(
@@ -129,7 +129,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
       break;
     } on RelayRefused {
       if (!ended || waited.elapsed >= machineWait(const Duration(seconds: 2))) throw _inUse(machine, port);
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(pollEvery(const Duration(milliseconds: 100)));
     }
   }
   HeldSocket? made;
@@ -260,7 +260,7 @@ Future<HeldForward> _bySshAlone(Machine machine, int port) async {
   if (forwardRecords?.endLeftovers((line) => forwardsPort(line, port)) ?? false) {
     final waited = Stopwatch()..start();
     while (waited.elapsed < machineWait(const Duration(seconds: 2)) && !await _free(port)) {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(pollEvery(const Duration(milliseconds: 100)));
     }
   }
   // Asked before, because ssh with ExitOnForwardFailure says only that it failed.

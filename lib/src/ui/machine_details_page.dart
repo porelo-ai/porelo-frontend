@@ -79,20 +79,22 @@ class MachineDetailsPage extends StatelessWidget {
   /// Whether it stands inside a machine's one page, which has the way back and the name.
   final bool embedded;
 
-  /// What the window's waits for this machine follow, said only where it departs from the factors Porelo sets: none
-  /// given by a Porelo too old to give them, or factors other than 1.0.
+  /// What the window's waits for this machine follow, said only where it departs from the normal: factors or account
+  /// settings that could not be read, or factors other than 1.0.
   Widget? _limits(FleetModel? fleet) {
     if (fleet == null || fleet.reachability != Reachability.connected) return null;
     if (fleet.limitsProblem case final problem?) {
       return Text(
-        'Its limit factors could not be read ($problem), so this window waits for it as it last knew.',
+        'Its limit factors could not be read ($problem), so this window waits for it as it last knew.'
+        '${fleet.settingsProblem == null ? '' : ' The person\'s account settings could not be read either '
+                  '(${fleet.settingsProblem}), so a host\'s certificate is not signed here.'}',
         key: const Key('machine-limits'),
       );
     }
-    if (!fleet.gaveLimits) {
-      return const Text(
-        'Its Porelo gives no limit factors, so this window waits for it as by default (1.0).',
-        key: Key('machine-limits'),
+    if (fleet.settingsProblem case final problem?) {
+      return Text(
+        'The person\'s account settings could not be read ($problem), so a host\'s certificate is not signed here.',
+        key: const Key('machine-limits'),
       );
     }
     final factors = machineLimits.of(machine.name);

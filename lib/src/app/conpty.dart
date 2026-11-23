@@ -324,7 +324,7 @@ class ConPty implements SessionChannel {
     void askHere() {
       // Nothing waits for the program: it is asked for here, and counts as running until it is seen gone.
       if (code != null || asking != null) return;
-      asking = Timer.periodic(poll, (_) {
+      asking = Timer.periodic(pollEvery(poll), (_) {
         ProgramEnd? value;
         try {
           value = endedNow();

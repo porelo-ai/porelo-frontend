@@ -7,6 +7,7 @@ import '../app/host_progress.dart';
 import '../app/organization_source.dart';
 import 'organization_token_words.dart';
 import 'tokens.dart';
+import '../wire/limit_factors.dart';
 
 /// Gives [host] the person's forge token, answering the words to show, or null once given. [atOnce] gives the entry this
 /// computer's Porelo-Vault declares straight away, where it declares one, and opens the token's page otherwise.
@@ -105,12 +106,12 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
       }
     }
     if (!mounted || _stopped != null || _ended) return;
-    _timer = Timer.periodic(widget.every, (_) => unawaited(_ask()));
+    _timer = Timer.periodic(pollEvery(widget.every), (_) => unawaited(_ask()));
   }
 
   Future<void> _ask() async {
     if (_asking || _giving || _ended) return;
-    if (DateTime.now().difference(_began) > widget.patience) {
+    if (DateTime.now().difference(_began) > pollEvery(widget.patience)) {
       _timer?.cancel();
       setState(() {
         _stopped =

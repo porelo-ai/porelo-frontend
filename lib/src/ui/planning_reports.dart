@@ -15,6 +15,7 @@ import '../app/settings.dart';
 import '../app/window_log.dart';
 import '../client/models.dart' show AgentEnded, ProposedIdea, ResultState, Task, TaskResult, defaultProject;
 import 'planning_embedding.dart';
+import '../wire/limit_factors.dart';
 
 /// Why the planner must refuse [machine] as a task's machine, or null where it takes it: the planner keeps the name as
 /// the person sees it, 1 to 128 characters with no control character, no line break and no lone surrogate.
@@ -778,9 +779,9 @@ class WindowTaskReports {
     if (named == null) return _noIdea(kept, end, 'it was asked for no result file');
     if (named.state == ResultState.missing && end.startsWith(_left)) {
       // No change of the machine may come once it settled: a sweep then looks again.
-      if (!_missingSince.containsKey((kept.offer, end))) Timer(missingSettles, sweep);
+      if (!_missingSince.containsKey((kept.offer, end))) Timer(pollEvery(missingSettles), sweep);
       final first = _missingSince.putIfAbsent((kept.offer, end), now);
-      if (now().difference(first) < missingSettles) return;
+      if (now().difference(first) < pollEvery(missingSettles)) return;
     }
     _missingSince.remove((kept.offer, end));
     if (named.state != ResultState.handed) {
@@ -886,7 +887,7 @@ class WindowTaskReports {
     } on Object catch (error) {
       // Said once; read again once [missingSettles] passed, or on the next change of the machine.
       if (_resultsNotRead.add((kept.offer, end))) {
-        Timer(missingSettles, sweep);
+        Timer(pollEvery(missingSettles), sweep);
         _sayLogged(
           kept.provider,
           kept.project,
@@ -897,9 +898,9 @@ class WindowTaskReports {
     }
     if (read.state == ResultState.missing) {
       // The machine takes the file at the end; a listing may show the end before it did.
-      if (!_resultMissingSince.containsKey((kept.offer, end))) Timer(missingSettles, sweep);
+      if (!_resultMissingSince.containsKey((kept.offer, end))) Timer(pollEvery(missingSettles), sweep);
       final first = _resultMissingSince.putIfAbsent((kept.offer, end), now);
-      if (now().difference(first) < missingSettles) return false;
+      if (now().difference(first) < pollEvery(missingSettles)) return false;
     }
     _resultMissingSince.remove((kept.offer, end));
     final content = read.content;

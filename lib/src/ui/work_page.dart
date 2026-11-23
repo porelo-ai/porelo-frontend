@@ -14,6 +14,7 @@ import 'filtered_list_section.dart';
 import 'page_explanation.dart';
 import 'tokens.dart';
 import 'window_size.dart';
+import '../wire/limit_factors.dart';
 
 /// How the work page was left: its search, its opened rows, which view and which tab. Kept by the
 /// window rather than the page, so they stay when something takes the page's place for a while - a
@@ -311,7 +312,7 @@ class _WorkPageState extends State<WorkPage> {
   void initState() {
     super.initState();
     unawaited(_lookAtTerminals());
-    _lookingAtTerminals = Timer.periodic(_terminalsEvery, (_) => unawaited(_lookAtTerminals()));
+    _lookingAtTerminals = Timer.periodic(pollEvery(_terminalsEvery), (_) => unawaited(_lookAtTerminals()));
   }
 
   @override

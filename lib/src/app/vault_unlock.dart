@@ -1,5 +1,6 @@
 import 'connections.dart';
 import 'machines.dart';
+import '../wire/limit_factors.dart';
 
 /// The line that opens [machine]'s vault in a terminal, or null where nothing here can reach it.
 ///
@@ -13,20 +14,27 @@ import 'machines.dart';
 /// A host vault is opened by Core through the shared SSH tunnel.
 List<String>? unlockCommandFor(Machine machine) {
   if (machine.kind == 'host') return null;
-  return onTheMachine(machine, const <String>['sh', '-c', _unlockAskingAgain], terminal: true);
+  return onTheMachine(machine, <String>[
+    'sh',
+    '-c',
+    _unlockAskingAgain(retryTries(3, machine: machine.name)),
+  ], terminal: true);
 }
 
-/// `porelo vault unlock`, asked again after a refused passphrase (porelo's 70), three attempts at most; any other
-/// exit ends it with its own code.
-const _unlockAskingAgain = r'''for attempt in 1 2 3; do
+/// `porelo vault unlock`, asked again after a refused passphrase (porelo's 70), [tries] attempts at most; any other
+/// exit ends it with its own code. [tries] is a whole number, so nothing but digits enters the line.
+String _unlockAskingAgain(int tries) =>
+    '''attempt=1
+while [ "\$attempt" -le $tries ]; do
   porelo vault unlock
-  code=$?
-  [ "$code" -eq 70 ] || exit "$code"
-  if [ "$attempt" -lt 3 ]; then
-    printf '%s\n' 'The passphrase was refused. Try again.'
+  code=\$?
+  [ "\$code" -eq 70 ] || exit "\$code"
+  if [ "\$attempt" -lt $tries ]; then
+    printf '%s\\n' 'The passphrase was refused. Try again.'
   fi
+  attempt=\$((attempt + 1))
 done
-printf '%s\n' 'The passphrase was refused three times.' >&2
+printf '%s\\n' 'The passphrase was refused $tries times.' >&2
 exit 70''';
 
 /// The line that makes [machine]'s vault in a terminal — a passphrase chosen and typed twice there,

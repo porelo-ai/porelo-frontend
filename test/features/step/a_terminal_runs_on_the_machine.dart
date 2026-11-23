@@ -10,11 +10,11 @@ Future<void> aTerminalRunsOnTheMachine(WidgetTester tester, String command) asyn
   // What was run, and that it is a terminal somebody types into — never a value this program holds.
   expect(World.terminals, isNotEmpty, reason: 'no terminal was opened');
   if (command == 'porelo vault unlock' || command == 'ssh -t alice@vm porelo vault unlock') {
-    // The unlock asks again after a refused passphrase: `porelo vault unlock` inside a small loop of sh.
+    // The unlock asks again after a refused passphrase, three tries at 1.0: `porelo vault unlock` in a small loop of sh.
     final run = World.terminals.last.command;
     final loop = run.last;
     expect(run.take(run.length - 1), command.startsWith('ssh ') ? ['ssh', '-t', 'alice@vm'] : ['sh', '-c']);
-    expect(loop, allOf(contains('porelo vault unlock'), contains('for attempt in 1 2 3'), contains('-eq 70')));
+    expect(loop, allOf(contains('porelo vault unlock'), contains('-le 3 ]'), contains('-eq 70')));
   } else {
     expect(World.terminals.last.command.join(' '), asRunOverSsh(command));
   }

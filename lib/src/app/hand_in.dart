@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
+import '../wire/limit_factors.dart';
 
 /// Handing a file on this computer to a running task, and taking one back.
 ///
@@ -146,14 +147,14 @@ class HandingIn extends ChangeNotifier {
           received = at;
           notifyListeners();
         } on VarlinkDisconnected {
-          if (++lostInARow >= mostLostInARow) rethrow;
+          if (++lostInARow >= retryTries(mostLostInARow)) rethrow;
         }
       }
     } on VarlinkException catch (refusal) {
       _tell(wordsFor(refusal, to.name), failed: true);
     } on VarlinkDisconnected catch (ex) {
       _tell(
-        'Lost contact with the machine $mostLostInARow times in a row: ${ex.message}. '
+        'Lost contact with the machine ${retryTries(mostLostInARow)} times in a row: ${ex.message}. '
         '${inWords(received)} of ${inWords(size)} are there; handing it in again goes on '
         'from there for ten minutes.',
         failed: true,

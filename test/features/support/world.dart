@@ -62,6 +62,7 @@ import 'planning.dart' show WindowPlanningSource, planningFixture;
 
 import 'package:porelo_planning/planning_fake.dart' show MockPlanningClient, mockStartTask;
 import 'package:porelo_planning/porelo_planning.dart' show PlanningProvider, PlanningSource, PlanningTaskStarted;
+import 'package:porelo_frontend/src/wire/limit_factors.dart';
 
 /// A backend that answers whatever a scenario needs it to.
 ///
@@ -1958,7 +1959,7 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
   @override
   Future<String> node() async => nodeId;
 
-  /// The limits line this machine gives; null for a daemon too old to give one. All four at 1.0 by default.
+  /// The limits line this machine gives; null for one that does not answer the call. All four at 1.0 by default.
   String? givenLimits = '';
 
   @override
@@ -1967,6 +1968,19 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     if (line == null) throw const FeatureNotSupported('Limits');
     return line;
   }
+
+  /// The account settings this machine gives; null for one that does not answer the call.
+  AccountSettings? givenSettings = const AccountSettings(
+    certificateDays: 7,
+    cardDays: 30,
+    renewNoticeDays: 7,
+    askedAboutDays: 7,
+    keptDays: 30,
+  );
+
+  @override
+  Future<AccountSettings> accountSettings() async =>
+      givenSettings ?? (throw const FeatureNotSupported('AccountSettings'));
 
   /// What the next deletion answers. Set by the scenario.
   DeleteOutcome deletionAnswers = DeleteOutcome.deleted;

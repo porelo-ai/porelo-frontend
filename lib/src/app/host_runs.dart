@@ -10,6 +10,7 @@ import 'host_access.dart';
 import 'machines.dart';
 import 'settings.dart';
 import 'tunnel.dart' show Tunnel;
+import '../wire/limit_factors.dart';
 
 /// The confirmed stages of signed-state server setup.
 enum HostPreparationPhase {
@@ -204,7 +205,7 @@ class HostRuns extends ChangeNotifier {
 
   void _poll(HostPreparation run) {
     run._poll?.cancel();
-    run._poll = Timer(const Duration(seconds: 1), () {
+    run._poll = Timer(pollEvery(const Duration(seconds: 1)), () {
       if (_disposed || _leaving || run.givenBack || run._upActive || run.session.state != HostRunState.busy) return;
       _check(run);
     });

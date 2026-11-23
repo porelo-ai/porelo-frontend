@@ -8,6 +8,7 @@ import 'package:porelo_planning/porelo_planning.dart'
     show
         HttpPlanningSource,
         PlannerAddress,
+        PlanningLimits,
         PlannerProject,
         PlannerProjects,
         PlanningClient,
@@ -50,6 +51,11 @@ const plannerNotRunningOnWindows = 'porelo-planner does not run on this computer
 /// What the planning place says while the window looks for the planner or waits for the one it started.
 const plannerLookedFor = 'Looking for porelo-planner…';
 
+/// What the planning place says while this computer's Porelo has not given the limits the planner follows.
+const plannerWaitsForLimits =
+    'Planning waits until this computer\'s Porelo gives its limits and the person\'s settings, which the planner '
+    'follows; its machine\'s details say why they are not given.';
+
 /// Reports a change of a task the window started, through the offer it keeps for it.
 typedef PlanningReport = Future<void> Function(
   String project,
@@ -81,20 +87,36 @@ const plannerInputEndWait = Duration(seconds: 3);
 /// Opens the planner's board reads from the address file under [runtimeDirectory], the account's own when null.
 typedef OpenPlanner = Future<HttpPlanningSource> Function(PlannerProjects projects, {String? runtimeDirectory});
 
+/// This computer's factors as the planning screen takes them: those its own machine gave, 1.0 before it gave any.
+PlanningLimits planningLimitsHere() {
+  final here = machineLimits.of(null);
+  return PlanningLimits(services: here.services, machines: here.machines, polling: here.polling, retries: here.retries);
+}
+
+/// What a planner the window starts is given before its own arguments: this computer's limits line, unchanged, as
+/// `--limits`, where its own machine gave one.
+List<String> plannerLimitsArguments() => switch (machineLimits.lineOf(null)) {
+  final line? when line.isNotEmpty => ['--limits', line],
+  _ => const <String>[],
+};
+
 /// The planner this account runs, as [HttpPlanningSource.fromAddressFile] calls it, telling each task report it sends
 /// of what came of it, so a report sent through the planning screen's run is known taken or not.
 class WindowPlannerSource extends HttpPlanningSource implements TellsTaskReports {
   /// Calls the planner at [base] under [token], as [HttpPlanningSource] does.
-  WindowPlannerSource(super.base, super.token, super.projects, {super.label, super.address});
+  WindowPlannerSource(super.base, super.token, super.projects, {super.label, super.address, super.limits});
 
-  /// Calls the planner whose address file is under [runtimeDirectory], read again before each proof.
+  /// Calls the planner whose address file is under [runtimeDirectory], read again before each proof, its waits
+  /// following this computer's factors.
   static Future<HttpPlanningSource> fromAddressFile(PlannerProjects projects, {String? runtimeDirectory}) async {
-    final first = await PlannerAddress.read(runtimeDirectory: runtimeDirectory);
+    final limits = planningLimitsHere();
+    final first = await PlannerAddress.read(runtimeDirectory: runtimeDirectory, limits: limits);
     return WindowPlannerSource(
       first.base,
       first.token,
       projects,
-      address: () => PlannerAddress.read(runtimeDirectory: runtimeDirectory),
+      address: () => PlannerAddress.read(runtimeDirectory: runtimeDirectory, limits: limits),
+      limits: limits,
     );
   }
 
@@ -224,6 +246,7 @@ class LocalPlanner extends ChangeNotifier
     TellPlannerLevel? tellLevel,
     this._poreloExecutable,
     AskPlannerBuild? askBuild,
+    this._limitsAsked,
   }) : _onWindows = onWindows ?? Platform.isWindows,
        _environment = environment ?? Platform.environment,
        _tellLevel = tellLevel ?? tellPlannerLevel,
@@ -251,6 +274,7 @@ class LocalPlanner extends ChangeNotifier
     ValueListenable<LogLevel>? logLevel,
   }) => LocalPlanner(
     logLevel: logLevel,
+    limitsAsked: machines.untilLocalLimitsAsked,
     poreloExecutable: _poreloOnce(),
     projects: () => plannedProjects(machines),
     repositories: (project) => plannerProjectOf(machines, project),
@@ -408,7 +432,21 @@ class LocalPlanner extends ChangeNotifier
     if (_source == null) _reaching = null;
   });
 
+  /// What the planner's start and its source wait for: this computer's own machine asked for its factors, so both
+  /// follow them from the start; null where nothing gives them.
+  final Future<void> Function()? _limitsAsked;
+
   Future<void> _reach() async {
+    if (_limitsAsked case final asked?) {
+      var given = false;
+      unawaited(
+        Future<void>.delayed(Duration.zero, () {
+          if (!given) _say(plannerWaitsForLimits);
+        }),
+      );
+      await asked();
+      given = true;
+    }
     if (_disposed) return;
     if (await _look() != _Look.notRunning) return;
     if (_started) {
@@ -441,7 +479,7 @@ class LocalPlanner extends ChangeNotifier
     }
     final waited = Stopwatch()..start();
     while (!_disposed) {
-      await Future<void>.delayed(poll);
+      await Future<void>.delayed(pollEvery(poll));
       if (await _look() != _Look.notRunning) return;
       if (_endedEarly case final code?) {
         _offered = true;
@@ -527,7 +565,7 @@ class LocalPlanner extends ChangeNotifier
       _notReached = null;
       notifyListeners();
       old?.close();
-      _following ??= Timer.periodic(follow, (_) => unawaited(_follow()));
+      _following ??= Timer.periodic(pollEvery(follow), (_) => unawaited(_follow()));
       // A planner found, or found anew after a restart, is told the level the person chose.
       unawaited(_tellTheLevel());
       return _Look.found;
@@ -892,10 +930,10 @@ class LocalPlanner extends ChangeNotifier
   }
 
   // Normal, so the planner gets a pipe for its input that closes when the window goes, a hard kill included, and
-  // answers its exit code.
+  // answers its exit code; its limits come first, as the planner takes them only before its mode.
   static Future<Process> _startWithItsInput(String executable, Map<String, String> environment) => Process.start(
     executable,
-    const [plannerEndsWithInput],
+    [...plannerLimitsArguments(), plannerEndsWithInput],
     // Its own, so a Porelo path the window inherited never reaches the planner.
     environment: plannerEnvironment(Platform.environment, environment),
     includeParentEnvironment: false,

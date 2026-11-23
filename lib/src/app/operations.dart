@@ -10,6 +10,7 @@ import '../client/models.dart';
 import 'fleet_backend.dart';
 import 'start_refusals.dart' show startRefusalWords;
 import 'window_log.dart';
+import '../wire/limit_factors.dart' show machineSettings;
 
 /// Where a long operation got to.
 enum OperationState {
@@ -731,8 +732,10 @@ class Operations extends ChangeNotifier {
     DateTime Function()? now,
     Future<void> Function(String path)? open,
     this.saveDelay = const Duration(seconds: 1),
+    Duration? Function()? keptFor,
   }) : _now = now ?? DateTime.now,
-       _open = open ?? _withTheDesktop;
+       _open = open ?? _withTheDesktop,
+       _keptFor = keptFor ?? _keptByThePerson;
 
   /// Where what is run is kept between runs of the window, or null for nowhere.
   final OperationsStore? store;
@@ -743,10 +746,18 @@ class Operations extends ChangeNotifier {
   final DateTime Function() _now;
   final Future<void> Function(String path) _open;
 
-  /// How long anything is kept.
-  static const Duration kept = Duration(days: 30);
+  final Duration? Function() _keptFor;
 
-  /// How many operations were older than [kept] and dropped when the record was read.
+  /// How long anything is kept: the person's `records.kept_days`, as this computer's Porelo gave it; null while it has
+  /// not, and then nothing is dropped for its age.
+  Duration? get kept => _keptFor();
+
+  static Duration? _keptByThePerson() => switch (machineSettings.of(null)?.keptDays) {
+    final days? => Duration(days: days),
+    null => null,
+  };
+
+  /// How many operations were older than [kept] and dropped.
   int droppedAsOld = 0;
 
   /// The file what is run is kept in, or null.
@@ -777,14 +788,13 @@ class Operations extends ChangeNotifier {
     _saveNow();
   }
 
-  /// Reads back what earlier runs of the window ran, dropping what is older than [kept].
+  /// Reads back what earlier runs of the window ran, dropping what is older than [kept] where that is known.
   ///
   /// **An operation that was still running is not reported as finished well**: the window that
   /// watched it closed, so how it ended is not known, and that is said as a failure nobody has seen.
   Future<void> load() async {
     final from = store;
     if (from == null) return;
-    final oldest = _now().subtract(kept);
     final earlier = <Operation>[];
     var changed = false;
     var whole = true;
@@ -809,12 +819,6 @@ class Operations extends ChangeNotifier {
     for (final record in stored) {
       final operation = Operation.fromStored(record);
       if (operation == null) continue;
-      if (operation.startedAt.isBefore(oldest)) {
-        droppedAsOld++;
-        changed = true;
-        await from.deleteOutput(operation.id);
-        continue;
-      }
       // What it printed is read when a person opens it, not now: the list needs only what the record says.
       final id = operation.id;
       operation.recordOf = () => from.outputOf(id);
@@ -833,6 +837,34 @@ class Operations extends ChangeNotifier {
     _all.insertAll(0, earlier);
     _notify();
     if (changed) _saveNow();
+    await forgetOld();
+  }
+
+  /// Drops what started before [kept], with what it printed; nothing while [kept] is not known, so a record is never
+  /// lost to a length nobody set. Asked again once this computer's Porelo gave the person's settings.
+  Future<void> forgetOld() async {
+    final keep = kept;
+    final from = store;
+    if (keep == null || from == null) return;
+    final oldest = _now().subtract(keep);
+    final old = [
+      for (final operation in _all)
+        if (!operation.running && operation.startedAt.isBefore(oldest)) operation,
+    ];
+    if (old.isEmpty) return;
+    for (final operation in old) {
+      // Another drop running meanwhile took it already.
+      if (!_all.remove(operation)) continue;
+      droppedAsOld++;
+      try {
+        await from.deleteOutput(operation.id);
+      } on Exception catch (error) {
+        // Its record goes all the same; the file left belongs to no record and goes at the next start.
+        windowLog.warn('What operation ${operation.id} printed could not be deleted: $error');
+      }
+    }
+    _notify();
+    _saveNow();
   }
 
   /// Waits until everything so far is written.

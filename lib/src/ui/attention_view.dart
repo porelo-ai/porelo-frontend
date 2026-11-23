@@ -34,6 +34,7 @@ import 'page_explanation.dart';
 import 'sign_in_panel.dart';
 import 'tokens.dart';
 import 'window_size.dart';
+import '../wire/limit_factors.dart';
 
 /// What needs a person, from every machine at once. The window opens here.
 ///
@@ -1896,7 +1897,7 @@ class _WorkFactsState extends State<_WorkFacts> {
   void initState() {
     super.initState();
     unawaited(_read());
-    _reading = Timer.periodic(_readEvery, (_) {
+    _reading = Timer.periodic(pollEvery(_readEvery), (_) {
       if (widget.tile.task?.running ?? false) unawaited(_read());
     });
   }

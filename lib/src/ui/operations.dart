@@ -58,7 +58,10 @@ class OperationsList extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
             child: SelectableText(
-              'Kept for ${Operations.kept.inDays} days in ${operations.file!.path}'
+              '${switch (operations.kept) {
+                final kept? => 'Kept for ${kept.inDays} days',
+                null => 'Kept until this computer\'s Porelo says for how long',
+              }} in ${operations.file!.path}'
               '${operations.droppedAsOld == 0 ? '' : ' — ${operations.droppedAsOld} older than that were dropped'}',
               key: const Key('operations-file'),
               style: Theme.of(context).textTheme.bodySmall,

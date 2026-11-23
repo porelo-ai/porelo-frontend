@@ -758,6 +758,8 @@ class Machines extends ChangeNotifier {
       _passing.add(extra.name);
       _open(extra);
     }
+    // Where no machine of this computer's own is listed, nothing will give its factors, and nothing waits for them.
+    if (!_machines.any((each) => each.isAlwaysListed) && !_localLimits.isCompleted) _localLimits.complete();
     _notify();
   }
 
@@ -1012,9 +1014,14 @@ class Machines extends ChangeNotifier {
           : last * 2 > longestRaiseWait
           ? longestRaiseWait
           : last * 2;
-      _raiseHolds[machine.name] = (until: _now().add(wait), wait: wait);
+      _raiseHolds[machine.name] = (until: _now().add(retryWait(wait, machine: machine.name)), wait: wait);
     }
   }
+
+  /// Completes once this computer's own machine gave its factors and account settings, or the list is let go, so what
+  /// follows them from the start (the planner this window starts, the records dropped for their age) waits for them.
+  Future<void> untilLocalLimitsAsked() => _localLimits.future;
+  final Completer<void> _localLimits = Completer<void>();
 
   void _open(Machine machine) {
     // This computer's own machine gives the factors of every limit tied to no machine.
@@ -1054,6 +1061,13 @@ class Machines extends ChangeNotifier {
           ? null
           : () => tunnels.of(machine)?.problem ?? tunnels.of(machine)?.vaultProblem,
     );
+    if (machine.isAlwaysListed) {
+      unawaited(
+        fleet.untilLimitsAsked().then((_) {
+          if (!_localLimits.isCompleted) _localLimits.complete();
+        }),
+      );
+    }
     // Not simply `_notify`: a managed machine that stops answering is a forward that dropped, and
     // nobody should have to ask for it to come back.
     fleet.addListener(() {
@@ -1166,6 +1180,7 @@ class Machines extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    if (!_localLimits.isCompleted) _localLimits.complete();
     for (final fleet in _watching.values) {
       fleet.dispose();
     }

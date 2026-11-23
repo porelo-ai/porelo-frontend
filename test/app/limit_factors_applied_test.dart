@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/connection_trial.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/newer_version.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_frontend/src/mock/mock_daemon.dart';
@@ -69,6 +72,27 @@ void main() {
     expect(machineSeconds(10), 11);
     expect(machineTries(50), 55);
     expect(machineSeconds(15), 17);
+  });
+
+  // Harm: a computer whose Porelo asks for slower polling is looked at as often as by default all the same.
+  test('a polling factor of 2 makes a look every minute one every two', () {
+    machineLimits
+      ..local = 'here'
+      ..keep('here', 'polling=2.0', LimitFactors.parse('polling=2.0'));
+    final folder = Directory.systemTemp.createTempSync('newer-version-');
+    addTearDown(() => folder.deleteSync(recursive: true));
+    final binary = File('${folder.path}/binary')..writeAsStringSync('old');
+    binary.setLastModifiedSync(DateTime(2026));
+
+    fakeAsync((time) {
+      final newer = NewerVersion(what: binary, every: const Duration(minutes: 1))..watch();
+      binary.setLastModifiedSync(DateTime(2026, 2));
+      time.elapse(const Duration(seconds: 90));
+      expect(newer.arrived, isFalse, reason: 'looked after one minute, the default');
+      time.elapse(const Duration(seconds: 31));
+      expect(newer.arrived, isTrue, reason: 'not looked after two minutes');
+      newer.dispose();
+    });
   });
 
   // Harm: a slow computer's factor of 2 does not reach the wait for a closed terminal's program, which then counts as

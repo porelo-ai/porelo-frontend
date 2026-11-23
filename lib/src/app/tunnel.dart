@@ -312,7 +312,7 @@ class Tunnel {
         found = await probeSocket(machine.socketPath, _connect, within: _leftOf(waited, const Duration(seconds: 1)));
         if (found == SocketProbe.answers) answered = true;
         if (found != SocketProbe.nobody) {
-          await Future<void>.delayed(_leftOf(waited, const Duration(milliseconds: 100)));
+          await Future<void>.delayed(_leftOf(waited, pollEvery(const Duration(milliseconds: 100))));
         }
       }
       if (generation != _generation) return;
@@ -410,7 +410,7 @@ class Tunnel {
         state = TunnelState.up;
         return;
       }
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await Future<void>.delayed(pollEvery(const Duration(milliseconds: 50)));
     }
     // Up, and nothing bound. Said as a wait rather than as a refusal, because it is neither a
     // rejection by the far end nor a fault anybody can name.
@@ -511,7 +511,7 @@ class Tunnel {
           await unlockVault();
           return;
         }
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(pollEvery(const Duration(milliseconds: 50)));
       }
       if (generation != _generation || state == TunnelState.down) return;
       await _stopWhatWeStarted();
@@ -798,7 +798,7 @@ class Tunnel {
         .timeout(_untilExplained);
     // The master ends after it answered; its endpoints stop answering within a moment.
     for (var wait = 0; wait < 20 && await probeSocket(control, connectToSocket) != SocketProbe.nobody; wait++) {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(pollEvery(const Duration(milliseconds: 100)));
     }
     for (final endpoint in _cardEndpoints(card)) {
       await removeLeftover(endpoint);

@@ -7,6 +7,7 @@ import 'connections.dart' show quoteForAShell;
 import 'fleet_backend.dart';
 import 'machines.dart';
 import 'organization_source.dart' show HostConnections;
+import '../wire/limit_factors.dart';
 
 /// One open pull request on a host's forge, as a row of *Needs you* shows it.
 @immutable
@@ -423,7 +424,7 @@ class HostPullRequests extends ChangeNotifier {
       ..stale = true
       ..refusal = error ?? StateError('the watch ended without a word');
     watched.again?.cancel();
-    watched.again = Timer(askAgainAfter, () {
+    watched.again = Timer(pollEvery(askAgainAfter), () {
       watched.again = null;
       if (!_disposed && identical(_projects[project], watched) && watched.wanted) _start(project, watched);
     });

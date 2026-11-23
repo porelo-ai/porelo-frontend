@@ -1224,8 +1224,11 @@ class PoreloClient {
     return id is String ? id : '';
   }
 
-  /// The four factors this machine's time limits follow, as porelod read them from its configuration at its start:
-  /// the limits line, passed on unchanged to a Porelo program a client starts, never rebuilt.
+  /// The person's account settings on this machine, as its porelod read them from their config.yml.
+  Future<AccountSettings> accountSettings() async =>
+      AccountSettings.from(await _call('AccountSettings', const <String, dynamic>{}));
+
+  /// The limits line the machine's Porelo gives: its four time factors, as Limits() answers them.
   Future<String> limitsLine() async {
     final answered = await _call('Limits', const <String, dynamic>{});
     final line = answered['line'];

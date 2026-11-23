@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/planner.dart';
 import 'package:porelo_frontend/src/app/window_log.dart';
+import 'package:porelo_frontend/src/wire/limit_factors.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../support/planner_process.dart';
@@ -65,17 +66,23 @@ void main() {
     return file.path;
   }
 
-  LocalPlanner client({required List<String> candidates, StartPlanner? start, Duration? wait, Duration? follow}) =>
-      LocalPlanner(
-        projects: () => ['demo'],
-        repositories: (project) => PlannerProject('https://example.org/$project.git'),
-        runtimeDirectory: runtime.path,
-        candidates: candidates,
-        start: start,
-        wait: wait ?? const Duration(seconds: 5),
-        poll: const Duration(milliseconds: 20),
-        follow: follow ?? const Duration(seconds: 2),
-      )..let(clients.add);
+  LocalPlanner client({
+    required List<String> candidates,
+    StartPlanner? start,
+    Duration? wait,
+    Duration? follow,
+    Future<void> Function()? limitsAsked,
+  }) => LocalPlanner(
+    limitsAsked: limitsAsked,
+    projects: () => ['demo'],
+    repositories: (project) => PlannerProject('https://example.org/$project.git'),
+    runtimeDirectory: runtime.path,
+    candidates: candidates,
+    start: start,
+    wait: wait ?? const Duration(seconds: 5),
+    poll: const Duration(milliseconds: 20),
+    follow: follow ?? const Duration(seconds: 2),
+  )..let(clients.add);
 
   /// A start that hands [process] and has it write its address, as a planner does once it listens.
   StartPlanner starting(PlannerProcess process, {List<String>? starts}) => (executable, _) async {
@@ -121,6 +128,75 @@ rm -f "\$dir/planner.json"''');
     await local.end();
     await until(() => !addressFile().existsSync());
     expect(await File(record).readAsLines(), contains('stopped'));
+  });
+
+  // Harm: a planner the window starts waits on its forges with other limits than this computer's Porelo sets.
+  test('a planner is started with this computer\'s limits line before its option', () async {
+    machineLimits.local = 'here';
+    machineLimits.keep('here', 'services=2.0,polling=3.0', LimitFactors.parse('services=2.0,polling=3.0'));
+    addTearDown(() {
+      machineLimits.forget('here');
+      machineLimits.local = null;
+    });
+    final record = '${bin.path}/record';
+    final path = await program('''
+echo "\$\$" > '$record'
+printf '%s\\n' "\$@" >> '$record'
+dir="\$XDG_RUNTIME_DIR/porelo-planner"
+mkdir -p "\$dir" && chmod 700 "\$dir"
+printf '{"port":${server.port},"token":"token-of-the-script"}' > "\$dir/planner.json.new"
+chmod 600 "\$dir/planner.json.new" && mv "\$dir/planner.json.new" "\$dir/planner.json"
+cat > /dev/null
+rm -f "\$dir/planner.json"''');
+    final local = client(candidates: [path]);
+    addTearDown(() async {
+      final lines = await File(record).readAsLines().catchError((_) => <String>[]);
+      if (lines.isNotEmpty) Process.killPid(int.parse(lines.first));
+    });
+
+    await local.reach();
+    expect(local.notReached, isNull, reason: 'the started script wrote its address');
+    expect((await File(record).readAsLines()).skip(1), ['--limits', 'services=2.0,polling=3.0', plannerEndsWithInput]);
+    await local.end();
+  });
+
+  // Harm: the planning screen's waits on the planner follow other limits than this computer's Porelo sets.
+  test('the planner found is read with this computer\'s factors', () async {
+    machineLimits.local = 'here';
+    machineLimits.keep('here', 'services=2.0,retries=3.0', LimitFactors.parse('services=2.0,retries=3.0'));
+    addTearDown(() {
+      machineLimits.forget('here');
+      machineLimits.local = null;
+    });
+    await announce();
+    final source = await WindowPlannerSource.fromAddressFile(
+      (project) => PlannerProject('https://example.org/$project.git'),
+      runtimeDirectory: runtime.path,
+    );
+    addTearDown(source.close);
+    expect((source as PlanningLimited).limits.servicesOf(const Duration(seconds: 10)), const Duration(seconds: 20));
+    expect(source.limits.retryPauseOf(const Duration(seconds: 1)), const Duration(seconds: 3));
+  });
+
+  // Harm: a planner started before this computer's factors were read runs the whole session at other limits.
+  test('the planner is neither looked for nor started before this computer was asked for its factors', () async {
+    final asked = Completer<void>();
+    final started = PlannerProcess();
+    final starts = <String>[];
+    final local = client(
+      candidates: [await program()],
+      start: starting(started, starts: starts),
+      limitsAsked: () => asked.future,
+    );
+    final reached = local.reach();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(starts, isEmpty, reason: 'started before the factors were asked');
+    expect(local.notReached, plannerWaitsForLimits);
+
+    asked.complete();
+    await reached;
+    expect(starts, hasLength(1));
+    await local.end();
   });
 
   // Harm: a planner the window started outlives it, so the next planner cannot start.

@@ -153,6 +153,8 @@ Future<PoreloApp> _compose() async {
   await notifications.load();
   final organizationSource = PoreloOrganizationSource();
   final planner = LocalPlanner.of(machines, logLevel: settings.logLevel);
+  // What ran is dropped for its age only once the person's settings say how long it is kept.
+  unawaited(machines.untilLocalLimitsAsked().then((_) => operations.forgetOld()));
   // One watch of the ending signals: the tunnels, the forwards and the planner the window started go at once, then
   // the window exits; a planner it found serving is left running, and Windows starts none.
   letGoOnSignals(endingSignals(), letGo: [machines.letGoOfTheTunnels, letGoOfTheForwards, planner.end], exit: exit);
