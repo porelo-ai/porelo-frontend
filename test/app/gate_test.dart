@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -163,7 +164,7 @@ void main() {
             commits: 0,
             logBytes: 0,
             diffBytes: _patchA.length + _patchB.length,
-            base: '',
+            base: _base,
             diffNext: _patchA.length,
           ),
         ),
@@ -176,7 +177,13 @@ void main() {
 
       await gate.readMoreDiff(backend);
 
-      expect(backend.pages.single, (part: 'diff', from: _patchA.length, commit: _first, against: ''));
+      expect(backend.pages.single, (
+        part: 'diff',
+        from: _patchA.length,
+        commit: _first,
+        against: _base,
+        ignoreLineEndings: false,
+      ));
       expect(gate.diff, '$_patchA$_patchB');
       expect([for (final file in gate.changed) file.path], <String>['a.dart', 'b.dart']);
       expect(gate.diffWhole, isTrue);
@@ -301,11 +308,128 @@ void main() {
       expect(answer.said, contains('did not name the commit'));
       expect(backend.approved, hasLength(1));
     });
+
+    // Harm: a page asked against another base, or with the other line-end choice, than the review shown is a
+    // page of another diff, joined to this one as if it were its rest.
+    test('every page carries the base the review was read against and the line-end choice it was read with', () async {
+      final backend = _Pages(<PushReview>[_withMore(_first)])
+        ..onPage = (part, from) async => (files: null, commits: null, text: _patchB, next: null);
+      final gate = await looking(backend);
+      await gate.showWithoutLineEndings(backend, true);
+      expect(gate.withoutLineEndings, isTrue);
+
+      await gate.readMoreDiff(backend);
+
+      expect(backend.pages.single, (
+        part: 'diff',
+        from: _patchA.length,
+        commit: _first,
+        against: _base,
+        ignoreLineEndings: true,
+      ));
+    });
+
+    // Harm: while a moved push is read again, the old review stays live, and a second click asks a page of the
+    // commit that no longer waits.
+    test('a second click while a moved push is read again asks no page, and nothing is forwarded meanwhile', () async {
+      final backend = _Pages(<PushReview>[_withMore(_first), _withMore(_second)]);
+      backend.onPage = (part, from) async {
+        backend.pending = _pushAt(_second);
+        backend.holdTheGate = Completer<void>();
+        throw const VarlinkException('org.fuin.porelo.Tasks1.MovedSinceReview', <String, dynamic>{
+          'name': 'migrate',
+          'reviewed': _first,
+          'now': _second,
+        });
+      };
+      final gate = await looking(backend);
+
+      final first = gate.readMoreDiff(backend);
+      await backend.gateAsked.future;
+      expect(gate.reviewHeld, isFalse);
+      expect(gate.busy, isTrue);
+      expect(gate.forwardRefused, isNotNull);
+      await gate.readMoreDiff(backend);
+      expect((await gate.approve(backend, 'main')).forwarded, isFalse);
+      backend.holdTheGate!.complete();
+      await first;
+
+      expect(backend.pages, hasLength(1));
+      expect(backend.approved, isEmpty);
+      expect(gate.reviewed, _second);
+      expect(gate.busy, isFalse);
+    });
+
+    // Harm: the diff's size is counted in characters rather than UTF-8 bytes, and a diff with "ü" or an emoji is
+    // refused as the machine's fault, or a short one taken for whole.
+    test('a diff with letters of several bytes is counted in UTF-8 bytes and joined', () async {
+      final whole = utf8.encode(_patchU).length + utf8.encode(_patchEmoji).length;
+      final backend = _Pages(<PushReview>[_withBytes(whole)])
+        ..onPage = (part, from) async => (files: null, commits: null, text: _patchEmoji, next: null);
+      final gate = await looking(backend);
+      expect(gate.diffRead, utf8.encode(_patchU).length);
+
+      await gate.readMoreDiff(backend);
+
+      expect(gate.diffStopped, isNull);
+      expect(gate.diffWhole, isTrue);
+      expect(gate.diffRead, whole);
+      expect(gate.diff, '$_patchU$_patchEmoji');
+    });
+
+    // Harm: a diff that ends short of the size the machine counted is taken for whole.
+    test('a diff that ends short of the bytes the machine counted is said, not taken for whole', () async {
+      final whole = utf8.encode(_patchU).length + utf8.encode(_patchEmoji).length + 1;
+      final backend = _Pages(<PushReview>[_withBytes(whole)])
+        ..onPage = (part, from) async => (files: null, commits: null, text: _patchEmoji, next: null);
+      final gate = await looking(backend);
+
+      await gate.readMoreDiff(backend);
+
+      expect(gate.diffStopped, contains('never should'));
+      expect(gate.diffWhole, isFalse);
+      expect(gate.diff, _patchU);
+    });
+
+    // Harm: a forward decided while the next part is read goes out on a review the page may yet show to have moved.
+    test('the push is not forwarded while a part of its diff is being read', () async {
+      final page = Completer<ReviewPage>();
+      final backend = _Pages(<PushReview>[_withMore(_first)])..onPage = (part, from) => page.future;
+      final gate = await looking(backend);
+
+      final reading = gate.readMoreDiff(backend);
+      expect(gate.forwardRefused, 'The next part of the diff is being read.');
+      expect((await gate.approve(backend, 'main')).forwarded, isFalse);
+      page.complete((files: null, commits: null, text: _patchB, next: null));
+      await reading;
+
+      expect(backend.approved, isEmpty);
+      expect(gate.forwardRefused, isNull);
+    });
   });
 }
 
+const _patchU = 'diff --git a/ü.dart b/ü.dart\n--- a/ü.dart\n+++ b/ü.dart\n@@ -1 +1 @@\n-ü\n+üü\n';
+const _patchEmoji = 'diff --git a/e.dart b/e.dart\n--- a/e.dart\n+++ b/e.dart\n@@ -1 +1 @@\n-x\n+😀\n';
+
+/// A review whose diff holds the patch of ü.dart, and the next page that of e.dart, of [whole] bytes in all.
+PushReview _withBytes(int whole) => PushReview(
+  commit: _first,
+  files: <ReviewFile>[_file('ü.dart'), _file('e.dart')],
+  diff: _patchU,
+  paged: ReviewPaged(
+    files: 2,
+    commits: 0,
+    logBytes: 0,
+    diffBytes: whole,
+    base: _base,
+    diffNext: utf8.encode(_patchU).length,
+  ),
+);
+
 const _first = '9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d';
 const _second = '1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c';
+const _base = '0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d';
 const _patchA = 'diff --git a/a.dart b/a.dart\n--- a/a.dart\n+++ b/a.dart\n@@ -1 +1 @@\n-x\n+y\n';
 const _patchB = 'diff --git a/b.dart b/b.dart\n--- a/b.dart\n+++ b/b.dart\n@@ -1 +1 @@\n-p\n+q\n';
 
@@ -324,7 +448,7 @@ PushReview _withMore(String commit) => PushReview(
     commits: 0,
     logBytes: 0,
     diffBytes: _patchA.length + _patchB.length,
-    base: '',
+    base: _base,
     diffNext: _patchA.length,
   ),
 );
@@ -342,15 +466,27 @@ class _Pages implements FleetBackend {
   List<Map<String, dynamic>> pending = _pushAt(_first);
   Future<ReviewPage> Function(String part, int from) onPage = (part, from) async =>
       throw StateError('no page was expected');
-  final pages = <({String part, int from, String commit, String against})>[];
+  final pages = <({String part, int from, String commit, String against, bool ignoreLineEndings})>[];
   final approved = <String?>[];
 
-  @override
-  Future<GateState> gateOf(String projectFile, {String? repository}) async =>
-      GateState.from(<String, dynamic>{'mode': 'gatekeeping', 'pending': pending});
+  /// Held until completed, where set: the gate's list is being read again.
+  Completer<void>? holdTheGate;
+
+  /// Completed when the gate's list is asked while [holdTheGate] holds it.
+  final gateAsked = Completer<void>();
 
   @override
-  Future<String> contract() async => '';
+  Future<GateState> gateOf(String projectFile, {String? repository}) async {
+    final hold = holdTheGate;
+    if (hold != null) {
+      if (!gateAsked.isCompleted) gateAsked.complete();
+      await hold.future;
+    }
+    return GateState.from(<String, dynamic>{'mode': 'gatekeeping', 'pending': pending});
+  }
+
+  @override
+  Future<String> contract() async => 'method Review(project: string, name: string, ignoreLineEndings: ?bool) -> ()';
 
   @override
   Future<PushReview> reviewOf(
@@ -372,7 +508,7 @@ class _Pages implements FleetBackend {
     required String part,
     required int from,
   }) {
-    pages.add((part: part, from: from, commit: commit, against: against));
+    pages.add((part: part, from: from, commit: commit, against: against, ignoreLineEndings: ignoreLineEndings));
     return onPage(part, from);
   }
 

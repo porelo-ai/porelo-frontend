@@ -1587,8 +1587,9 @@ class PoreloClient {
   /// [ignoreLineEndings] `true` the diff leaves out what changed at line ends; only a machine whose
   /// `Review` declares it may be sent it.
   ///
-  /// A `paged` that does not match what the answer holds - a next where a part is already whole, none
-  /// where it is not, or more held than its size - is refused as a [FormatException].
+  /// A `paged` that does not match what the answer holds of its files, commits or diff - a next where a
+  /// part is already whole, none where it is not, or more held than its size - is refused as a
+  /// [FormatException]. The log is not checked: it is never shown, and its pages are not read.
   Future<PushReview> review(
     String project,
     String name, {
@@ -1634,7 +1635,6 @@ class PoreloClient {
 
       held('files', review.files.length, paged.files, paged.filesNext);
       held('commits', review.commits?.length ?? 0, paged.commits, paged.commitsNext);
-      held('log', utf8.encode(review.log).length, paged.logBytes, paged.logNext);
       // A cut diff says itself that it is not whole, and its size is not the one the pages count.
       if (review.cut == null) held('diff', utf8.encode(review.diff).length, paged.diffBytes, paged.diffNext);
     }

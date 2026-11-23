@@ -130,6 +130,8 @@ class Gate extends ChangeNotifier {
     if (read.commit == null) {
       return 'The machine did not name the commit this review is of, so it is not forwarded from here.';
     }
+    // A page that answers that the push moved would make what was decided on another commit's review.
+    if (readingDiff) return 'The next part of the diff is being read.';
     return null;
   }
 
@@ -478,9 +480,27 @@ class Gate extends ChangeNotifier {
       diffNext = after;
     } on VarlinkException catch (refusal) {
       if (!current()) return;
-      if (refusal.simpleName == 'MovedSinceReview' && looking != null) {
-        readingDiff = false;
-        await _readAgainAfterAMove(backend, read, current);
+      if (refusal.simpleName == 'MovedSinceReview' && !read.afterAMove && looking != null) {
+        // The old review is no longer shown or asked from while the push is read again: no page of its
+        // commit can be asked meanwhile, and nothing of it is forwarded.
+        _forgetTheReview();
+        busy = true;
+        notifyListeners();
+        bool still() => read.looks == _looks;
+        try {
+          await _readAgainAfterAMove(backend, read, still);
+        } on VarlinkException catch (again) {
+          if (still()) problem = _wordsFor(again);
+        } on VarlinkDisconnected catch (ex) {
+          if (still()) problem = 'Lost contact with the machine: ${ex.message}';
+        } on FeatureNotSupported catch (ex) {
+          if (still()) problem = '$ex';
+        } finally {
+          if (still()) {
+            busy = false;
+            notifyListeners();
+          }
+        }
         return;
       }
       // Asked again it would be refused again: said, and not asked any more for this review.

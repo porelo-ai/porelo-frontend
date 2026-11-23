@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -12,8 +14,8 @@ void main() {
   const patchA = 'diff --git a/a.dart b/a.dart\n--- a/a.dart\n+++ b/a.dart\n@@ -1 +1 @@\n-x\n+y\n';
   const headOfB = 'diff --git a/$longPath b/$longPath\n--- a/$longPath\n+++ b/$longPath\n@@ -1,2 +1,2 @@\n-p\n';
 
-  Future<Gate> looking(PushReview review, {ReviewPage? page}) async {
-    final backend = _OneReview(review, page);
+  Future<Gate> looking(PushReview review, {ReviewPage? page, _OneReview? on}) async {
+    final backend = on ?? _OneReview(review, page);
     final gate = Gate();
     await gate.lookAt(backend, project);
     await gate.look(backend, gate.waiting.single);
@@ -114,6 +116,82 @@ void main() {
     expect(tester.widget<FilledButton>(find.byKey(const Key('review-forward'))).onPressed, isNull);
     expect(tester.widget<Text>(find.byKey(const Key('review-forward-refused'))).data, contains(Gate.notWholeWords));
   });
+
+  // Harm: a file whose patch the machine cut from its answer reads as a file without a change.
+  testWidgets('a file the machine left out of a cut diff is said to be left out, with the command for all of it', (
+    tester,
+  ) async {
+    const command = <String>['porelo', 'gate', 'review', 'migrate'];
+    final gate = await looking(
+      PushReview(
+        commit: '9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d',
+        files: <ReviewFile>[_file('a.dart'), _file('c.dart')],
+        diff: patchA,
+        cut: const ReviewCut(shownFiles: 1, omittedFiles: 1, omitted: <String>['c.dart'], command: command),
+      ),
+    );
+    await show(tester, gate);
+
+    expect(find.byKey(const ValueKey<String>('review-patch leftOut c.dart')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('review-patch leftOut a.dart')), findsNothing);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('review-diff-read-words'))).data,
+      contains('patches of 1 of 2 files'),
+    );
+    expect(find.text(command.join(' ')), findsOneWidget);
+    expect(find.text('Copy the diff read so far'), findsOneWidget);
+  });
+
+  // Harm: a second click while a page is read asks another, and a forward goes out while its review may yet move.
+  testWidgets('while a part of the diff is read, its button and the forward are offered to nobody, saying why', (
+    tester,
+  ) async {
+    final backend = _OneReview(partly(), null)..held = Completer<ReviewPage>();
+    final gate = await looking(partly(), on: backend);
+    final reading = gate.readMoreDiff(backend);
+    await show(tester, gate, onReadMore: () {});
+
+    final list = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.byKey(const Key('review-read-more')), 100, scrollable: list);
+    expect(tester.widget<OutlinedButton>(find.byKey(const Key('review-read-more'))).onPressed, isNull);
+    expect(find.text('The next part is being read.'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('review-forward'))).onPressed, isNull);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('review-forward-refused'))).data,
+      'The next part of the diff is being read.',
+    );
+
+    backend.held!.complete((files: null, commits: null, text: 'x\n', next: 9000));
+    await reading;
+  });
+
+  // Harm: the branch is chosen in a dialog that does not say the diff was read only in part.
+  testWidgets('the branch dialog says how much of the diff was read', (tester) async {
+    final gate = await looking(partly());
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => askWhichBranch(context, subject: 'Round', partlyRead: gate.diffReadWords),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('forward-partly-read'))).data,
+      allOf(contains('of 4 KiB of the diff read'), contains('Forwarding sends all of it, read or not.')),
+    );
+  });
 }
 
 ReviewFile _file(String path) =>
@@ -125,6 +203,9 @@ class _OneReview implements FleetBackend {
 
   final PushReview review;
   final ReviewPage? page;
+
+  /// Where set, every page waits for it.
+  Completer<ReviewPage>? held;
 
   @override
   Future<GateState> gateOf(String projectFile, {String? repository}) async => GateState.from(const <String, dynamic>{
@@ -156,7 +237,7 @@ class _OneReview implements FleetBackend {
     required bool ignoreLineEndings,
     required String part,
     required int from,
-  }) async => page ?? (throw StateError('no page was expected'));
+  }) => held?.future ?? Future<ReviewPage>.value(page ?? (throw StateError('no page was expected')));
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
