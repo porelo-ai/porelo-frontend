@@ -187,6 +187,19 @@ void main() {
     );
   });
 
+  // Harm: a result of a size the planner takes, past the old 256 KiB, is refused before it is sent.
+  test('a result of 600 KiB is sent', () async {
+    await handStageResult(
+      'demo',
+      'pi',
+      offer,
+      result: {...result, 'pad': 'x' * (600 * 1024)},
+      runtimeDirectory: runtime.path,
+    );
+
+    expect(planner.calls, hasLength(1));
+  });
+
   // Harm: a body past the planner's bound is answered as an unsigned call, taken for a planner not proven, and handed
   // in again for ever; or a long line of why there is none is refused.
   test('a body past the planner\'s bound is never sent, and a long why is cut to 300 characters', () async {

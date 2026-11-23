@@ -224,6 +224,18 @@ void main() {
     );
   });
 
+  // Harm: an idea of a size a forge accepts, past the old 64 KiB, is refused before it is sent.
+  test('an idea of 200 KiB is sent', () async {
+    final large = {
+      ...idea,
+      'story': {'title': 'x' * (200 * 1024)},
+    };
+
+    await handIdea('demo', offer, large, runtimeDirectory: runtime.path);
+
+    expect(planner.calls, hasLength(1));
+  });
+
   // Harm: an idea larger than the planner takes is sent all the same and refused without saying why.
   test('an idea larger than the planner takes is not sent', () async {
     final large = {
@@ -233,7 +245,7 @@ void main() {
 
     await expectLater(
       handIdea('demo', offer, large, runtimeDirectory: runtime.path),
-      throwsA(isA<IdeaNotSaved>().having((refusal) => refusal.words, 'words', contains('64 KiB'))),
+      throwsA(isA<IdeaNotSaved>().having((refusal) => refusal.words, 'words', contains('1 MiB'))),
     );
     expect(planner.calls, isEmpty);
   });

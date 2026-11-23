@@ -23,7 +23,7 @@ class StageResultNotSaved extends PlannerDidNotSave {
 }
 
 /// The most bytes a stage's result file may have, as the planner takes it.
-const mostStageResultBytes = 262144;
+const mostStageResultBytes = 1024 * 1024;
 
 /// The most bytes the hand-in's body may have: the file and 4096 for its offer and the JSON around it. The planner
 /// answers a larger body as an unsigned call, so it is never sent.

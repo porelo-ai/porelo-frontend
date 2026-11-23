@@ -41,7 +41,7 @@ class IdeaNotSaved extends PlannerDidNotSave {
 }
 
 /// The most bytes a hand-in's body may have.
-const mostIdeaBytes = 65536;
+const mostIdeaBytes = 1024 * 1024;
 
 /// The planner's `POST /projects/{project}/ideas`, at the address its `planner.json` under [runtimeDirectory] names:
 /// the body `{"offer": ..., "idea": ...}`, answered with the id of the story saved.
@@ -62,7 +62,7 @@ Future<String> handIdea(
 }) async {
   final body = {'offer': offer, 'idea': idea};
   if (utf8.encode(jsonEncode(body)).length > mostIdeaBytes) {
-    throw const IdeaNotSaved('the idea is larger than the planner takes (64 KiB)');
+    throw const IdeaNotSaved('the idea is larger than the planner takes (1 MiB)');
   }
   try {
     final (status, answer) = await postToPlanner(

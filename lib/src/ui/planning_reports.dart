@@ -29,21 +29,32 @@ String? plannerMachineNameProblem(String machine) {
   return null;
 }
 
+/// The most characters of an idea's title, as a forge takes an issue's.
+const mostIdeaTitleCharacters = 256;
+
+/// The most characters of an idea's what-must-be-true, as a forge takes an issue's body.
+const mostIdeaTextCharacters = 65536;
+
 /// The most ideas one task may propose, as Porelo bounds a project's allowance; the window hands no more of a row.
 const mostIdeasOfATask = 100;
 
 /// Why [idea] is not handed to the planner, or null where it is: it holds the bounds Porelo states for a proposal, an
-/// id `idea-<n>`, a title of one line of at most 120 characters, and at most 1000 characters of what must be true, with
-/// no control characters but its line breaks. Never quotes the idea, which is the task's agent's own text.
+/// id `idea-<n>`, a title of one line of at most [mostIdeaTitleCharacters] characters, and at most
+/// [mostIdeaTextCharacters] characters of what must be true, with no control characters but its line breaks. Never
+/// quotes the idea, which is the task's agent's own text.
 String? proposedIdeaProblem(ProposedIdea idea) {
   if (!RegExp(r'^idea-([1-9][0-9]?|100)$').hasMatch(idea.id)) return 'its id is not one Porelo gives';
   if (idea.title.trim().isEmpty) return 'it has no title';
-  if (idea.title.runes.length > 120) return 'its title is longer than 120 characters';
+  if (idea.title.runes.length > mostIdeaTitleCharacters) {
+    return 'its title is longer than $mostIdeaTitleCharacters characters';
+  }
   if (_unsafe.hasMatch(idea.title) || idea.title.contains(RegExp('[\n\r]'))) {
     return 'its title is not one line of plain text';
   }
   if (idea.mustBeTrue.trim().isEmpty) return 'it does not say what must be true';
-  if (idea.mustBeTrue.runes.length > 1000) return 'what must be true is longer than 1000 characters';
+  if (idea.mustBeTrue.runes.length > mostIdeaTextCharacters) {
+    return 'what must be true is longer than $mostIdeaTextCharacters characters';
+  }
   if (_unsafe.hasMatch(idea.mustBeTrue)) return 'what must be true holds a control character';
   return null;
 }
@@ -795,7 +806,7 @@ class WindowTaskReports {
       return _noIdea(kept, end, '${result.name} was not handed back');
     }
     if (utf8.encode(content).length > mostIdeaBytes) {
-      return _noIdea(kept, end, '${result.name} is larger than the planner takes (64 KiB)');
+      return _noIdea(kept, end, '${result.name} is larger than the planner takes (1 MiB)');
     }
     final Object? idea;
     try {
@@ -905,7 +916,7 @@ class WindowTaskReports {
         },
       );
     } else if (utf8.encode(content).length > mostStageResultBytes) {
-      (result, missing) = (null, '$name is larger than the planner takes (256 KiB)');
+      (result, missing) = (null, '$name is larger than the planner takes (1 MiB)');
     } else {
       Object? json;
       try {
@@ -917,7 +928,7 @@ class WindowTaskReports {
         // Measured as it is sent: the object written again as JSON may be longer than the file was.
         final Map<String, Object?> object
             when utf8.encode(jsonEncode({'offer': kept.offer, 'result': object})).length > mostStageResultBody =>
-          (null, '$name is larger than the planner takes (256 KiB)'),
+          (null, '$name is larger than the planner takes (1 MiB)'),
         final Map<String, Object?> object => (object, null),
         _ => (null, '$name holds no JSON object'),
       };

@@ -1073,7 +1073,20 @@ void main() {
       await sweeps(reports);
 
       expect(stageResults.single.$4, isNull);
-      expect(stageResults.single.$5, 'analysis.json is larger than the planner takes (256 KiB)');
+      expect(stageResults.single.$5, 'analysis.json is larger than the planner takes (1 MiB)');
+    });
+
+    // Harm: a result of a size the planner takes, past the old 256 KiB, is said as missing instead of handed.
+    test('a result of half a MiB is handed whole', () async {
+      final (reports, started, _) = await staged();
+      final big = {...analysis, 'pad': 'x' * (512 * 1024)};
+      results[started.container] = TaskResult.from({...analysisFile, 'content': jsonEncode(big)});
+      machine.end(started.container, {'at': '2026-11-15T12:00:00Z', 'finished': true, 'result': analysisFile});
+
+      await sweeps(reports);
+
+      expect(stageResults.single.$4, big);
+      expect(stageResults.single.$5, isNull);
     });
 
     test('a result the machine would not take is said as missing with why', () async {
@@ -1732,21 +1745,27 @@ void main() {
     test('out of the bounds Porelo states is never handed or quoted, and said once', () async {
       final bad = [
         idea(1, title: 'Two\nlines'),
-        idea(2, title: 'x' * 121),
-        idea(3, text: 'y' * 1001),
+        idea(2, title: 'x' * 257),
+        idea(3, text: 'y' * 65537),
         idea(4, text: 'A bell \u0007 rings.'),
         idea(5, title: ' '),
         {...idea(6), 'id': 'idea-6\nforged'},
         idea(7, text: ''),
+        // Counted in characters as the planner counts them, so one outside the basic plane is one, not two.
+        idea(9, title: '\u{1F600}' * 257),
       ];
-      lists('porelo-demo-pi', [...bad, idea(8, title: 'x' * 120, text: 'Two\nlines, ${'y' * 980}')]);
+      lists('porelo-demo-pi', [
+        ...bad,
+        idea(8, title: 'x' * 256, text: 'Two\nlines, ${'y' * 65000}'),
+        idea(10, title: '\u{1F600}' * 256),
+      ]);
       final reports = said(window().$2);
 
       await swept(reports);
       await swept(reports);
       await swept(said(window(kept: await loaded()).$2));
 
-      expect(planner.issues.map((issue) => issue.$3), ['x' * 120]);
+      expect(planner.issues.map((issue) => issue.$3), ['x' * 256, '\u{1F600}' * 256]);
       expect(problems, hasLength(bad.length));
       expect(problems.join(), isNot(contains('Two\nlines')));
       expect(problems.join(), isNot(contains('\u0007')));
