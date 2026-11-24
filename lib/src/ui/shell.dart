@@ -1354,6 +1354,8 @@ class _ShellState extends State<Shell> {
             group: command.group,
             home: command.home,
             shortcut: command.shortcut,
+            submenu: command.submenu,
+            danger: command.danger,
             run: () => unawaited(_refreshMachine(machine)),
             unavailable: command.unavailable,
           )
@@ -1377,6 +1379,7 @@ class _ShellState extends State<Shell> {
     label: 'Stop everything on this machine',
     group: 'Machine',
     home: Home.machineTitle,
+    danger: true,
     shortcut: const SingleActivator(LogicalKeyboardKey.period, control: true, shift: true),
     unavailable: notAnswering(widget.machines.watching(machine)),
     run: () => unawaited(_stopEverything(on: machine)),
@@ -5080,8 +5083,9 @@ class _ShellState extends State<Shell> {
     final backend = fleet.backend;
     final state = tools.vault.state;
     final commands = [
+      // The vault's own menu holds only the vault's actions, so they stand in it rather than in a submenu of it.
       for (final command in _machineMenu(on: machine))
-        if (command.id.startsWith('vault.') && command.id != 'vault.show') command,
+        if (command.id.startsWith('vault.') && command.id != 'vault.show') command.inSubmenu(null),
     ];
     final primaryId = state?.exists == false
         ? 'vault.make'
@@ -7435,9 +7439,11 @@ class _ShellState extends State<Shell> {
       machines: widget.machines,
       commands: watched
           ? [
+              // Stopping everything first: dangerous entries go last in the order they come, so it leads clearing
+              // and forgetting there.
               for (final command in [
-                ..._machineMenu(on: machine),
                 ..._commands().where((command) => command.id == 'machine.panic'),
+                ..._machineMenu(on: machine),
               ])
                 command.unless(_itemScopeProblem(command)),
             ]

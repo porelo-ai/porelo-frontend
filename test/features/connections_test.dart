@@ -106,6 +106,12 @@ void main() {
       await iChooseTheMenuEntry(tester, 'Connections — how this machine connects out');
       await theConnectionsOfTheMachineAreOpen(tester);
     });
+    testWidgets('''an entry of a submenu is chosen without looking for it first''', (tester) async {
+      await bddSetUp(tester);
+      await iOpenTheMenu(tester, 'What this machine can be told to do');
+      await iChooseTheMenuEntry(tester, 'Connections — how this machine connects out');
+      await theConnectionsOfTheMachineAreOpen(tester);
+    });
     testWidgets('''what a connection is, is chosen and never read off its address''', (tester) async {
       await bddSetUp(tester);
       await iChooseTheCommand(tester, 'Connections — how this machine connects out');

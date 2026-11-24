@@ -351,6 +351,22 @@ class Command {
           run: run,
         );
 
+  /// The same command, standing in the submenu [name] of its menu, or in the menu itself for null.
+  Command inSubmenu(String? name) => Command(
+    id: id,
+    hidden: hidden,
+    label: label,
+    group: group,
+    shortcut: shortcut,
+    unavailable: _unavailable,
+    unavailableNow: unavailableNow,
+    home: home,
+    checked: checked,
+    danger: danger,
+    submenu: name,
+    run: run,
+  );
+
   /// The same command, doing [first] before it runs.
   Command after(VoidCallback first) => Command(
     id: id,
@@ -1156,11 +1172,15 @@ Command forgetMachineCommand({
   label: label,
   group: 'Machine',
   home: Home.machineMenu,
+  danger: true,
   run: forget,
   unavailable:
       (machine != null && machine.kind == 'host' ? _setupAgainUnavailable(hostRuns, machine.hostProject) : null) ??
       (canForget ? null : 'it is the only machine watched'),
 );
+
+/// Whether [command] connects to a machine or disconnects from it, which any watched machine offers.
+bool _isConnection(Command command) => command.id == 'machine.connect' || command.id == 'machine.disconnect';
 
 /// The machine's daemon actions and any host lifecycle actions, sharing one home.
 List<Command> machineCommands({
@@ -1191,7 +1211,6 @@ List<Command> machineCommands({
   final notConnected = notAnswering(fleet);
   final connected = notConnected == null;
   return <Command>[
-    ...hostActions,
     // The one thing a machine that is not answering can still be asked, and only while this
     // interface is the one that logs in: everything else here needs the daemon that is missing.
     Command(
@@ -1230,102 +1249,6 @@ List<Command> machineCommands({
           : 'Porelo is not answering there, and it is not started from here',
     ),
     Command(
-      id: 'machine.providers',
-      label: 'Show what this machine can authenticate against',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: showTheProviders,
-      unavailable: notConnected,
-    ),
-    Command(
-      id: 'vault.show',
-      label: 'Show the vault',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: showTheVault,
-      unavailable: notConnected,
-    ),
-    // What it connects out with is listed with the vault shut too: the list holds no secret.
-    Command(
-      id: 'machine.connections',
-      label: 'Connections — how this machine connects out',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: showConnections ?? () {},
-      unavailable: notConnected,
-    ),
-    // Declared as files at the machine, and managed here as well: what a console can, this can.
-    Command(
-      id: 'machine.destinations',
-      label: 'Destinations — the services a credential can be for',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: showDestinations ?? () {},
-      unavailable: showDestinations == null ? 'not offered here' : notConnected,
-    ),
-    // Needs no daemon: root logs in and Porelo's setup script makes the user, as for a new machine.
-    Command(
-      id: 'machine.addUser',
-      label: 'Add another user that runs work…',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: addAUser,
-    ),
-    // The same three the button beside the stop offers one at a time, so each is reachable whichever
-    // one the button shows: an open store on a device that is not enrolled still has to be shut.
-    for (final (act, id, label) in <(VaultAct, String, String)>[
-      (VaultAct.enroll, 'vault.enroll', 'Enroll this device on this machine'),
-      (VaultAct.open, 'vault.open', 'Open the vault with this device'),
-      (VaultAct.shut, 'vault.shut', 'Shut the vault'),
-    ])
-      Command(
-        id: id,
-        label: label,
-        group: 'Machine',
-        home: Home.machineMenu,
-        run: () => actOnTheVault(act),
-        unavailable: notConnected ?? vault.whyNot(act),
-      ),
-    // A fresh machine has no store, and every later step starts from one being there.
-    Command(
-      id: 'vault.make',
-      label: 'Make the vault, in a terminal',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: makeTheVault ?? () {},
-      unavailable:
-          notConnected ??
-          (!vault.missing
-              ? 'this machine has one already'
-              : makeTheVault == null
-              ? 'its socket is forwarded by somebody else, so nothing here reaches its porelo'
-              : null),
-    ),
-    // The first opening is always by the passphrase: a device can only be enrolled into an open
-    // vault. Typed into the machine's own `porelo`, never into this program.
-    Command(
-      id: 'vault.passphrase',
-      label: 'Open the vault with its passphrase, in a terminal',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: unlockWithThePassphrase ?? () {},
-      unavailable:
-          notConnected ??
-          (vault.readable
-              ? 'it is already open'
-              : unlockWithThePassphrase == null
-              ? 'its socket is forwarded by somebody else, so nothing here reaches its porelo'
-              : null),
-    ),
-    Command(
-      id: 'agents.show',
-      label: 'Show the agents installed here',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: showAgents,
-      unavailable: notConnected,
-    ),
-    Command(
       id: 'fleet.refresh',
       label: 'Refresh from the backend',
       group: 'Machine',
@@ -1342,11 +1265,122 @@ List<Command> machineCommands({
       run: () => unawaited(fleet?.connect()),
       unavailable: fleet == null ? notWatchedYet : null,
     ),
+    // Watching it or not is as everyday as refreshing it.
+    ...hostActions.where(_isConnection),
+    Command(
+      id: 'vault.show',
+      label: 'Show the vault',
+      group: 'Machine',
+      home: Home.machineMenu,
+      submenu: 'Vault',
+      run: showTheVault,
+      unavailable: notConnected,
+    ),
+    // A fresh machine has no store, and every later step starts from one being there.
+    Command(
+      id: 'vault.make',
+      label: 'Make the vault, in a terminal',
+      group: 'Machine',
+      home: Home.machineMenu,
+      submenu: 'Vault',
+      run: makeTheVault ?? () {},
+      unavailable:
+          notConnected ??
+          (!vault.missing
+              ? 'this machine has one already'
+              : makeTheVault == null
+              ? 'its socket is forwarded by somebody else, so nothing here reaches its porelo'
+              : null),
+    ),
+    // The first opening is always by the passphrase: a device can only be enrolled into an open
+    // vault. Typed into the machine's own `porelo`, never into this program.
+    Command(
+      id: 'vault.passphrase',
+      label: 'Open the vault with its passphrase, in a terminal',
+      group: 'Machine',
+      home: Home.machineMenu,
+      submenu: 'Vault',
+      run: unlockWithThePassphrase ?? () {},
+      unavailable:
+          notConnected ??
+          (vault.readable
+              ? 'it is already open'
+              : unlockWithThePassphrase == null
+              ? 'its socket is forwarded by somebody else, so nothing here reaches its porelo'
+              : null),
+    ),
+    // The same three the button beside the stop offers one at a time, so each is reachable whichever
+    // one the button shows: an open store on a device that is not enrolled still has to be shut.
+    for (final (act, id, label) in <(VaultAct, String, String)>[
+      (VaultAct.enroll, 'vault.enroll', 'Enroll this device on this machine'),
+      (VaultAct.open, 'vault.open', 'Open the vault with this device'),
+      (VaultAct.shut, 'vault.shut', 'Shut the vault'),
+    ])
+      Command(
+        id: id,
+        label: label,
+        group: 'Machine',
+        home: Home.machineMenu,
+        submenu: 'Vault',
+        run: () => actOnTheVault(act),
+        unavailable: notConnected ?? vault.whyNot(act),
+      ),
+    Command(
+      id: 'machine.providers',
+      label: 'Show what this machine can authenticate against',
+      group: 'Machine',
+      home: Home.machineMenu,
+      submenu: 'What it connects to',
+      run: showTheProviders,
+      unavailable: notConnected,
+    ),
+    // What it connects out with is listed with the vault shut too: the list holds no secret.
+    Command(
+      id: 'machine.connections',
+      label: 'Connections — how this machine connects out',
+      group: 'Machine',
+      home: Home.machineMenu,
+      submenu: 'What it connects to',
+      run: showConnections ?? () {},
+      unavailable: notConnected,
+    ),
+    // Declared as files at the machine, and managed here as well: what a console can, this can.
+    Command(
+      id: 'machine.destinations',
+      label: 'Destinations — the services a credential can be for',
+      group: 'Machine',
+      home: Home.machineMenu,
+      submenu: 'What it connects to',
+      run: showDestinations ?? () {},
+      unavailable: showDestinations == null ? 'not offered here' : notConnected,
+    ),
+    // Needs no daemon: root logs in and Porelo's setup script makes the user, as for a new machine.
+    Command(
+      id: 'machine.addUser',
+      label: 'Add another user that runs work…',
+      group: 'Machine',
+      home: Home.machineMenu,
+      submenu: 'Users and agents',
+      run: addAUser,
+    ),
+    Command(
+      id: 'agents.show',
+      label: 'Show the agents installed here',
+      group: 'Machine',
+      home: Home.machineMenu,
+      submenu: 'Users and agents',
+      run: showAgents,
+      unavailable: notConnected,
+    ),
+    // What a prepared host offers beyond any machine: its setup, its protocol, taking it down.
+    for (final command in hostActions)
+      if (!_isConnection(command)) command.inSubmenu('Server'),
     Command(
       id: 'machine.clear',
       label: 'Clear this machine of everything Porelo put there…',
       group: 'Machine',
       home: Home.machineMenu,
+      danger: true,
       run: clearTheMachine ?? () {},
       unavailable: clearTheMachine == null ? 'not from here' : null,
     ),
@@ -1526,6 +1560,7 @@ List<Command> commandsFor({
       label: 'Stop everything on this machine',
       group: 'Machine',
       home: Home.machineTitle,
+      danger: true,
       // Shift as well as Control: nothing adjacent can be hit by mistake.
       shortcut: const SingleActivator(LogicalKeyboardKey.period, control: true, shift: true),
       run: stopEverything,

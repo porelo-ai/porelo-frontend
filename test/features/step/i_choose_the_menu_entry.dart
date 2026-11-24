@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/menu_entries.dart';
 import '../support/world.dart';
 
 /// Usage: I choose the menu entry {'Appearance: dark'}
@@ -14,7 +15,8 @@ Future<void> iChooseTheMenuEntry(WidgetTester tester, String entry) async {
     await World.settle(tester);
     await tester.tap(find.widgetWithText(MenuItemButton, entry.substring(at + 2)));
   } else {
-    await tester.tap(find.text(entry).last);
+    // Its submenu opened first where it stands in one, whether or not an earlier step left that open.
+    await chooseMenuEntry(tester, menuEntry(entry));
   }
   await World.settle(tester);
 }

@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/agent_sign_in.dart';
@@ -13,6 +15,7 @@ import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/templates.dart';
 import 'package:porelo_frontend/src/app/vault.dart';
+import 'package:porelo_frontend/src/ui/command_menu.dart';
 
 import '../features/support/world.dart';
 
@@ -33,6 +36,139 @@ void main() {
       expect(copy.danger, isTrue);
       expect(copy.submenu, 'Run');
     }
+  });
+
+  // Harm: a machine's menu buries its everyday actions among a dozen others, or puts clearing it between harmless ones.
+  test(
+    'a machine\'s menu stands its everyday actions at the top, the rest in submenus, clearing and forgetting last',
+    () {
+      final commands = machineCommands(
+        fleet: null,
+        canForget: true,
+        reachedOverSsh: true,
+        checkTheMachine: _none,
+        showTheProviders: _none,
+        showTheVault: _none,
+        showConnections: _none,
+        showDestinations: _none,
+        showAgents: _none,
+        startTheDaemon: _none,
+        stopTheDaemon: _none,
+        forget: _none,
+        clearTheMachine: _none,
+        vault: Vault(keys: MemoryDeviceKeyStore()),
+        actOnTheVault: (_) {},
+        addAUser: _none,
+        hostActions: const [
+          Command(id: 'machine.disconnect', label: 'Disconnect', group: 'Machine', run: _none),
+          Command(id: 'host.again', label: 'Run its setup again', group: 'demo server', run: _none),
+          Command(id: 'host.protocol', label: 'Open the machine protocol', group: 'demo server', run: _none),
+          Command(id: 'machine.takeDown', label: 'Take Porelo off this machine…', group: 'Machine', run: _none),
+        ],
+      );
+      final layout = commandMenuLayout(commands);
+      expect(
+        [for (final (name, held) in layout) name ?? held.single.id],
+        [
+          'machine.start',
+          'machine.stop',
+          'machine.doctor',
+          'fleet.refresh',
+          'fleet.reconnect',
+          'machine.disconnect',
+          'Vault',
+          'What it connects to',
+          'Users and agents',
+          'Server',
+          'machine.clear',
+          'machine.forget',
+        ],
+      );
+      List<String> inside(String submenu) => [
+        for (final (name, held) in layout)
+          if (name == submenu) ...held.map((command) => command.id),
+      ];
+      expect(inside('Vault'), [
+        'vault.show',
+        'vault.make',
+        'vault.passphrase',
+        'vault.enroll',
+        'vault.open',
+        'vault.shut',
+      ]);
+      expect(inside('What it connects to'), ['machine.providers', 'machine.connections', 'machine.destinations']);
+      expect(inside('Users and agents'), ['machine.addUser', 'agents.show']);
+      expect(inside('Server'), ['host.again', 'host.protocol', 'machine.takeDown']);
+      for (final id in ['machine.clear', 'machine.forget']) {
+        expect(commands.singleWhere((command) => command.id == id).danger, isTrue, reason: id);
+      }
+    },
+  );
+
+  // Harm: a server's entry, moved into its submenu, runs although it says why it cannot, or loses its shortcut.
+  test('an entry moved into the Server submenu keeps why it cannot run and its shortcut', () {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    const machine = Machine(name: 'demo server', socketPath: '/tmp/demo.sock', kind: 'host', hostProject: 'demo');
+    // The real server commands carry no shortcut, so one with a shortcut stands beside them.
+    const keyed = Command(
+      id: 'host.keyed',
+      label: 'Something with a shortcut',
+      group: 'demo server',
+      shortcut: SingleActivator(LogicalKeyboardKey.keyH, control: true),
+      unavailable: 'it is not ready',
+      run: _none,
+    );
+    final hostActions = [...hostMachineCommands(machine: machine, settings: settings, takeDown: _none), keyed];
+    final commands = machineCommands(
+      fleet: null,
+      canForget: true,
+      reachedOverSsh: true,
+      checkTheMachine: _none,
+      showTheProviders: _none,
+      showTheVault: _none,
+      showConnections: _none,
+      showDestinations: _none,
+      showAgents: _none,
+      startTheDaemon: _none,
+      stopTheDaemon: _none,
+      forget: _none,
+      vault: Vault(keys: MemoryDeviceKeyStore()),
+      actOnTheVault: (_) {},
+      addAUser: _none,
+      hostActions: hostActions,
+    );
+    for (final source in hostActions) {
+      final moved = commands.singleWhere((command) => command.id == source.id);
+      expect(moved.submenu, 'Server', reason: source.id);
+      expect(moved.unavailable, source.unavailable, reason: source.id);
+      expect(moved.unavailable, isNotNull, reason: source.id);
+      expect(moved.shortcut, source.shortcut, reason: source.id);
+    }
+    expect(commands.singleWhere((command) => command.id == 'host.keyed').shortcut, keyed.shortcut);
+  });
+
+  // Harm: a machine that is no prepared host shows an empty Server submenu.
+  test('a machine with no server commands has no Server submenu', () {
+    final commands = machineCommands(
+      fleet: null,
+      canForget: true,
+      reachedOverSsh: true,
+      checkTheMachine: _none,
+      showTheProviders: _none,
+      showTheVault: _none,
+      showAgents: _none,
+      startTheDaemon: _none,
+      stopTheDaemon: _none,
+      forget: _none,
+      vault: Vault(keys: MemoryDeviceKeyStore()),
+      actOnTheVault: (_) {},
+      addAUser: _none,
+    );
+    expect(
+      [for (final (name, _) in commandMenuLayout(commands)) ?name],
+      ['Vault', 'What it connects to', 'Users and agents'],
+    );
   });
 
   // Harm: a task's removal is drawn like any other entry, and a person takes it for a harmless one.

@@ -204,12 +204,12 @@ Future<void> openTheConnectionWizard(WidgetTester tester) async {
   await tester.tap(find.byKey(const Key('machine-menu')).first);
   await pumpUntil(
     tester,
-    () => find.text('Connections — how this machine connects out').evaluate().isNotEmpty,
+    () => find.byKey(const Key('submenu What it connects to')).evaluate().isNotEmpty,
     what: 'the machine menu',
   );
   // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
   await pumpFor(tester);
-  await tester.tap(find.text('Connections — how this machine connects out').last);
+  await chooseMenuEntry(tester, menuEntry('Connections — how this machine connects out'));
   await tapInTheConnectionsMenu(tester, 'add-connection');
   await pumpUntil(
     tester,
@@ -257,11 +257,14 @@ Future<void> openTheDestinations(WidgetTester tester) async {
   if (find.byKey(const Key('destinations-dialog')).evaluate().isNotEmpty) return;
   await switchTo(tester, E2e.name);
   await tester.tap(find.byKey(const Key('machine-menu')).first);
-  const entry = 'Destinations — the services a credential can be for';
-  await pumpUntil(tester, () => find.text(entry).evaluate().isNotEmpty, what: 'the machine menu');
+  await pumpUntil(
+    tester,
+    () => find.byKey(const Key('submenu What it connects to')).evaluate().isNotEmpty,
+    what: 'the machine menu',
+  );
   // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
   await pumpFor(tester);
-  await tester.tap(find.text(entry).last);
+  await chooseMenuEntry(tester, menuEntry('Destinations — the services a credential can be for'));
   await pumpUntil(
     tester,
     () =>

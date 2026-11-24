@@ -18,6 +18,7 @@ import 'package:porelo_frontend/src/ui/machine_details_page.dart';
 
 import '../features/support/world.dart';
 import '../features/support/tiles.dart';
+import '../support/menu_entries.dart';
 import '../support/host_organization.dart';
 import '../support/host_process.dart';
 import '../support/organization_fixtures.dart';
@@ -76,7 +77,8 @@ void main() {
     await World.machines.add(machine);
     await toTheMachinesPage(tester, machine.name);
     await _tap(tester, 'machine-menu');
-    expect(tester.widget<MenuItemButton>(find.byKey(const Key('host.again'))).enabled, isTrue);
+    final again = await revealMenuEntry(tester, find.byKey(const Key('host.again')));
+    expect(tester.widget<MenuItemButton>(again).enabled, isTrue);
   });
 
   // Harm: a stopped preparation loses its recovery and protocol, leaving a rented server running.

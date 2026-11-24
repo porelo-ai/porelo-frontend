@@ -26,6 +26,12 @@ Feature: How a machine connects out, and giving it a credential
         When I choose the menu entry {'Connections — how this machine connects out'}
         Then the connections of the machine are open
 
+    # Named straight away, as a person who knows where it is would reach it through its submenu.
+    Scenario: an entry of a submenu is chosen without looking for it first
+        When I open the menu {'What this machine can be told to do'}
+        And I choose the menu entry {'Connections — how this machine connects out'}
+        Then the connections of the machine are open
+
     # https may be a token or a user and password, so the address cannot decide it. Only the purposes
     # the machine reads are offered, and OAuth is not: nothing would ever renew its token.
     Scenario: what a connection is, is chosen and never read off its address

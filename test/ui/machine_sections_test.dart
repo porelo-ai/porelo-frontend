@@ -10,6 +10,9 @@ import 'package:porelo_frontend/src/app/organization_source.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_frontend/src/ui/authentication_view.dart';
+import 'package:porelo_frontend/src/ui/command_menu.dart';
+import 'package:porelo_frontend/src/ui/facts_page.dart';
+import 'package:porelo_frontend/src/ui/machine_details_page.dart';
 import 'package:porelo_frontend/src/ui/agents_view.dart';
 import 'package:porelo_frontend/src/ui/connections_view.dart';
 import 'package:porelo_frontend/src/ui/destinations_view.dart';
@@ -244,6 +247,35 @@ void main() {
       });
     }
   }
+
+  // Harm: stopping everything stands between harmless entries in the normal color, above clearing and forgetting.
+  testWidgets("the machine's page ends its menu with stopping everything, clearing and forgetting, all as danger", (
+    tester,
+  ) async {
+    await _start(tester);
+    // The machine's details page stands under a project's place whose project has gone, until it moves on to the
+    // list of projects: one frame is enough to read its menu.
+    World.fleet.selectProject(null);
+    World.shell.goTo(Section.project);
+    await tester.pump();
+    final page = find.byType(MachineDetailsPage);
+    final menu = tester.widget<CommandMenu>(find.descendant(of: page, matching: find.byKey(const Key('machine-menu'))));
+    final shown = [for (final (name, held) in commandMenuLayout(menu.commands)) name ?? held.single.id];
+    expect(shown.sublist(shown.length - 3), ['machine.panic', 'machine.clear', 'machine.forget']);
+    for (final id in ['machine.panic', 'machine.clear', 'machine.forget']) {
+      expect(menu.commands.singleWhere((command) => command.id == id).danger, isTrue, reason: id);
+    }
+    await World.settle(tester);
+  });
+
+  // Harm: the machine's page draws stopping everything as a harmless button.
+  testWidgets("the machine's page marks stopping everything as danger", (tester) async {
+    await _start(tester);
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: World.machines.current));
+    await World.settle(tester);
+    final facts = tester.widget<FactsPage>(find.byType(FactsPage));
+    expect(facts.commands.singleWhere((command) => command.id == 'machine.panic').danger, isTrue);
+  });
 
   // Harm: forgetting a leaf removes the selected machine rather than the machine being managed.
   testWidgets('Managing forgets its own machine while another is current', (tester) async {
