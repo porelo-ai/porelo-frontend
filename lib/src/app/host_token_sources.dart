@@ -4,6 +4,7 @@ import 'package:porelo_frontend/client.dart' show Connection;
 import 'package:porelo_host/porelo_host.dart' show CentralToken;
 
 import 'host_token.dart' show declaredOrganizationToken;
+import 'organization_source.dart' show OrganizationRefused, hostFilesInTheWay;
 import 'quiet_after_dispose.dart';
 
 /// Where a host's forge token can come from, in the order they are asked.
@@ -259,6 +260,12 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
   /// The first source that holds a token, which is offered.
   TokenSourceAnswer? get offered => _answers?.where((each) => each.state == TokenSourceState.found).firstOrNull;
 
+  /// Why no source was asked: files of an earlier setup in the way are said as that, since the machine itself may answer
+  /// and what stops it lies on this computer; anything else as the machine not reached.
+  String _notAsked(Exception error) => error is OrganizationRefused && error.reason == hostFilesInTheWay
+      ? 'The SSH files of an earlier setup of $host are in the way: ${error.words}'
+      : '$host could not be reached, so no source was asked: $error';
+
   /// Connects to the host and asks every source again.
   Future<void> ask() async {
     if (_asking || _giving) return;
@@ -269,7 +276,7 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
       await connect();
       _answers = await sources.ask();
     } on Exception catch (error) {
-      _problem = '$host could not be reached, so no source was asked: $error';
+      _problem = _notAsked(error);
     } finally {
       _asking = false;
       notifyListeners();
@@ -304,7 +311,7 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
       await connect();
       declared = await sources.askDeclared();
     } on Exception catch (error) {
-      _problem = '$host could not be reached, so no source was asked: $error';
+      _problem = _notAsked(error);
       return DeclaredGiving.notRun;
     } finally {
       _asking = false;

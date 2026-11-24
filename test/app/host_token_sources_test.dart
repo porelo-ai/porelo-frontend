@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart' show Connection;
 import 'package:porelo_frontend/src/app/host_token_sources.dart';
+import 'package:porelo_frontend/src/app/organization_source.dart' show OrganizationRefused, hostFilesInTheWay;
 
 const _declared = Connection(
   id: 'org-token',
@@ -171,6 +172,40 @@ void main() {
     await step.giveFrom(step.offered!);
     expect(step.given, isTrue);
     expect(step.problem, isNull);
+  });
+
+  // Harm: a machine set up again stops on this computer's SSH files of its earlier setup, and the person is told it could
+  // not be reached, so they look at a machine that answers instead of at the files in the way.
+  test('files of an earlier setup in the way are named as that, a failed connection still as unreachable', () async {
+    const inTheWay = OrganizationRefused(
+      '/config/porelo/ssh/orchard.conf.known_hosts already exists and differs or is not a regular file',
+      reason: hostFilesInTheWay,
+    );
+    for (final hands in [false, true]) {
+      Object failure = inTheWay;
+      final step = HostTokenStep(
+        host: 'orchard',
+        sources: _sources(declarations: () async => [_declared]),
+        connect: () async => throw failure,
+        give: (_) async => null,
+        heard: () async {},
+      );
+      addTearDown(step.dispose);
+      Future<void> run() => hands ? step.handOnDeclared() : step.ask();
+
+      await run();
+      expect(
+        step.problem,
+        startsWith('The SSH files of an earlier setup of orchard are in the way: '),
+        reason: '$hands',
+      );
+      expect(step.problem, contains('orchard.conf.known_hosts already exists'));
+      expect(step.problem, isNot(contains('could not be reached')));
+
+      failure = const OrganizationRefused('The connection to orchard could not be opened.');
+      await run();
+      expect(step.problem, startsWith('orchard could not be reached'), reason: '$hands');
+    }
   });
 
   // Harm: a source that could not be asked counts as holding no token, and the person is sent to sign in when the cause

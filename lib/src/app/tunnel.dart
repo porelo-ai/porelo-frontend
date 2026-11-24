@@ -179,9 +179,15 @@ class Tunnel {
   set problem(String? value) {
     _problem = value;
     _turnedAway = false;
+    _filesInTheWay = false;
   }
 
   String? _problem;
+
+  /// Whether the last raise stopped on SSH files in the card's place that this window did not write as they stand, as
+  /// an earlier setup's pin of an older host key: the machine itself was never tried.
+  bool get filesInTheWay => _filesInTheWay && state != TunnelState.up;
+  bool _filesInTheWay = false;
 
   /// Whether the machine's sshd turned this account or its key away at the last raise.
   bool get turnedAway => _turnedAway && state != TunnelState.up;
@@ -526,6 +532,7 @@ class Tunnel {
       if (generation != _generation) return;
       state = TunnelState.down;
       problem = refused.message;
+      _filesInTheWay = refused.inTheWay;
     } on ProcessException {
       if (generation != _generation) return;
       state = TunnelState.down;

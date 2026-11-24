@@ -1,10 +1,14 @@
 /// A refusal safe to show without revealing file contents.
 class HostFilesRefused implements Exception {
   /// Gives the reason without file contents.
-  const HostFilesRefused(this.message);
+  const HostFilesRefused(this.message, {this.inTheWay = false});
 
   /// The safe explanation.
   final String message;
+
+  /// Whether files already standing where these go, which this writer did not leave as they are, stopped it: a cause on
+  /// this computer, apart from a path or a card refused.
+  final bool inTheWay;
   @override
   String toString() => message;
 }

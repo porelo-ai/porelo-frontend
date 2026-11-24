@@ -805,6 +805,10 @@ class OrganizationKey {
   final bool? vouched;
 }
 
+/// The [OrganizationRefused.reason] of a connection refused because SSH files of an earlier setup lie where the card's
+/// go: the machine may well be reachable, and what stops it is on this computer.
+const hostFilesInTheWay = 'files-in-the-way';
+
 /// A refusal in the store's own words, or no answer at all.
 class OrganizationRefused implements Exception {
   /// Keeps the words; [answered] is false where no answer came, so the same id is asked again.

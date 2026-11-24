@@ -1275,12 +1275,15 @@ void main() {
     await expectLater(
       made.connect('build'),
       throwsA(
-        isA<OrganizationRefused>().having(
-          // Each path whole, whatever their order: one is the start of the other.
-          (refused) => refused.words.split(RegExp(r', | already ')).toSet(),
-          'the paths named',
-          containsAll(<String>[config('build'), '${config('build')}.pub']),
-        ),
+        isA<OrganizationRefused>()
+            .having(
+              // Each path whole, whatever their order: one is the start of the other.
+              (refused) => refused.words.split(RegExp(r', | already ')).toSet(),
+              'the paths named',
+              containsAll(<String>[config('build'), '${config('build')}.pub']),
+            )
+            // So the token step says the files are in the way, not that the machine could not be reached.
+            .having((refused) => refused.reason, 'reason', hostFilesInTheWay),
       ),
     );
     expect(File(config('build')).readAsStringSync(), contains('written.by.hand'));

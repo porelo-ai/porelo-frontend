@@ -291,14 +291,16 @@ class CardHostConnections extends HostConnections {
         );
       } else {
         _waiting.remove(card.name);
+        final notHere = machine.whyNotReachableHere;
+        final tunnel = machines.tunnels.of(machine);
         final why =
-            machine.whyNotReachableHere ??
-            sshRefusalWords(machines.tunnels.of(machine)?.problem) ??
-            'The connection to ${card.name} could not be opened.';
+            notHere ?? sshRefusalWords(tunnel?.problem) ?? 'The connection to ${card.name} could not be opened.';
+        // Said apart from an unreachable machine: what stops it then lies on this computer.
+        final inTheWay = notHere == null && (tunnel?.filesInTheWay ?? false);
         // What watched the entry goes first, so nothing raises it again once its files are taken down.
         if (again) await machines.forget(known);
         await machines.tunnels.dropAndUnpublish(machine);
-        throw OrganizationRefused(why);
+        throw OrganizationRefused(why, reason: inTheWay ? hostFilesInTheWay : null);
       }
     }
     // Listed and saved as it stands.

@@ -424,7 +424,11 @@ void main() {
       ...cardValues(),
       'host_key': publicKey.replaceFirst('AAAAIAAA', 'AAAAIBAA'),
     });
-    await expectLater(changed.publish(config, environment: environment), throwsA(isA<HostFilesRefused>()));
+    await expectLater(
+      changed.publish(config, environment: environment),
+      // Marked as files in the way, so the window says that rather than that the machine could not be reached.
+      throwsA(isA<HostFilesRefused>().having((refused) => refused.inTheWay, 'inTheWay', isTrue)),
+    );
     expect(File('$config.known_hosts').readAsStringSync(), before);
   });
 

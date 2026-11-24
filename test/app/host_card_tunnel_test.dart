@@ -298,6 +298,8 @@ void main() {
     expect(await tunnels.raiseFor(bad), isFalse);
     expect(tunnels.of(bad)!.state, TunnelState.down);
     expect(tunnels.of(bad)!.problem, isNotEmpty);
+    // A path refused is no file of an earlier setup: the token step would send the person to files that are not there.
+    expect(tunnels.of(bad)!.filesInTheWay, isFalse);
     expect(launches, isEmpty);
   });
 

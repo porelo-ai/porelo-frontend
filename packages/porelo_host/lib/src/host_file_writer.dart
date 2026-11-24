@@ -55,6 +55,7 @@ class HostFileWriter {
               'this one.'
         : '$path already exists and differs or is not a regular file. Remove it, or choose another folder if you chose '
               'this one.',
+    inTheWay: true,
   );
 
   Future<void> _windowsPrivate(String path, {bool directory = false}) async {
