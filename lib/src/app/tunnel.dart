@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart' show PoreloClient;
-import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFileWriter, HostFilesRefused;
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFileWriter, HostFilesRefused, withEmptySshConfig;
 
 import 'connections.dart';
 import 'desk.dart';
@@ -801,8 +801,12 @@ class Tunnel {
         !_namesLogin(machine.sshConfig, card.login)) {
       return;
     }
-    await _tighten([openSsh('ssh'), '-F', '/dev/null', '-o', 'ControlPath=$control', '-O', 'exit', card.name])
-        .timeout(_untilExplained);
+    await withEmptySshConfig(
+      prefix: 'porelo-control-',
+      (config) =>
+          _tighten([openSsh('ssh'), '-F', config.path, '-o', 'ControlPath=$control', '-O', 'exit', card.name])
+              .timeout(_untilExplained),
+    );
     // The master ends after it answered; its endpoints stop answering within a moment.
     for (var wait = 0; wait < 20 && await probeSocket(control, connectToSocket) != SocketProbe.nobody; wait++) {
       await Future<void>.delayed(pollEvery(const Duration(milliseconds: 100)));

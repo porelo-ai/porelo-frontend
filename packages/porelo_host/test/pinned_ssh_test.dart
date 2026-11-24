@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
 
+import 'support/kept_out_config.dart';
 import 'support/pinned_ssh.dart';
 import 'server_contract_test.dart' show sshKey;
 
@@ -32,6 +33,7 @@ void main() {
         commands.add([program, ...args]);
         final identity = File(args[args.indexOf('-i') + 1]);
         expect(await identity.readAsString(), '$sshKey\n', reason: 'only the selected public key may reach SSH');
+        expect((await KeptOutConfig.read(args)).keptOut, isTrue, reason: 'an empty config of its own');
         if (Platform.isLinux) {
           expect((await identity.stat()).mode & 0x1ff, 0x180, reason: 'the temporary identity must be owner-only');
           expect((await identity.parent.stat()).mode & 0x1ff, 0x1c0, reason: 'the identity directory must be private');
@@ -45,7 +47,10 @@ void main() {
     expect(commands.map((c) => c.last), ['true', 'cat > /var/tmp/porelo-host/collection.tar.gz']);
     for (final command in commands) {
       expect(command.first, 'ssh');
-      expect(command, containsAllInOrder(['-F', '/dev/null', '-o', 'PreferredAuthentications=publickey']));
+      // Windows has no `/dev/null`: an empty file of its own keeps the person's configuration out on every system.
+      expect(command, isNot(contains('/dev/null')));
+      expect(command, containsAllInOrder(['-F', '-o', 'PreferredAuthentications=publickey']));
+      expect(await (await KeptOutConfig.read(command)).gone(), isTrue, reason: 'removed after each command');
       expect(
         command,
         containsAll(['BatchMode=yes', 'ForwardAgent=no', 'StrictHostKeyChecking=yes', 'GlobalKnownHostsFile=none']),
@@ -89,6 +94,27 @@ void main() {
     );
     await expectLater(invalid.run('192.0.2.7', 'root', 'true'), throwsA(isA<HostFilesRefused>()));
     expect(starts, 0, reason: 'an invalid selected key must never fall back to other identities');
+  });
+
+  // Harm: an agent-only command with no selected key reads the person's configuration, or names `/dev/null`, which no
+  // Windows ssh opens; or its empty configuration stays behind when ssh cannot start.
+  test('an agent-only command without a selected key names an empty config of its own, removed after', () async {
+    final directory = await Directory.systemTemp.createTemp('agent-config-');
+    addTearDown(() => directory.delete(recursive: true));
+    KeptOutConfig? config;
+    final remote = OpenSsh(
+      knownHosts: File('${directory.path}/known_hosts'),
+      identity: '',
+      agentOnly: true,
+      start: (_, args) async {
+        config = await KeptOutConfig.read(args);
+        expect(args, contains('IdentityFile=none'));
+        throw const ProcessException('ssh', [], 'could not start');
+      },
+    );
+    await expectLater(remote.run('192.0.2.7', 'root', 'true'), throwsA(isA<RemoteNotStarted>()));
+    expect(config!.keptOut, isTrue);
+    expect(await config!.gone(), isTrue, reason: 'a failed launch removes its config too');
   });
 
   // Harm: an early SSH refusal must retain its cause instead of escaping as a broken pipe.

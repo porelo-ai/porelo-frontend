@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:porelo_host/porelo_host.dart'
-    show HostFileWriter, checkHostName, missingPoreloHost, pinnedHostSshOptions, poreloHostCommand;
+    show checkHostName, withEmptySshConfig, missingPoreloHost, pinnedHostSshOptions, poreloHostCommand;
 
 import '../client/host_identity.dart';
 import 'host_session.dart' show StartHostCommand;
@@ -87,16 +87,11 @@ Future<HostIdentity> exportHostIdentityPinned({
   if (address.isEmpty || address.startsWith('-') || hostKey.isEmpty || hostKey.contains('\n')) {
     throw HostIdentityExportRefused('$hostName has no address and host key this computer can reach it by.');
   }
-  final writer = HostFileWriter();
-  final pinned = await writer.createPrivateTemporary(Directory.systemTemp, prefix: 'porelo-identity-');
-  try {
-    final knownHosts = File('${pinned.path}${Platform.pathSeparator}known_hosts');
+  return withEmptySshConfig(prefix: 'porelo-identity-', (config) async {
+    final knownHosts = File('${config.parent.path}${Platform.pathSeparator}known_hosts');
     await knownHosts.writeAsString('${port == 22 ? address : '[$address]:$port'} $hostKey\n');
-    // An empty file of its own keeps the person's configuration out on every system: Windows has no `/dev/null`.
-    final config = File('${pinned.path}${Platform.pathSeparator}config');
-    await config.writeAsString('');
     // Named by its host name, reached at its address: ssh reads no address as an option or a login.
-    return await _export(
+    return _export(
       hostName,
       hostName,
       [
@@ -116,9 +111,7 @@ Future<HostIdentity> exportHostIdentityPinned({
       limit: limit,
       cancelled: cancelled,
     );
-  } finally {
-    await pinned.delete(recursive: true).catchError((Object _) => pinned);
-  }
+  });
 }
 
 Future<HostIdentity> _export(

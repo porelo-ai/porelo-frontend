@@ -12,6 +12,7 @@ import 'package:test/test.dart';
 import '../bin/porelo_host.dart' show runHostCommand;
 import 'host_run_test.dart' show ScriptedRemote;
 import 'server_contract_test.dart' show sshKey;
+import 'support/kept_out_config.dart';
 
 void main() {
   late Directory scratch;
@@ -59,6 +60,8 @@ void main() {
   for (final project in [false, true]) {
     test('root teardown excludes ambient identities project=$project', () async {
       final commands = <List<String>>[];
+      final configs = <KeptOutConfig>[];
+      final effectives = <ProcessResult>[];
       final child = File('${scratch.path}/ok.dart');
       await child.writeAsString("import 'dart:io'; Future<void> main() async { await stdin.drain<void>(); }");
       expect(
@@ -67,18 +70,22 @@ void main() {
           output: output,
           errors: errors,
           environment: getEnvironment(),
-          startSsh: (_, args) {
+          startSsh: (_, args) async {
             commands.add(args);
+            configs.add(await KeptOutConfig.read(args));
+            // Read while the command's own configuration exists: it is removed once the command ends.
+            effectives.add(await Process.run('ssh', ['-G', ...args.sublist(0, args.length - 2), 'root@192.0.2.7']));
             return Process.start(Platform.resolvedExecutable, [child.path]);
           },
         ),
         Exit.done,
       );
       expect(commands, isNotEmpty);
-      for (final command in commands) {
-        expect(command, containsAllInOrder(['-F', '/dev/null']));
+      for (final (index, command) in commands.indexed) {
+        expect(configs[index].keptOut, isTrue, reason: 'no configuration of this computer, on any system');
+        expect(await configs[index].gone(), isTrue, reason: 'its empty configuration is removed after');
         expect(command, contains('IdentityFile=none'));
-        final effective = await Process.run('ssh', ['-G', ...command.sublist(0, command.length - 2), 'root@192.0.2.7']);
+        final effective = effectives[index];
         expect(effective.exitCode, 0, reason: '${effective.stderr}');
         final lines = const LineSplitter().convert('${effective.stdout}');
         expect(lines.where((l) => l.startsWith('identityfile ')), ['identityfile none']);

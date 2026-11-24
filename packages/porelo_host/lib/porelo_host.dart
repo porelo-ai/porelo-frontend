@@ -18,6 +18,7 @@ export 'src/host_card_ssh.dart';
 export 'src/step_output.dart';
 export 'src/host_files.dart';
 export 'src/host_file_writer.dart';
+export 'src/empty_ssh_config.dart';
 export 'src/server_contract.dart';
 export 'src/host_command.dart';
 export 'src/project_transfer.dart';

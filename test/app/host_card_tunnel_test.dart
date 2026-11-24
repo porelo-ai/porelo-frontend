@@ -249,22 +249,31 @@ void main() {
     expect(launches, hasLength(1));
   });
 
-  // Harm: a master whose configuration was removed keeps its endpoints, and the host can never be raised again.
+  // Harm: a master whose configuration was removed keeps its endpoints, and the host can never be raised again; or
+  // its end names `/dev/null`, which no Windows ssh opens, or reads the person's own configuration.
   test('a master left without its configuration is ended, and the host is raised again', () async {
     final card = host.hostCard!;
     final control = card.controlSocket(host.sshConfig);
     Directory(File(control).parent.path).createSync(recursive: true);
     final orphan = await ServerSocket.bind(InternetAddress(control, type: InternetAddressType.unix), 0);
     final forward = await ServerSocket.bind(InternetAddress(host.socketPath, type: InternetAddressType.unix), 0);
+    String? configuration;
     checkControl = () async {
       if (runs.last.contains('exit')) {
+        final named = File(runs.last[runs.last.indexOf('-F') + 1]);
+        configuration = await named.exists() ? await named.readAsString() : null;
         await orphan.close();
         await forward.close();
       }
       return ProcessResult(0, 0, '', '');
     };
     expect(await tunnels.raiseFor(host), isTrue, reason: tunnels.of(host)?.problem);
-    expect(runs.first, ['ssh', '-F', '/dev/null', '-o', 'ControlPath=$control', '-O', 'exit', 'alpha']);
+    final ended = runs.first;
+    expect(ended, isNot(contains('/dev/null')));
+    expect(ended.sublist(0, 2), ['ssh', '-F']);
+    expect(ended.sublist(3), ['-o', 'ControlPath=$control', '-O', 'exit', 'alpha']);
+    expect(configuration, '');
+    expect(File(ended[2]).existsSync(), isFalse, reason: 'the empty configuration is removed after the end');
     expect(launches, hasLength(1));
   });
 

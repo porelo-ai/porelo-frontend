@@ -114,6 +114,27 @@ void main() {
     expect(started.single, isNot(contains('/dev/null')));
   });
 
+  // Harm: a refused pinned read leaves its pin and its config on this computer.
+  test('a refused pinned read removes its folder, its known_hosts included', () async {
+    late Directory folder;
+    var pinned = false;
+    final exporting = exportHostIdentityPinned(
+      hostName: 'orchard',
+      address: '203.0.113.7',
+      hostKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGQw',
+      start: (program, arguments) async {
+        folder = File(arguments[arguments.indexOf('-F') + 1]).parent;
+        pinned = await File('${folder.path}${Platform.pathSeparator}known_hosts').exists();
+        return process;
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+    process.end(255);
+    await expectLater(exporting, throwsA(isA<HostIdentityExportRefused>()));
+    expect(pinned, isTrue, reason: 'the positive control: the pin lay beside the config while ssh ran');
+    expect(await folder.exists(), isFalse);
+  });
+
   // Harm: a hand-on to a host this computer holds no SSH configuration for starts an ssh that can reach nothing.
   test('a card host whose configuration is not here starts no ssh', () async {
     final card = Machine(

@@ -10,6 +10,7 @@ import 'package:test/test.dart';
 import '../bin/porelo_host.dart' show runHostCommand;
 import 'host_run_test.dart' show ScriptedRemote;
 import 'server_contract_test.dart' show sshKey;
+import 'support/kept_out_config.dart';
 
 const _script = 'import json\nanswer = {\n  "v": 1,\n}\nprint(json.dumps(answer))\n';
 const _limits = '{\n  "memory": 2048\n}\n';
@@ -426,6 +427,7 @@ void main() {
     late StringBuffer output;
     late StringBuffer errors;
     final started = <List<String>>[];
+    final configs = <KeptOutConfig>[];
     late _Ssh ssh;
 
     setUp(() async {
@@ -459,6 +461,7 @@ void main() {
       errors: errors,
       startSsh: (_, arguments) async {
         started.add(arguments);
+        configs.add(await KeptOutConfig.read(arguments));
         return ssh;
       },
     );
@@ -474,7 +477,8 @@ void main() {
       expect(await check(), 0);
       expect(started, hasLength(1));
       expect(started.single, contains('root@192.0.2.7'));
-      expect(started.single, containsAllInOrder(['-F', '/dev/null']), reason: 'No configuration of this computer.');
+      expect(configs.single.keptOut, isTrue, reason: 'No configuration of this computer, on any system.');
+      expect(await configs.single.gone(), isTrue, reason: 'Its empty configuration is removed after.');
       expect(started.single, contains('PreferredAuthentications=publickey'));
       expect(started.single.last, startsWith('python3 - --limits '));
       expect('${ssh.given}', _script);

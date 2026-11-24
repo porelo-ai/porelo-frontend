@@ -116,6 +116,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- On Windows, a server's identity is read over the key its record pins, also where this computer has no ssh configuration folder. Wherever ssh must ignore the person's configuration, it is given an empty configuration file of its own, since Windows has no `/dev/null`.
 - A rented server whose image closes root, as Scaleway's Ubuntu does, gives root the person's key, so preparing no longer waits twenty minutes for SSH. A server that still answers root with "Please login as the user …" stops the wait at once, saying which login its image offers, that nothing is changed on it, and that the rental is kept and billed until `down` gives it back. Only a login as root stops this way, and only on the provider's whole sentence offering another login.
 - Where the window started the planner because none was serving, *Planning* says so in its page's info rather than in a line that stood above every planning page: each start by the window opens that info once more, also for a person who saw it before, and closed it stays closed until the next start.
 - A server prepared with no project is no longer raised under *Needs you* as not answering, nor tried as a machine: its row in *Machines*, its page and its mark say *No project yet*, its status line says *No project yet*, *Refresh* and *Reconnect* are unavailable there, and it no longer keeps the Work and *Needs you* counts unread; it counts as any other machine once a project put on it gives it a socket.

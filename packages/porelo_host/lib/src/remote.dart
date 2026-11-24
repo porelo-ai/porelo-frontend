@@ -6,6 +6,7 @@ import 'limit_factors.dart';
 import 'ssh.dart';
 import 'host_card_ssh.dart';
 import 'host_files.dart';
+import 'empty_ssh_config.dart';
 import 'host_file_writer.dart';
 
 /// What a command on the host ended with.
@@ -114,7 +115,7 @@ class OpenSsh implements Remote {
     await knownHosts.writeAsString('$host $hostKey\n');
   }
 
-  List<String> _options(String host, String user, {File? agentIdentity}) => <String>[
+  List<String> _options(String host, String user, {_AgentFiles? agent}) => <String>[
     // A shared host-card connection names its host, account and pin in its own public config alone.
     if (_card != null) ...[
       '-F',
@@ -125,11 +126,11 @@ class OpenSsh implements Remote {
       'ProxyCommand=false',
     ] else ...[
       // A .pub identity asks the agent for that key without ever writing its private half.
-      ...pinnedHostSshOptions(knownHosts.path, agentOnly ? agentIdentity?.path ?? '' : identity),
+      ...pinnedHostSshOptions(knownHosts.path, agentOnly ? agent?.identity?.path ?? '' : identity),
       if (agentOnly) ...[
         '-F',
-        '/dev/null',
-        if (agentIdentity == null) ...['-o', 'IdentityFile=none'],
+        agent!.config.path,
+        if (agent.identity == null) ...['-o', 'IdentityFile=none'],
         '-o',
         'PreferredAuthentications=publickey',
       ] else if (config case final file?) ...[
@@ -159,19 +160,18 @@ class OpenSsh implements Remote {
     }
   }
 
-  Future<T> _withAgentIdentity<T>(Future<T> Function(File? identity) action) async {
-    if (!agentOnly || agentPublicKey.isEmpty) return action(null);
-    HostFiles.signingFingerprint(agentPublicKey);
-    final writer = HostFileWriter();
-    final directory = await writer.createPrivateTemporary(Directory.systemTemp, prefix: 'porelo-agent-key-');
-    try {
-      final file = File('${directory.path}${Platform.pathSeparator}identity.pub');
+  /// Runs [action] with the files an agent-only command names, kept for its whole run and removed at its end: an
+  /// empty config of its own, as Windows has no `/dev/null`, and the selected public key beside it.
+  Future<T> _withAgentFiles<T>(Future<T> Function(_AgentFiles? agent) action) async {
+    if (!agentOnly) return action(null);
+    if (agentPublicKey.isNotEmpty) HostFiles.signingFingerprint(agentPublicKey);
+    return withEmptySshConfig(prefix: 'porelo-agent-key-', (config) async {
+      if (agentPublicKey.isEmpty) return action((identity: null, config: config));
+      final file = File('${config.parent.path}${Platform.pathSeparator}identity.pub');
       final publicPart = agentPublicKey.trim().split(RegExp(r'\s+')).take(2).join(' ');
-      await writer.write(file, utf8.encode('$publicPart\n'));
-      return await action(file);
-    } finally {
-      await directory.delete(recursive: true);
-    }
+      await HostFileWriter().write(file, utf8.encode('$publicPart\n'));
+      return action((identity: file, config: config));
+    });
   }
 
   @override
@@ -181,9 +181,7 @@ class OpenSsh implements Remote {
     String command, {
     String? input,
     void Function(String line)? onLine,
-  }) => _withAgentIdentity(
-    (identity) => _run(host, user, command, input: input, onLine: onLine, agentIdentity: identity),
-  );
+  }) => _withAgentFiles((agent) => _run(host, user, command, input: input, onLine: onLine, agent: agent));
 
   /// Runs [command] with the public [script] on its standard input: what it prints comes back whole, where [run] would
   /// take every line of a secret input out of it, and a script's lone `}` out of the JSON it answers.
@@ -194,17 +192,9 @@ class OpenSsh implements Remote {
     required String script,
     void Function(String line)? onLine,
     int? limit,
-  }) => _withAgentIdentity(
-    (identity) => _run(
-      host,
-      user,
-      command,
-      input: script,
-      inputIsPublic: true,
-      onLine: onLine,
-      agentIdentity: identity,
-      limit: limit,
-    ),
+  }) => _withAgentFiles(
+    (agent) =>
+        _run(host, user, command, input: script, inputIsPublic: true, onLine: onLine, agent: agent, limit: limit),
   );
 
   /// The exit of a run ended here for printing more than its limit.
@@ -217,7 +207,7 @@ class OpenSsh implements Remote {
     String? input,
     bool inputIsPublic = false,
     void Function(String line)? onLine,
-    File? agentIdentity,
+    _AgentFiles? agent,
     int? limit,
   }) async {
     _checkCard(host, user);
@@ -232,7 +222,7 @@ class OpenSsh implements Remote {
 
     try {
       process = await _start('ssh', <String>[
-        ..._options(host, user, agentIdentity: agentIdentity),
+        ..._options(host, user, agent: agent),
         ..._destination(host, user),
         command,
       ]);
@@ -282,14 +272,14 @@ class OpenSsh implements Remote {
 
   @override
   Future<RemoteResult> copy(String host, String user, String from, String to) async {
-    return _withAgentIdentity((identity) => _copy(host, user, from, to, agentIdentity: identity));
+    return _withAgentFiles((agent) => _copy(host, user, from, to, agent: agent));
   }
 
-  Future<RemoteResult> _copy(String host, String user, String from, String to, {File? agentIdentity}) async {
+  Future<RemoteResult> _copy(String host, String user, String from, String to, {_AgentFiles? agent}) async {
     _checkCard(host, user);
     if (agentOnly) {
       final process = await _start('ssh', [
-        ..._options(host, user, agentIdentity: agentIdentity),
+        ..._options(host, user, agent: agent),
         '--',
         configHost ?? _account(host, user),
         'cat > ${quoteForAShell(to)}',
@@ -367,3 +357,6 @@ class OpenSsh implements Remote {
     }
   }
 }
+
+/// The files an agent-only command names: its empty config, and the selected public key where one is selected.
+typedef _AgentFiles = ({File? identity, File config});
