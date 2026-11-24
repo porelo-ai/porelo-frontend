@@ -118,7 +118,11 @@ void main() {
     OpenPlanner? open,
     Duration? follow,
     String? poreloExecutable,
+    Map<String, String>? environment,
+    bool startsNone = false,
   }) => LocalPlanner(
+    startsNone: startsNone,
+    environment: environment,
     poreloExecutable: poreloExecutable,
     projects: () => ['demo'],
     repositories: (project) => PlannerProject('https://example.org/$project.git'),
@@ -218,6 +222,35 @@ void main() {
       expect(local.providers, isEmpty);
     },
   );
+
+  // Harm: a development window beside a planner run from source starts the installed planner while that one restarts,
+  // so two planners run side by side; or it never finds the one from source again once it writes its address.
+  // Harm: a window starts no planner for a stray value, or a development window starts one beside the source run.
+  test('only the switch saying never makes a development window start no planner', () {
+    expect(plannerStartsNone(const {plannerStartVariable: 'never'}), isTrue);
+    expect(plannerStartsNone(const {plannerStartVariable: 'always'}), isFalse);
+    expect(plannerStartsNone(const {}), isFalse);
+  });
+
+  test('a development window told never to start a planner starts none, says so, and finds one that comes', () async {
+    final path = await program();
+    final local = client(candidates: [path], startsNone: true, follow: const Duration(milliseconds: 50));
+
+    await local.reach();
+
+    expect(local.notReached, contains('this window starts none ($plannerStartVariable=never)'));
+    expect(local.providers, isEmpty);
+
+    final running = await planner();
+    await running.announce(runtime.path);
+    final found = DateTime.now().add(const Duration(seconds: 5));
+    while (local.providers.isEmpty && DateTime.now().isBefore(found)) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+
+    expect(local.notReached, isNull);
+    expect(local.providers.single.connected, isTrue);
+  });
 
   // Harm: a window without a planner shows an empty board as if planning had nothing, or runs a file it cannot run.
   test('where no planner is installed, nothing is started and the place says so in words', () async {

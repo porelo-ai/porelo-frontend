@@ -26,6 +26,9 @@ description: porelo-frontend: running the interface. Use when starting or debugg
 - **A new worktree runs `flutter pub get` and `dart pub get --directory=packages/porelo_host` before its
   first `dart format` or `dart analyze`**: without resolved packages the include of `analysis_options.yaml`
   fails, `dart format` rewraps about 1100 files at 80 columns and analyze reports thousands of errors.
+- **A development window beside a planner run from source starts with `PORELO_PLANNER_START=never`**: a debug
+  build then starts no planner at all, on Linux as on Windows, while the one from source restarts, and finds it again
+  once it writes its address. A release build ignores the variable.
 - **The mock daemon is started with a deadline** (`timeout 20 dart tool/mock_daemon.dart`): it reads
   keys, a closed standard input is no key, and it runs on otherwise.
 - **The Linux desktop toolchain is `clang`, `cmake`, `ninja`, `pkg-config`, `libgtk-3-dev` and

@@ -32,6 +32,14 @@ import '../wire/limit_factors.dart';
 /// Where the package puts the planner, which the window starts as it needs it.
 const plannerInstalled = '/usr/libexec/porelo/planner';
 
+/// The variable that, set to `never` in a development build, keeps the window from starting a planner of its own.
+const plannerStartVariable = 'PORELO_PLANNER_START';
+
+/// Whether a window with [environment] starts no planner: only a development build, and only where
+/// [plannerStartVariable] says `never`. Read once, where the window makes its planner.
+bool plannerStartsNone(Map<String, String> environment) =>
+    !kReleaseMode && environment[plannerStartVariable] == 'never';
+
 /// The planner's name on the path, as a build of its own is called.
 const plannerOnThePath = 'porelo-planner';
 
@@ -247,6 +255,7 @@ class LocalPlanner extends ChangeNotifier
     this._poreloExecutable,
     AskPlannerBuild? askBuild,
     this._limitsAsked,
+    this.startsNone = false,
   }) : _onWindows = onWindows ?? Platform.isWindows,
        _environment = environment ?? Platform.environment,
        _tellLevel = tellLevel ?? tellPlannerLevel,
@@ -272,7 +281,9 @@ class LocalPlanner extends ChangeNotifier
     StartPlanner? start,
     OpenPlanner? open,
     ValueListenable<LogLevel>? logLevel,
+    bool startsNone = false,
   }) => LocalPlanner(
+    startsNone: startsNone,
     logLevel: logLevel,
     limitsAsked: machines.untilLocalLimitsAsked,
     poreloExecutable: _poreloOnce(),
@@ -333,6 +344,10 @@ class LocalPlanner extends ChangeNotifier
   final StartPlanner _start;
   final OpenPlanner _open;
   final bool _onWindows;
+
+  /// Whether this window starts no planner at all and only follows one that comes: a development window beside a
+  /// planner run from source, as [plannerStartsNone] reads it.
+  final bool startsNone;
 
   /// The window's environment, where the planner's address is looked for.
   final Map<String, String> _environment;
@@ -456,6 +471,12 @@ class LocalPlanner extends ChangeNotifier
     if (runtimeDirectory case final runtime?
         when !(_onWindows ? _absoluteOnWindows(runtime) : runtime.startsWith('/'))) {
       return _say('porelo-planner cannot be started: its runtime directory $runtime is not an absolute path.');
+    }
+    // A development build next to a planner run from source, which takes its address away while it restarts: none is
+    // started beside it, and the next follow finds it once it writes its address again.
+    if (startsNone) {
+      _following ??= Timer.periodic(pollEvery(follow), (_) => unawaited(_follow()));
+      return _say('porelo-planner is not running; this window starts none ($plannerStartVariable=never).');
     }
     final programs = candidates.where(_onWindows ? _aFile : _runnable).toList();
     if (programs.isEmpty) return _say(_onWindows ? plannerNotInstalledOnWindows : plannerNotInstalled);
