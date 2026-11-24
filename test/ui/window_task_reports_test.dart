@@ -54,6 +54,7 @@ void main() {
     IssueFromIdea? handIssue,
     DateTime Function()? now,
     Future<void> Function()? waitForOutcome,
+    bool Function()? listed,
   }) {
     final starts = WindowTaskStarts(
       machineFor: (_) => on,
@@ -67,7 +68,7 @@ void main() {
       starts: starts,
       waitForOutcome: waitForOutcome ?? () async {},
       sourceNamed: (name) => name == _provider && (reached?.call() ?? true) ? planner : null,
-      tasksOn: (name) => name == on.name ? machine.listed : null,
+      tasksOn: (name) => name == on.name && (listed?.call() ?? true) ? machine.listed : null,
       stopOn: (machine, container) async {
         if (stopFails case final error?) {
           stopFails = null;
@@ -675,6 +676,153 @@ void main() {
     expect(planner.answers, isEmpty, reason: 'every answer was given');
     expect(machine.started.map((each) => each['repository']), [orders.first.repository, 'builder-one']);
     expect(shown.map((each) => (each.$1, each.$2, each.$3.single.$1.offer)), [('demo', 'ST291', followUp['offer'])]);
+  });
+
+  // Harm: the window closes between the planner's answer to an end and Start making the follow-up's task, and after a
+  // restart the story stands in its working state with nobody at work and nothing asked of the person.
+  test('a follow-up the window closed on before Start made its task is started after a restart', () async {
+    final (starts, reports) = window();
+    final order = (await plannedOrders()).first;
+    final followUp = _followUp(1);
+    planner.answers.addAll([
+      _answer(const []),
+      // To the end, before and after the restart: the planner replays its answer to an identical report.
+      _answer([followUp]),
+      _answer([followUp]),
+    ]);
+    final started = await starts(planner, 'demo', 'ST291', order);
+    await reports.idle;
+    machine.end(started.container, {'at': 'the end', 'finished': true});
+    machine.hangBeforeStart = true;
+    reports.sweep();
+    await pumpEventQueue();
+    expect(machine.started, hasLength(1), reason: 'the window closed before Start made the follow-up');
+    machine.hangBeforeStart = false;
+
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+    final (_, again) = window(kept: await loaded());
+    again.sweep();
+    await again.idle;
+
+    expect(machine.started.map((each) => each['callerKey']), [order.offer, followUp['offer']]);
+    expect(shown.map((each) => each.$3.single.$1.offer), [followUp['offer']]);
+    expect((await loaded()).pendingStarts, isEmpty);
+  });
+
+  // Harm: a follow-up is lost for good because another project's task carries the same key.
+  test('another project\'s task with the follow-up\'s key does not count as its task after a restart', () async {
+    final (starts, reports) = window();
+    final order = (await plannedOrders()).first;
+    final followUp = _followUp(1);
+    planner.answers.addAll([
+      _answer(const []),
+      _answer([followUp]),
+      _answer([followUp]),
+    ]);
+    final started = await starts(planner, 'demo', 'ST291', order);
+    await reports.idle;
+    machine.end(started.container, {'at': 'the end', 'finished': true});
+    machine.hangBeforeStart = true;
+    reports.sweep();
+    await pumpEventQueue();
+    machine.hangBeforeStart = false;
+    machine.listed.add(
+      Task.from({
+        'name': 'porelo-elsewhere-1',
+        'task': 'elsewhere',
+        'project': 'elsewhere',
+        'running': true,
+        'callerKey': followUp['offer']!,
+      }),
+    );
+
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+
+    expect(machine.started.map((each) => each['callerKey']), [order.offer, followUp['offer']]);
+  });
+
+  // Harm: a follow-up an earlier window handed is lost, or started twice, when its machine's tasks are not known yet.
+  test('a follow-up an earlier window handed waits, said once, until its machine\'s tasks are known', () async {
+    final (starts, reports) = window();
+    final order = (await plannedOrders()).first;
+    final followUp = _followUp(1);
+    planner.answers.addAll([
+      _answer(const []),
+      // To the end before the restart, and to each of the three reports after it: the planner replays its answer.
+      for (var answered = 0; answered < 4; answered++) _answer([followUp]),
+    ]);
+    final started = await starts(planner, 'demo', 'ST291', order);
+    await reports.idle;
+    machine.end(started.container, {'at': 'the end', 'finished': true});
+    machine.hangBeforeStart = true;
+    reports.sweep();
+    await pumpEventQueue();
+    machine.hangBeforeStart = false;
+
+    var known = false;
+    final (_, reopened) = window(kept: await loaded(), listed: () => known);
+    final problems = <String>[];
+    reopened.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
+    final ended = (await loaded()).plannedOffer('laptop', started.container)!;
+    for (var told = 0; told < 2; told++) {
+      await reopened.report(
+        'demo',
+        started.task,
+        PlanningTaskEvent.stopped,
+        offer: ended.offer,
+        container: started.container,
+        machine: 'laptop',
+      );
+      await reopened.idle;
+    }
+    expect(machine.started, hasLength(1), reason: 'not started while the tasks of laptop are unknown');
+    expect(problems, [contains('not known yet')], reason: 'said once');
+
+    known = true;
+    await reopened.report(
+      'demo',
+      started.task,
+      PlanningTaskEvent.stopped,
+      offer: ended.offer,
+      container: started.container,
+      machine: 'laptop',
+    );
+    await reopened.idle;
+
+    expect(machine.started.map((each) => each['callerKey']), [order.offer, followUp['offer']]);
+  });
+
+  // Harm: a follow-up whose task Start made just before the window closed is started a second time after a restart.
+  test('a follow-up whose task Start made before the window closed is not started again after a restart', () async {
+    final (starts, reports) = window();
+    final order = (await plannedOrders()).first;
+    final followUp = _followUp(1);
+    planner.answers.addAll([
+      _answer(const []),
+      _answer([followUp]),
+      _answer([followUp]),
+    ]);
+    final started = await starts(planner, 'demo', 'ST291', order);
+    await reports.idle;
+    machine.end(started.container, {'at': 'the end', 'finished': true});
+    machine.hangAfterStart = true;
+    reports.sweep();
+    await pumpEventQueue();
+    machine.hangAfterStart = false;
+
+    final (_, reopened) = window(kept: await loaded());
+    reopened.sweep();
+    await reopened.idle;
+    final (_, again) = window(kept: await loaded());
+    again.sweep();
+    await again.idle;
+
+    expect(machine.started.map((each) => each['callerKey']), [order.offer, followUp['offer']]);
+    expect((await loaded()).pendingStarts, isEmpty);
   });
 
   // Harm: the follow-ups after a refused one start anyway, a refused one is tried again, or the refusal goes unsaid.
@@ -2181,6 +2329,9 @@ class _Machine extends Fake implements FleetBackend {
   /// Start answers, but the window ends before it hears it: the call never returns.
   bool hangAfterStart = false;
 
+  /// The window ends before its Start reaches the machine: the call never returns, and no task is made.
+  bool hangBeforeStart = false;
+
   /// Runs before each listing of the tasks is answered, numbered from 1: what the window does meanwhile.
   Future<void> Function(int listing)? whileListing;
   int _listings = 0;
@@ -2267,6 +2418,7 @@ class _Machine extends Fake implements FleetBackend {
       refuseNext = null;
       return StartProgress(exitCode: 1, output: [words]);
     }
+    if (hangBeforeStart) await Completer<void>().future;
     started.add({'project': project, 'repository': repository, 'callerKey': ?callerKey, 'reads': reads});
     final container = 'porelo-$project-$repository';
     listed.removeWhere((task) => task.name == container);

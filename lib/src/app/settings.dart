@@ -1182,6 +1182,12 @@ class Settings extends ChangeNotifier {
     if (_pendingStarts.remove(offer) != null) await _write();
   }
 
+  /// Lets [offer] be handed to Start again: a window before this one handed it and ended before Start made its task.
+  Future<void> releasePlanningOffer(String offer) async {
+    final pending = _pendingStarts.remove(offer) != null;
+    if (_handedOffers.remove(offer) || pending) await _write();
+  }
+
   static bool _validPending(PendingStart pending) =>
       _validOffer(pending.machine, 'container', pending.offer) &&
       [pending.provider, pending.project].every(_validLabel) &&

@@ -431,7 +431,11 @@ without discarding its recovery record while the replacement flow runs.
 - **Each task the window starts for an offer is reported to the planner** through the provider's source, one report
   at a time: `started` once, and `ended` once for each end of its agent, with Porelo's record unmapped. The offer is
   kept in the settings by machine and container with what was told, so nothing is told twice across restarts, and the
-  newest 2000 offers handed to Start are kept, so a follow-up order of an answer starts once. `TaskNotAnswered` stops
+  newest 2000 offers handed to Start are kept, so a follow-up order of an answer starts once. An end is kept as told
+  only once its answer's follow-ups were handed to Start, so a window that ends in between tells it again, and the
+  planner answers an identical report with the same orders. An order an earlier window handed but whose task its
+  machine does not list, and whose start is not under way, is started again; while that machine's tasks are not known,
+  it waits, said once, and the end is told again. `TaskNotAnswered` stops
   the task and forgets its offer; another refusal is said and not sent again before the window's next start; a planner
   not reached is tried again on the next change. A story stopped on the board stops the tasks the package names, with
   no report. A report a crash cut off before its mark was kept is sent once more after the restart.

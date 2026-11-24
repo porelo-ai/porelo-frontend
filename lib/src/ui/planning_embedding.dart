@@ -290,7 +290,8 @@ class WindowTaskStarts {
         final words = 'The planner ordered a ${task.role} task this window cannot start.';
         throw PlanningRefusal('UnknownOrder', {'detail': words}, words);
     }
-    // Handed before Start is asked: whatever Start answers, this offer is never started again.
+    // Handed before Start is asked: whatever Start answers, this offer is not started again, unless a later window finds
+    // that Start never made its task.
     if (task.offer case final offer?) {
       if (settings.planningOfferHanded(offer)) {
         const words = 'This offer has already been handed to Start.';

@@ -307,6 +307,9 @@ class WindowTaskReports {
   /// change of a machine.
   bool _unreachedSaid = false;
 
+  /// The offers handed by an earlier window whose machine's tasks were not known when an answer carried them: said once.
+  final _undecidedSaid = <String>{};
+
   /// Reports refused for good in this window's life, by offer and event, so a refusal is not sent again on every change
   /// of the machine.
   final _refused = <(String, String)>{};
@@ -1074,8 +1077,11 @@ class WindowTaskReports {
     _unreachedSaid = false;
     // A stop took the task over while its report waited: the answer's follow-ups belong to a stopped run.
     if (_voided.contains(kept.offer)) return;
-    await _reported(kept, event, endKey, ended);
-    await _startFollowUps(source, provider, project, kept.story!, answer.tasks, kept.offer);
+    // Kept as told only once its follow-ups were handed to Start: a window that ends in between tells it again, and the
+    // planner answers an identical report with the same orders.
+    if (await _startFollowUps(source, provider, project, kept.story!, answer.tasks, kept.offer)) {
+      await _reported(kept, event, endKey, ended);
+    }
   }
 
   /// Sends one report through the screen's run that handed [kept]'s offer to Start, which starts the answer's follow-up
@@ -1181,7 +1187,9 @@ class WindowTaskReports {
   }
 
   /// Starts each follow-up order not handed to Start before, in order, until one is refused, and shows those started.
-  Future<void> _startFollowUps(
+  /// Answers false where an order an earlier window handed could not be told started or not: the report that carried
+  /// it is then told again, and the planner's answer carries the order again.
+  Future<bool> _startFollowUps(
     PlanningSource source,
     String provider,
     String project,
@@ -1190,10 +1198,16 @@ class WindowTaskReports {
     String reported,
   ) async {
     final started = <(PlanningTaskOrder, PlanningTaskStarted)>[];
+    var settled = true;
     for (final order in orders) {
       if (_voided.contains(reported)) break;
       final offer = order.offer;
-      if (offer == null || settings.planningOfferHanded(offer)) continue;
+      if (offer == null) continue;
+      if (settings.planningOfferHanded(offer)) {
+        final never = await _neverStarted(offer, provider, project);
+        if (never == null) settled = false;
+        if (never != true) continue;
+      }
       try {
         started.add((order, await starts(source, project, story, order)));
       } on Object catch (error) {
@@ -1201,12 +1215,41 @@ class WindowTaskReports {
         break;
       }
     }
-    if (started.isEmpty) return;
-    try {
-      await onFollowUps?.call(source, project, story, started);
-    } on Object catch (error) {
-      _say(provider, project, error);
+    if (started.isNotEmpty) {
+      try {
+        await onFollowUps?.call(source, project, story, started);
+      } on Object catch (error) {
+        _say(provider, project, error);
+      }
     }
+    return settled;
+  }
+
+  /// Whether [offer] was handed to Start by a window that ended before Start made its task: its start is still pending,
+  /// not under way in this window, and its machine lists no task with the offer as its key. Such an offer is released,
+  /// so it is started again. Where the machine's tasks are not known yet, nothing can tell: the answer is null, it is
+  /// not started now, and that is said once.
+  Future<bool?> _neverStarted(String offer, String provider, String project) async {
+    final pending = settings.pendingStarts.where((each) => each.offer == offer).firstOrNull;
+    if (pending == null || starts.isStarting(offer)) return false;
+    final listed = tasksOn(pending.machine);
+    if (listed == null) {
+      if (_undecidedSaid.add(offer)) {
+        final words =
+            'A task the planner ordered was handed to Start by an earlier window, which ended before Start answered, '
+            'and the tasks of ${pending.machine} are not known yet: it is started once they are.';
+        _say(provider, project, PlanningRefusal('FollowUpUndecided', {'detail': words}, words));
+      }
+      return null;
+    }
+    // The key alone could be another project's, as in _keepFoundAgain: a task is the offer's only in its own project.
+    if (listed.any((task) => task.callerKey == offer && task.project == pending.project)) return false;
+    windowLog.warn(
+      'Planning: the offer $offer was handed to Start by an earlier window, which ended before its task '
+      'was made on ${pending.machine}; it is started again.',
+    );
+    await settings.releasePlanningOffer(offer);
+    return true;
   }
 
   Future<void> _quietly(PlannedOffer kept, Future<void> Function() report) async {

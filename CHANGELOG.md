@@ -110,6 +110,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A task the planner ordered at another task's end, such as a reader, is no longer lost when the window closes before Porelo makes it: the window tells the end again after it opens, and starts the order where its machine lists no task for it. While that machine's tasks are not known yet, the order waits, and the window says so once.
 - A program the window runs in a terminal on this computer, such as `porelo-host` when a forge is connected, that cannot start no longer gets a refusal saying that a session lives in a container; one that is missing or cannot be run is named.
 - A host set up again under its name, as once rebuilt or rented anew, is no longer refused for the SSH files of its earlier setup. Forgetting a host, giving its rental back included, now takes along its files that still hold exactly what the window wrote; anything else stays. A setup that finds files in the way names all of them at once.
 - A porelo-planner that restarts at once keeps its new address file: the window, taking away the file of the planner that ended, no longer deletes the one the new planner wrote between its read and its delete, which left *Planning* out of reach.
