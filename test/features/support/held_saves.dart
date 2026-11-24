@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'world.dart';
 
-/// The id of the save the planner holds for a move of [story], as the steps name it.
+/// The id of the save the planner holds for a change to [story], named as the planner's target, as the steps name it.
 String heldSaveId(String story) => 'held-$story';
 
-/// A save the planner holds for a move of [story]: one a window made, which the planner resends, or a halted run's,
+/// A save the planner holds for a change to [story], named as the planner's target: one a window made, which the planner resends, or a halted run's,
 /// which it only drops. Its one command was refused for an unreachable forge.
 Map<String, dynamic> heldSaveOf(String story, {required bool run}) => {
   'id': heldSaveId(story),

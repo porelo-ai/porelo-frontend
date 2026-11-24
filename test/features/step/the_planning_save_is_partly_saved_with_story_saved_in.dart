@@ -26,6 +26,6 @@ Future<void> thePlanningSaveIsPartlySavedWithStorySavedIn(WidgetTester tester, S
       'pushed': 'porelo',
       'failed': 'porelo-host',
       // The issues the pushed repository moved, `id=state` comma-joined; one without a state is named alone.
-      'issues': 'B540=Backlog,B541',
+      'issues': 'B540=Backlog,B541', // not-a-citation: the planning stand-in's own issue ids
     }, 'The repository refused the push.');
 }

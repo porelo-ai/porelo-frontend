@@ -29,33 +29,33 @@ void main() {
 
     testWidgets('''A save made on the board is held with Resend and Drop, and Resend clears it''', (tester) async {
       await bddSetUp(tester);
-      await thePlannerHoldsASaveOfMadeOnTheBoard(tester, 'ST293');
+      await thePlannerHoldsASaveOfMadeOnTheBoard(tester, 'cart-move');
       await needsYouHoldsTheHeldSavesOf(tester, 'checkout');
-      await theHeldSaveOfOffers(tester, 'ST293', 'Resend and Drop');
+      await theHeldSaveOfOffers(tester, 'cart-move', 'Resend and Drop');
       await needsYouCounts(tester, 2);
-      await iResendTheHeldSaveOf(tester, 'ST293');
+      await iResendTheHeldSaveOf(tester, 'cart-move');
       await needsYouHoldsNoHeldSavesOf(tester, 'checkout');
       await needsYouCounts(tester, 1);
-      await thePlannerWasAskedToTheHeldSaveOf(tester, 'resend', 'ST293');
+      await thePlannerWasAskedToTheHeldSaveOf(tester, 'resend', 'cart-move');
     });
     testWidgets('''A halted run's held save can only be dropped''', (tester) async {
       await bddSetUp(tester);
-      await thePlannerHoldsASaveOfMadeByAHaltedRun(tester, 'ST293');
+      await thePlannerHoldsASaveOfMadeByAHaltedRun(tester, 'cart-move');
       await needsYouHoldsTheHeldSavesOf(tester, 'checkout');
-      await theHeldSaveOfOffers(tester, 'ST293', 'Drop only');
+      await theHeldSaveOfOffers(tester, 'cart-move', 'Drop only');
     });
     testWidgets('''Drop removes a held save and writes nothing''', (tester) async {
       await bddSetUp(tester);
-      await thePlannerHoldsASaveOfMadeByAHaltedRun(tester, 'ST293');
-      await iDropTheHeldSaveOf(tester, 'ST293');
+      await thePlannerHoldsASaveOfMadeByAHaltedRun(tester, 'cart-move');
+      await iDropTheHeldSaveOf(tester, 'cart-move');
       await needsYouHoldsNoHeldSavesOf(tester, 'checkout');
-      await thePlannerWasAskedToTheHeldSaveOf(tester, 'drop', 'ST293');
+      await thePlannerWasAskedToTheHeldSaveOf(tester, 'drop', 'cart-move');
     });
     testWidgets('''A refused resend says the planner's reason and keeps the save''', (tester) async {
       await bddSetUp(tester);
       await thePlannerRefusesToResendASaveAsNoLongerHeld(tester);
-      await thePlannerHoldsASaveOfMadeOnTheBoard(tester, 'ST293');
-      await iResendTheHeldSaveOf(tester, 'ST293');
+      await thePlannerHoldsASaveOfMadeOnTheBoard(tester, 'cart-move');
+      await iResendTheHeldSaveOf(tester, 'cart-move');
       await theHeldSavesOfSay(tester, 'checkout', 'The save is not held: it runs, or was sent again.');
       await needsYouHoldsTheHeldSavesOf(tester, 'checkout');
     });

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/held_saves.dart';
 
-/// Usage: the held save of {'ST293'} offers {'Resend and Drop'}
+/// Usage: the held save of {'cart-move'} offers {'Resend and Drop'}
 ///
 /// `Resend and Drop`, or `Drop only`, each enabled.
 Future<void> theHeldSaveOfOffers(WidgetTester tester, String story, String offered) async {
