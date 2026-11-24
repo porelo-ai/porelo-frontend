@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart' show Connection;
+import 'package:porelo_frontend/src/app/declared_hand_on.dart' show HandOverStep;
 import 'package:porelo_frontend/src/app/host_token_sources.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart' show OrganizationRefused, hostFilesInTheWay;
 
@@ -172,6 +173,40 @@ void main() {
     await step.giveFrom(step.offered!);
     expect(step.given, isTrue);
     expect(step.problem, isNull);
+  });
+
+  // Harm: the declared hand-over's steps are said out of order or not at all, or a press says steps it does not run.
+  test('the declared hand-over says each step as it begins, and a press says none', () async {
+    final steps = <HandOverStep>[];
+    final step = HostTokenStep(
+      host: 'orchard',
+      sources: _sources(declarations: () async => [_declared]),
+      connect: () async {},
+      give: (_) async => null,
+      heard: () async {},
+    );
+    addTearDown(step.dispose);
+    expect(await step.handOnDeclared(onStep: steps.add), DeclaredGiving.given);
+    expect(steps, HandOverStep.values, reason: 'in the order they run');
+
+    // The same step, refused when handed on by itself and then given by a press: the press says nothing.
+    String? why = 'orchard was given no token: refused';
+    final pressed = HostTokenStep(
+      host: 'orchard',
+      sources: _sources(declarations: () async => [_declared]),
+      connect: () async {},
+      give: (_) async => why,
+      heard: () async {},
+    );
+    addTearDown(pressed.dispose);
+    final heard = <HandOverStep>[];
+    expect(await pressed.handOnDeclared(onStep: heard.add), DeclaredGiving.refused);
+    expect(heard, [HandOverStep.connecting, HandOverStep.readingDeclared, HandOverStep.handingOn]);
+    why = null;
+    await pressed.ask();
+    await pressed.giveFrom(pressed.offered!);
+    expect(pressed.given, isTrue);
+    expect(heard, hasLength(3), reason: 'nothing more is said for a press');
   });
 
   // Harm: a machine set up again stops on this computer's SSH files of its earlier setup, and the person is told it could

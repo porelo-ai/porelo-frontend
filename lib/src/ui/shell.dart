@@ -639,7 +639,10 @@ class _ShellState extends State<Shell> {
     // What a host says it waits for is heard through its connection; the organization says whose host it is.
     _hostConnections?.addListener(_handOnDeclaredTokens);
     _organization?.addListener(_handOnDeclaredTokens);
-    _hostConnections?.handOnDeclared = _declaredHandOn.forWaits;
+    _hostConnections
+      ?..handOnDeclared = _declaredHandOn.forWaits
+      ..handOnStage = _declaredHandOn.stageOf
+      ..handOnChanges = _declaredHandOn;
     _declaredHandOn.addListener(_homeserversChanged);
     _tokens.addListener(_homeserversChanged);
     _centralReleases.addListener(_homeserversChanged);
@@ -6857,7 +6860,7 @@ class _ShellState extends State<Shell> {
   Future<HandOn> _handOnDeclaredNow(String host) async {
     final done = await _tokens.run(host, () async {
       final step = _hostTokenStep(host);
-      final given = await step.handOnDeclared();
+      final given = await step.handOnDeclared(onStep: (each) => _declaredHandOn.report(host, each));
       final why = step.problem;
       switch (given) {
         case DeclaredGiving.given:
@@ -7888,7 +7891,12 @@ class _ShellState extends State<Shell> {
     _hostConnections?.removeListener(_askHostsOnce);
     _organization?.removeListener(_handOnDeclaredTokens);
     _hostConnections?.removeListener(_handOnDeclaredTokens);
-    if (_hostConnections?.handOnDeclared == _declaredHandOn.forWaits) _hostConnections?.handOnDeclared = null;
+    if (_hostConnections?.handOnDeclared == _declaredHandOn.forWaits) {
+      _hostConnections
+        ?..handOnDeclared = null
+        ..handOnStage = null
+        ..handOnChanges = null;
+    }
     _declaredHandOn.removeListener(_homeserversChanged);
     _declaredHandOn.dispose();
     _tokens.dispose();

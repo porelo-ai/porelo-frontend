@@ -98,6 +98,77 @@ void main() {
     await close(tester);
   });
 
+  // Harm: one sentence stands for the whole hand-over, and the person cannot tell a slow step from a hung one.
+  testWidgets('each step of the hand-over is named while it runs, with the time since it began', (tester) async {
+    var now = DateTime.utc(2026, 11, 17, 9);
+    final connections = FixtureConnections(['build'])..hostProgress = waiting;
+    final steps = {for (final step in HandOverStep.values) step: Completer<void>()};
+    late final DeclaredHandOn handOn;
+    // Its own clock only: the time shown is read from the clock the hand-over's start was read from.
+    handOn = DeclaredHandOn(now: () => now, (host) async {
+      for (final step in HandOverStep.values) {
+        handOn.report(host, step);
+        await steps[step]!.future;
+      }
+      connections.hostProgress = carried;
+      return const HandOn(HandOnOutcome.handedOn);
+    });
+    addTearDown(handOn.dispose);
+    connections
+      ..handOnDeclared = handOn.forWaits
+      ..handOnStage = handOn.stageOf
+      ..handOnChanges = handOn;
+    await open(tester, connections);
+
+    const named = {
+      HandOverStep.connecting: 'connecting',
+      HandOverStep.readingDeclared: 'reading the entry your Porelo-Vault declares',
+      HandOverStep.handingOn: 'handing it on',
+      HandOverStep.waitingForAnswer: 'waiting for its answer',
+    };
+    const lead = 'Handing on the token your Porelo-Vault declares for central forge to build: ';
+    const shown = ['0 s', '20 s', '40 s', '1 min 0 s', '1 min 20 s'];
+    var at = 0;
+    for (final step in HandOverStep.values) {
+      expect(words(tester), '$lead${named[step]} · ${shown[at]}', reason: 'only $step is named, with the time so far');
+      // The time counts up while a step holds, without anything else moving.
+      now = now.add(const Duration(seconds: 20));
+      at++;
+      await tester.pump(const Duration(seconds: 1));
+      expect(words(tester), '$lead${named[step]} · ${shown[at]}', reason: 'counted on within $step');
+      steps[step]!.complete();
+      await tester.pump();
+      await tester.pump();
+    }
+    expect(words(tester), 'build carries demo.', reason: 'the end says Done or the machine\'s reason, as before');
+    await close(tester);
+  });
+
+  // Harm: a dialog closed while the hand-over runs keeps ticking, or follows a hand-over nobody watches.
+  testWidgets('a dialog closed during the hand-over stops following it', (tester) async {
+    final connections = FixtureConnections(['build'])..hostProgress = waiting;
+    final release = Completer<void>();
+    late final DeclaredHandOn handOn;
+    handOn = DeclaredHandOn((host) async {
+      handOn.report(host, HandOverStep.handingOn);
+      await release.future;
+      return const HandOn(HandOnOutcome.handedOn);
+    });
+    addTearDown(handOn.dispose);
+    connections
+      ..handOnDeclared = handOn.forWaits
+      ..handOnStage = handOn.stageOf
+      ..handOnChanges = handOn;
+    await open(tester, connections);
+    expect(words(tester), contains('handing it on'));
+    await close(tester);
+    // A tick or a listener left behind would rebuild a disposed dialog, or leave a timer the test fails on.
+    handOn.report('build', HandOverStep.waitingForAnswer);
+    await tester.pump(const Duration(seconds: 2));
+    release.complete();
+    await tester.pump();
+  });
+
   // Harm: with nothing declared, or a declared token that did not help, the person is left without the button.
   testWidgets('a declared token not found, or not helping, leaves the button as before', (tester) async {
     for (final outcome in [HandOnOutcome.notDeclared, HandOnOutcome.notRun, HandOnOutcome.handedOn]) {

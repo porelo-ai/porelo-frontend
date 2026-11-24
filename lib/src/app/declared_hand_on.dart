@@ -43,6 +43,37 @@ class HandOn {
   HandOn get asEarlier => HandOn(outcome, words: words, earlier: true);
 }
 
+/// The step a hand-over of the declared token is in, in the order they run.
+enum HandOverStep {
+  /// Reaching the host.
+  connecting,
+
+  /// Asking this computer's Porelo-Vault for the entry it declares.
+  readingDeclared,
+
+  /// Porelo hands the entry on to the host.
+  handingOn,
+
+  /// The host was handed it, and is asked what it says now.
+  waitingForAnswer,
+}
+
+/// Which step a running hand-over is in, when the hand-over began, and how long it has run when asked.
+@immutable
+class HandOverStage {
+  /// Keeps the step, the start and the time run so far.
+  const HandOverStage(this.step, this.since, {this.ran = Duration.zero});
+
+  /// The step running now.
+  final HandOverStep step;
+
+  /// When the hand-over began, its first step included.
+  final DateTime since;
+
+  /// How long it had run when this was asked, on the clock [since] was read from; never less than nothing.
+  final Duration ran;
+}
+
 /// Where [DeclaredHandOn] reads the time from when it is given no clock; a test sets it and puts it back.
 @visibleForTesting
 DateTime Function() declaredHandOnClock = DateTime.now;
@@ -72,10 +103,27 @@ class DeclaredHandOn extends ChangeNotifier {
   final _answered = <String, Map<String, HandOn>>{};
   final _running = <String, Future<HandOn>>{};
   final _runningFor = <String, Set<String>>{};
+  final _stages = <String, HandOverStage>{};
   bool _disposed = false;
 
   /// Whether a hand-over to [host] runs now.
   bool running(String host) => _running.containsKey(host);
+
+  /// Which step the hand-over to [host] is in, or null where none runs: a slow step is told apart from a hung one.
+  HandOverStage? stageOf(String host) {
+    final stage = _stages[host];
+    if (stage == null) return null;
+    final ran = _now().difference(stage.since);
+    return HandOverStage(stage.step, stage.since, ran: ran.isNegative ? Duration.zero : ran);
+  }
+
+  /// Says that the hand-over to [host] has come to [step]; ignored where none runs, so a late word changes nothing.
+  void report(String host, HandOverStep step) {
+    final stage = _stages[host];
+    if (stage == null || stage.step == step || _disposed) return;
+    _stages[host] = HandOverStage(step, stage.since);
+    notifyListeners();
+  }
 
   /// Hands [host] the declared token for [waiting], the projects heard waiting for it, unless a hand-over answered
   /// each of their waits before: then answers what that one came to, as [HandOn.earlier]. Joins a hand-over to [host]
@@ -92,6 +140,7 @@ class DeclaredHandOn extends ChangeNotifier {
       return Future.value(done.asEarlier);
     }
     _runningFor[host] = {...waiting};
+    _stages[host] = HandOverStage(HandOverStep.connecting, _now());
     final run = _run(host);
     _running[host] = run;
     notifyListeners();
@@ -107,6 +156,7 @@ class DeclaredHandOn extends ChangeNotifier {
     }
     final projects = _runningFor.remove(host) ?? const <String>{};
     _running.remove(host);
+    _stages.remove(host);
     if (done.outcome.answers) {
       _notRun.remove(host);
       (_answered[host] ??= {}).addAll({for (final project in projects) project: done});

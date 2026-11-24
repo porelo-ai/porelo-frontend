@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- While *Putting <project> on <machine>* hands on the token your Porelo-Vault declares, it names the step it is in (connecting, reading the declared entry, handing it on, waiting for the machine's answer) and the seconds since the hand-over began, so a slow step is told apart from a hung one.
 - A server is prepared only in the *Set up a machine* wizard: *Enter the key again* on a run the machine refused for its key opens the wizard at the key, with the machine and its address given, and the stopped run is let go only once the new one starts. A preparation that stops in the wizard offers *Prepare again*, *Enter the key again* or root's line once more, an edit under *More settings* holds *Next* until it is used, and the give-back of a machine scrolls in a short window.
 - Scrolling back in a task's log or a session's earlier output after a new run starts again from the newest output, keeping the two runs' lines apart.
 - The *Planning* board of a project whose planning is kept in a local directory names that directory, and *Choose…* picks another with the desktop's folder dialog.

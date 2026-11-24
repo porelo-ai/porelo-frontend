@@ -1067,6 +1067,13 @@ abstract class HostConnections extends ChangeNotifier {
   /// once per wait (see [DeclaredHandOn]); null where this window does not.
   Future<HandOn> Function(String host, Set<String> waiting)? handOnDeclared;
 
+  /// Which step the hand-over [handOnDeclared] runs to a host is in, or null where none runs; [handOnChanges] says when
+  /// it moves on. Null where this window hands nothing on.
+  HandOverStage? Function(String host)? handOnStage;
+
+  /// Notifies as a hand-over [handOnDeclared] runs moves from step to step.
+  Listenable? handOnChanges;
+
   /// The forwarded forge URL from [host]'s card while connected, or `null` where none is held.
   String? forgeUrl(String host) => null;
 

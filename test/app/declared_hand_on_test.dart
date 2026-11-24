@@ -34,6 +34,35 @@ void main() {
     expect(given, ['build', 'build', 'lab'], reason: 'each host waits for itself');
   });
 
+  // Harm: a step said for a hand-over that ended stands for good, or a late word of an old one moves a new one on.
+  test('a hand-over\'s step is kept only while it runs, from its start', () async {
+    var now = DateTime.utc(2026, 11, 17, 9);
+    final release = Completer<void>();
+    late final DeclaredHandOn handOn;
+    handOn = DeclaredHandOn(now: () => now, (host) async {
+      handOn.report(host, HandOverStep.handingOn);
+      await release.future;
+      return const HandOn(HandOnOutcome.handedOn);
+    });
+    addTearDown(handOn.dispose);
+    var told = 0;
+    handOn.addListener(() => told++);
+
+    handOn.report('build', HandOverStep.readingDeclared);
+    expect(handOn.stageOf('build'), isNull, reason: 'none runs, so a word changes nothing');
+    final began = now;
+    final run = handOn.forWaits('build', {'demo'});
+    now = now.add(const Duration(seconds: 5));
+    await Future<void>.delayed(Duration.zero);
+    expect(handOn.stageOf('build')!.step, HandOverStep.handingOn);
+    expect(handOn.stageOf('build')!.since, began, reason: 'the time counts from the hand-over\'s start');
+    expect(handOn.stageOf('build')!.ran, const Duration(seconds: 5), reason: 'on the clock it was started on');
+    expect(told, 2, reason: 'once as it began, once as it moved on');
+    release.complete();
+    await run;
+    expect(handOn.stageOf('build'), isNull);
+  });
+
   // Harm: a project that waits again after the host took the token is never handed it by itself again, or one that
   // only passed through another state is handed the token that did not help once more.
   test('a project waits anew only once the host reported it taken', () async {

@@ -78,9 +78,41 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
     unawaited(_begin());
   }
 
+  /// Ticks once a second while a hand-over runs, so its time counts up while a step holds.
+  Timer? _handOnTick;
+
+  void _stepMoved() {
+    if (mounted) setState(() {});
+  }
+
+  void _followHandOn(bool on) {
+    _handOnTick?.cancel();
+    _handOnTick = null;
+    widget.connections.handOnChanges?.removeListener(_stepMoved);
+    if (!on) return;
+    widget.connections.handOnChanges?.addListener(_stepMoved);
+    _handOnTick = Timer.periodic(const Duration(seconds: 1), (_) => _stepMoved());
+  }
+
+  /// The step the hand-over is in and the time since it began, or nothing where this window cannot tell.
+  String _handOnStep() {
+    final stage = widget.connections.handOnStage?.call(widget.host);
+    if (stage == null) return '…';
+    final step = switch (stage.step) {
+      HandOverStep.connecting => 'connecting',
+      HandOverStep.readingDeclared => 'reading the entry your Porelo-Vault declares',
+      HandOverStep.handingOn => 'handing it on',
+      HandOverStep.waitingForAnswer => 'waiting for its answer',
+    };
+    final ran = stage.ran;
+    final time = ran.inMinutes == 0 ? '${ran.inSeconds} s' : '${ran.inMinutes} min ${ran.inSeconds % 60} s';
+    return ': $step · $time';
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
+    _followHandOn(false);
     // Closed however, by its button, Escape or a tap beside it: the machine's page shows what it says now, not what it
     // said when this last asked. A read on its way is joined; nobody is left to hear a refusal.
     // While its own read, fetch or hand-over is on its way, that one tells the machine's page what it says now.
@@ -175,12 +207,15 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
     if (handOn == null) return;
     _handOnTried = true;
     setState(() => _handingOn = true);
+    _followHandOn(true);
     final HandOn done;
     try {
       done = await handOn(widget.host, {widget.project});
     } on Exception {
       if (mounted) setState(() => _handingOn = false);
       return;
+    } finally {
+      if (mounted) _followHandOn(false);
     }
     if (!mounted) return;
     setState(() {
@@ -280,7 +315,7 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
         '${widget.project} has no address yet: its Project Admin creates its Git repository first, and ${widget.host} takes it then.',
       _ when _handingOn =>
         'Handing on the token your Porelo-Vault declares for ${organizationForgeName(widget.view)} to '
-            '${widget.host}…',
+            '${widget.host}${_handOnStep()}',
       _ when _handed && _lastRefusal != null => '${widget.host} did not answer: $_lastRefusal It goes on by itself.',
       _ when _wantsToken && _handed =>
         '${widget.host} has your token and takes ${widget.project} when it next reads the organization, within five '

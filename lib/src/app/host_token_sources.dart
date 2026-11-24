@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart' show Connection;
 
 import 'package:porelo_host/porelo_host.dart' show CentralToken;
 
+import 'declared_hand_on.dart' show HandOverStep;
 import 'host_token.dart' show declaredOrganizationToken;
 import 'organization_source.dart' show OrganizationRefused, hostFilesInTheWay;
 import 'quiet_after_dispose.dart';
@@ -300,15 +301,17 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
 
   /// Hands the host the entry this computer's Porelo-Vault declares, asking that source alone and opening nothing: for
   /// a hand-over nobody pressed, which never touches a source the person chooses on the token's page. Answers what it
-  /// came to; [problem] says why where it was refused or could not run.
-  Future<DeclaredGiving> handOnDeclared() async {
+  /// came to; [problem] says why where it was refused or could not run. [onStep] hears each step as it begins.
+  Future<DeclaredGiving> handOnDeclared({void Function(HandOverStep step)? onStep}) async {
     if (_asking || _giving || _hearing || _given) return DeclaredGiving.notRun;
     _asking = true;
     _problem = null;
     notifyListeners();
     final TokenSourceAnswer declared;
     try {
+      onStep?.call(HandOverStep.connecting);
       await connect();
+      onStep?.call(HandOverStep.readingDeclared);
       declared = await sources.askDeclared();
     } on Exception catch (error) {
       _problem = _notAsked(error);
@@ -325,7 +328,12 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
         return DeclaredGiving.notRun;
       case TokenSourceState.found:
         _answered = false;
-        await giveFrom(declared);
+        _onStep = onStep;
+        try {
+          await giveFrom(declared);
+        } finally {
+          _onStep = null;
+        }
         if (_given) return DeclaredGiving.given;
         return _answered ? DeclaredGiving.refused : DeclaredGiving.notRun;
     }
@@ -340,8 +348,13 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
   /// Completes once the hand-over begun last has ended, the host's word after it included; at once where none was.
   Future<void> handOverEnded() => _handing ?? Future.value();
 
+  /// Hears the steps of the declared hand-over running now, and only of that one.
+  void Function(HandOverStep step)? _onStep;
+
   Future<void> _handOver(TokenSourceAnswer answer) async {
     final hear = heard;
+    final onStep = _onStep;
+    onStep?.call(HandOverStep.handingOn);
     _giving = true;
     _problem = null;
     notifyListeners();
@@ -359,6 +372,7 @@ class HostTokenStep extends ChangeNotifier with QuietAfterDispose {
     }
     // What it says next is the host's own word; a host not asked now is asked by the next Refresh, as before.
     if (_hearing) {
+      onStep?.call(HandOverStep.waitingForAnswer);
       try {
         await hear?.call();
       } on Exception catch (_) {
