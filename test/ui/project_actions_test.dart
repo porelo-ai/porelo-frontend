@@ -7,6 +7,7 @@ import 'package:porelo_frontend/src/ui/command_menu.dart';
 
 import '../features/step/the_project_has_the_repositories.dart';
 import '../features/support/world.dart';
+import '../support/menu_entries.dart';
 
 Future<void> _project(WidgetTester tester) async {
   await World.startBackend(World.work);
@@ -134,7 +135,8 @@ void main() {
     await _project(tester);
     expect(World.notifications.mutedFor('checkout'), isFalse);
     await World.tapInView(tester, 'project-menu');
-    await World.tapInView(tester, 'notifications.mute');
+    await chooseMenuEntry(tester, find.byKey(const Key('notifications.mute')));
+    await World.settle(tester);
     expect(World.notifications.mutedFor('checkout'), isTrue);
     expect(World.backend.starts, isEmpty);
   });
@@ -146,8 +148,10 @@ void main() {
     final command = menu.commands.singleWhere((each) => each.id == 'project.default');
     expect(command.available, isFalse);
     await World.tapInView(tester, 'project-menu');
+    final entry = await revealMenuEntry(tester, find.byKey(const Key('project.default')));
     expect(find.textContaining(command.unavailable!), findsOneWidget);
-    await World.tapInView(tester, 'project.default');
+    await tester.tap(entry, warnIfMissed: false);
+    await World.settle(tester);
     expect(find.byKey(const Key('default-dialog')), findsNothing);
     expect(World.backend.starts, isEmpty);
   });

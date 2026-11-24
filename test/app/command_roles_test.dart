@@ -148,6 +148,57 @@ void main() {
     expect(commands.singleWhere((command) => command.id == 'host.keyed').shortcut, keyed.shortcut);
   });
 
+  // Harm: a project's menu buries starting its agents and its gate among a dozen others, or puts removing it between
+  // harmless ones.
+  test(
+    'a project\'s menu stands its everyday actions at the top, the rest in submenus, clearing and removing last',
+    () {
+      final settings = Settings(MemorySettingsStore());
+      final notifications = Notifications(RecordingNotifier(), settings);
+      addTearDown(() {
+        notifications.dispose();
+        settings.dispose();
+      });
+      final commands = projectCommands(
+        project: null,
+        fleet: null,
+        notifications: notifications,
+        openTheGate: _none,
+        openEgress: _none,
+        prepareTheProject: _none,
+        syncTheUpstream: _none,
+        showTheBackups: _none,
+        checkWorkCanStart: _none,
+        removeWhatWasBuilt: _none,
+        whyNoRemoval: null,
+      );
+      final layout = commandMenuLayout(commands);
+      expect(
+        [for (final (name, held) in layout) name ?? held.single.id],
+        [
+          'project.startAgents',
+          'gate.open',
+          'project.prepare',
+          'Upstream and forge',
+          'Messages',
+          'Look',
+          'project.clear',
+          'project.delete',
+        ],
+      );
+      List<String> inside(String submenu) => [
+        for (final (name, held) in layout)
+          if (name == submenu) ...held.map((command) => command.id),
+      ];
+      expect(inside('Upstream and forge'), ['project.sync', 'project.forge', 'project.default']);
+      expect(inside('Messages'), ['project.messages', 'notifications.mute']);
+      expect(inside('Look'), ['egress.open', 'project.backups', 'work.check']);
+      for (final id in ['project.clear', 'project.delete']) {
+        expect(commands.singleWhere((command) => command.id == id).danger, isTrue, reason: id);
+      }
+    },
+  );
+
   // Harm: a machine that is no prepared host shows an empty Server submenu.
   test('a machine with no server commands has no Server submenu', () {
     final commands = machineCommands(

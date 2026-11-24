@@ -11,6 +11,7 @@ import 'package:porelo_frontend/src/ui/project_details_page.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
+import '../support/menu_entries.dart';
 import '../support/organization_fixtures.dart';
 
 const _key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
@@ -31,7 +32,8 @@ Future<void> _openRoom(WidgetTester tester) async {
   World.shell.goTo(Section.project);
   await World.settle(tester);
   await World.tapInView(tester, 'project-menu');
-  await World.tapInView(tester, 'project.messages');
+  await chooseMenuEntry(tester, find.byKey(const Key('project.messages')));
+  await World.settle(tester);
 }
 
 Future<void> _join(WidgetTester tester, String name) async {
@@ -114,8 +116,10 @@ void main() {
     World.shell.goTo(Section.projects);
     await World.settle(tester);
     await World.tapInView(tester, 'projects-menu ${World.machines.current.name}/checkout');
-    expect(tester.widget<MenuItemButton>(find.byKey(const Key('project.forge'))).enabled, isTrue);
-    await World.tapInView(tester, 'project.forge');
+    final forge = await revealMenuEntry(tester, find.byKey(const Key('project.forge')));
+    expect(tester.widget<MenuItemButton>(forge).enabled, isTrue);
+    await chooseMenuEntry(tester, forge);
+    await World.settle(tester);
     expect(find.byKey(const Key('project-forge-dialog')), findsOneWidget);
     expect(World.fleet.selectedProject?.name, 'checkout');
   });
@@ -204,7 +208,8 @@ void main() {
     World.shell.goTo(Section.project);
     await World.settle(tester);
     await World.tapInView(tester, 'project-menu');
-    await World.tapInView(tester, 'project.messages');
+    await chooseMenuEntry(tester, find.byKey(const Key('project.messages')));
+    await World.settle(tester);
     expect(find.byKey(const Key('join-person')), findsNothing);
     expect(find.byKey(const Key('join-login')), findsOneWidget);
     // The join itself is the dialog's own test: here, that the shell hands it the organization's list.

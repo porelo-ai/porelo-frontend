@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 
 import '../features/support/world.dart';
+import '../support/menu_entries.dart';
 
 const _removed = [
   'Register the project',
@@ -50,9 +51,13 @@ void main() {
       await World.settle(tester);
     }
     await World.tapInView(tester, 'project-menu');
-    for (final words in _removed) {
-      expect(find.textContaining(words), findsNothing, reason: words);
-    }
+    // Each submenu opened in turn: an entry inside a closed one would pass unseen.
+    final opened = await checkEverySubmenu(tester, () {
+      for (final words in _removed) {
+        expect(find.textContaining(words), findsNothing, reason: words);
+      }
+    });
+    expect(opened, 3, reason: 'Upstream and forge, Messages and Look');
   });
 
   // Harm: a sentence tells a person to use a flow nothing offers any more.

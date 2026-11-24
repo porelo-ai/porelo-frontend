@@ -848,22 +848,6 @@ List<Command> projectCommands({
       unavailable: noFile,
     ),
     Command(
-      id: 'egress.open',
-      label: 'What this project may reach',
-      group: 'Project',
-      home: Home.projectMenu,
-      shortcut: const SingleActivator(LogicalKeyboardKey.keyE, control: true),
-      run: openEgress,
-      unavailable:
-          noFile ??
-          (isDefault
-              ? 'default keeps Porelo’s own settings, which cannot be changed'
-              : project!.project.securityClass == 'offline'
-              // An offline project declares no egress at all, and the daemon refuses it.
-              ? 'an offline project declares no egress at all'
-              : null),
-    ),
-    Command(
       id: 'project.prepare',
       label: 'Build the environment for this project',
       group: 'Project',
@@ -877,23 +861,9 @@ List<Command> projectCommands({
       label: 'Ask the upstream how far behind this project is',
       group: 'Project',
       home: Home.projectMenu,
+      submenu: 'Upstream and forge',
       run: syncTheUpstream,
       unavailable: project == null ? nothing : (project.project.carried ? noFile : null),
-    ),
-    // Only where there is a conversation: a project that names a peer on a transport of its own.
-    Command(
-      id: 'project.messages',
-      label: 'Messages and the project’s room',
-      group: 'Project',
-      home: Home.projectMenu,
-      run: showTheMessages ?? () {},
-      unavailable: project == null
-          ? nothing
-          : showTheMessages == null
-          ? 'not offered here'
-          : project.project.messages == null
-          ? '${project.name} has no conversation: none of its peers is reached through a transport of its own'
-          : null,
     ),
     // The tools for after a project is set up, kept out of the way of setting it up: its keys at
     // the forge, the machines it trusts, changes waiting at this machine, and stopping work here.
@@ -902,6 +872,7 @@ List<Command> projectCommands({
       label: 'Its machines and keys at its forge',
       group: 'Project',
       home: Home.projectMenu,
+      submenu: 'Upstream and forge',
       run: openItsForge ?? () {},
       unavailable: project == null
           ? nothing
@@ -916,6 +887,7 @@ List<Command> projectCommands({
       label: 'Repositories of the Default project',
       group: 'Project',
       home: project?.name == defaultProject ? Home.openedView : Home.projectMenu,
+      submenu: 'Upstream and forge',
       run: showTheDefault ?? () {},
       unavailable: project == null
           ? nothing
@@ -925,11 +897,56 @@ List<Command> projectCommands({
           ? 'only the Default project holds such repositories'
           : null,
     ),
+    // Only where there is a conversation: a project that names a peer on a transport of its own.
+    Command(
+      id: 'project.messages',
+      label: 'Messages and the project’s room',
+      group: 'Project',
+      home: Home.projectMenu,
+      submenu: 'Messages',
+      run: showTheMessages ?? () {},
+      unavailable: project == null
+          ? nothing
+          : showTheMessages == null
+          ? 'not offered here'
+          : project.project.messages == null
+          ? '${project.name} has no conversation: none of its peers is reached through a transport of its own'
+          : null,
+    ),
+    Command(
+      id: 'notifications.mute',
+      label: project != null && notifications.mutedFor(project.name)
+          ? 'Tell me about ${project.name} again'
+          : 'Stop telling me about this project',
+      group: 'Project',
+      home: Home.projectMenu,
+      submenu: 'Messages',
+      run: () => notifications.setMuted(project!.name, muted: !notifications.mutedFor(project.name)),
+      unavailable: project == null ? nothing : null,
+    ),
+    Command(
+      id: 'egress.open',
+      label: 'What this project may reach',
+      group: 'Project',
+      home: Home.projectMenu,
+      submenu: 'Look',
+      shortcut: const SingleActivator(LogicalKeyboardKey.keyE, control: true),
+      run: openEgress,
+      unavailable:
+          noFile ??
+          (isDefault
+              ? 'default keeps Porelo’s own settings, which cannot be changed'
+              : project!.project.securityClass == 'offline'
+              // An offline project declares no egress at all, and the daemon refuses it.
+              ? 'an offline project declares no egress at all'
+              : null),
+    ),
     Command(
       id: 'project.backups',
       label: 'Show what has been backed up here',
       group: 'Project',
       home: Home.projectMenu,
+      submenu: 'Look',
       run: showTheBackups,
       unavailable: project == null ? nothing : (project.project.carried ? noFile : null),
     ),
@@ -939,18 +956,9 @@ List<Command> projectCommands({
       label: 'Show what this project would open, creating nothing',
       group: 'Project',
       home: Home.projectMenu,
+      submenu: 'Look',
       run: checkWorkCanStart,
       unavailable: notAnswering(fleet) ?? noFile,
-    ),
-    Command(
-      id: 'notifications.mute',
-      label: project != null && notifications.mutedFor(project.name)
-          ? 'Tell me about ${project.name} again'
-          : 'Stop telling me about this project',
-      group: 'Project',
-      home: Home.projectMenu,
-      run: () => notifications.setMuted(project!.name, muted: !notifications.mutedFor(project.name)),
-      unavailable: project == null ? nothing : null,
     ),
     // Everything Porelo put on the machine and at the forge for the project, in one step (walk 8).
     Command(
@@ -958,6 +966,7 @@ List<Command> projectCommands({
       label: 'Clear this project from the machine…',
       group: 'Project',
       home: Home.projectMenu,
+      danger: true,
       run: clearTheProject ?? () {},
       unavailable: project == null
           ? nothing
@@ -974,6 +983,7 @@ List<Command> projectCommands({
       label: 'Remove this project',
       group: 'Project',
       home: Home.projectMenu,
+      danger: true,
       run: removeWhatWasBuilt,
       // **Takes the name, not the file**, so a project whose file is gone can still be cleared.
       unavailable: project == null

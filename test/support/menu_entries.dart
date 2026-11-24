@@ -28,6 +28,26 @@ Future<Finder> revealMenuEntry(WidgetTester tester, Finder found) async {
   return found;
 }
 
+/// Runs [check] on the open menu as it stands, then once with each of its submenus opened in turn, so what a closed
+/// submenu holds is looked at too; returns how many submenus were opened, and leaves none open.
+Future<int> checkEverySubmenu(WidgetTester tester, void Function() check) async {
+  check();
+  final submenus = find.byType(SubmenuButton);
+  var opened = 0;
+  // Counted again each time: a submenu inside an opened one is checked in its turn.
+  for (var index = 0; index < submenus.evaluate().length; index++) {
+    final submenu = submenus.at(index);
+    await tester.ensureVisible(submenu);
+    await _settle(tester);
+    await tester.tap(submenu);
+    await _settle(tester);
+    opened++;
+    check();
+  }
+  await _closeSubmenus(tester);
+  return opened;
+}
+
 /// Closes every submenu of the open menu, leaving the menu itself open.
 Future<void> _closeSubmenus(WidgetTester tester) async {
   for (final element in find.byType(SubmenuButton).evaluate().toList().reversed) {

@@ -8,6 +8,7 @@ import 'package:porelo_frontend/src/app/templates.dart';
 import 'package:porelo_frontend/src/ui/start_agents_view.dart';
 
 import '../features/support/world.dart';
+import '../support/menu_entries.dart';
 
 Project _carried([String name = 'foo']) => Project.from(<String, dynamic>{'name': name, 'carried': true});
 
@@ -118,7 +119,7 @@ void main() {
       await _onTheMachine(tester, _carried());
       await World.tapInView(tester, 'project-menu');
       for (final id in <String>['project.sync', 'project.backups', 'project.clear', 'project.delete']) {
-        final found = find.byKey(Key(id));
+        final found = await revealMenuEntry(tester, find.byKey(Key(id)));
         expect(found, findsOneWidget, reason: id);
         expect(tester.widget<MenuItemButton>(found).enabled, isFalse, reason: id);
       }
