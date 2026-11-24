@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:porelo_host/porelo_host.dart' show HostCheckAnswer, HostPreparationSettings;
+import 'package:porelo_host/porelo_host.dart' show HostCheckAnswer, HostPreparationSettings, rootStillClosed;
 
 import 'host_access.dart';
 import 'host_check_run.dart';
@@ -35,7 +35,11 @@ class ServerSetup extends ChangeNotifier {
     this.startHost,
     Future<ComparedKeyPin> Function(String address, String key)? makePin,
     String? machineName,
-  }) : _name = machineName ?? '',
+    HostPreparation? startingOver,
+  }) : _name = startingOver?.record.hostName ?? machineName ?? '',
+       _address = startingOver?.record.givenAddress ?? '',
+       _startingOver = startingOver,
+       _choices = startingOver?.record.preparationSettings ?? const HostPreparationSettings(),
        _makePin = makePin ?? ((address, key) => ComparedKeyPin.make(address, key));
 
   final Future<ComparedKeyPin> Function(String address, String key) _makePin;
@@ -80,7 +84,7 @@ class ServerSetup extends ChangeNotifier {
   String? _accessProblem;
 
   // Page 2.
-  String _address = '';
+  String _address;
   String _firstLogin = '';
   bool _providerReady = false;
   String? _sshProblem;
@@ -96,7 +100,7 @@ class ServerSetup extends ChangeNotifier {
   int _keyRequest = 0;
 
   // Page 4.
-  HostPreparationSettings _choices = const HostPreparationSettings();
+  HostPreparationSettings _choices;
 
   // Page 5.
   ComparedKeyPin? _pin;
@@ -131,12 +135,42 @@ class ServerSetup extends ChangeNotifier {
       _readingAccess = false;
       notifyListeners();
     }
+    // A start-over opens on the key's page, whose fetch asks for an address that answered.
+    if (_proven && _startingOver != null && _address.isNotEmpty && !_disposed) await askSsh();
   }
+
+  /// The stopped preparation whose key was refused, let go only once a new one starts; null for a first one.
+  HostPreparation? get startingOver => _startingOver;
+  HostPreparation? _startingOver;
+
+  bool _mayStartOver(String host) {
+    final earlier = _startingOver;
+    return earlier != null &&
+        earlier.record.hostName == host &&
+        runs?.of(host) == earlier &&
+        runs!.mayStartOver(earlier);
+  }
+
+  /// Whether [host] is the machine of this setup's own run, stopped: the review may ask it again from here.
+  bool _ownStopped(String host) {
+    final run = _run;
+    return run != null && run.record.hostName == host && runs?.of(host) == run && !run.running && !run.ready;
+  }
+
+  /// Whether the review still says what [run] was started with, so trying it again runs what was reviewed.
+  bool _reviewIs(HostPreparation run) =>
+      run.record.hostName == _name &&
+      run.record.givenAddress == _address &&
+      run.record.givenHostKey == _key?.key &&
+      listEquals(run.record.preparationSettings.arguments, _choices.arguments);
 
   // ---- Which machine.
 
   /// The machine's name.
   String get name => _name;
+
+  /// Whether the person's identity and the organization were read, so [choices] says what is offered.
+  bool get accessRead => _proven;
 
   /// The machines this person can set up now: listed, theirs, and with no preparation of their own.
   List<String> get choices {
@@ -145,9 +179,11 @@ class ServerSetup extends ChangeNotifier {
     return [
       for (final each in access.hostsOfMine)
         if (access.unavailable(each) == null &&
-            settings.hostUp(each) == null &&
-            !(runs?.of(each)?.running ?? false) &&
-            !(runs?.of(each)?.waiting ?? false))
+            (_mayStartOver(each) ||
+                _ownStopped(each) ||
+                settings.hostUp(each) == null &&
+                    !(runs?.of(each)?.running ?? false) &&
+                    !(runs?.of(each)?.waiting ?? false)))
           each,
     ];
   }
@@ -206,7 +242,12 @@ class ServerSetup extends ChangeNotifier {
     final trimmed = value.trim();
     if (trimmed == _firstLogin) return;
     _firstLogin = trimmed;
-    _dropRoot();
+    // Only the bootstrap line runs as the first login: root's login and the check never use it, and stay.
+    if (_runningBootstrap) {
+      _loginAsked++;
+      _runningBootstrap = false;
+    }
+    _bootstrapRun = null;
     notifyListeners();
   }
 
@@ -282,7 +323,8 @@ class ServerSetup extends ChangeNotifier {
 
   /// Fetches the key; only ever on the person's press, never as an address is typed.
   Future<void> fetchKey() async {
-    if (!sshAnswered) return;
+    // A start-over opens here with an address asked before; one that did not answer then is asked again now.
+    if (!sshAnswered && !await askSsh()) return;
     _dropKey();
     final request = _keyRequest;
     _fetching = true;
@@ -367,6 +409,16 @@ class ServerSetup extends ChangeNotifier {
   set chosen(HostPreparationSettings value) {
     _choices = value;
     _dropCheck();
+    notifyListeners();
+  }
+
+  /// What the fields of *More settings* hold, kept while the page is left, or null before any edit.
+  Map<String, String>? get settingsEdits => _settingsEdits;
+  Map<String, String>? _settingsEdits;
+
+  /// Takes what the fields of *More settings* hold now.
+  set settingsEdits(Map<String, String>? value) {
+    _settingsEdits = value;
     notifyListeners();
   }
 
@@ -458,7 +510,8 @@ class ServerSetup extends ChangeNotifier {
   /// that ended well. Only on the person's press: it replaces root's authorized keys.
   Future<void> runBootstrap() async {
     final line = bootstrapLine;
-    if (line == null || _runningBootstrap || _tryingRoot) return;
+    // An empty login would run as `@address`, whoever ssh then takes that for.
+    if (line == null || _firstLogin.isEmpty || _runningBootstrap || _tryingRoot) return;
     final asked = _loginAsked;
     _runningBootstrap = true;
     _bootstrapRun = null;
@@ -563,12 +616,62 @@ class ServerSetup extends ChangeNotifier {
   /// Whether the machine is prepared and reachable.
   bool get prepared => _run?.ready ?? false;
 
+  /// Whether the run stopped for its key, with nothing of it on the machine, so the key can be given again.
+  bool get mayEnterKeyAgain {
+    final run = _run;
+    return run != null && !_preparing && (runs?.mayStartOver(run) ?? false);
+  }
+
+  /// Root's bootstrap line again, where the run stopped for want of it; null otherwise.
+  String? get rootCommandAgain => !preparing && (prepareProblem ?? '').contains(rootStillClosed) ? bootstrapLine : null;
+
+  /// Whether the run stopped and may be tried again as it is: not ready, not going, and not refused for its key.
+  bool get mayPrepareAgain {
+    if (preparing || prepared || mayEnterKeyAgain) return false;
+    return _run != null || _prepareProblem != null;
+  }
+
+  /// Goes back to the key's page with the stopped run kept as it is: it is let go only once the new one starts.
+  void enterKeyAgain() {
+    final run = _run;
+    if (run == null || !mayEnterKeyAgain) return;
+    run.session.removeListener(notifyListeners);
+    _startingOver = run;
+    _run = null;
+    _prepareProblem = null;
+    _dropKey();
+    _keyProblem = run.problem;
+    notifyListeners();
+    keyChangedSinceCompared.value = true;
+  }
+
   /// Starts the preparation, after fetching the key once more: a key changed since it was compared starts nothing.
+  ///
+  /// A run that stopped is tried again where the review still says what it started with. One refused for its key,
+  /// with nothing of it on the machine, is let go for a new one with the review's answers; any other is refused in
+  /// words, as it stands on the machine with its own.
   Future<void> prepare() async {
+    if (_run case final run?) {
+      if (this.runs?.mayStartOver(run) ?? false) {
+        run.session.removeListener(notifyListeners);
+        _startingOver = run;
+        _run = null;
+        _prepareProblem = null;
+      } else if (_reviewIs(run)) {
+        return _prepareAgain(run);
+      } else {
+        _prepareProblem =
+            'The stopped preparation of ${run.name} stands on the machine with the answers it started with, so it is '
+            'tried again only with those. Set the changed answers back, or remove its setup with "Take Porelo off '
+            'this machine…" on its row first.';
+        notifyListeners();
+        return;
+      }
+    }
     final access = this.access;
     final runs = this.runs;
     final compared = _key;
-    if (access == null || runs == null || compared == null || _preparing || _run != null) return;
+    if (access == null || runs == null || compared == null || _preparing) return;
     _preparing = true;
     _prepareProblem = null;
     notifyListeners();
@@ -614,6 +717,17 @@ class ServerSetup extends ChangeNotifier {
         ).stored,
       );
       if (record == null) throw const FormatException('The machine, its address and its key could not be kept.');
+      if (_startingOver case final earlier?) {
+        // Only now is the stopped run let go: leaving before this leaves it as it was.
+        await runs.startOver(earlier);
+        if (_disposed) return;
+        if (runs.of(_name) != null || settings.hostUp(_name) != null) {
+          throw FormatException(
+            'The earlier preparation of $_name could not be let go, so nothing was started. Open it from its row.',
+          );
+        }
+        _startingOver = null;
+      }
       final session = HostSession(executable: poreloHost(), arguments: hostArguments(record, _name), start: startHost);
       final run = _run = runs.start(project: _name, record: record, session: session, organizationReadJustNow: true);
       run.session.addListener(notifyListeners);
@@ -628,6 +742,26 @@ class ServerSetup extends ChangeNotifier {
       _prepareProblem = refused.words;
     } on FormatException catch (error) {
       _prepareProblem = error.message;
+    } on Exception catch (error) {
+      _prepareProblem = '$error';
+    } finally {
+      _preparing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _prepareAgain(HostPreparation run) async {
+    final runs = this.runs;
+    if (runs == null || _preparing || run.running || run.ready) return;
+    _preparing = true;
+    _prepareProblem = null;
+    notifyListeners();
+    try {
+      await runs.resume(run);
+      if (_disposed) return;
+      if (!run.ready) {
+        _prepareProblem = run.problem ?? 'Preparing ended without the machine ready. Its protocol below says where.';
+      }
     } on Exception catch (error) {
       _prepareProblem = '$error';
     } finally {

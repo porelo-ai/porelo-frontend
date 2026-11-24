@@ -84,25 +84,62 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
   HostTokenStep? _token;
   bool _inTerminal = false;
 
+  /// The address the paste box's text was given for: a key pasted for another server says nothing of this one.
+  late String _pastedFor = _setup.address;
+
+  /// The pasted text last handed to the setup, whose outcome the key's page then says.
+  String? _taken;
+
+  /// Whether the machine was chosen from the list here, rather than given from where this was asked.
+  bool _chosenHere = false;
+
   ServerSetup get _setup => widget.setup;
+
+  /// The page of the SSH host key, where a start-over opens.
+  static const _keyPage = 2;
 
   @override
   void initState() {
     super.initState();
     _setup.keyChangedSinceCompared.addListener(_keyChanged);
+    _setup.addListener(_setupChanged);
     unawaited(_setup.start());
   }
 
   void _keyChanged() {
     if (!_setup.keyChangedSinceCompared.value) return;
     _setup.keyChangedSinceCompared.value = false;
-    _pasted.clear();
+    _clearPasted();
     _goBackTo.value = null;
-    _goBackTo.value = 2;
+    _goBackTo.value = _keyPage;
+  }
+
+  void _setupChanged() {
+    if (_setup.address == _pastedFor) return;
+    _pastedFor = _setup.address;
+    _clearPasted();
+  }
+
+  void _clearPasted() {
+    _pasted.clear();
+    _taken = null;
+  }
+
+  void _takePasted(String value) {
+    _taken = value.trim();
+    unawaited(_setup.pasteKey(value));
+  }
+
+  /// Why the key's page cannot go on for text pasted but not taken, or null.
+  String? get _pastedWaits {
+    final text = _pasted.text.trim();
+    if (text.isEmpty || text == _taken) return null;
+    return 'Press Take the pasted key, or clear the box: what is pasted there is not taken yet.';
   }
 
   @override
   void dispose() {
+    _setup.removeListener(_setupChanged);
     _setup.keyChangedSinceCompared.removeListener(_keyChanged);
     for (final field in [_address, _login, _pasted]) {
       field.dispose();
@@ -113,6 +150,8 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
   }
 
   Future<void> _openTerminal() async {
+    // An empty login would log in as `@address`, whoever ssh then takes that for.
+    if (_setup.firstLogin.isEmpty) return;
     final pin = await _setup.pin();
     if (pin == null || !mounted) return;
     setState(() => _inTerminal = true);
@@ -130,20 +169,35 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
 
   Widget _machine(BuildContext context) {
     final choices = _setup.choices;
+    final chosen = _setup.name;
+    if (_chosenHere && _setup.accessRead && chosen.isNotEmpty && !choices.contains(chosen)) {
+      // The organization was read again and the one chosen from the list is no longer offered. A machine given from
+      // where this was asked keeps its name, so its refusal is what the page says.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _setup.accessRead && !_setup.choices.contains(_setup.name)) _setup.name = '';
+      });
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: Space.small,
       children: [
         if (choices.isNotEmpty)
-          DropdownButtonFormField<String>(
-            key: const Key('setup-machine'),
-            initialValue: choices.contains(_setup.name) ? _setup.name : null,
-            decoration: const InputDecoration(
-              labelText: 'Machine name',
-              helperText: 'A machine the organization lists and you are Machine Admin of, not set up yet.',
+          // Its own state reads the first value alone, so another list or choice makes a new field.
+          KeyedSubtree(
+            key: ValueKey(<String>[...choices, '/', chosen].join(',')),
+            child: DropdownButtonFormField<String>(
+              key: const Key('setup-machine'),
+              initialValue: choices.contains(chosen) ? chosen : null,
+              decoration: const InputDecoration(
+                labelText: 'Machine name',
+                helperText: 'A machine the organization lists and you are Machine Admin of, not set up yet.',
+              ),
+              items: [for (final each in choices) DropdownMenuItem(value: each, child: Text(each))],
+              onChanged: (value) {
+                _chosenHere = true;
+                _setup.name = value ?? '';
+              },
             ),
-            items: [for (final each in choices) DropdownMenuItem(value: each, child: Text(each))],
-            onChanged: (value) => _setup.name = value ?? '',
           ),
         const Text(
           'A machine not listed yet is listed by an Organization Admin with Add a machine on the organization\'s '
@@ -193,17 +247,29 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
   Widget _key(BuildContext context) {
     final key = _setup.key;
     final scheme = Theme.of(context).colorScheme;
+    // A start-over opens here, past the pages that would say these.
+    final startingOver = _setup.startingOver != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: Space.small,
       children: [
+        if (startingOver)
+          if (_setup.whyNotMachine case final why?) Text(why, key: const Key('setup-access-state')),
+        if (startingOver)
+          if (_setup.sshProblem case final problem?) Text(problem, key: const Key('setup-ssh-problem')),
         Wrap(
           spacing: Space.small,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             FilledButton(
               key: const Key('setup-fetch-key'),
-              onPressed: _setup.fetching || !_setup.sshAnswered ? null : () => unawaited(_setup.fetchKey()),
+              onPressed: _setup.fetching || _setup.address.isEmpty
+                  ? null
+                  : () {
+                      // A key fetched replaces one pasted, so nothing pasted stands beside it.
+                      _clearPasted();
+                      unawaited(_setup.fetchKey());
+                    },
               child: const Text('Fetch SSH host key'),
             ),
             if (_setup.fetching) const Text('Fetching…', key: Key('setup-fetching')),
@@ -216,14 +282,19 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
             labelText: 'Or paste the key',
             helperText: "The line of the server's /etc/ssh/ssh_host_ed25519_key.pub, if you have it from elsewhere.",
           ),
-          onSubmitted: (value) => unawaited(_setup.pasteKey(value)),
+          onSubmitted: _takePasted,
           onChanged: (value) {
-            if (value.trim().isEmpty) unawaited(_setup.pasteKey(''));
+            // Clearing the box takes back a key that came from it, never one fetched and compared.
+            if (value.trim().isEmpty) {
+              _taken = null;
+              if (_setup.pasted) unawaited(_setup.pasteKey(''));
+            }
+            setState(() {});
           },
         ),
         TextButton(
           key: const Key('setup-take-pasted'),
-          onPressed: _setup.fetching ? null : () => unawaited(_setup.pasteKey(_pasted.text)),
+          onPressed: _setup.fetching ? null : () => _takePasted(_pasted.text),
           child: const Text('Take the pasted key'),
         ),
         if (_setup.keyProblem case final problem?) Text(problem, key: const Key('setup-key-problem')),
@@ -305,7 +376,12 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
             value: chosen.kvm,
             onChanged: (value) => _setup.chosen = chosen.withPlainChoices(forge: true, kvm: value),
           ),
-        HostPreparationSettingsForm(value: chosen, onChanged: (value) => _setup.chosen = value),
+        HostPreparationSettingsForm(
+          value: chosen,
+          edits: _setup.settingsEdits,
+          onChanged: (value) => _setup.chosen = value,
+          onEdited: (edits) => _setup.settingsEdits = edits,
+        ),
       ],
     );
   }
@@ -314,6 +390,7 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
     final line = _setup.bootstrapLine;
     final root = _setup.root;
     final busy = _inTerminal || _setup.tryingRoot || _setup.runningBootstrap;
+    final noLogin = _setup.firstLogin.isEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: Space.small,
@@ -339,12 +416,12 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
           children: [
             FilledButton(
               key: const Key('setup-run-bootstrap'),
-              onPressed: line == null || busy ? null : () => unawaited(_setup.runBootstrap()),
+              onPressed: line == null || busy || noLogin ? null : () => unawaited(_setup.runBootstrap()),
               child: const Text('Run it for me'),
             ),
             OutlinedButton(
               key: const Key('setup-open-terminal'),
-              onPressed: busy ? null : () => unawaited(_openTerminal()),
+              onPressed: busy || noLogin ? null : () => unawaited(_openTerminal()),
               child: const Text('Open a terminal on the server'),
             ),
             OutlinedButton(
@@ -357,6 +434,12 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
             if (_setup.tryingRoot) const Text('Trying the root login…', key: Key('setup-trying-root')),
           ],
         ),
+        if (noLogin)
+          const Text(
+            'To run the line from here, give the first login your provider gave you: go Back to Where it is. Try the '
+            'root login needs none, where the line has run already.',
+            key: Key('setup-no-first-login'),
+          ),
         if (_setup.bootstrapRun case final run? when run.state != BootstrapRunState.ran)
           Text(run.words, key: const Key('setup-bootstrap-answer')),
         if (root != null) Text(root.words, key: const Key('setup-root-answer')),
@@ -411,6 +494,30 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
             'opens the protocol again.',
           ),
         if (_setup.prepareProblem case final problem?) Text(problem, key: const Key('setup-prepare-problem')),
+        // The run stopped on the very line it asked for: it stands here again, with where it runs.
+        if (_setup.rootCommandAgain case final command?) ...[
+          Text(
+            'Run this on the server, logged in as ${_setup.firstLogin.isEmpty ? 'the first login your provider gave '
+                      'you' : _setup.firstLogin}, never on this computer; then prepare again.',
+          ),
+          CommandToCopy(command: command, textKey: const Key('preparation-root-command')),
+        ],
+        if (_setup.mayEnterKeyAgain) ...[
+          const Text(
+            'The machine answered with another SSH host key than the one compared, and nothing of this try stands on '
+            'it. Fetch or paste its key again and compare it; this preparation is let go once the new one starts.',
+          ),
+          FilledButton(
+            key: const Key('preparation-another-key'),
+            onPressed: _setup.enterKeyAgain,
+            child: const Text('Enter the key again'),
+          ),
+        ] else if (_setup.mayPrepareAgain)
+          FilledButton(
+            key: const Key('setup-prepare-again'),
+            onPressed: () => unawaited(_setup.prepare()),
+            child: const Text('Prepare again'),
+          ),
         // From the start on: the organization is read and the key fetched again before the command says anything.
         if (run != null || _setup.preparing)
           FollowingOutput(
@@ -435,11 +542,13 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _setup,
+    // The organization read again may take the chosen machine out of the offer.
+    listenable: Listenable.merge([_setup, ?_setup.access]),
     builder: (context, _) => Wizard(
       title: 'Set up a machine',
       changes: _setup,
       goBackTo: _goBackTo,
+      firstStep: _setup.startingOver == null ? null : _keyPage,
       action: 'Prepare the machine',
       reviewWords: 'This is what will be prepared. Preparing installs Porelo on the server and changes it.',
       steps: [
@@ -447,6 +556,8 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
           title: 'Which machine',
           words: 'The organization\'s machine this server becomes.',
           panel: _machine,
+          // A start-over is of the machine whose run stopped, and of no other.
+          shown: () => _setup.startingOver == null,
           check: () => _setup.whyNotMachine,
           summary: () => ['Machine: ${_setup.name}'],
         ),
@@ -462,7 +573,7 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
           title: 'Its SSH host key',
           words: 'The key the server proves itself with, compared on the server before anything logs in.',
           panel: _key,
-          check: () => _setup.whyNotKey,
+          check: () => _pastedWaits ?? _setup.whyNotKey,
           summary: () => [
             if (_setup.key case final key?)
               'SSH host key: ${key.fingerprint}${_setup.pasted ? ' (pasted)' : ''}, compared',
@@ -472,7 +583,7 @@ class _ServerSetupWizardState extends State<ServerSetupWizard> {
           title: 'What it will run',
           words: 'What the machine is set up for. These can be changed only by setting it up again.',
           panel: _choices,
-          check: () => null,
+          check: () => HostPreparationSettingsForm.whyNot(_setup.chosen, _setup.settingsEdits),
           summary: () => [
             _setup.chosen.forge
                 ? 'It has a forge of its own${_setup.chosen.kvm ? ', and runs VMs in its jobs' : ''}.'

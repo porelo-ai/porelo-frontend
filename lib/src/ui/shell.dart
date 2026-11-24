@@ -1620,6 +1620,7 @@ class _ShellState extends State<Shell> {
     machines: widget.machines,
     settings: widget.settings,
     openTerminal: widget.sessions.openTerminal,
+    onEnterKeyAgain: (run) => unawaited(_prepareOnce(startingOver: run)),
   );
 
   /// Clears the machine and removes its trusted message signer from its projects.
@@ -7450,8 +7451,16 @@ class _ShellState extends State<Shell> {
   }
 
   /// One server's one page, reached from either list: where a person stands, what they do there, and its managing.
-  /// Opens *Set up a machine*, with the check where the collection carried here holds one.
-  Future<void> _openPrepare({String? machineName}) async {
+  /// Opens *Set up a machine* through the one guard every way to it shares, so quick clicks open one wizard.
+  Future<void> _prepareOnce({String? machineName, HostPreparation? startingOver}) async {
+    final access = _hostRuns.hostAccess;
+    Future<void> open() => _openPrepare(machineName: machineName, startingOver: startingOver);
+    return access == null ? open() : access.prepare(open);
+  }
+
+  /// Opens *Set up a machine*, with the check where the collection carried here holds one; [startingOver] opens it at
+  /// the key of that run, which is let go only once a new one starts.
+  Future<void> _openPrepare({String? machineName, HostPreparation? startingOver}) async {
     final carried = await HostCheckRun().carried();
     if (!mounted) return;
     final keys = SshHostKeys();
@@ -7475,6 +7484,7 @@ class _ShellState extends State<Shell> {
         address,
       ),
       machineName: machineName,
+      startingOver: startingOver,
     );
     try {
       await showServerSetupWizard(
@@ -7507,7 +7517,7 @@ class _ShellState extends State<Shell> {
   /// Prepares the machine named, where this computer offers preparing at all.
   void Function(String)? get _prepareThisMachine =>
       _commands().any((command) => command.id == 'host.prepare' && command.visible)
-      ? (host) => unawaited(_openPrepare(machineName: host))
+      ? (host) => unawaited(_prepareOnce(machineName: host))
       : null;
 
   /// The preparation running on this computer for the organization's machine [host], as *My machines* lists it.

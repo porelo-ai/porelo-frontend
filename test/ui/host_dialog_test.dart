@@ -12,7 +12,6 @@ import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
-import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart';
 import 'package:porelo_host/porelo_host.dart' as host;
@@ -22,24 +21,6 @@ import '../support/host_process.dart';
 import '../support/host_organization.dart';
 import '../support/host_rental.dart';
 import '../support/signed_host.dart';
-
-Future<Ran> _noKeyScan(
-  String program,
-  List<String> arguments, {
-  String? inDirectory,
-  Map<String, String> environment = const {},
-  String? input,
-}) async => (code: 70, out: '', err: '');
-
-Future<void> _chooseMachine(WidgetTester tester, String name) async {
-  final field = find.byKey(const Key('preparation-machine-name'));
-  await tester.ensureVisible(field);
-  await World.settle(tester);
-  await tester.tap(field);
-  await World.settle(tester);
-  await tester.tap(find.text(name).last);
-  await World.settle(tester);
-}
 
 void main() {
   // Harm: returning a machine destroys commits that have not reached the central forge without a second decision.
@@ -302,176 +283,6 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  // Harm: a fetched key is used without comparison, or a late scan replaces the key the person pasted.
-  testWidgets('preparation requires comparison of a fetched key and invalidates it when the address changes', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = HostFixture();
-    final access = await fixture.access(settings);
-    final runs = HostRuns(machines, hostAccess: access);
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-    });
-    final scans = <Completer<Ran>>[];
-    final fingerprint = 'SHA256:${List.filled(43, 'A').join()}';
-    var starts = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: HostDialog(
-            project: '',
-            machines: machines,
-            hostRuns: runs,
-            start: (_, _) async {
-              starts++;
-              throw StateError('must not start');
-            },
-            runKeyCommand: (_, arguments, {inDirectory, environment = const {}, input}) async {
-              if (arguments.first == '-T') {
-                final scan = Completer<Ran>();
-                scans.add(scan);
-                return scan.future;
-              }
-              expect(input, '$hostKey\n');
-              return (code: 0, out: '256 $fingerprint no comment (ED25519)\n', err: '');
-            },
-          ),
-        ),
-      ),
-    );
-    await World.settle(tester);
-    Future<void> type(String label, String value) async {
-      final field = find.widgetWithText(TextField, label);
-      await tester.ensureVisible(field);
-      await tester.enterText(field, value);
-    }
-
-    FilledButton prepare() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
-    // Harm: the button stays grey with nothing beside it saying why, and a person nearly closes the dialog.
-    String? waits() {
-      final found = find.byKey(const Key('preparation-waits'));
-      return found.evaluate().isEmpty ? null : tester.widget<Text>(found).data;
-    }
-
-    await _chooseMachine(tester, 'orchard');
-    await tester.pump();
-    expect(waits(), contains('host key'));
-    await type('Server address', '192.0.2.7');
-    await tester.pump(const Duration(milliseconds: 501));
-    expect(scans, hasLength(1));
-    expect(prepare().onPressed, isNull);
-    expect(waits(), contains('Fetching'));
-    scans.first.complete((code: 0, out: '192.0.2.7 $hostKey\n', err: ''));
-    await World.settle(tester);
-    expect(find.text(fingerprint), findsOneWidget);
-    expect(prepare().onPressed, isNull, reason: 'fetching alone must never permit preparation');
-    expect(waits(), contains('I compared this fingerprint'));
-    final confirmed = find.byKey(const Key('preparation-host-key-confirmed'));
-    await tester.ensureVisible(confirmed);
-    await tester.tap(confirmed);
-    await World.settle(tester);
-    final staleAction = prepare().onPressed;
-    expect(staleAction, isNotNull);
-    expect(waits(), isNull, reason: 'nothing to wait for once it can be pressed');
-    await type('Server address', '192.0.2.8');
-    await tester.pump();
-    expect(prepare().onPressed, isNull, reason: 'a comparison belongs to one server address');
-    staleAction!();
-    await World.settle(tester);
-    expect(starts, 0, reason: 'a stale callback must also recheck the comparison');
-    await tester.pump(const Duration(milliseconds: 501));
-    await type('SSH host key', backupKey);
-    scans.last.complete((code: 0, out: '192.0.2.8 $hostKey\n', err: ''));
-    await World.settle(tester);
-    expect(tester.widget<TextField>(find.widgetWithText(TextField, 'SSH host key')).controller!.text, backupKey);
-    expect(find.byKey(const Key('preparation-host-key-confirmed')), findsNothing);
-    expect(prepare().onPressed, isNotNull, reason: 'a pasted checked key needs no first-use checkbox');
-  });
-
-  // Harm: repeated clicks open competing setup dialogs, or a stale permission starts machine preparation.
-  testWidgets('preparation opens once while reading and refuses a revoked key in its dialog', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = HostFixture();
-    final proof = FixtureProof(fixture);
-    final access = await fixture.access(settings, proof: proof);
-    final runs = HostRuns(machines, hostAccess: access);
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-    });
-    late BuildContext page;
-    Command command() => prepareServerCommand(
-      access: access,
-      open: () => openPrepareServerDialog(
-        page,
-        runKeyCommand: _noKeyScan,
-        machines: machines,
-        settings: settings,
-        hostRuns: runs,
-      ),
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            page = context;
-            return const Scaffold();
-          },
-        ),
-      ),
-    );
-    proof.hold = Completer<void>();
-    command().run();
-    await World.settle(tester);
-    final openedWhileReading = find.byType(HostDialog).evaluate().length;
-    command().run();
-    await World.settle(tester);
-    proof.hold!.complete();
-    proof.hold = null;
-    await World.settle(tester);
-    expect(
-      find.byType(HostDialog, skipOffstage: false),
-      findsOneWidget,
-      reason: 'a second click must not open a second setup dialog',
-    );
-    expect(openedWhileReading, 1, reason: 'the dialog must open before the reads answer');
-    await tester.tap(find.text('Close'));
-    await World.settle(tester);
-
-    proof.hold = Completer<void>();
-    command().run();
-    await World.settle(tester);
-    final prepare = find.widgetWithText(FilledButton, 'Prepare the machine');
-    expect(
-      tester.widget<FilledButton>(prepare).onPressed,
-      isNull,
-      reason: 'the earlier permission must not enable preparation during a fresh read',
-    );
-    expect(find.textContaining('Before setup'), findsNothing);
-    proof.next = null;
-    proof.hold!.complete();
-    proof.hold = null;
-    await World.settle(tester);
-    expect(find.text('Your key is revoked.'), findsOneWidget);
-    expect(tester.widget<FilledButton>(prepare).onPressed, isNull);
-    expect(runs.preparing, isEmpty);
-    expect(fixture.machineFiles, isEmpty);
-    await tester.tap(find.text('Close'));
-    await World.settle(tester);
-  });
-
   // Harm: in the foo test *Prepare a machine…* was simply grey, its reason behind a hover, under an https organization.
   testWidgets('My machines says why it cannot prepare, with the next step, in words', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
@@ -510,7 +321,7 @@ void main() {
     final settings = Settings(MemorySettingsStore());
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
     final runs = HostRuns(machines, hostAccess: await HostFixture().access(settings));
-    var process = HostProcess();
+    final process = HostProcess();
     var starts = 0;
     addTearDown(() {
       runs.dispose();
@@ -533,52 +344,24 @@ void main() {
                     unawaited(openHostRunDialog(context, run: run, hostRuns: runs, machines: machines)),
               ),
             ),
-            floatingActionButton: TextButton(
-              onPressed: () => unawaited(
-                showDialog<void>(
-                  context: context,
-                  builder: (_) => HostDialog(
-                    runKeyCommand: _noKeyScan,
-                    project: '',
-                    machines: machines,
-                    hostRuns: runs,
-                    start: (_, _) async {
-                      starts++;
-                      return process;
-                    },
-                  ),
-                ),
-              ),
-              child: const Text('Open preparation'),
-            ),
           ),
         ),
       ),
     );
-    Future<HostPreparation> startPreparation(String name) async {
-      await tester.tap(find.text('Open preparation'));
-      await World.settle(tester);
-      // The key first: an address typed with no key behind it goes to fetch one from the network.
-      await _chooseMachine(tester, name);
-      for (final value in [(1, hostKey), (0, '203.0.113.7')]) {
-        final field = find.descendant(of: find.byType(HostDialog), matching: find.byType(TextField)).at(value.$1);
-        await tester.ensureVisible(field);
-        await World.settle(tester);
-        await tester.enterText(field, value.$2);
-      }
-      await World.settle(tester);
-      await tester.tap(find.text('Prepare the machine'));
-      await World.settle(tester);
-      return runs.of(name)!;
-    }
-
-    final run = await startPreparation('orchard');
-    expect(starts, 1);
-    await tester.tapAt(const Offset(10, 10));
+    final run = runs.start(
+      project: 'orchard',
+      record: signedSetup,
+      session: HostSession(
+        executable: 'fake',
+        arguments: const [],
+        start: (_, _) async {
+          starts++;
+          return process;
+        },
+      ),
+    );
     await World.settle(tester);
-    expect(find.byType(HostDialog), findsNothing);
-    expect(process.killed, isFalse);
-    expect(run.running, isTrue);
+    expect(starts, 1);
     process.line(const host.Step('install', host.StepState.started, text: 'Installing the machine'));
     await World.settle(tester);
     await tester.tap(find.text('orchard'));
@@ -586,33 +369,20 @@ void main() {
     expect(find.textContaining('Installing the machine'), findsWidgets);
     await tester.tap(find.text('Close'));
     await World.settle(tester);
+    expect(find.byType(HostDialog), findsNothing, reason: 'Close must work while the run goes on');
     expect(process.killed, isFalse);
     expect(run.running, isTrue);
-    expect(starts, 1);
+    await tester.tap(find.text('orchard'));
+    await World.settle(tester);
+    expect(starts, 1, reason: 'opening a protocol must not start another command');
+    await tester.tap(find.text('Close'));
+    await World.settle(tester);
     process.line(const host.Step('play', host.StepState.refused, words: 'Stopped by the test'));
     process.end(65);
     await World.settle(tester);
     await run.finished;
     expect(settings.hostUp('orchard')!.protocol, isNotEmpty);
     expect(find.byKey(const ValueKey('host-preparing orchard')), findsOneWidget);
-
-    process = HostProcess();
-    final second = await startPreparation('demo');
-    await tester.tap(find.text('Close'));
-    await World.settle(tester);
-    expect(find.byType(HostDialog), findsNothing, reason: 'Close must work after the run starts');
-    expect(process.killed, isFalse);
-    expect(second.running, isTrue);
-    process.line(const host.Step('install', host.StepState.started, text: 'Installing the second machine'));
-    await World.settle(tester);
-    await tester.tap(find.text('demo'));
-    await World.settle(tester);
-    expect(find.textContaining('Installing the second machine'), findsWidgets);
-    expect(starts, 2, reason: 'opening a protocol must not start another command');
-    process.line(const host.Step('play', host.StepState.refused, words: 'Stopped by the test'));
-    process.end(65);
-    await World.settle(tester);
-    await second.finished;
   });
 
   // Harm: a host admin must see every account and membership that explicit teardown will permanently remove.
@@ -695,6 +465,25 @@ void main() {
     state.processes.last.end(0);
     await World.settle(tester);
     expect(state.settings.hostUp('orchard'), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: in a short window a long list of holders pushes the give-back's decision out of reach, or overflows.
+  testWidgets('a long list of holders scrolls in a short window, with a sign that more stands below', (tester) async {
+    final state = await openTakeDown(tester, size: const Size(1280, 480));
+    answerHolders(state.processes.single, [
+      for (var each = 0; each < 40; each++) holder('person$each', state: 'locked', purgeOn: '2000-01-01'),
+    ]);
+    await World.settle(tester);
+    expect(tester.takeException(), isNull);
+    expect(
+      find.descendant(of: find.byType(AlertDialog), matching: find.byKey(const Key('dialog-scrollbar'))),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.textContaining('person39:'));
+    await World.settle(tester);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down'))).onPressed, isNotNull);
+    expect(tester.getRect(find.byKey(const Key('host-confirm-down'))).bottom, lessThanOrEqualTo(480));
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -1144,175 +933,6 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  // Harm: the words under *Prepare* say it waits for something when nothing can change that.
-  testWidgets('with no way to prepare from here it does not say it is waiting', (tester) async {
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    addTearDown(() {
-      machines.dispose();
-      settings.dispose();
-    });
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HostDialog(runKeyCommand: _noKeyScan, project: '', machines: machines, settings: settings),
-      ),
-    );
-    await World.settle(tester);
-    final said = tester.widget<Text>(find.byKey(const Key('preparation-waits'))).data!;
-    expect(said, contains('cannot prepare'));
-    expect(said, isNot(contains('Waiting')));
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  // Harm: a grey button with nothing beside it while permission is read; a stop saying "the command above"
-  // with the command below it; the old stop and its command staying up through the next try.
-  testWidgets('from Prepare to a stop for root and on to the next try, the words fit each moment', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = HostFixture();
-    final proof = FixtureProof(fixture);
-    final access = await fixture.access(settings, proof: proof);
-    final runs = HostRuns(machines, hostAccess: access);
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-    });
-    final processes = <HostProcess>[];
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HostDialog(
-          runKeyCommand: _noKeyScan,
-          project: '',
-          machines: machines,
-          settings: settings,
-          hostRuns: runs,
-          start: (_, _) async {
-            processes.add(HostProcess());
-            return processes.last;
-          },
-        ),
-      ),
-    );
-    Future<void> type(String label, String value) async {
-      final field = find.widgetWithText(TextField, label);
-      await tester.ensureVisible(field);
-      await World.settle(tester);
-      await tester.enterText(field, value);
-    }
-
-    await _chooseMachine(tester, 'orchard');
-    await type('Server address', '203.0.113.7');
-    await type('SSH host key', hostKey);
-    await World.settle(tester);
-
-    final reading = Completer<void>();
-    proof.hold = reading;
-    await tester.ensureVisible(find.text('Prepare the machine'));
-    await World.settle(tester);
-    await tester.tap(find.text('Prepare the machine'));
-    await tester.pump();
-    expect(tester.widget<Text>(find.byKey(const Key('preparation-waits'))).data, contains('Checking'));
-    proof.hold = null;
-    reading.complete();
-    await World.settle(tester);
-
-    processes.last.line(
-      const host.Step('ssh', host.StepState.refused, fix: '${host.rootStillClosed} Nothing changed.'),
-    );
-    processes.last.end(65);
-    await World.settle(tester);
-    final command = find.byKey(const Key('preparation-root-command'));
-    expect(command, findsOneWidget);
-    expect(
-      tester.getTopLeft(command).dy,
-      lessThan(tester.getTopLeft(find.textContaining(host.rootStillClosed).first).dy),
-      reason: 'the words say "above"',
-    );
-
-    await tester.ensureVisible(find.text('Prepare the machine again'));
-    await World.settle(tester);
-    await tester.tap(find.text('Prepare the machine again'));
-    await tester.pump();
-    await tester.pump();
-    expect(command, findsNothing, reason: 'the new try is under way');
-    processes.last.end(1);
-    await World.settle(tester);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  // Harm: the key filed is an installer's that has gone, and `up` stops at its first ssh line with ssh's words.
-  testWidgets('a key changed since it was compared starts nothing and says why, and the way to compare is named', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final runs = HostRuns(machines, hostAccess: await HostFixture().access(settings));
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-    });
-    const other = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-    var serves = hostKey;
-    var starts = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HostDialog(
-          project: '',
-          machines: machines,
-          settings: settings,
-          hostRuns: runs,
-          start: (_, _) async {
-            starts++;
-            return HostProcess();
-          },
-          runKeyCommand: (_, arguments, {inDirectory, environment = const {}, input}) async {
-            if (arguments.first == '-T') return (code: 0, out: '192.0.2.7 $serves\n', err: '');
-            return (code: 0, out: '256 SHA256:${List.filled(43, 'A').join()} no comment (ED25519)\n', err: '');
-          },
-        ),
-      ),
-    );
-    await World.settle(tester);
-    await _chooseMachine(tester, 'orchard');
-    final address = find.widgetWithText(TextField, 'Server address');
-    await tester.ensureVisible(address);
-    await tester.enterText(address, '192.0.2.7');
-    await tester.pump(const Duration(milliseconds: 501));
-    await World.settle(tester);
-    expect(
-      tester.widget<SelectableText>(find.byKey(const Key('preparation-compare-command'))).data,
-      contains('ssh-keygen -lf'),
-    );
-    final confirmed = find.byKey(const Key('preparation-host-key-confirmed'));
-    await tester.ensureVisible(confirmed);
-    await tester.tap(confirmed);
-    await World.settle(tester);
-    serves = other;
-    await tester.ensureVisible(find.text('Prepare the machine'));
-    await tester.tap(find.text('Prepare the machine'));
-    await World.settle(tester);
-    expect(starts, 0);
-    expect(runs.of('orchard'), isNull);
-    expect(find.textContaining('host key changed since it was fetched'), findsOneWidget);
-    expect(
-      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine')).onPressed,
-      isNull,
-      reason: 'it must be compared again',
-    );
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
   // Harm: a refused key's run can only be tried again with the same wrong key, or refused by name; and letting a
   // run go that stands on the machine, or a rental that bills, loses the record that takes it off.
   for (final kind in ['given', 'rental', 'past its login']) {
@@ -1368,18 +988,25 @@ void main() {
       processes.last.end(69);
       await run.finished;
       await tester.pump();
+      final handed = <HostPreparation>[];
       await tester.pumpWidget(
         MaterialApp(
-          home: HostDialog(
-            runKeyCommand: _noKeyScan,
-            project: 'orchard',
-            machines: machines,
-            settings: settings,
-            hostRuns: runs,
-            existingRun: run,
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => openHostRunDialog(
+                context,
+                run: run,
+                hostRuns: runs,
+                machines: machines,
+                settings: settings,
+                onEnterKeyAgain: handed.add,
+              ),
+              child: const Text('Open the protocol'),
+            ),
           ),
         ),
       );
+      await tester.tap(find.text('Open the protocol'));
       await World.settle(tester);
       final another = find.byKey(const Key('preparation-another-key'));
       if (kind != 'given') {
@@ -1394,90 +1021,13 @@ void main() {
       expect(find.text('Prepare the machine again'), findsNothing, reason: 'it would be refused the same way');
       await tester.tap(another);
       await World.settle(tester);
-      expect(runs.of('orchard'), isNull);
-      expect(settings.hostUp('orchard'), isNull);
-      expect(find.text('orchard'), findsOneWidget, reason: 'the name stands chosen');
-      expect(
-        tester.widget<TextField>(find.widgetWithText(TextField, 'Server address')).controller!.text,
-        '203.0.113.7',
-      );
-      expect(tester.widget<TextField>(find.widgetWithText(TextField, 'SSH host key')).controller!.text, isEmpty);
+      expect(handed, [same(run)], reason: 'the setup wizard takes it, at its key');
+      expect(find.byType(HostDialog), findsNothing, reason: 'the protocol makes way for the wizard');
+      expect(runs.of('orchard'), same(run), reason: 'let go only once a new one starts');
+      expect(settings.hostUp('orchard'), isNotNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
-
-  // Harm: the field keeps a name the organization no longer offers, and throws while it draws.
-  testWidgets('a machine no longer offered is taken out of the choice, without a throw', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = HostFixture();
-    final access = await fixture.access(settings);
-    final runs = HostRuns(machines, hostAccess: access);
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-    });
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HostDialog(
-          runKeyCommand: _noKeyScan,
-          project: '',
-          machines: machines,
-          settings: settings,
-          hostRuns: runs,
-        ),
-      ),
-    );
-    await World.settle(tester);
-    await _chooseMachine(tester, 'orchard');
-    fixture.adminHosts = {'demo'};
-    await access.readAgain();
-    final address = find.widgetWithText(TextField, 'Server address');
-    await tester.ensureVisible(address);
-    await tester.enterText(address, '203.0.113.7');
-    await World.settle(tester);
-    expect(tester.takeException(), isNull);
-    expect(find.text('orchard'), findsNothing);
-    expect(tester.widget<Text>(find.byKey(const Key('preparation-waits'))).data, contains('Choose the machine'));
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  // Harm: a person with no machine meets a form that can only refuse them.
-  testWidgets('with no machine to choose it says who adds one', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = HostFixture()
-      ..organizationAdmin = true
-      ..admin = false;
-    final runs = HostRuns(machines, hostAccess: await fixture.access(settings));
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-    });
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HostDialog(
-          runKeyCommand: _noKeyScan,
-          project: '',
-          machines: machines,
-          settings: settings,
-          hostRuns: runs,
-        ),
-      ),
-    );
-    await World.settle(tester);
-    expect(find.byKey(const Key('preparation-no-machine')), findsOneWidget);
-    expect(find.byKey(const Key('preparation-machine-name')), findsNothing);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
 
   // Harm: reopened by someone no longer a Machine Admin, the dialog throws while it draws.
   testWidgets('a run stopped for root, reopened without the right to prepare, draws and shows no command', (
@@ -1513,244 +1063,6 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byKey(const Key('preparation-root-command')), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  // Harm: preparation must use the chosen pinned host and limits, and the build's own collection, and retain readiness when signing is unavailable.
-  // Harm: a server this computer reaches by name or IPv6 address cannot be prepared or read back after a restart.
-  for (final address in ['203.0.113.7', 'orchard.example.org', '2001:db8::7']) {
-    testWidgets(
-      'Prepare the host passes public choices and the machine file, and keeps the host on its card at $address',
-      (tester) async {
-        tester.view.physicalSize = const Size(1280, 800);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        final settings = Settings(MemorySettingsStore());
-        final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-        final fixture = HostFixture();
-        final access = await fixture.access(settings);
-        final runs = HostRuns(machines, hostAccess: access);
-        addTearDown(() {
-          runs.dispose();
-          machines.dispose();
-          settings.dispose();
-        });
-        final process = HostProcess();
-        List<String>? arguments;
-        await tester.pumpWidget(
-          MaterialApp(
-            home: HostDialog(
-              runKeyCommand: _noKeyScan,
-              project: '',
-              machines: machines,
-              settings: settings,
-              hostRuns: runs,
-              start: (_, args) async {
-                arguments = args;
-                return process;
-              },
-            ),
-          ),
-        );
-        Future<void> type(String label, String value) async {
-          final field = find.widgetWithText(TextField, label);
-          await tester.ensureVisible(field);
-          await World.settle(tester);
-          await tester.enterText(field, value);
-        }
-
-        await _chooseMachine(tester, 'orchard');
-        await type('Server address', address);
-        await type('SSH host key', hostKey);
-        await tester.ensureVisible(find.text('More settings'));
-        await World.settle(tester);
-        await tester.tap(find.text('More settings'));
-        await World.settle(tester);
-        for (final entry in {'forge_runner_capacity': '1', 'forge_job_cpus': '1', 'forge_job_memory': '768m'}.entries) {
-          await tester.ensureVisible(find.byKey(Key(entry.key)));
-          await World.settle(tester);
-          await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-        }
-        await tester.ensureVisible(find.text('Use settings'));
-        await World.settle(tester);
-        await tester.tap(find.text('Use settings'));
-        await tester.tap(find.text('Prepare the machine'));
-        await World.settle(tester);
-        final run = runs.of('orchard')!;
-        expect(arguments, ['up', ...hostArguments(run.record, 'orchard')]);
-        expect(arguments, containsAllInOrder(['--given', address, '--host-key', hostKey]));
-        expect(arguments, contains('--machine-file'));
-        expect(
-          arguments,
-          containsAllInOrder(['--forge-runner-capacity', '1', '--forge-job-cpus', '1', '--forge-job-memory', '768m']),
-        );
-        expect(arguments, isNot(contains('--collection')), reason: 'The collection is the one the build knows.');
-        process.line(host.Step('up', host.StepState.done, address: address, admin: 'root'));
-        process.line(
-          host.Step(
-            'host',
-            host.StepState.host,
-            host: host.PreparedHost.read({...sshCompletion(), 'address': address}),
-          ),
-        );
-        process.end(0);
-        await run.finished;
-        await World.settle(tester);
-        expect(run.ready, isTrue);
-        expect(settings.hostUp('orchard')!.preparedHost!.address, address);
-        // Harm: a host set up already gives no word of what it was set to.
-        expect(find.textContaining('It has a forge of its own, and runs no VMs in its jobs.'), findsOneWidget);
-        expect(fixture.writes.single.input['address'], address);
-        final restored = hostUpRestored(settings.hostUp('orchard')!);
-        expect(restored.givenAddress, address);
-        expect(restored.givenHostKey, hostKey);
-        expect(hostArguments(restored, 'orchard'), isNot(contains('--collection')));
-        await tester.pumpWidget(const SizedBox.shrink());
-      },
-    );
-  }
-
-  // Harm: a reused name must not erase rental recovery or crash an active setup dialog.
-  for (final collision in ['saved', 'active', 'waiting']) {
-    testWidgets('preparation preserves the $collision host with the same name', (tester) async {
-      tester.view.physicalSize = const Size(1280, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final settings = Settings(MemorySettingsStore());
-      final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-      final fixture = HostFixture();
-      final runs = HostRuns(machines, hostAccess: await fixture.access(settings));
-      addTearDown(() {
-        runs.dispose();
-        machines.dispose();
-        settings.dispose();
-      });
-      final process = HostProcess();
-      HostPreparation? previous;
-      if (collision == 'saved') {
-        await settings.rememberHostUp('orchard', signedSetup);
-      } else {
-        previous = runs.start(
-          project: 'orchard',
-          record: signedSetup,
-          session: HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process),
-        );
-        await tester.pump();
-        if (collision == 'waiting') {
-          process.line(const host.Step('person', host.StepState.waiting, needs: ['matrix']));
-          process.end(75);
-          await previous.finished;
-        }
-      }
-      final kept = settings.hostUp('orchard')?.stored;
-      var starts = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HostDialog(
-            runKeyCommand: _noKeyScan,
-            project: '',
-            machines: machines,
-            hostRuns: runs,
-            start: (_, _) async {
-              starts++;
-              return HostProcess()..end(65);
-            },
-          ),
-        ),
-      );
-      await World.settle(tester);
-      await tester.tap(find.byKey(const Key('preparation-machine-name')));
-      await World.settle(tester);
-      expect(find.text('orchard'), findsNothing, reason: 'it has a preparation of its own');
-      expect(find.text('demo'), findsWidgets);
-      await tester.tap(find.text('demo').last);
-      await World.settle(tester);
-      expect(starts, 0);
-      expect(settings.hostUp('orchard')?.stored, kept);
-      if (previous != null) expect(runs.of('orchard'), same(previous));
-      if (collision == 'active') {
-        process.end(65);
-        await previous!.finished;
-      }
-      await tester.pumpWidget(const SizedBox.shrink());
-    });
-  }
-
-  // Harm: a retained callback after revocation must never start root preparation.
-  testWidgets('Prepare the host rechecks admin permission before starting SSH', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = HostFixture();
-    final access = await fixture.access(settings);
-    final runs = HostRuns(machines, hostAccess: access);
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-    });
-    var starts = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HostDialog(
-          runKeyCommand: _noKeyScan,
-          project: '',
-          machines: machines,
-          hostRuns: runs,
-          start: (_, _) async {
-            starts++;
-            return HostProcess();
-          },
-        ),
-      ),
-    );
-    await _chooseMachine(tester, 'orchard');
-    for (final field in {'Server address': '203.0.113.7', 'SSH host key': hostKey}.entries) {
-      final finder = find.widgetWithText(TextField, field.key);
-      await tester.ensureVisible(finder);
-      await World.settle(tester);
-      await tester.enterText(finder, field.value);
-    }
-    await World.settle(tester);
-    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
-    fixture.admin = false;
-    button.onPressed!();
-    await World.settle(tester);
-    expect(starts, 0);
-    expect(runs.of('orchard'), isNull);
-    expect(find.textContaining('Only a Machine Admin'), findsWidgets);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  // Harm: the field a person clicks moves under the pointer as the words about the name change, and a floating
-  // label is cut by the hint of the field above it.
-  testWidgets('the fields of Prepare a server stay put and clear of each other', (tester) async {
-    // Tall enough that nothing scrolls to reach the choice, as what is measured is what the name's words move.
-    tester.view.physicalSize = const Size(1280, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final access = await (HostFixture()..adminHosts = {'orchard'}).access(settings);
-    final runs = HostRuns(machines, hostAccess: access);
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-    });
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HostDialog(project: '', machines: machines, hostRuns: runs, start: (_, _) async => HostProcess()),
-      ),
-    );
-    await World.settle(tester);
-    Finder field(String label) => find.widgetWithText(TextField, label);
-    final before = tester.getTopLeft(field('Server address'));
-    await _chooseMachine(tester, 'orchard');
-    expect(tester.getTopLeft(field('Server address')), before);
-    final hint = tester.getBottomLeft(find.textContaining('A machine the organization lists'));
-    expect(before.dy - hint.dy, greaterThanOrEqualTo(8), reason: 'a floating label stands 8 above its field');
   });
 
   // Harm: a person watching a long run reads old steps and takes it for stuck, or is pulled away from one they
@@ -1794,102 +1106,7 @@ void main() {
     await World.settle(tester);
     expect(list().pixels, 0);
   });
-
-  testWidgets('nothing is prepared or shown for a host before its name, nor for a host alice is no admin of', (
-    tester,
-  ) async {
-    // Harm: the admin of one host prepares another, or gets its root-key setup line before naming it.
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = HostFixture()..adminHosts = {'orchard'};
-    final access = await fixture.access(settings);
-    final runs = HostRuns(machines, hostAccess: access);
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-    });
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HostDialog(project: '', machines: machines, hostRuns: runs, start: (_, _) async => HostProcess()),
-      ),
-    );
-    await World.settle(tester);
-    FilledButton prepare() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
-    expect(prepare().onPressed, isNull);
-    expect(find.textContaining('Choose the machine first'), findsOneWidget);
-    expect(find.textContaining('Before setup'), findsNothing);
-    await tester.tap(find.byKey(const Key('preparation-machine-name')));
-    await World.settle(tester);
-    expect(find.text('demo'), findsNothing, reason: 'alice is no Machine Admin of it, so it cannot be chosen');
-    await tester.tap(find.text('orchard').last);
-    await World.settle(tester);
-    expect(find.textContaining('Before setup'), findsOneWidget);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  // Harm: root's bootstrap line, or a registered run, for a card key revoked or taken out of the agent since the read.
-  testWidgets('the bootstrap line and a run wait for the identity read again, and none follows a failed one', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final fixture = HostFixture();
-    final proof = FixtureProof(fixture)..hold = Completer<void>();
-    final access = await fixture.access(settings, proof: proof);
-    final runs = HostRuns(machines, hostAccess: access);
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-    });
-    var starts = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HostDialog(
-          runKeyCommand: _noKeyScan,
-          project: '',
-          machines: machines,
-          hostRuns: runs,
-          start: (_, _) async {
-            starts++;
-            return HostProcess();
-          },
-        ),
-      ),
-    );
-    await World.settle(tester);
-    expect(find.textContaining('Before setup'), findsNothing, reason: 'the read has not ended');
-    expect(find.text('orchard'), findsNothing, reason: 'nor is a machine offered before it has');
-    proof.hold!.complete();
-    proof.hold = null;
-    await World.settle(tester);
-    await _chooseMachine(tester, 'orchard');
-    for (final field in {'Server address': '203.0.113.7', 'SSH host key': hostKey}.entries) {
-      final finder = find.widgetWithText(TextField, field.key);
-      await tester.ensureVisible(finder);
-      await World.settle(tester);
-      await tester.enterText(finder, field.value);
-    }
-    await World.settle(tester);
-    expect(find.textContaining('Before setup'), findsOneWidget);
-    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Prepare the machine'));
-    proof.next = null;
-    button.onPressed!();
-    await World.settle(tester);
-    expect(starts, 0);
-    expect(runs.of('orchard'), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
 }
-
-HostUpRecord hostUpRestored(HostUpRecord record) => HostUpRecord.fromStored(record.stored)!;
 
 Map<String, Object?> holder(
   String login, {
@@ -1923,8 +1140,9 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
   Future<String?> Function(String host)? removeFromOrganization,
   HostAccess? hostAccess,
   List<Project>? itsDaemonLists,
+  Size size = const Size(1280, 800),
 }) async {
-  tester.view.physicalSize = const Size(1280, 800);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final settings = Settings(store ?? MemorySettingsStore());

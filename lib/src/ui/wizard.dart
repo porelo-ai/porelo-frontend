@@ -115,9 +115,11 @@ class Wizard extends StatefulWidget {
     this.start,
     this.canLeave,
     this.actionWords,
+    this.firstStep,
     super.key,
   }) : assert(steps.length > 0),
-       assert(actions == null || actionSteps.length > 0);
+       assert(actions == null || actionSteps.length > 0),
+       assert(firstStep == null || firstStep < steps.length);
 
   /// The dialog's title.
   final String title;
@@ -162,6 +164,9 @@ class Wizard extends StatefulWidget {
   /// The review's start button's words, read on each redraw, in place of [action] where given.
   final ValueGetter<String>? actionWords;
 
+  /// The question shown first, where the caller already holds the answers before it; null for the first one asked.
+  final int? firstStep;
+
   @override
   State<Wizard> createState() => _WizardState();
 }
@@ -183,7 +188,7 @@ class _WizardState extends State<Wizard> {
   void initState() {
     super.initState();
     _initial = [for (final step in widget.steps) List.of(step.summary())];
-    _index = _shownFrom(0, 1);
+    _index = widget.firstStep ?? _shownFrom(0, 1);
     widget.changes?.addListener(_changed);
     widget.goBackTo?.addListener(_goBack);
     _focusFirst();

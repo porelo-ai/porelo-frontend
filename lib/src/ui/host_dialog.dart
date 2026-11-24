@@ -1,25 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:porelo_host/porelo_host.dart'
-    show HostCheckAnswer, HostMembership, HostPreparationSettings, rootStillClosed;
+import 'package:porelo_host/porelo_host.dart' show HostMembership, rootStillClosed;
 
-import '../app/host_check_run.dart';
 import '../app/host_runs.dart';
 import '../app/host_access.dart';
 import '../app/host_session.dart';
 import '../app/machines.dart';
 import '../app/host_progress.dart';
 import '../app/organization_source.dart' show OrganizationRefused;
-import '../app/preparation_host_key.dart';
-import '../app/run_here.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
 import 'command_to_copy.dart';
 import 'following_output.dart';
 import 'tokens.dart';
-import 'host_check_list.dart';
-import 'host_preparation_settings.dart';
+import 'dialog_scroll.dart';
 import 'machine_tree.dart' show centralWords;
 import '../wire/limit_factors.dart';
 
@@ -54,29 +49,7 @@ Future<void> openHostTakeDownDialog(
   ),
 );
 
-/// Opens the replacement setup entry point without legacy credential inputs.
-Future<void> openPrepareServerDialog(
-  BuildContext context, {
-  required Machines machines,
-  required Settings settings,
-  required HostRuns hostRuns,
-  RunHere? runKeyCommand,
-  String? machineName,
-  HostCheckRun? hostCheck,
-}) => showDialog<void>(
-  context: context,
-  builder: (_) => HostDialog(
-    project: '',
-    machines: machines,
-    settings: settings,
-    hostRuns: hostRuns,
-    runKeyCommand: runKeyCommand,
-    machineName: machineName,
-    hostCheck: hostCheck,
-  ),
-);
-
-/// Opens the retained public setup protocol.
+/// Opens the retained public setup protocol; [onEnterKeyAgain] gives a run refused for its key to the setup wizard.
 Future<void> openHostRunDialog(
   BuildContext context, {
   required HostPreparation run,
@@ -84,13 +57,20 @@ Future<void> openHostRunDialog(
   required Machines machines,
   Settings? settings,
   OpenTerminal? openTerminal,
+  void Function(HostPreparation run)? onEnterKeyAgain,
 }) => showDialog<void>(
   context: context,
-  builder: (_) =>
-      HostDialog(project: run.project, machines: machines, settings: settings, hostRuns: hostRuns, existingRun: run),
+  builder: (_) => HostDialog(
+    project: run.project,
+    machines: machines,
+    settings: settings,
+    hostRuns: hostRuns,
+    existingRun: run,
+    onEnterKeyAgain: onEnterKeyAgain,
+  ),
 );
 
-/// Retained setup progress and explicit rental give-back, without trust installation.
+/// A preparation's protocol, opened from its row, or a machine's explicit give-back.
 class HostDialog extends StatefulWidget {
   /// Uses the owner of setup and an injectable host process for give-back tests.
   const HostDialog({
@@ -101,18 +81,16 @@ class HostDialog extends StatefulWidget {
     this.hostAccess,
     this.existingRun,
     this.start,
-    this.runKeyCommand,
     this.takeDownOnly = false,
     this.removeFromOrganization,
-    this.machineName,
     this.fromTheCard,
-    this.hostCheck,
     this.readHostProgress,
+    this.onEnterKeyAgain,
     super.key,
-  });
+  }) : assert(takeDownOnly || existingRun != null, 'a protocol is of a run');
 
-  /// The machine to prepare, where it is known from where this was asked.
-  final String? machineName;
+  /// Opens the setup wizard at the key for a run refused for its key; this dialog closes first. Null offers nothing.
+  final void Function(HostPreparation run)? onEnterKeyAgain;
 
   /// The existing rental's stable identity.
   final String project;
@@ -135,9 +113,6 @@ class HostDialog extends StatefulWidget {
   /// The host process boundary.
   final StartHostCommand? start;
 
-  /// Runs the public key scan and fingerprint command, replaceable without a network in tests.
-  final RunHere? runKeyCommand;
-
   /// Whether the dialog confirms give-back.
   final bool takeDownOnly;
 
@@ -146,9 +121,6 @@ class HostDialog extends StatefulWidget {
 
   /// What to take down with on a computer that kept nothing from setting it up.
   final HostUpRecord? fromTheCard;
-
-  /// The carried collection's check, which then stands before preparing; null where the collection holds none.
-  final HostCheckRun? hostCheck;
 
   /// The function that reads the connected host's organization status afresh before give-back.
   final Future<HostProgress> Function(String host)? readHostProgress;
@@ -170,32 +142,12 @@ class _HostDialogState extends State<HostDialog> {
   bool _checkingCentral = false;
   bool get _centralReady => _centralBlockers?.isEmpty == true;
   final _scroll = ScrollController();
-  late final _name = TextEditingController(text: widget.machineName);
-  final _address = TextEditingController();
-  final _hostKey = TextEditingController();
-  Timer? _keyDebounce;
-  int _keyRequest = 0;
-  bool _fetchingKey = false;
-  bool _pastedKey = false;
-  bool _keyConfirmed = false;
-  PreparationHostKey? _fetchedKey;
-  String? _keyProblem;
-  HostPreparation? _started;
-  bool _startedOver = false;
   bool _busy = false;
   bool _givenBack = false;
   bool _returnedRental = false;
   String? _problem;
   final _problemShown = GlobalKey();
   String? _problemBroughtIntoView;
-  HostPreparationSettings _choices = const HostPreparationSettings();
-  HostCheckAnswer? _checkAnswer;
-  String? _checkedFor;
-  bool _checking = false;
-  bool _checkAgain = false;
-  int _checkRequest = 0;
-  Timer? _checkDebounce;
-  final _checkShown = GlobalKey();
   Settings get _settings => widget.settings ?? widget.machines.settings;
   HostUpRecord? get _record => _settings.hostUp(widget.project) ?? widget.fromTheCard;
 
@@ -205,23 +157,9 @@ class _HostDialogState extends State<HostDialog> {
         '${forge && record.preparationSettings.kvm ? ', and runs VMs in its jobs.' : ', and runs no VMs in its jobs.'}';
   }
 
-  /// Takes [value] as the choices, says the check must run again, and keeps them on a saved record.
-  Future<void> _choose(HostPreparationSettings value) async {
-    setState(() => _choices = value);
-    _checkInputsMoved();
-    if (_record case final saved?) {
-      try {
-        await _settings.rememberHostUp(widget.project, saved.withPreparationSettings(value));
-      } on Exception {
-        if (mounted) setState(() => _problem = 'The preparation settings could not be saved.');
-      }
-    }
-  }
-
   @override
   void initState() {
     super.initState();
-    _choices = _record?.preparationSettings ?? widget.existingRun?.record.preparationSettings ?? _choices;
     if (widget.takeDownOnly) {
       unawaited(_readHolders());
       unawaited(_readCentral());
@@ -238,108 +176,6 @@ class _HostDialogState extends State<HostDialog> {
   bool _proven = false;
   bool _readingAccess = false;
 
-  bool get _keyReady => _hostKey.text.trim().isNotEmpty && (_pastedKey || _fetchedKey != null && _keyConfirmed);
-
-  void _addressChanged() {
-    _keyDebounce?.cancel();
-    _keyRequest++;
-    setState(() {
-      _fetchingKey = false;
-      _keyConfirmed = false;
-      _fetchedKey = null;
-      _keyProblem = null;
-      if (!_pastedKey) _hostKey.clear();
-    });
-    _checkInputsMoved();
-    if (_address.text.trim().isNotEmpty && !_pastedKey) {
-      _keyDebounce = Timer(const Duration(milliseconds: 500), _fetchKey);
-    }
-  }
-
-  Future<void> _fetchKey() async {
-    _keyDebounce?.cancel();
-    if (_busy) return;
-    final request = ++_keyRequest;
-    final address = _address.text.trim();
-    setState(() {
-      _fetchingKey = true;
-      _pastedKey = false;
-      _keyConfirmed = false;
-      _fetchedKey = null;
-      _hostKey.clear();
-      _keyProblem = null;
-    });
-    _checkInputsMoved();
-    try {
-      final fetched = await fetchPreparationHostKey(address, run: widget.runKeyCommand);
-      if (!mounted || request != _keyRequest) return;
-      setState(() {
-        _fetchedKey = fetched;
-        _hostKey.text = fetched.key;
-      });
-      _checkInputsMoved();
-    } on WorkspaceRefused catch (refused) {
-      if (mounted && request == _keyRequest) setState(() => _keyProblem = refused.words);
-    } finally {
-      if (mounted && request == _keyRequest) setState(() => _fetchingKey = false);
-    }
-  }
-
-  /// Everything the shown answer was given; another of these makes it an answer about something else.
-  String get _checkInputs => [_address.text.trim(), _hostKey.text.trim(), ..._choices.arguments].join('\n');
-
-  bool get _checkPassed => widget.hostCheck == null || (_checkAnswer?.passed == true && _checkedFor == _checkInputs);
-
-  bool _mayCheck(HostAccess? access) =>
-      !_busy && !_fetchingKey && !_checking && _keyReady && access != null && _refusal(access) == null;
-
-  /// Drops an answer about what has just changed; one that was shown is asked again, once typing rests.
-  void _checkInputsMoved() {
-    if (widget.hostCheck == null || !mounted || _checkInputs == _checkedFor) return;
-    _checkDebounce?.cancel();
-    _checkRequest++;
-    final again = _checkAnswer != null || _checking || _checkAgain;
-    setState(() {
-      _checkAnswer = null;
-      _checkedFor = null;
-      _checking = false;
-      _checkAgain = again;
-    });
-    if (again) _checkDebounce = Timer(const Duration(milliseconds: 500), _runCheck);
-  }
-
-  Future<void> _runCheck() async {
-    _checkDebounce?.cancel();
-    final check = widget.hostCheck;
-    final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
-    if (check == null || !mounted || !_mayCheck(access)) return;
-    final request = ++_checkRequest;
-    final identity = access!.identity();
-    setState(() {
-      _checking = true;
-      _checkAgain = false;
-      _checkAnswer = null;
-      _checkedFor = _checkInputs;
-    });
-    final answer = identity == null
-        ? const HostCheckAnswer.notAnswered('Your Machine Admin key could not be read.')
-        : await check.check(
-            address: _address.text.trim(),
-            hostKey: _hostKey.text.trim(),
-            publicKey: identity.key,
-            settings: _choices,
-          );
-    if (!mounted || request != _checkRequest) return;
-    setState(() {
-      _checking = false;
-      _checkAnswer = answer;
-    });
-    // The list stands below the fold of a long form, where nothing else says the button was answered.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_checkShown.currentContext case final shown? when mounted) unawaited(Scrollable.ensureVisible(shown));
-    });
-  }
-
   Future<void> _readAccess(HostAccess access) async {
     try {
       await access.readAgain();
@@ -355,91 +191,6 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
-  // Only a named host's own admins may prepare it, so nothing is offered before the name.
-  /// The stopped run is let go, and the form stands again with what it knew, but for the key.
-  Future<void> _enterAnotherKey(HostPreparation run) async {
-    final name = run.record.hostName;
-    final address = run.record.givenAddress;
-    await widget.hostRuns?.startOver(run);
-    if (!mounted) return;
-    setState(() {
-      _startedOver = true;
-      _started = null;
-      _problem = null;
-      _pastedKey = false;
-      _name.text = name;
-      _address.text = address;
-      _hostKey.clear();
-    });
-    _addressChanged();
-  }
-
-  /// The machines this person can prepare now: none refused, none with a preparation of its own already.
-  List<String> _choicesOf(HostAccess access) {
-    final runs = widget.hostRuns;
-    return [
-      for (final each in access.hostsOfMine)
-        if (access.unavailable(each) == null &&
-            _settings.hostUp(each) == null &&
-            !(runs?.of(each)?.running ?? false) &&
-            !(runs?.of(each)?.waiting ?? false))
-          each,
-    ];
-  }
-
-  /// Why there is nothing to choose, where the words beside the button do not say it already.
-  String? _whyNoChoice(HostAccess access) {
-    final mine = access.hostsOfMine;
-    if (access.unavailable() != null) return null;
-    if (mine.isEmpty) {
-      return 'You are Machine Admin of no machine the organization lists. An Organization Admin adds one under '
-          'Organization, and names you its Machine Admin.';
-    }
-    final refused = [for (final each in mine) ?access.unavailable(each)];
-    return refused.isNotEmpty
-        ? refused.first
-        : 'Each machine of yours has a preparation already: open it from its row under My machines.';
-  }
-
-  /// Only a machine that can be prepared is offered, so the name cannot be typed into a refusal.
-  Widget _machineChoice(HostAccess? access) {
-    final ready = access != null && _proven;
-    final choices = ready ? _choicesOf(access) : const <String>[];
-    final chosen = _name.text.trim();
-    if (ready && chosen.isNotEmpty && !choices.contains(chosen)) {
-      // The organization was read again and this one is no longer offered.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(_name.clear);
-      });
-    }
-    if (ready && choices.isEmpty) {
-      final why = _whyNoChoice(access);
-      return why == null
-          ? const SizedBox.shrink()
-          : Padding(
-              padding: const EdgeInsets.only(top: Space.small),
-              child: Text(why, key: const Key('preparation-no-machine')),
-            );
-    }
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.small),
-      // Its own state reads the first value alone, so another list or choice makes a new field.
-      child: KeyedSubtree(
-        key: ValueKey(<String>[...choices, '/', chosen].join(',')),
-        child: DropdownButtonFormField<String>(
-          key: const Key('preparation-machine-name'),
-          initialValue: choices.contains(chosen) ? chosen : null,
-          decoration: const InputDecoration(
-            labelText: 'Machine name',
-            helperText: 'A machine the organization lists, of which you are a Machine Admin.',
-          ),
-          items: [for (final each in choices) DropdownMenuItem(value: each, child: Text(each))],
-          onChanged: _busy ? null : (value) => setState(() => _name.text = value ?? ''),
-        ),
-      ),
-    );
-  }
-
   /// The command to open root, where the last run stopped for want of it and this person may see it.
   String? _rootCommandAgain(HostAccess? access, HostPreparation? run) {
     if (access == null || _readingAccess || !_proven) return null;
@@ -449,120 +200,6 @@ class _HostDialogState extends State<HostDialog> {
     } on HostAccessRefused {
       return null;
     }
-  }
-
-  /// What *Prepare the machine* waits for now, in words that stay beside it; null once it can be pressed.
-  String? _waitsFor(HostAccess? access) {
-    if (access == null) return 'This computer cannot prepare a machine from here.';
-    if (_busy) return 'Checking that you may prepare it…';
-    if (_refusal(access) case final reason?) {
-      return reason == _problem ? 'It stopped: the words above say why.' : reason;
-    }
-    if (_fetchingKey) return 'Fetching the SSH host key, up to a few seconds.';
-    if (_hostKey.text.trim().isEmpty) return 'Waiting for the machine\'s SSH host key: fetch it, or paste it above.';
-    if (!_keyReady) return 'Waiting for you: tick "I compared this fingerprint" above.';
-    if (widget.hostCheck != null && !_checkPassed) {
-      if (_checking || _checkAgain) return 'Checking the machine. This only reads, and changes nothing on it.';
-      return switch (_checkAnswer) {
-        null => 'Check the machine first. This only reads, and changes nothing on it.',
-        final answer when !answer.answered => 'The check gave no answer, so nothing is known of this machine yet.',
-        _ => 'Preparing is offered once the check passes.',
-      };
-    }
-    return null;
-  }
-
-  String? _refusal(HostAccess access) {
-    if (_readingAccess) return 'Reading your identity and the Porelo organization…';
-    if (!_proven) return _problem ?? 'Your identity and the Porelo organization have not been read.';
-    final name = _name.text.trim();
-    if (name.isEmpty) {
-      return access.unavailable() ??
-          (_choicesOf(access).isEmpty
-              ? 'There is no machine to choose.'
-              : 'Choose the machine first: only its Machine Admins may prepare it.');
-    }
-    return access.unavailable(name);
-  }
-
-  Future<void> _prepare() async {
-    if (_busy || !_proven || !_keyReady || _fetchingKey || !_checkPassed) return;
-    setState(() {
-      _busy = true;
-      _problem = null;
-    });
-    try {
-      final name = _name.text.trim();
-      final runs = widget.hostRuns;
-      if (runs == null) throw StateError('The machine preparation owner is unavailable.');
-      final access = runs.hostAccess;
-      if (access == null) throw const HostAccessRefused('The verified Machine Admins are unavailable.');
-      // Read anew here: nothing is rented for a key revoked since the dialog opened, nor for a pin that cannot hold.
-      final machineFile = await access.machineFile(name);
-      if (!mounted) return;
-      // The key compared may be an installer's that has since gone: this catches a change, not a false answer.
-      if (_fetchedKey case final compared?) {
-        final PreparationHostKey now;
-        try {
-          now = await fetchPreparationHostKey(_address.text.trim(), run: widget.runKeyCommand);
-        } on WorkspaceRefused {
-          // Not answering now says nothing of the key; the login holds to the one filed.
-          return await _prepareWith(access, runs, name, machineFile);
-        }
-        if (!mounted) return;
-        if (now.key != compared.key) {
-          setState(() {
-            _fetchedKey = now;
-            _hostKey.text = now.key;
-            _keyConfirmed = false;
-            _problem =
-                'The machine\'s SSH host key changed since it was fetched, usually because an install was still '
-                'running. Nothing was started. Compare the new one below.';
-          });
-          _checkInputsMoved();
-          return;
-        }
-      }
-      await _prepareWith(access, runs, name, machineFile);
-    } on HostAccessRefused catch (refused) {
-      if (mounted) setState(() => _problem = refused.words);
-    } on StateError catch (error) {
-      if (mounted) setState(() => _problem = error.message.toString());
-    } on Exception catch (error) {
-      if (mounted) setState(() => _problem = error is FormatException ? error.message : error.toString());
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _prepareWith(HostAccess access, HostRuns runs, String name, String machineFile) async {
-    // Read anew: a choice may have changed while the card was read, and then the answer is of another request.
-    if (!_checkPassed) throw const FormatException('A choice changed, so the check runs again. Nothing was started.');
-    final record = HostUpRecord.fromStored(
-      HostUpRecord(
-        hostName: name,
-        host: name,
-        givenAddress: _address.text.trim(),
-        givenHostKey: _hostKey.text.trim(),
-        preparationSettings: _choices,
-        machineFile: machineFile,
-        publicKey: access.identity()!.key,
-      ).stored,
-    );
-    if (record == null || record.givenAddress.isEmpty) {
-      throw const FormatException('Choose a machine name, a server address and SSH host key.');
-    }
-    final existing = runs.of(name);
-    if (_settings.hostUp(name) != null || existing != null && (existing.running || existing.waiting)) {
-      throw const FormatException(
-        'This machine name already has saved preparation or an active run. Open it to continue.',
-      );
-    }
-    final session = HostSession(executable: poreloHost(), arguments: hostArguments(record, name), start: widget.start);
-    _started = runs.start(project: name, record: record, session: session, organizationReadJustNow: true);
-    setState(() {});
-    await _started!.finished;
-    if (mounted) setState(() => _problem = _started!.problem);
   }
 
   Future<void> _readHolders() async {
@@ -790,16 +427,9 @@ class _HostDialogState extends State<HostDialog> {
 
   @override
   void dispose() {
-    _keyDebounce?.cancel();
-    _keyRequest++;
-    _checkDebounce?.cancel();
-    _checkRequest++;
     _down?.dispose();
     _membershipSession?.stopReading();
     _membershipSession?.dispose();
-    for (final field in [_name, _address, _hostKey]) {
-      field.dispose();
-    }
     _scroll.dispose();
     super.dispose();
   }
@@ -818,7 +448,7 @@ class _HostDialogState extends State<HostDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final run = _startedOver ? _started : widget.existingRun ?? _started;
+    final run = widget.existingRun;
     final record = _record ?? (run == null ? null : _settings.hostUp(run.project)) ?? run?.record;
     final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
     final holders = _holders;
@@ -832,18 +462,17 @@ class _HostDialogState extends State<HostDialog> {
             ? rental
                   ? 'Return this rental…'
                   : 'Take Porelo off this machine…'
-            : run?.name ?? 'Prepare a machine',
+            : run!.name,
       ),
       content: SizedBox(
         width: Sizes.dialog,
-        child: SingleChildScrollView(
+        // A long list of holders or blockers scrolls, with a sign that more stands below, in a short window.
+        child: DialogScroll(
           controller: _scroll,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_busy && run == null && !widget.takeDownOnly)
-                Text('Checking permission to prepare machine ${_name.text.trim()}…'),
               if (widget.takeDownOnly && !_givenBack)
                 if (access?.projectsOn(record?.hostName.isNotEmpty == true ? record!.hostName : widget.project)
                     case final projects? when projects.isNotEmpty)
@@ -862,118 +491,8 @@ class _HostDialogState extends State<HostDialog> {
                       ? 'Delete the accounts named below and everything they hold here, and remove this machine from the organization’s list? The provider then removes the machine, ending its billing once the provider confirms.'
                       : 'Delete the accounts named below and everything they hold here, and remove this machine from the organization’s list? The machine itself stays yours. End any contract with its provider yourself.',
                 ),
-              if (!widget.takeDownOnly && run == null) ...[
-                if (access == null) const Text('Verified Machine Admin identity and the organization are unavailable.'),
-                _machineChoice(access),
-                for (final field in [
-                  (
-                    _address,
-                    'Server address',
-                    'The machine name or IP address this computer reaches the existing server at.',
-                  ),
-                  (_hostKey, 'SSH host key', 'The server’s ssh-ed25519 public key, checked separately.'),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(top: Space.small),
-                    child: TextField(
-                      controller: field.$1,
-                      readOnly: _busy,
-                      decoration: InputDecoration(labelText: field.$2, helperText: field.$3),
-                      // The host name decides whose admins may prepare it, so its refusal follows each change.
-                      onChanged: (_) {
-                        if (field.$1 == _address) {
-                          _addressChanged();
-                        } else {
-                          setState(() {
-                            if (field.$1 == _hostKey) {
-                              _keyRequest++;
-                              _keyDebounce?.cancel();
-                              _fetchingKey = false;
-                              _pastedKey = _hostKey.text.trim().isNotEmpty;
-                              _fetchedKey = null;
-                              _keyConfirmed = false;
-                              _keyProblem = null;
-                            }
-                          });
-                          _checkInputsMoved();
-                        }
-                      },
-                    ),
-                  ),
-                TextButton(
-                  onPressed: _busy || _fetchingKey || _address.text.trim().isEmpty ? null : _fetchKey,
-                  child: const Text('Fetch SSH host key'),
-                ),
-                if (_fetchingKey) const Text('Fetching the SSH host key…'),
-                if (_keyProblem != null) Text(_keyProblem!),
-                if (_fetchedKey case final fetched?) ...[
-                  SelectableText(fetched.fingerprint),
-                  const Text(
-                    'Wait until your provider says the server is ready and its install has finished: a key fetched '
-                    'before that is the installer\'s. Then run this on the server itself and compare what it prints '
-                    'with the fingerprint above.',
-                  ),
-                  const SelectableText(
-                    'ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub',
-                    key: Key('preparation-compare-command'),
-                  ),
-                  CheckboxListTile(
-                    key: const Key('preparation-host-key-confirmed'),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('I compared this fingerprint'),
-                    value: _keyConfirmed,
-                    onChanged: _busy
-                        ? null
-                        : (value) {
-                            setState(() => _keyConfirmed = value == true);
-                            _checkInputsMoved();
-                          },
-                  ),
-                ],
-                // Below the fields, so that what it says as the name is typed moves none of them.
-              ],
               // A host set up already: what it was set to, which this dialog changes no more.
               if (record?.preparedHost case final _?) Text(key: const Key('host-choices'), _setTo(record!)),
-              if (!widget.takeDownOnly && run == null && record?.preparedHost == null) ...[
-                SwitchListTile(
-                  key: const Key('host-forge'),
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('This host has a forge of its own'),
-                  subtitle: const Text(
-                    'On: builds run here, and take memory and CPUs from the tasks. Off: a central forge alone, with '
-                    'less to run on the machine.',
-                  ),
-                  value: _choices.forge,
-                  onChanged: _busy
-                      ? null
-                      : (value) => _choose(_choices.withPlainChoices(forge: value, kvm: value && _choices.kvm)),
-                ),
-                if (_choices.forge)
-                  SwitchListTile(
-                    key: const Key('host-check-vms'),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('This host runs VMs in its jobs'),
-                    subtitle: const Text(
-                      'On installs KVM and libvirt, needs a CPU with virtualization, and is for a job that makes a VM; '
-                      'a job in a container needs none of it.',
-                    ),
-                    value: _choices.kvm,
-                    onChanged: _busy ? null : (value) => _choose(_choices.withPlainChoices(forge: true, kvm: value)),
-                  ),
-                HostPreparationSettingsForm(value: _choices, onChanged: (value) => _choose(value)),
-                if (access != null && _proven && _refusal(access) == null) ...[
-                  const Text(
-                    'Before setup, on the server, not on this computer: log in there with the first login your '
-                    'provider gave you, such as ubuntu, and run this line. It replaces root’s authorized keys with '
-                    'your Machine Admin card key, and from then on Porelo logs in as root.',
-                  ),
-                  CommandToCopy(command: access.bootstrapCommand(), textKey: const Key('host-bootstrap-command')),
-                ],
-              ],
-              if (!widget.takeDownOnly && run == null) ...[
-                if (_checking) const Text('Checking the machine…', key: Key('host-check-running')),
-                if (_checkAnswer case final answer?) HostCheckList(key: _checkShown, answer: answer),
-              ],
               // The run stopped on the very command it asked for: it is shown again, above the words that say so.
               if (_rootCommandAgain(access, run) case final command?) ...[
                 const Text('Run it on the server, logged in with your provider’s first login, not on this computer:'),
@@ -1067,32 +586,19 @@ class _HostDialogState extends State<HostDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _busy && (widget.takeDownOnly || run == null) ? null : () => Navigator.pop(context),
+          onPressed: _busy && widget.takeDownOnly ? null : () => Navigator.pop(context),
           child: const Text('Close'),
         ),
-        if (!widget.takeDownOnly && run == null)
-          if (_waitsFor(access) case final waits?)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: Sizes.dialogWords),
-              child: Text(waits, key: const Key('preparation-waits')),
-            ),
-        if (!widget.takeDownOnly && run == null && !_checkPassed)
-          FilledButton(
-            key: const Key('host-check-run'),
-            onPressed: _mayCheck(access) ? _runCheck : null,
-            child: const Text('Check this machine'),
-          )
-        else if (!widget.takeDownOnly && run == null)
-          FilledButton(
-            onPressed: _busy || _fetchingKey || !_keyReady || access == null || _refusal(access) != null
-                ? null
-                : _prepare,
-            child: const Text('Prepare the machine'),
-          ),
         if (!widget.takeDownOnly && run != null && (widget.hostRuns?.mayStartOver(run) ?? false))
           FilledButton(
             key: const Key('preparation-another-key'),
-            onPressed: () => unawaited(_enterAnotherKey(run)),
+            onPressed: widget.onEnterKeyAgain == null
+                ? null
+                : () {
+                    // The wizard takes it from here; this run stays as it is until a new one starts.
+                    Navigator.pop(context);
+                    widget.onEnterKeyAgain!(run);
+                  },
             child: const Text('Enter the key again'),
           )
         else if (!widget.takeDownOnly && run != null && !run.ready && !run.running)

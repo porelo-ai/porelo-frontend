@@ -93,4 +93,36 @@ void main() {
     expect(choices, hasLength(1));
     expect(choices.single.roleSettings, isEmpty);
   });
+
+  // Harm: with the forge off, ports nobody can see hold Next for an edit never made, or refuse a visible one.
+  test('with the forge off, its hidden ports keep the values in use', () {
+    const value = HostPreparationSettings(forge: false, forgeWebPort: 5000, forgeGitPort: 5001);
+    expect(HostPreparationSettingsForm.whyNot(value, HostPreparationSettingsForm.textsOf(value)), isNull);
+    final edits = {...HostPreparationSettingsForm.textsOf(value), 'matrix_port': '3000'};
+    expect(HostPreparationSettingsForm.whyNot(value, edits), contains('not used yet'));
+    expect(HostPreparationSettingsForm.read(value, edits).forgeWebPort, 5000);
+  });
+
+  // Harm: a refusal stays beside a field already put right.
+  testWidgets('an edit takes back the refusal of the values before it', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: HostPreparationSettingsForm(value: const HostPreparationSettings(), onChanged: (_) {}),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('More settings'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('forge_runner_capacity')), '0');
+    await tester.ensureVisible(find.text('Use settings'));
+    await tester.tap(find.text('Use settings'));
+    await tester.pump();
+    expect(find.text('Runner capacity and job CPUs must be positive integers.'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('forge_runner_capacity')), '2');
+    await tester.pump();
+    expect(find.text('Runner capacity and job CPUs must be positive integers.'), findsNothing);
+  });
 }
