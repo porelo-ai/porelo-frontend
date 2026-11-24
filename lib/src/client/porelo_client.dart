@@ -1707,6 +1707,20 @@ class PoreloClient {
     return review;
   }
 
+  /// How many findings and review threads are open on the waiting push [name] at [commit], and how far each check
+  /// run got.
+  ///
+  /// Refused, as [review] is, with `NoSuchPush` or `MovedSinceReview`; a machine without it answers
+  /// [FeatureNotSupported], and an answer without its counts is a [FormatException], never zeros.
+  Future<ReviewSummary> reviewSummary(
+    String project,
+    String name, {
+    String? repository,
+    required String commit,
+  }) async => ReviewSummary.from(
+    await _call('ReviewSummary', {'project': project, 'repository': ?repository, 'name': name, 'commit': commit}),
+  );
+
   /// One more page of a part of [name]'s review, for [commit], read [against] as `Review.paged.base` names it,
   /// from [from]: a position the machine gave. [part] is `files`, `commits`, `log` or `diff`.
   ///

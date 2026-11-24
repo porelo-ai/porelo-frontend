@@ -651,6 +651,10 @@ abstract class FleetBackend {
     required int from,
   });
 
+  /// How many findings and review threads are open on a waiting push at [commit], and how far each check got; see
+  /// [PoreloClient.reviewSummary].
+  Future<ReviewSummary> reviewSummaryOf(String projectFile, String name, {String? repository, required String commit});
+
   /// Forwards a waiting push upstream, onto a branch the caller names.
   ///
   /// **The only thing in this interface that sends anything anywhere**, and the branch is never
@@ -1516,6 +1520,14 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     part: part,
     from: from,
   );
+
+  @override
+  Future<ReviewSummary> reviewSummaryOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+  }) => _opened().reviewSummary(projectFile, name, repository: repository, commit: commit);
 
   @override
   Future<ForwardedPush> approve(String projectFile, String name, String branch, {String? repository, String? commit}) =>

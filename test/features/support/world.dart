@@ -3016,6 +3016,45 @@ diff --git a/lib/money.dart b/lib/money.dart
     );
   }
 
+  /// Each waiting push's review summary, by its name; a push named nowhere here answers the owner's review complete
+  /// with nothing found, as an ordinary push does.
+  final Map<String, ReviewSummary> theSummaries = <String, ReviewSummary>{};
+
+  /// How long each summary takes to answer.
+  Duration summariesTake = Duration.zero;
+
+  /// Whether this machine's Porelo is older than the review summary, and answers MethodNotFound for it.
+  bool summaryIsMissing = false;
+
+  /// What every summary is refused with, where set.
+  VarlinkException? refuseTheSummary;
+
+  /// Every summary asked, by push name and commit, in order.
+  final List<({String name, String commit, String? repository})> summariesAsked =
+      <({String name, String commit, String? repository})>[];
+
+  @override
+  Future<ReviewSummary> reviewSummaryOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+  }) async {
+    // Slow on its own: a summary asked once a slow gate answered would otherwise still wait when that scenario ends.
+    if (summariesTake > Duration.zero) await Future<void>.delayed(summariesTake);
+    if (readsFail case final fault?) throw fault;
+    mustBeAProject(projectFile);
+    summariesAsked.add((name: name, commit: commit, repository: repository));
+    if (summaryIsMissing) throw const FeatureNotSupported('ReviewSummary');
+    if (refuseTheSummary case final refusal?) throw refusal;
+    return theSummaries[name] ??
+        const ReviewSummary(
+          openFindings: 0,
+          openThreads: 0,
+          runs: <ReviewRun>[ReviewRun(name: 'owner review', completeness: 'complete', findings: 0)],
+        );
+  }
+
   /// Never paged: its `Review` answers every part whole, so any position asked is one it did not give.
   @override
   Future<ReviewPage> reviewPageOf(

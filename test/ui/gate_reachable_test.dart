@@ -93,6 +93,15 @@ class _SixteenRefuse implements FleetBackend {
     bool? ignoreLineEndings,
   }) async => const PushReview(commit: '9a3c1f2');
 
+  /// Older than the review summary, as this stand-in is: what it tests reads no checks.
+  @override
+  Future<ReviewSummary> reviewSummaryOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+  }) => Future<ReviewSummary>.error(const FeatureNotSupported('ReviewSummary'));
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

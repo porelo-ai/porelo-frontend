@@ -77,6 +77,7 @@ class GateView extends StatelessWidget {
               : 'Nothing is waiting. Everything this project pushed has been decided.',
           rowOf: (context, push, selected) => _WaitingRow(
             push: push,
+            checks: gate.checksOf(push),
             // Named where there is more than one to tell apart: each repository has a gate of
             // its own, and a push is forwarded from the one it waits in.
             repository: gate.repositories.length > 1 ? push.repository : null,
@@ -105,9 +106,12 @@ class GateView extends StatelessWidget {
 }
 
 class _WaitingRow extends StatelessWidget {
-  const _WaitingRow({required this.push, this.repository});
+  const _WaitingRow({required this.push, required this.checks, this.repository});
 
   final PendingPush push;
+
+  /// Its summary at the commit it names; null where it names none, which shows no counts.
+  final ChecksRead? checks;
 
   final String? repository;
 
@@ -130,6 +134,16 @@ class _WaitingRow extends StatelessWidget {
               ].join(' · '),
               style: Theme.of(context).textTheme.bodySmall,
             ),
+            if (checks case final checks?)
+              Text(
+                switch (checks) {
+                  ChecksRead(:final summary?) => ChecksRead.lineWords(summary),
+                  ChecksRead(:final words?) => words,
+                  _ => 'Reading the checks…',
+                },
+                key: ValueKey<String>('waiting-checks ${push.id}'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
           ],
         ),
       ),
@@ -296,6 +310,8 @@ class ReviewView extends StatelessWidget {
                       // Nothing of a list that is not whole is drawn: a part of it would be taken for all of it.
                       ? <Widget>[
                           ..._refusedKey(),
+                          // First: whether its checks finished decides how the rest is read.
+                          if (gate.checks case final checks?) _Checks(checks: checks, push: push, gate: gate),
                           Padding(
                             padding: const EdgeInsets.all(Space.normal),
                             child: Text(
@@ -310,6 +326,8 @@ class ReviewView extends StatelessWidget {
                       : gate.ranked.isEmpty
                       ? <Widget>[
                           ..._refusedKey(),
+                          // First: whether its checks finished decides how the rest is read.
+                          if (gate.checks case final checks?) _Checks(checks: checks, push: push, gate: gate),
                           WhoMadeIt(push: push, commits: gate.commits),
                           for (final (place, file) in files.indexed)
                             _File(file: file, inPart: place == files.length - 1 && gate.diffContinues),
@@ -324,6 +342,8 @@ class ReviewView extends StatelessWidget {
                         ]
                       : <Widget>[
                           ..._refusedKey(),
+                          // First: whether its checks finished decides how the rest is read.
+                          if (gate.checks case final checks?) _Checks(checks: checks, push: push, gate: gate),
                           WhoMadeIt(push: push, commits: gate.commits),
                           ..._ranked(context, gate, files, onWithoutLineEndings),
                           if (!gate.diffWhole) _DiffRead(gate: gate, onReadMore: onReadMoreDiff),
@@ -350,6 +370,61 @@ extension on ReviewView {
         onTerminal: gate.keyRefused!.refused.command.isEmpty ? null : onKeyTerminal,
       ),
   ];
+}
+
+/// What the push's checks counted, at the head of its page: the open findings and threads, each run with how far it
+/// got, and where they are read and answered, which is never here.
+class _Checks extends StatelessWidget {
+  const _Checks({required this.checks, required this.push, required this.gate});
+
+  final ChecksRead checks;
+  final PendingPush push;
+  final Gate gate;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final summary = checks.summary;
+    return Padding(
+      key: const Key('review-checks'),
+      padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (checks.reading)
+            const Reading(words: 'Reading the checks…', key: Key('reading-checks'))
+          else if (summary == null)
+            Text(checks.words ?? ChecksRead.notReported, key: const Key('review-checks-unread'))
+          else ...<Widget>[
+            Text('Checks · ${ChecksRead.countsWords(summary)}', key: const Key('review-checks-counts')),
+            if (summary.runs.isEmpty) const Text(ChecksRead.noRun),
+            for (final run in summary.runs) Text(ChecksRead.runWords(run)),
+            Text.rich(
+              TextSpan(
+                children: <InlineSpan>[
+                  const TextSpan(text: 'Read and answer them in the IntelliJ plugin, or with '),
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.baseline,
+                    baseline: TextBaseline.alphabetic,
+                    child: SelectableText(
+                      reviewCommentsCommand(
+                        name: push.name,
+                        project: gate.project?.name ?? '',
+                        repository: push.repository,
+                      ),
+                      key: const Key('review-checks-command'),
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+              style: text.bodySmall,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 /// Each commit, who wrote and committed it, and its trailer: what says whether an agent made it,

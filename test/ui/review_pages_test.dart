@@ -239,6 +239,15 @@ class _OneReview implements FleetBackend {
     required int from,
   }) => held?.future ?? Future<ReviewPage>.value(page ?? (throw StateError('no page was expected')));
 
+  /// Older than the review summary, as this stand-in is: what it tests reads no checks.
+  @override
+  Future<ReviewSummary> reviewSummaryOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+  }) => Future<ReviewSummary>.error(const FeatureNotSupported('ReviewSummary'));
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

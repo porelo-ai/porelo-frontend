@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -157,6 +158,21 @@ class Gate extends ChangeNotifier {
   /// does not say, which the review card then says.
   List<ReviewCommit>? commits;
 
+  /// The review summary of the push looked at, at the commit its review is of; null where no review naming a commit
+  /// is held, which shows no counts at all.
+  ChecksRead? checks;
+
+  /// Each waiting push's review summary at the commit it names, by [PendingPush.id] and commit; a push without one
+  /// shows no counts.
+  ChecksRead? checksOf(PendingPush push) => push.commit.isEmpty ? null : _listChecks[_checksKey(push)];
+
+  Map<String, ChecksRead> _listChecks = const <String, ChecksRead>{};
+
+  static String _checksKey(PendingPush push) => '${push.id}@${push.commit}';
+
+  /// Which read of the list's summaries is the newest: an older one that answers last is dropped.
+  int _listSummaries = 0;
+
   /// The forward the machine just refused for its ssh key, with the branch it was for; null otherwise.
   ({PushRefused refused, String branch})? keyRefused;
 
@@ -198,6 +214,7 @@ class Gate extends ChangeNotifier {
       repositories = const <String>[];
       mirror = '';
       mode = '';
+      _listChecks = const <String, ChecksRead>{};
     }
     final round = ++_round;
     _from = backend;
@@ -232,6 +249,7 @@ class Gate extends ChangeNotifier {
     ranked = const <ReviewFile>[];
     asked = null;
     commits = null;
+    checks = null;
   }
 
   /// Opens one waiting push, so it can be judged before it is forwarded.
@@ -285,6 +303,16 @@ class Gate extends ChangeNotifier {
         afterAMove: afterAMove,
       );
       _read = read;
+      // Read beside the lists, at the commit this review is of; none where it names none.
+      if (read.commit case final commit?) {
+        checks = const ChecksRead.reading();
+        unawaited(() async {
+          final summary = await _summaryOf(backend, file, push.name, read.repository, commit);
+          if (!current() || !identical(_read, read)) return;
+          checks = summary;
+          notifyListeners();
+        }());
+      }
       asked = review.asked;
       cut = review.cut;
       diff = review.diff;
@@ -757,8 +785,57 @@ class Gate extends ChangeNotifier {
     notifyListeners();
     try {
       await _readEach(backend, file, names, mine);
+      if (mine == _round) unawaited(_readSummaries(backend, file, mine));
     } finally {
       if (mine == _round) reading = 0;
+    }
+  }
+
+  /// Reads each waiting push's summary at the commit it names, all at once; what an older read answers after a newer
+  /// one began is dropped, and a push no longer waiting keeps none.
+  Future<void> _readSummaries(FleetBackend backend, String file, int round) async {
+    final generation = ++_listSummaries;
+    bool current() => round == _round && generation == _listSummaries;
+    final pushes = <PendingPush>[
+      for (final push in waiting)
+        if (push.commit.isNotEmpty) push,
+    ];
+    // A row already read at the same commit keeps its counts until the new answer; a new commit starts as reading.
+    final before = _listChecks;
+    _listChecks = <String, ChecksRead>{
+      for (final push in pushes) _checksKey(push): before[_checksKey(push)] ?? const ChecksRead.reading(),
+    };
+    notifyListeners();
+    final read = await Future.wait(<Future<ChecksRead>>[
+      for (final push in pushes) _summaryOf(backend, file, push.name, _where(push), push.commit),
+    ]);
+    if (!current()) return;
+    _listChecks = <String, ChecksRead>{for (final (place, push) in pushes.indexed) _checksKey(push): read[place]};
+    notifyListeners();
+  }
+
+  /// One push's summary, or why it is not there: an older machine's missing method reads "not reported", and a
+  /// refusal its own words, never zeros.
+  Future<ChecksRead> _summaryOf(
+    FleetBackend backend,
+    String file,
+    String name,
+    String? repository,
+    String commit,
+  ) async {
+    try {
+      return ChecksRead.read(await backend.reviewSummaryOf(file, name, repository: repository, commit: commit));
+    } on FeatureNotSupported {
+      return const ChecksRead.unread(ChecksRead.notReported);
+    } on VarlinkException catch (refusal) {
+      return ChecksRead.unread('Checks could not be read: ${_wordsFor(refusal)}');
+    } on VarlinkDisconnected catch (ex) {
+      return ChecksRead.unread('Checks could not be read: lost contact with the machine: ${ex.message}');
+    } on FormatException catch (ex) {
+      return ChecksRead.unread('Checks could not be read. ${_machinesFault(ex)}');
+    } on Object catch (failure) {
+      // Whatever else went wrong ends the read with its words: no row, and no row read beside it, stays reading.
+      return ChecksRead.unread('Checks could not be read: $failure');
     }
   }
 
@@ -916,3 +993,68 @@ class _ReviewRead {
   /// not read again.
   final bool afterAMove;
 }
+
+/// A waiting push's review summary as far as it is read: being read, read, or why it is not there.
+@immutable
+final class ChecksRead {
+  /// While it is read.
+  const ChecksRead.reading() : summary = null, words = null;
+
+  /// Read: the daemon's counts.
+  const ChecksRead.read(ReviewSummary this.summary) : words = null;
+
+  /// Not read, and why, in words.
+  const ChecksRead.unread(String this.words) : summary = null;
+
+  /// Said where the machine is older than the summary: nothing was counted, so nothing reads as zero.
+  static const notReported = 'Checks: not reported';
+
+  /// What the daemon answered; null while read and where it is not there.
+  final ReviewSummary? summary;
+
+  /// Why it is not there; null while read and once read.
+  final String? words;
+
+  /// Whether it is being read now.
+  bool get reading => summary == null && words == null;
+
+  /// The open findings and threads, in words: `2 open findings · 1 open thread`.
+  static String countsWords(ReviewSummary summary) =>
+      '${_count(summary.openFindings, 'open finding')} · ${_count(summary.openThreads, 'open thread')}';
+
+  /// One run, in words: its name, its completeness as the daemon said it, and its findings. Only a complete run with
+  /// none reads "no findings"; every other run's zero is "0 findings so far".
+  static String runWords(ReviewRun run) {
+    if (!run.complete) {
+      final word = run.completeness.trim().isEmpty ? 'no word given' : run.completeness;
+      return '${run.name}: $word · ${_count(run.findings, 'finding')} so far';
+    }
+    return '${run.name}: complete · ${run.findings == 0 ? 'no findings' : _count(run.findings, 'finding')}';
+  }
+
+  /// Said where no check ran: never clean.
+  static const noRun = 'No check ran on this push.';
+
+  /// The line a waiting push's row carries: its counts, and how many checks are not complete or that none ran.
+  static String lineWords(ReviewSummary summary) => <String>[
+    countsWords(summary),
+    if (summary.runs.isEmpty)
+      'no check ran'
+    else if (summary.notComplete > 0)
+      '${_count(summary.notComplete, 'check')} not complete',
+  ].join(' · ');
+
+  static String _count(int count, String what) => '$count $what${count == 1 ? '' : 's'}';
+}
+
+/// The command that reads and answers a waiting push's findings and threads on this computer, each value quoted for a
+/// POSIX shell where it is not a plain word: the interface itself never reads or writes them.
+String reviewCommentsCommand({required String name, required String project, String? repository}) => <String>[
+  'porelo',
+  'gate',
+  'comments',
+  quoteForAShell(name),
+  '--project',
+  quoteForAShell(project),
+  if (repository != null && repository.isNotEmpty) ...<String>['--repository', quoteForAShell(repository)],
+].join(' ');

@@ -135,6 +135,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     daemon.method('Pending', _pending);
     daemon.method('Review', _review);
     daemon.method('ReviewPage', _reviewPage);
+    daemon.method('ReviewSummary', _reviewSummary);
     daemon.method('Approve', _approve);
     daemon.method('Reject', _reject);
     // Prompts streams and only streams: answering it once would look like it worked and then
@@ -610,6 +611,40 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
           'base': '',
         },
     };
+  }
+
+  /// Each waiting push's review summary, by its name: `migrate` with the owner's review still partial and nothing found
+  /// so far, `drop-dead-code` complete with a finding and a thread open. A push named nowhere here answers no run.
+  final Map<String, Map<String, dynamic>> summaries = <String, Map<String, dynamic>>{
+    'migrate': <String, dynamic>{
+      'openFindings': 0,
+      'openThreads': 0,
+      'runs': <Map<String, dynamic>>[
+        <String, dynamic>{'name': 'owner review', 'completeness': 'partial', 'findings': 0},
+      ],
+    },
+    'drop-dead-code': <String, dynamic>{
+      'openFindings': 1,
+      'openThreads': 1,
+      'runs': <Map<String, dynamic>>[
+        <String, dynamic>{'name': 'owner review', 'completeness': 'complete', 'findings': 1},
+      ],
+    },
+  };
+
+  /// A waiting push's review summary at the commit asked, refused as the daemon refuses it.
+  Map<String, dynamic> _reviewSummary(Map<String, dynamic> parameters) {
+    final name = '${parameters['name']}';
+    final waiting = _waiting[name];
+    if (waiting == null) throw MockRefusal('org.fuin.porelo.Tasks1.NoSuchPush', <String, dynamic>{'name': name});
+    if (parameters['commit'] != waiting['commit']) {
+      throw MockRefusal('org.fuin.porelo.Tasks1.MovedSinceReview', <String, dynamic>{
+        'name': name,
+        'reviewed': parameters['commit'],
+        'now': waiting['commit'],
+      });
+    }
+    return summaries[name] ?? const <String, dynamic>{'openFindings': 0, 'openThreads': 0, 'runs': <Object>[]};
   }
 
   /// The rest of a review, page by page, for the commit `Review` named; refused as the daemon refuses it.

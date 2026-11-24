@@ -4993,6 +4993,73 @@ class ReviewCommit {
   }
 }
 
+/// What `ReviewSummary` answers about one waiting push at one commit: how many findings and review threads are open,
+/// and how far each check run got. Comments themselves are read and answered elsewhere, never here.
+class ReviewSummary {
+  /// Constructor taking every field.
+  const ReviewSummary({required this.openFindings, required this.openThreads, required this.runs});
+
+  /// Reads the answer; one without both counts, or with a run that is no object, is refused, never read as zero.
+  factory ReviewSummary.from(Map<String, dynamic> map) {
+    final findings = map['openFindings'];
+    final threads = map['openThreads'];
+    final runs = map['runs'];
+    if (findings is! int || threads is! int || findings < 0 || threads < 0) {
+      throw const FormatException('ReviewSummary names no counts of open findings and threads');
+    }
+    if (runs is! List || runs.any((run) => run is! Map<String, dynamic>)) {
+      throw const FormatException('ReviewSummary names its runs in a form this window cannot read');
+    }
+    return ReviewSummary(
+      openFindings: findings,
+      openThreads: threads,
+      runs: [for (final run in runs.cast<Map<String, dynamic>>()) ReviewRun.from(run)],
+    );
+  }
+
+  /// The findings still open, as the daemon counts them.
+  final int openFindings;
+
+  /// The review threads still open, as the daemon counts them.
+  final int openThreads;
+
+  /// Each check run on the push, in the daemon's order; empty where none ran.
+  final List<ReviewRun> runs;
+
+  /// How many runs are not complete.
+  int get notComplete => runs.where((run) => !run.complete).length;
+}
+
+/// One check run in a [ReviewSummary].
+class ReviewRun {
+  /// Constructor taking every field.
+  const ReviewRun({required this.name, required this.completeness, required this.findings});
+
+  /// Reads one run; one without a name, completeness or count of findings is refused.
+  factory ReviewRun.from(Map<String, dynamic> map) {
+    final name = map['name'];
+    final completeness = map['completeness'];
+    final findings = map['findings'];
+    if (name is! String || completeness is! String || findings is! int || findings < 0) {
+      throw const FormatException('ReviewSummary names a run without its name, completeness or findings');
+    }
+    return ReviewRun(name: name, completeness: completeness, findings: findings);
+  }
+
+  /// The run's name.
+  final String name;
+
+  /// How far it got, in the daemon's word (`complete`, `partial`, `failed`, `unknown`, or one this build does not
+  /// know), kept as said.
+  final String completeness;
+
+  /// How many findings it reported so far.
+  final int findings;
+
+  /// Whether it finished: only `complete` is; every other word, known or not, is not.
+  bool get complete => completeness == 'complete';
+}
+
 /// What `Review` answers about one waiting push.
 ///
 /// Where [paged] is present, [files], [commits], [log] or [diff] holds only its first page, and

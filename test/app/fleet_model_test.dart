@@ -132,6 +132,14 @@ class _Wedged implements FleetBackend {
   }) async => (files: null, commits: null, text: null, next: null);
 
   @override
+  Future<ReviewSummary> reviewSummaryOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+  }) => throw const FeatureNotSupported('ReviewSummary');
+
+  @override
   Future<ForwardedPush> approve(
     String projectFile,
     String name,
@@ -640,6 +648,14 @@ class _Machine implements FleetBackend {
     required String part,
     required int from,
   }) async => (files: null, commits: null, text: null, next: null);
+
+  @override
+  Future<ReviewSummary> reviewSummaryOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+  }) => throw const FeatureNotSupported('ReviewSummary');
 
   @override
   Future<ForwardedPush> approve(

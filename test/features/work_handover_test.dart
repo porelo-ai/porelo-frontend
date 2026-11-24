@@ -83,6 +83,12 @@ import './step/the_machine_has_answered.dart';
 import './step/it_no_longer_shows_that_it_is_reading.dart';
 import './step/the_machine_has_the_project_from.dart';
 import './step/i_choose_the_command.dart';
+import './step/the_waiting_pushs_check_is_with_findings.dart';
+import './step/the_waiting_push_has_open_findings_and_open_threads.dart';
+import './step/the_summary_was_asked_for_the_commit.dart';
+import './step/no_check_ran_on_the_waiting_push.dart';
+import './step/the_machine_is_older_than_the_review_summary.dart';
+import './step/the_machine_refuses_the_review_summary_as_moved.dart';
 
 void main() {
   group('''Reviewing what work pushed, and what it holds back''', () {
@@ -597,6 +603,77 @@ void main() {
       await itShowsThatItIsReading(tester, 'the gate of api');
       await theMachineHasAnswered(tester);
       await itNoLongerShowsThatItIsReading(tester);
+    });
+    testWidgets('''the push's page shows its open findings and threads, each check, and where they are answered''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await theWaitingPushsCheckIsWithFindings(tester, 'owner review', 'complete', 2);
+      await theWaitingPushHasOpenFindingsAndOpenThreads(tester, 2, 3);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await itSays(tester, '2 open findings · 3 open threads');
+      await itSays(tester, 'owner review: complete · 2 findings');
+      await itSays(tester, 'Read and answer them in the IntelliJ plugin, or with');
+      await itSays(tester, 'porelo gate comments migrate --project checkout');
+      await theSummaryWasAskedForTheCommit(tester, '9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d');
+    });
+    testWidgets('''a complete check that found nothing reads as clean''', (tester) async {
+      await bddSetUp(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await itSays(tester, 'owner review: complete · no findings');
+    });
+    testWidgets('''a check that is not complete, with nothing found yet, never reads clean''', (tester) async {
+      await bddSetUp(tester);
+      await theWaitingPushsCheckIsWithFindings(tester, 'owner review', 'partial', 0);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await itSays(tester, 'owner review: partial · 0 findings so far');
+      await itDoesNotSay(tester, 'no findings');
+    });
+    testWidgets('''a completeness this build does not know reads as the machine said it, never clean''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await theWaitingPushsCheckIsWithFindings(tester, 'owner review', 'stalled-at-the-forge', 0);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await itSays(tester, 'owner review: stalled-at-the-forge · 0 findings so far');
+      await itDoesNotSay(tester, 'no findings');
+    });
+    testWidgets('''a push no check ran on says so, never clean''', (tester) async {
+      await bddSetUp(tester);
+      await noCheckRanOnTheWaitingPush(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await itSays(tester, 'No check ran on this push.');
+      await itDoesNotSay(tester, 'no findings');
+    });
+    testWidgets('''a machine older than the review summary says the checks are not reported, not zeros''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await theMachineIsOlderThanTheReviewSummary(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await itSays(tester, 'Checks: not reported');
+      await itDoesNotSay(tester, '0 open findings');
+    });
+    testWidgets('''a summary refused because the push moved says so, never zeros''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineRefusesTheReviewSummaryAsMoved(tester);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await iOpenTheWaitingPush(tester);
+      await itSays(tester, 'moved since you reviewed it');
+      await itDoesNotSay(tester, '0 open findings');
+    });
+    testWidgets('''each waiting push's line shows its counts and how many checks are not complete''', (tester) async {
+      await bddSetUp(tester);
+      await theWaitingPushsCheckIsWithFindings(tester, 'owner review', 'partial', 0);
+      await iReviewWhatIsWaitingAtTheGate(tester);
+      await itSays(tester, '0 open findings · 0 open threads · 1 check not complete');
+      await theSummaryWasAskedForTheCommit(tester, '9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d');
     });
   });
 }

@@ -17,6 +17,9 @@ const int longestContainerName = 64;
 final RegExp _taskName = RegExp(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?$');
 final RegExp _onlyDigits = RegExp(r'^[0-9]+$');
 
+/// The names Porelo keeps for itself: no task takes one, and a repository named so gives a task named `work`.
+const Set<String> reservedTaskNames = {'people', 'person', 'review'};
+
 /// Why [name] cannot be a task's in [project], or null when it can or none was typed.
 ///
 /// [taken] are the names new work may not take: a start under a name the project has means *that*
@@ -30,6 +33,7 @@ String? taskNameProblem(String name, {String? project, Set<String> taken = const
         'or a digit.';
   }
   if (_onlyDigits.hasMatch(name)) return 'A name cannot be only digits.';
+  if (reservedTaskNames.contains(name)) return 'Porelo keeps the name "$name" for itself. Choose another.';
   if (taken.contains(name)) {
     return 'The name "$name" is taken: work of this project on this machine has it already. Choose '
         'another, or open that work from its tile.';
@@ -50,6 +54,7 @@ String suggestedTaskName(String from, Set<String> taken) {
   var base = from.toLowerCase().replaceAll(RegExp('[^a-z0-9-]+'), '-').replaceAll(RegExp('-+'), '-');
   base = base.replaceAll(RegExp(r'^-+|-+$'), '');
   if (base.isEmpty || _onlyDigits.hasMatch(base)) base = 'work${base.isEmpty ? '' : '-$base'}';
+  if (reservedTaskNames.contains(base)) base = 'work';
   var candidate = base;
   for (var number = 2; taken.contains(candidate); number++) {
     candidate = '$base-$number';

@@ -447,3 +447,64 @@ Feature: Reviewing what work pushed, and what it holds back
         And it shows that it is reading {'the gate of api'}
         When the machine has answered
         Then it no longer shows that it is reading
+
+    # The checks' counts are the daemon's, at the commit reviewed; comments are read and answered elsewhere.
+    Scenario: the push's page shows its open findings and threads, each check, and where they are answered
+        Given the waiting push's check {'owner review'} is {'complete'} with {2} findings
+        And the waiting push has {2} open findings and {3} open threads
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then it says {'2 open findings · 3 open threads'}
+        And it says {'owner review: complete · 2 findings'}
+        And it says {'Read and answer them in the IntelliJ plugin, or with'}
+        And it says {'porelo gate comments migrate --project checkout'}
+        And the summary was asked for the commit {'9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d'}
+
+    Scenario: a complete check that found nothing reads as clean
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then it says {'owner review: complete · no findings'}
+
+    # Zero results of a check that did not finish say nothing about what it would have found.
+    Scenario: a check that is not complete, with nothing found yet, never reads clean
+        Given the waiting push's check {'owner review'} is {'partial'} with {0} findings
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then it says {'owner review: partial · 0 findings so far'}
+        And it does not say {'no findings'}
+
+    Scenario: a completeness this build does not know reads as the machine said it, never clean
+        Given the waiting push's check {'owner review'} is {'stalled-at-the-forge'} with {0} findings
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then it says {'owner review: stalled-at-the-forge · 0 findings so far'}
+        And it does not say {'no findings'}
+
+    Scenario: a push no check ran on says so, never clean
+        Given no check ran on the waiting push
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then it says {'No check ran on this push.'}
+        And it does not say {'no findings'}
+
+    # An older Porelo answers MethodNotFound: nothing was counted, so nothing reads as zero.
+    Scenario: a machine older than the review summary says the checks are not reported, not zeros
+        Given the machine is older than the review summary
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then it says {'Checks: not reported'}
+        And it does not say {'0 open findings'}
+
+    Scenario: a summary refused because the push moved says so, never zeros
+        Given the machine refuses the review summary as moved
+        When I review what is waiting at the gate
+        And I open the waiting push
+        Then it says {'moved since you reviewed it'}
+        And it does not say {'0 open findings'}
+
+    # Each waiting push's own line in the list, read at the commit it names.
+    Scenario: each waiting push's line shows its counts and how many checks are not complete
+        Given the waiting push's check {'owner review'} is {'partial'} with {0} findings
+        When I review what is waiting at the gate
+        Then it says {'0 open findings · 0 open threads · 1 check not complete'}
+        And the summary was asked for the commit {'9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d'}

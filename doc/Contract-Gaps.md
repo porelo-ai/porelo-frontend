@@ -35,10 +35,6 @@ gap here is a backend method that has to be added, not a workaround waiting to b
   risk class (`C0`-`C3`) and each file's class; the daemon derives neither yet, so the review keeps git's diff and
   the machine's rank of each file.
 
-- **A waiting push's review summary** (no method or field yet). Whether a push is ready to let through depends on how
-  many findings and review threads are open and how complete each check is; the daemon answers neither the counts nor
-  a check's completeness per waiting push, so the push's page cannot say whether its checks finished.
-
 - **A waiting review's age and file count on its task's row** (no field yet). *Needs you* would say how long a review
   has waited and how many files it holds. `Task.waiting` says only whether work is at the gate; `PendingPush` has the
   wait and `Review` the ranked files, but a pending push names a task and several containers over time share its ref,

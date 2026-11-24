@@ -78,6 +78,66 @@ void main() {
     expect(gate.withoutLineEndings, isFalse, reason: 'the diff shown holds the line ends');
   });
 
+  // Harm: a summary read before the gate was read again answers last and shows counts of a read no longer shown.
+  test("an older read of the waiting pushes' summaries never overwrites a newer one", () async {
+    final backend = _HeldSummaries();
+    final gate = Gate();
+    final project = Project.from(const <String, dynamic>{'name': 'checkout', 'file': '/srv/p.yml'});
+    await gate.lookAt(backend, project);
+    final push = gate.waiting.single;
+    expect(gate.checksOf(push)?.reading, isTrue, reason: 'read, and said to be read meanwhile');
+    await gate.lookAt(backend, project);
+    backend.held[1].complete(_summary(threads: 2));
+    await pumpEventQueue();
+    backend.held[0].complete(_summary(threads: 9));
+    await pumpEventQueue();
+    expect(gate.checksOf(gate.waiting.single)?.summary?.openThreads, 2);
+  });
+
+  // Harm: an older machine's missing summary, or a refusal, reads as zero findings and threads.
+  test('a summary not answered is said as not reported or refused, never as zeros', () async {
+    final backend = _HeldSummaries();
+    final gate = Gate();
+    await gate.lookAt(backend, Project.from(const <String, dynamic>{'name': 'checkout', 'file': '/srv/p.yml'}));
+    backend.held.single.completeError(const FeatureNotSupported('ReviewSummary'));
+    await pumpEventQueue();
+    final checks = gate.checksOf(gate.waiting.single)!;
+    expect(checks.summary, isNull);
+    expect(checks.words, 'Checks: not reported');
+  });
+
+  // Harm: an answer that fails in a way nobody named leaves its row, and every row read beside it, reading forever.
+  test('a summary that fails in an unforeseen way is said, and the other rows are read', () async {
+    final backend = _HeldSummaries()..pending = 2;
+    final gate = Gate();
+    await gate.lookAt(backend, Project.from(const <String, dynamic>{'name': 'checkout', 'file': '/srv/p.yml'}));
+    backend.held[0].completeError(StateError('the connection was closed'));
+    backend.held[1].complete(_summary(threads: 1));
+    await pumpEventQueue();
+    final [first, second] = gate.waiting;
+    expect(gate.checksOf(first)?.reading, isFalse);
+    expect(gate.checksOf(first)?.words, contains('the connection was closed'));
+    expect(gate.checksOf(second)?.summary?.openThreads, 1);
+  });
+
+  // Harm: every refresh of the list blanks counts already read into "reading", and they flicker on every read.
+  test('a row read before keeps its counts until its new answer, and a new commit starts as reading', () async {
+    final backend = _HeldSummaries();
+    final gate = Gate();
+    final project = Project.from(const <String, dynamic>{'name': 'checkout', 'file': '/srv/p.yml'});
+    await gate.lookAt(backend, project);
+    backend.held.single.complete(_summary(threads: 2));
+    await pumpEventQueue();
+    await gate.lookAt(backend, project);
+    expect(gate.checksOf(gate.waiting.single)?.summary?.openThreads, 2, reason: 'kept while asked again');
+    backend.held[1].complete(_summary(threads: 3));
+    await pumpEventQueue();
+    expect(gate.checksOf(gate.waiting.single)?.summary?.openThreads, 3);
+    backend.commit = '7f21b0e';
+    await gate.lookAt(backend, project);
+    expect(gate.checksOf(gate.waiting.single)?.reading, isTrue, reason: 'another commit has no counts yet');
+  });
+
   group('a review read in pages', () {
     final project = Project.from(const <String, dynamic>{'name': 'checkout', 'file': '/srv/p.yml'});
 
@@ -524,6 +584,15 @@ class _Pages implements FleetBackend {
     return ForwardedPush.from(<String, dynamic>{'forwarded': name, 'branch': branch});
   }
 
+  /// Older than the review summary, as this stand-in is: what it tests reads no checks.
+  @override
+  Future<ReviewSummary> reviewSummaryOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+  }) => Future<ReviewSummary>.error(const FeatureNotSupported('ReviewSummary'));
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -591,6 +660,56 @@ class _OneOfTwoGatesReadable implements FleetBackend {
   }) async {
     approvedIn.add(repository);
     return ForwardedPush.from(<String, dynamic>{'forwarded': name, 'branch': forwardedBranch ?? branch});
+  }
+
+  /// Older than the review summary, as this stand-in is: what it tests reads no checks.
+  @override
+  Future<ReviewSummary> reviewSummaryOf(
+    String projectFile,
+    String name, {
+    String? repository,
+    required String commit,
+  }) => Future<ReviewSummary>.error(const FeatureNotSupported('ReviewSummary'));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+ReviewSummary _summary({required int threads}) => ReviewSummary(
+  openFindings: 0,
+  openThreads: threads,
+  runs: const <ReviewRun>[ReviewRun(name: 'owner review', completeness: 'complete', findings: 0)],
+);
+
+/// One push waiting, whose summaries answer only when a test completes them, in the order asked.
+class _HeldSummaries implements FleetBackend {
+  final held = <Completer<ReviewSummary>>[];
+
+  /// How many pushes wait, each its own name.
+  int pending = 1;
+
+  /// The commit the first waits at.
+  String commit = '9a3c1f2';
+
+  @override
+  Future<GateState> gateOf(String projectFile, {String? repository}) async => GateState.from(<String, dynamic>{
+    'mode': 'gatekeeping',
+    'pending': <Map<String, dynamic>>[
+      for (var each = 0; each < pending; each++)
+        <String, dynamic>{
+          'name': each == 0 ? 'migrate' : 'migrate-$each',
+          'commit': each == 0 ? commit : '1b2c3d$each',
+          'subject': 'Round',
+          'waiting': '1 minute',
+        },
+    ],
+  });
+
+  @override
+  Future<ReviewSummary> reviewSummaryOf(String projectFile, String name, {String? repository, required String commit}) {
+    final answer = Completer<ReviewSummary>();
+    held.add(answer);
+    return answer.future;
   }
 
   @override

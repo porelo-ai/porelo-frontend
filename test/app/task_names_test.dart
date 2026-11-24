@@ -27,4 +27,15 @@ void main() {
     expect(taskNameProblem('a' * (65 - 'porelo_'.length), project: 'porelo'), isNotNull);
     expect(taskNameProblem('a' * (65 - 'porelo-checkout_'.length), project: 'checkout'), isNotNull);
   });
+
+  // Harm: a start under a name Porelo keeps for itself sent to porelod, refused only after the start was made; or a
+  // repository named like one suggested as the task's name.
+  test('the names Porelo keeps for itself are refused, and a repository named so suggests work', () {
+    for (final reserved in ['people', 'person', 'review']) {
+      expect(taskNameProblem(reserved, project: 'checkout'), contains('Porelo keeps'), reason: reserved);
+      expect(suggestedTaskName(reserved, const <String>{}), 'work', reason: reserved);
+    }
+    expect(taskNameProblem('reviews', project: 'checkout'), isNull);
+    expect(suggestedTaskName('Review', const <String>{'work'}), 'work-2');
+  });
 }
