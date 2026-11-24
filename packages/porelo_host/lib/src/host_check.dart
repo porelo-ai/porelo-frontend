@@ -419,6 +419,15 @@ String bootstrapNotRun(String line) =>
 /// Whether [output] is a root login answered by the provider's own refusal rather than a shell.
 bool isProvidersRootRefusal(String output) => _providersLine(const LineSplitter().convert(output)) != null;
 
+/// The login the provider's own refusal of root in [output] offers instead, or null where no such refusal stands
+/// there. The name holds only letters, digits, '.', '_' and '-', so nothing else a server sends reaches the words.
+String? providersOfferedLogin(String output) {
+  for (final line in const LineSplitter().convert(output)) {
+    if (_providersRefusal.firstMatch(line) case final match?) return match.group(1);
+  }
+  return null;
+}
+
 /// Why the script never ran, told from ssh's own exit and words or the shell's; null when it ran.
 String? _sshOrShellFault(RemoteResult result) {
   final said = result.stderr;

@@ -14,6 +14,9 @@ import 'server_contract_test.dart' show sshKey, hostValues;
 class CountingProvider implements HostProvider {
   RentedHost? rented;
   int created = 0;
+
+  /// What the last rental was asked with.
+  HostRequest? requested;
   final found = <String>[];
   final released = <String>[];
 
@@ -26,6 +29,7 @@ class CountingProvider implements HostProvider {
   @override
   Future<RentedHost> create(HostRequest request) async {
     created++;
+    requested = request;
     return rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: sshKey, ready: true);
   }
 
@@ -495,6 +499,77 @@ void main() {
     });
   }
 
+  group('a rented server that closes root', () {
+    HostRun renting(Remote transport, {Duration sshWithin = const Duration(minutes: 20)}) => HostRun(
+      provider: provider,
+      remote: transport,
+      preparation: _Preparation(),
+      hostKeys: () async => ('fixture-host-private', sshKey),
+      sshWithin: sshWithin,
+      sshEvery: Duration.zero,
+      emit: steps.add,
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+    );
+
+    // Harm: an image that closes root in its own cloud.cfg.d leaves root without the person's key, and up waits out
+    // its twenty minutes.
+    test("the rental's cloud-config gives root the person's key", () async {
+      expect(await renting(remote).up(plan), Exit.done);
+      expect(const LineSplitter().convert(provider.requested!.userData!), contains('disable_root: false'));
+    });
+
+    const wait = Duration(milliseconds: 300);
+
+    /// That [transport] was asked again until [wait] was out, as for a login that may still come.
+    Future<void> waitsAsBefore(_Answering transport) async {
+      final waited = Stopwatch()..start();
+      await renting(transport, sshWithin: wait).up(plan);
+      expect(waited.elapsed, greaterThanOrEqualTo(wait), reason: 'the wait ran to its end');
+      expect(transport.logins, greaterThan(1), reason: 'asked again while it may still come');
+      expect(steps.last.fix, isNot(contains('its image offers')));
+    }
+
+    // Harm: a server whose root says which login it takes is asked again for twenty minutes; and a person who reads
+    // that nothing was changed believes nothing is billed, while the rental is kept and runs on.
+    test('an answer naming the login the image offers ends the wait at once, and says the rental is kept', () async {
+      final transport = _Answering(142, 'Please login as the user "ubuntu" rather than the user "root".');
+      final stopped = Stopwatch()..start();
+      expect(await renting(transport, sshWithin: const Duration(seconds: 5)).up(plan), Exit.unreachable);
+      expect(stopped.elapsed, lessThan(const Duration(seconds: 4)), reason: 'it did not wait for sshWithin');
+      expect(transport.logins, 1);
+      expect(provider.released, isEmpty, reason: 'the rental is kept');
+      final last = steps.last;
+      expect(last.step, 'ssh');
+      expect(last.state, StepState.refused);
+      expect(
+        last.fix,
+        "The server refuses root; its image offers ubuntu. Nothing was changed on it, and h1 is kept and still "
+        "billed: run 'down' to give it back.",
+      );
+      expect(last.words, contains('rather than the user "root"'));
+    });
+
+    // Harm: cloud-init still putting the key in is taken for a refusal, and a rental that would answer is given up.
+    test('an answer of another form waits as before', () async {
+      await waitsAsBefore(_Answering(1, 'Something on the login said no.'));
+    });
+
+    // Harm: an answer offering the very login asked is no reason to stop, and the words would contradict themselves.
+    test('an answer naming root itself waits as before', () async {
+      await waitsAsBefore(_Answering(142, 'Please login as the user "root" rather than the user "root".'));
+    });
+
+    // Harm: a banner that merely mentions a login is taken for the provider's refusal.
+    test("a banner without the provider's whole sentence waits as before", () async {
+      await waitsAsBefore(_Answering(142, 'Please login as the user "ubuntu"'));
+    });
+
+    // Harm: a server puts control characters or lookalike text into the words a person reads.
+    test('a name holding an escape character does not end the wait', () async {
+      await waitsAsBefore(_Answering(142, 'Please login as the user "ub\x1b[2Juntu" rather than the user "root".'));
+    });
+  });
+
   group('a login that answers and exits non-zero', () {
     HostRun running(Remote transport) => HostRun(
       provider: GivenMachine(address: '203.0.113.7', hostKey: sshKey),
@@ -800,6 +875,9 @@ class _Answering implements Remote {
   final int code;
   final String said;
 
+  /// How often the login was tried.
+  int logins = 0;
+
   @override
   Future<RemoteResult> run(
     String host,
@@ -808,6 +886,7 @@ class _Answering implements Remote {
     String? input,
     void Function(String line)? onLine,
   }) async {
+    logins++;
     if (said.isNotEmpty) onLine?.call(said);
     return RemoteResult(code, '');
   }

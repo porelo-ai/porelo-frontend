@@ -116,6 +116,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A rented server whose image closes root, as Scaleway's Ubuntu does, gives root the person's key, so preparing no longer waits twenty minutes for SSH. A server that still answers root with "Please login as the user …" stops the wait at once, saying which login its image offers, that nothing is changed on it, and that the rental is kept and billed until `down` gives it back. Only a login as root stops this way, and only on the provider's whole sentence offering another login.
 - A machine set up again that stops on this computer's SSH files of its earlier setup no longer has its token step say it could not be reached: the step says the files of an earlier setup are in the way, and names them.
 - A machine handed the token for a project is no longer said to wait for it while it takes the project's repositories: its page shows the project as *Token given, being taken*, with how long ago and how many repositories it took where the machine lists them all, and offers the token again only where the machine still waits five minutes after, saying so. Closing *Putting <project> on <machine>* reads the machine once, so its page follows at once.
 - A task the planner ordered at another task's end, such as a reader, is no longer lost when the window closes before Porelo makes it: the window tells the end again after it opens, and starts the order where its machine lists no task for it. While that machine's tasks are not known yet, the order waits, and the window says so once.

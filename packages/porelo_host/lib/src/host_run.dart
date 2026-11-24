@@ -800,14 +800,31 @@ done''',
 
     var reached = await login();
     // A host key that is not the provider's is never asked again: that is the one answer waiting
-    // cannot change, and the refusal comes at once.
+    // cannot change, and the refusal comes at once. So is a login closed by the image, which names the one it
+    // offers: cloud-init has run by then, and asking again only waits out the time.
     final sshUntil = DateTime.now().add(sshWithin);
     while (provider is! GivenMachine &&
         reached.exitCode != 0 &&
         !_keyRefused(reached) &&
+        _rootClosedFor(plan, answered.toString()) == null &&
         DateTime.now().isBefore(sshUntil)) {
       await Future<void>.delayed(sshEvery);
       reached = await login();
+    }
+    if (provider is! GivenMachine && reached.exitCode != 0) {
+      if (_rootClosedFor(plan, answered.toString()) case final offered?) {
+        _write(
+          Step(
+            'ssh',
+            StepState.refused,
+            fix:
+                'The server refuses root; its image offers $offered. Nothing was changed on it, and ${host.id} is '
+                "kept and still billed: run 'down' to give it back.",
+            words: [reached.stderr.trim(), answered.toString().trim()].where((part) => part.isNotEmpty).join('\n'),
+          ),
+        );
+        return null;
+      }
     }
     if (provider is GivenMachine && _keyRefused(reached)) {
       _write(
@@ -856,6 +873,9 @@ done''',
     final (private, public) = await hostKeys();
     final data = StringBuffer()
       ..writeln('#cloud-config')
+      // An image may close root in its own cloud.cfg.d, as Scaleway's Ubuntu does; this data outranks it, so root gets
+      // the person's key.
+      ..writeln('disable_root: false')
       ..writeln('ssh_deletekeys: true')
       ..writeln('ssh_genkeytypes: [ed25519]')
       ..writeln('ssh_keys:')
@@ -1042,6 +1062,14 @@ done''',
   }
 
   static bool _keyRefused(RemoteResult result) => result.stderr.contains('Host key verification failed');
+
+  /// The other login an image offers where it closes root, in the provider's own sentence; null for any other answer.
+  /// Only root is closed this way, and an answer offering the login asked is no reason to stop asking.
+  static String? _rootClosedFor(HostPlan plan, String answer) {
+    if (plan.loginUser != 'root') return null;
+    final offered = providersOfferedLogin(answer);
+    return offered == 'root' ? null : offered;
+  }
 
   int _refused(String step, RemoteResult result, String fix) {
     _write(Step(step, StepState.refused, fix: fix, words: result.stderr.isEmpty ? null : result.stderr));
