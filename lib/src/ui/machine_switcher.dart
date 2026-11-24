@@ -52,6 +52,7 @@ class ReachIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final (IconData icon, Color color, String words) = switch (fleet.reachability) {
+      _ when fleet.noProject => (Icons.cloud_outlined, scheme.outline, noProjectYet),
       Reachability.connecting => (Icons.cloud_queue, scheme.outline, 'Connecting'),
       Reachability.connected => (Icons.cloud_done, scheme.primary, 'Answering'),
       Reachability.unreachable => (Icons.cloud_off, scheme.error, 'Not answering'),

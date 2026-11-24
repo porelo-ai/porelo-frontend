@@ -875,7 +875,8 @@ class Attention extends ChangeNotifier {
   /// a machine is not work, and its silence may be hiding a question.
   ///
   /// This computer, where no Porelo is installed, is not one: nothing was ever going to answer there. Nor is one not
-  /// opened yet: its opening is the try a person would ask for.
+  /// opened yet: its opening is the try a person would ask for. Nor is a server prepared with no project, which has no
+  /// daemon by design until a project is put on it, and is not among [machinesOnce].
   List<Machine> get silent => <Machine>[
     for (final machine in _counted)
       if (_fleet(machine)?.reachability case final reachability?
@@ -921,14 +922,16 @@ class Attention extends ChangeNotifier {
   /// Visible waiting rows always count; an incomplete empty read is not a known zero.
   int? get needingCount => needingSomebody > 0 || needsRead ? needingSomebody : null;
 
+  /// A server prepared with no project is not one: it holds no work and asks nothing, and no read of it ever comes.
   List<Machine> get _counted {
     final machines = _machines.all;
     return <Machine>[
       for (var i = 0; i < machines.length; i++)
-        if (!_machines.sameNodeAs(machines[i]).any((other) {
-          final at = machines.indexOf(other);
-          return at >= 0 && at < i;
-        }))
+        if (!machines[i].serverOnly &&
+            !_machines.sameNodeAs(machines[i]).any((other) {
+              final at = machines.indexOf(other);
+              return at >= 0 && at < i;
+            }))
           machines[i],
     ];
   }

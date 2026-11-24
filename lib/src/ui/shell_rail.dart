@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_planning/porelo_planning.dart' show PlanningView;
 
-import '../app/fleet_model.dart' show Reachability;
+import '../app/fleet_model.dart' show Reachability, noProjectYet;
 import '../app/machines.dart';
 import '../app/organization_source.dart';
 import '../app/shell_model.dart';
@@ -576,9 +576,13 @@ class _ShellRailState extends State<ShellRail> {
     final colours = StateColours.of(theme.colorScheme);
     final failed = state.startsWith('Not answering') || state == 'Interrupted';
     final stopped = state == 'Stopped' || state == 'Not connected yet';
+    // A server prepared with no project has no daemon by design: neither a fault nor something on its way.
+    final noProject = state == noProjectYet;
     return Icon(
       failed
           ? Icons.cloud_off_outlined
+          : noProject
+          ? Icons.cloud_outlined
           : stopped
           ? Icons.pause_circle_outline
           : state.startsWith('$_waiting\n')
@@ -587,7 +591,7 @@ class _ShellRailState extends State<ShellRail> {
       size: Sizes.mark,
       color: failed
           ? theme.colorScheme.error
-          : stopped
+          : stopped || noProject
           ? colours.stopped
           : colours.waiting,
     );

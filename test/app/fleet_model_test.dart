@@ -1088,6 +1088,19 @@ void main() {
     });
   }
 
+  // Harm: what waits for a server with no project to be asked, as reading one of its pages, waits for ever: it is
+  // never connected and never unreachable, so its connecting never ends.
+  test('a server with no project counts as asked at once, so nothing waits for it for ever', () async {
+    final fleet = FleetModel(_Machine(), noProject: true);
+    addTearDown(fleet.dispose);
+    await fleet.connect();
+    var asked = false;
+    unawaited(fleet.untilAsked().then((_) => asked = true));
+    await Future<void>.delayed(Duration.zero);
+    expect(asked, isTrue);
+    expect(fleet.reachability, isNot(Reachability.connected), reason: 'nothing on it answers');
+  });
+
   // Harm: a machine's factors are not the ones its waits follow, or a machine that gives none leaves the window with
   // factors another machine gave, unsaid.
   test('the factors a machine gives are kept for it on connecting, and one that gives none is said', () async {

@@ -63,7 +63,10 @@ class StatusLine extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
           child: Row(
             children: <Widget>[
-              _Reachability(reachability: fleet?.reachability ?? Reachability.unreachable),
+              _Reachability(
+                reachability: fleet?.reachability ?? Reachability.unreachable,
+                noProject: fleet?.noProject ?? false,
+              ),
               const SizedBox(width: Space.small),
               Expanded(
                 child: Text(
@@ -120,14 +123,16 @@ class StatusLine extends StatelessWidget {
 }
 
 class _Reachability extends StatelessWidget {
-  const _Reachability({required this.reachability});
+  const _Reachability({required this.reachability, required this.noProject});
 
   final Reachability reachability;
+  final bool noProject;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final (IconData icon, Color color, String words) = switch (reachability) {
+      _ when noProject => (Icons.cloud_outlined, scheme.outline, noProjectYet),
       Reachability.connecting => (Icons.cloud_queue, scheme.outline, 'Connecting'),
       Reachability.connected => (Icons.cloud_done, scheme.primary, 'Connected'),
       Reachability.unreachable => (Icons.cloud_off, scheme.error, 'Not connected'),

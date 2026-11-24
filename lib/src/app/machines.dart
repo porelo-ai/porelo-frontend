@@ -260,6 +260,11 @@ class Machine {
   /// What an entry held beyond the fields this build knows, kept so that saving loses nothing.
   final Map<String, Object?> unknownFields;
 
+  /// Whether this is a server prepared with no project: no account of a project and no daemon, so nothing on it is
+  /// there to answer, by design. A project put on it gives it a socket, and it is reached as any other.
+  bool get serverOnly =>
+      kind == 'host' && hostCard == null && identity.isEmpty && remoteSocket.isEmpty && socketPath.isEmpty;
+
   /// Why this build cannot reach it, or null when it can.
   String? get whyNotReachableHere => whyNotReachableOn(windows: desk.isWindows);
 
@@ -1028,6 +1033,7 @@ class Machines extends ChangeNotifier {
     if (machine.isAlwaysListed) machineLimits.local = machine.name;
     final fleet = FleetModel(
       _reach(machine),
+      noProject: machine.serverOnly,
       machine: machine.name,
       retryAfter: _retryAfter,
       onRemoved: (task) => unawaited(_settings.forgetRemovedTask(machine.name, task)),
@@ -1090,6 +1096,8 @@ class Machines extends ChangeNotifier {
   /// true for it without starting anything.
   Future<void> _openAndConnect(Machine machine, FleetModel fleet) async {
     if (machine.disconnected) return;
+    // A server with no project has nothing to raise: its fleet's connect only says so.
+    if (machine.serverOnly) return fleet.connect();
     if (machine.kind == 'host' && machine.hostCard == null && machine.identity.isNotEmpty) {
       return;
     }

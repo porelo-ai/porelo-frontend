@@ -139,6 +139,7 @@ class MachineDetailsPage extends StatelessWidget {
       if (machines.all.contains(machine))
         Text(
           machines.tunnels.of(machine)?.words ??
+              (machine.serverOnly ? noProjectYet : null) ??
               // An organization's machine has a second connection, the one work starts through, said on its page:
               // this one is the window's to the machine's Porelo, and says so.
               (machines.watching(machine)?.reachability == Reachability.connected

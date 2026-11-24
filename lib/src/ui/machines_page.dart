@@ -182,7 +182,10 @@ class MachinesPage extends StatelessWidget {
         tunnelUp: tunnel?.state == TunnelState.up,
         tunnelWords: machine.disconnected ? null : tunnel?.words,
         tunnelProblem: machine.disconnected ? null : tunnel?.problem,
-        fleet: machine.disconnected
+        fleet: machine.serverOnly
+            // Prepared with no project, it has no daemon to answer by design; a project put on it brings one.
+            ? noProjectYet
+            : machine.disconnected
             ? 'Not connected'
             : fleet?.reachability == Reachability.connected
             ? 'Connected'

@@ -13,6 +13,9 @@ import 'outcome_words.dart';
 import 'start_refusals.dart' show isStartRefusal, startRefusalWords;
 import 'window_log.dart';
 
+/// What is said of a server prepared with no project, wherever its reach would be.
+const noProjectYet = 'No project yet';
+
 /// Whether the interface can currently reach the backend it is pointed at.
 enum Reachability {
   /// Opening the socket, or asking what is there.
@@ -128,6 +131,7 @@ class FleetModel extends ChangeNotifier {
     this.mayPrepareOnItsOwn,
     this.onRemoved,
     this.machine,
+    this.noProject = false,
   }) {
     // Once, here: connect() runs again on every reconnect, and each listener it added stayed.
     clearance.addListener(_notify);
@@ -141,6 +145,10 @@ class FleetModel extends ChangeNotifier {
 
   /// The machine's name as the window shows it, which its lines in the window's log carry; null where none is known.
   final String? machine;
+
+  /// Whether the machine is a server prepared with no project: it has no daemon by design until a project is put on it,
+  /// so it is never connected, never unreachable, and every word about its reach says [noProjectYet].
+  final bool noProject;
 
   /// Told the container of each task the machine confirmed it removed.
   final void Function(String task)? onRemoved;
@@ -229,9 +237,10 @@ class FleetModel extends ChangeNotifier {
   Reachability get reachability => _reachability;
 
   /// Completes once connecting is over, answered or not: what asks the daemon right after a
-  /// machine was added waits for this rather than asking a socket that is not open yet.
+  /// machine was added waits for this rather than asking a socket that is not open yet. A server with no project has
+  /// nothing to ask and never connects, so it counts as asked at once.
   Future<void> untilAsked() {
-    if (_reachability != Reachability.connecting) return Future<void>.value();
+    if (noProject || _reachability != Reachability.connecting) return Future<void>.value();
     final over = Completer<void>();
     void check() {
       if (_reachability == Reachability.connecting || over.isCompleted) return;
@@ -346,6 +355,7 @@ class FleetModel extends ChangeNotifier {
 
   /// Opens the backend, reads what is there and follows it.
   Future<void> connect({bool onItsOwn = false}) async {
+    if (noProject) return _say('$noProjectYet: this server has no daemon until a project is put on it.');
     if (!onItsOwn) _askedTry = true;
     _reachability = Reachability.connecting;
     _listRead = false;

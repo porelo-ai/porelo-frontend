@@ -711,13 +711,18 @@ Command retrySilentMachine(Machine machine, FleetModel? fleet) => Command(
       : null,
 );
 
+/// Why nothing can be asked of a server prepared with no project.
+const noProjectThere = 'no project yet: this server has no daemon until a project is put on it';
+
 /// Why nothing can be done on a machine listed and not watched yet, as while it reconnects.
 const notWatchedYet = 'the machine is not answering yet: it is being opened';
 
 /// Why nothing that needs [fleet]'s machine can be done now, or null while it answers; [notWatchedYet] where it is
-/// listed and not watched yet.
+/// listed and not watched yet, and [noProjectThere] where it is a server with no project.
 String? notAnswering(FleetModel? fleet) => fleet == null
     ? notWatchedYet
+    : fleet.noProject
+    ? noProjectThere
     : fleet.reachability == Reachability.connected
     ? null
     : 'the machine is not answering';
@@ -1265,7 +1270,11 @@ List<Command> machineCommands({
       home: Home.machineMenu,
       shortcut: const SingleActivator(LogicalKeyboardKey.f5),
       run: () => unawaited(fleet?.refresh()),
-      unavailable: fleet == null ? notWatchedYet : null,
+      unavailable: fleet == null
+          ? notWatchedYet
+          : fleet.noProject
+          ? noProjectThere
+          : null,
     ),
     Command(
       id: 'fleet.reconnect',
@@ -1273,7 +1282,11 @@ List<Command> machineCommands({
       group: 'Machine',
       home: Home.machineMenu,
       run: () => unawaited(fleet?.connect()),
-      unavailable: fleet == null ? notWatchedYet : null,
+      unavailable: fleet == null
+          ? notWatchedYet
+          : fleet.noProject
+          ? noProjectThere
+          : null,
     ),
     // Watching it or not is as everyday as refreshing it.
     ...hostActions.where(_isConnection),

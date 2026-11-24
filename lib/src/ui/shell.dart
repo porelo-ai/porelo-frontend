@@ -5331,6 +5331,14 @@ class _ShellState extends State<Shell> {
     );
   }
 
+  /// What a machine's page says of its reach. A server prepared with no project has no daemon by design, which is
+  /// not a fault, so it is never said to be not answering.
+  static String _reachWords(Machine machine, FleetModel? fleet) => machine.serverOnly
+      ? noProjectYet
+      : fleet?.reachability == Reachability.connected
+      ? 'Connected'
+      : 'Not answering';
+
   Widget _machineFacts({bool managing = false, LeafHead? head}) {
     final machine = _pageMachine(widget.shell.itemMachine ?? widget.machines.current);
     final preparation = _hostRuns.preparing.where((run) => run.name == machine.name).firstOrNull;
@@ -5410,7 +5418,7 @@ class _ShellState extends State<Shell> {
                   path: head.path,
                   pathKey: head.pathKey,
                   subtitle:
-                      '${fleet?.reachability == Reachability.connected ? 'Connected' : 'Not answering'}'
+                      '${_reachWords(machine, fleet)}'
                       ' · Porelo ${fleet?.info?.version ?? 'not read'}',
                 ),
                 ...head.notices,
@@ -5431,11 +5439,7 @@ class _ShellState extends State<Shell> {
             value: fleet?.info?.version ?? 'not read — Porelo has not answered',
             known: fleet?.info != null,
           ),
-          (
-            label: 'State',
-            value: fleet?.reachability == Reachability.connected ? 'Connected' : 'Not answering',
-            known: true,
-          ),
+          (label: 'State', value: _reachWords(machine, fleet), known: true),
         ],
         (
           label: 'Vault',
@@ -6040,6 +6044,7 @@ class _ShellState extends State<Shell> {
 
   String? _treeMachineState(Machine machine) {
     if (!widget.machines.all.contains(machine)) return 'Not connected yet';
+    if (machine.serverOnly) return noProjectYet;
     final tunnel = widget.machines.tunnels.of(machine);
     return railMachineState(
       reach: widget.machines.watching(machine)?.reachability ?? Reachability.unreachable,
