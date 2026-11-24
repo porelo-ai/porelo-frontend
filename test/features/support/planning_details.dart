@@ -12,6 +12,7 @@ import 'package:porelo_planning/porelo_planning.dart';
 import '../step/a_backend_with_planning.dart';
 import 'planning.dart';
 import 'world.dart';
+import '../../support/menu_entries.dart';
 import '../../support/planning_embedding.dart';
 
 Completer<PlanStoryDetail>? _heldStory;
@@ -544,10 +545,12 @@ void reportPlanningMode(String mode) => _story()['work'] = {
   'coordinator': '',
 };
 
-/// Opens one row's configured state menu and chooses a real destination.
+/// Opens one row's configured state menu and chooses a real destination, opening its *Move to* submenu first where
+/// the row also offers starts.
 Future<void> movePlanningIssue(WidgetTester tester, String id, String to) async {
   await tapPlanning(tester, planningElement('move $id'));
-  await tapPlanning(tester, planningElement('move-to $id $to'));
+  await chooseMenuEntry(tester, planningElement('move-to $id $to'));
+  await World.settle(tester);
 }
 
 /// Reads one issue's reported state from its row's state control, without the saving or reason lines.

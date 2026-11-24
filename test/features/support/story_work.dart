@@ -9,6 +9,7 @@ import 'world.dart';
 import 'package:porelo_frontend/src/ui/wizard.dart';
 
 import '../../support/expand_list_rows.dart';
+import '../../support/menu_entries.dart';
 import '../../support/planning_embedding.dart';
 
 /// The window's wizard frame's own controls, under the names the screen's plain frame gives them.
@@ -371,7 +372,7 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(cardIn('Backlog'), findsOneWidget);
       expect(cardIn('In analysis'), findsNothing);
     case 'start unavailable':
-      expect(tester.widget<PopupMenuItem<String>>(workKey('planning-start ST291')).enabled, isFalse);
+      expect(menuEntryEnabled(tester, workKey('planning-start ST291')), isFalse);
       expect(find.text('Unavailable: work status not reported'), findsOneWidget);
     case 'start disabled':
       expect(workKey('story-work-dialog'), findsOneWidget);
@@ -421,7 +422,7 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       await revealWork('In analysis');
       expect(cardText(), contains('Work not reported'));
     case 'start available':
-      expect(tester.widget<PopupMenuItem<String>>(workKey('planning-start ST291')).enabled, isTrue);
+      expect(menuEntryEnabled(tester, workKey('planning-start ST291')), isTrue);
     case 'started main model visible':
       expect(workKey('story-work-dialog'), findsNothing);
       await revealWork('Backlog');
