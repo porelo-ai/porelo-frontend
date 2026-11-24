@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- *porelo-host* takes `--limits <line>` before its verb, as every Porelo program does, and refuses a malformed line before any work; the window gives it this computer's limits line, so its ssh connect timeout, a server's command and copy, the machine check and the keyring prompt wait as long as this computer's factors say.
 - While *Putting <project> on <machine>* hands on the token your Porelo-Vault declares, it names the step it is in (connecting, reading the declared entry, handing it on, waiting for the machine's answer) and the seconds since the hand-over began, so a slow step is told apart from a hung one.
 - A server is prepared only in the *Set up a machine* wizard: *Enter the key again* on a run the machine refused for its key opens the wizard at the key, with the machine and its address given, and the stopped run is let go only once the new one starts. A preparation that stops in the wizard offers *Prepare again*, *Enter the key again* or root's line once more, an edit under *More settings* holds *Next* until it is used, and the give-back of a machine scrolls in a short window.
 - A project's menu shows starting an agent for each repository, the gate and building the environment at its top, the rest in the submenus *Upstream and forge*, *Messages* and *Look*, and clearing and removing the project last in their warning color, on *Projects*, on a machine's page and on an organization's project pages.

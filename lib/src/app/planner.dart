@@ -101,13 +101,6 @@ PlanningLimits planningLimitsHere() {
   return PlanningLimits(services: here.services, machines: here.machines, polling: here.polling, retries: here.retries);
 }
 
-/// What a planner the window starts is given before its own arguments: this computer's limits line, unchanged, as
-/// `--limits`, where its own machine gave one.
-List<String> plannerLimitsArguments() => switch (machineLimits.lineOf(null)) {
-  final line? when line.isNotEmpty => ['--limits', line],
-  _ => const <String>[],
-};
-
 /// The planner this account runs, as [HttpPlanningSource.fromAddressFile] calls it, telling each task report it sends
 /// of what came of it, so a report sent through the planning screen's run is known taken or not.
 class WindowPlannerSource extends HttpPlanningSource implements TellsTaskReports {
@@ -954,7 +947,7 @@ class LocalPlanner extends ChangeNotifier
   // answers its exit code; its limits come first, as the planner takes them only before its mode.
   static Future<Process> _startWithItsInput(String executable, Map<String, String> environment) => Process.start(
     executable,
-    [...plannerLimitsArguments(), plannerEndsWithInput],
+    [...limitsArgumentsHere(), plannerEndsWithInput],
     // Its own, so a Porelo path the window inherited never reaches the planner.
     environment: plannerEnvironment(Platform.environment, environment),
     includeParentEnvironment: false,

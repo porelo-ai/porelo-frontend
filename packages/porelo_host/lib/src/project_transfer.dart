@@ -3,6 +3,7 @@ import 'dart:io';
 import 'host_command.dart';
 import 'host_card_ssh.dart';
 import 'secrets_file.dart';
+import 'limit_factors.dart';
 import 'ssh.dart';
 
 /// The local terminal's submission marker, consumed before showing host output.
@@ -79,7 +80,7 @@ List<String> _sshInvocation({
   // account for a master yet, and a master's user would not be root.
   if (ownConnection) ...['-o', 'ControlPath=none', '-o', 'ProxyCommand=none'] else ...['-o', 'ProxyCommand=false'],
   '-o',
-  'ConnectTimeout=10',
+  'ConnectTimeout=${hostMachineSeconds(10)}',
   '-T',
   '--',
   target,

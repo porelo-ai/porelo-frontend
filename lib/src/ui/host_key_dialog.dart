@@ -16,12 +16,7 @@ Future<bool> openHostKeyDialog(BuildContext context, {OpenTerminal? open, Map<St
     title: 'Set Scaleway key',
     explanation: 'Enter the Scaleway secret key (a UUID) in the terminal. Scaleway checks it before it is kept in this computer’s system secret store.',
     machine: Machine.local(),
-    command: [
-      poreloHost(environment: environment),
-      'key',
-      'set',
-      'scaleway',
-    ],
+    command: poreloHostCommandLine(['key', 'set', 'scaleway'], environment: environment),
     shownCommand: 'porelo-host key set scaleway',
     open: open,
     completed: 'accepted',

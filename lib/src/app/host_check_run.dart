@@ -4,6 +4,7 @@ import 'package:porelo_host/porelo_host.dart' show HostCheckAnswer, HostPreparat
 
 import 'host_session.dart' show poreloHost;
 import 'run_here.dart';
+import '../wire/limit_factors.dart';
 
 /// The carried collection's check of a machine, asked of `porelo-host`. The window holds no limit of its own.
 class HostCheckRun {
@@ -22,7 +23,7 @@ class HostCheckRun {
   Future<({HostCheckRun? run, String? why})> carried() async {
     final Ran ran;
     try {
-      ran = await _run(_program, const ['check', '--available']);
+      ran = await _run(_program, [...limitsArgumentsHere(), 'check', '--available']);
     } on ProcessException {
       return (run: null, why: 'porelo-host could not be run here, so preparing runs without a check.');
     } on WorkspaceRefused catch (refused) {
@@ -49,6 +50,7 @@ class HostCheckRun {
   }) async {
     try {
       final ran = await _run(_program, [
+        ...limitsArgumentsHere(),
         'check',
         '--given',
         address,

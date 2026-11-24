@@ -58,7 +58,12 @@ Future<({int code, String message})> checkHostScalewayKey({
 }) async {
   Process? process;
   try {
-    process = await (start ?? Process.start)(poreloHost(environment: environment), ['key', 'check', 'scaleway']);
+    process = await (start ?? Process.start)(poreloHost(environment: environment), [
+      ...limitsArgumentsHere(),
+      'key',
+      'check',
+      'scaleway',
+    ]);
     await process.stdin.close();
     final result = await Future.wait<Object>([
       process.exitCode,
@@ -530,7 +535,7 @@ class HostSession extends ChangeNotifier {
     _changed();
     _upCommand = command.first == 'up';
     try {
-      _starting = _start(executable, command);
+      _starting = _start(executable, [...limitsArgumentsHere(), ...command]);
       final process = _process = await _starting!;
       await process.stdin.close();
       final lines = process.stdout.transform(utf8.decoder).transform(const LineSplitter()).forEach(_line);
@@ -662,6 +667,13 @@ class HostSession extends ChangeNotifier {
     _changed();
   }
 }
+
+/// The command line of [verb] for the shipped porelo-host, to run in a terminal.
+List<String> poreloHostCommandLine(List<String> verb, {Map<String, String>? environment}) => [
+  poreloHost(environment: environment),
+  ...limitsArgumentsHere(),
+  ...verb,
+];
 
 /// The development stand-in when named, otherwise the host command shipped with this interface.
 String poreloHost({Map<String, String>? environment, bool release = kReleaseMode}) {

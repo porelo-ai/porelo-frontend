@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 
 import 'collection.dart';
+import 'limit_factors.dart';
 import 'remote.dart';
 import 'server_contract.dart';
 import 'ssh.dart';
@@ -13,8 +14,9 @@ import 'ssh.dart';
 /// What `check --available` ends with when the carried collection holds no check.
 const hostCheckNotCarried = 4;
 
-/// How long one check may hold its ssh before it reads as not having answered.
-const hostCheckLimit = Duration(minutes: 3);
+/// How long one check may hold its ssh before it reads as not having answered: a machine at work, so the machines
+/// factor.
+Duration get hostCheckLimit => hostMachineWait(const Duration(minutes: 3));
 
 /// More than any check says; a machine answering without end is not read to its end.
 const _mostAnswer = 1024 * 1024;

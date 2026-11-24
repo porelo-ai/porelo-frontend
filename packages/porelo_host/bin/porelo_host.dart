@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:porelo_host/porelo_host.dart';
 
 const _usage = '''
+porelo-host [--limits LINE] VERB ...
 porelo-host up|down (--host-name NAME | --project NAME --account NAME)
             [--public-key "TYPE BASE64"]
             [--forge true|false] [--kvm true|false]
@@ -36,6 +37,10 @@ porelo-host --collection-info
   key     checks and keeps Scaleway's secret key or keeps a forge token, or forgets it;
           set reads from a terminal without echo; Scaleway also accepts an owner-only regular file
           check scaleway checks the stored secret without prompting or changing it
+
+--limits LINE, before the verb, is this computer's limits line as its Porelo gives it
+            (services=F,machines=F,polling=F,retries=F, each 0.1 to 100): how long ssh, a host's command, the
+            check and the keyring prompt are waited for follows its factors. Without it, each is 1.0.
 
 One JSON line per step on standard output; the words for a person on standard error.
 Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 70 an unforeseen fault, 75 waiting for the person.
@@ -86,6 +91,18 @@ Future<int> runHostCommand(
   final out = output ?? stdout;
   final err = errors ?? stderr;
   int wrong(String why) => _wrong(why, errors: err);
+  // Read before anything else, so no work starts under limits the line would refuse. A run without one has all
+  // four at 1.0, whatever ran before it in the same process.
+  hostLimits = LimitFactors.standard;
+  if (arguments.isNotEmpty && arguments.first == '--limits') {
+    if (arguments.length < 2) return wrong('--limits needs the limits line');
+    try {
+      hostLimits = LimitFactors.parse(arguments[1]);
+    } on FormatException catch (error) {
+      return wrong('--limits: ${error.message}');
+    }
+    arguments = arguments.sublist(2);
+  }
   if (arguments.length == 1 && arguments.first == '--collection-info') {
     out.writeln('${hostCollection.version} ${hostCollection.sha256} ${hostCollection.fileName}');
     return Exit.done;

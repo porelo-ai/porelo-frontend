@@ -32,7 +32,7 @@ Future<bool> askForForgeToken(BuildContext context, String address, {OpenTermina
     title: 'Connect $address',
     explanation: 'Enter your own token at the terminal prompt. It is not echoed and goes into this computer’s system secret store.',
     machine: Machine.local(),
-    command: <String>[poreloHost(), 'key', 'set', address],
+    command: poreloHostCommandLine(['key', 'set', address]),
     shownCommand: 'porelo-host key set $address',
     open: open,
     stillWorking: 'Waiting for the token in this terminal on this computer.',

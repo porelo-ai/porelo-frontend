@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'limit_factors.dart';
 import 'ssh.dart';
 import 'host_card_ssh.dart';
 import 'host_files.dart';
@@ -70,8 +71,9 @@ class OpenSsh implements Remote {
     required String this.config,
     Map<String, String>? environment,
     Future<Process> Function(String, List<String>)? start,
-    this.deadline = const Duration(minutes: 5),
-  }) : knownHosts = File('$config.known_hosts'),
+    Duration? deadline,
+  }) : deadline = deadline ?? hostMachineWait(const Duration(minutes: 5)),
+       knownHosts = File('$config.known_hosts'),
        identity = '$config.pub',
        agentOnly = false,
        agentPublicKey = '',
@@ -141,7 +143,7 @@ class OpenSsh implements Remote {
       'Port=22',
     ],
     '-o',
-    'ConnectTimeout=10',
+    'ConnectTimeout=${hostMachineSeconds(10)}',
   ];
 
   List<String> _destination(String host, String user) =>
@@ -329,7 +331,7 @@ class OpenSsh implements Remote {
     return RemoteResult(done.exitCode, '${done.stderr}'.trim());
   }
 
-  static const _outputGrace = Duration(seconds: 2);
+  static Duration get _outputGrace => hostMachineWait(const Duration(seconds: 2));
 
   /// Runs `scp` with [arguments], ended once it outlives [limit]: a stalled copy never holds its caller without end.
   Future<RemoteResult> _copyWithin(Duration limit, List<String> arguments) async {

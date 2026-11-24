@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:dbus/dbus.dart';
 
+import 'limit_factors.dart';
 import 'secret_store.dart';
 
 const _service = 'org.freedesktop.secrets';
@@ -16,7 +17,10 @@ const _prefix = 'org.freedesktop.Secret';
 /// libsecret's own default does, and is never written anywhere by this side.
 class SecretServiceStore implements SecretStore {
   /// Constructor taking the bus, so a test can use one of its own.
-  SecretServiceStore({this.bus, this.promptWithin = const Duration(minutes: 2)});
+  ///
+  /// The keyring's prompt is an answer from outside this program, so its wait follows the services factor.
+  SecretServiceStore({this.bus, Duration? promptWithin})
+    : promptWithin = promptWithin ?? hostServiceWait(const Duration(minutes: 2));
 
   /// The bus to reach the keyring on; the session's own when null.
   final DBusClient? bus;
