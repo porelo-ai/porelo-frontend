@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/declared_hand_on.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
@@ -342,6 +343,155 @@ void main() {
     expect(button.onPressed, isNotNull);
     await close(tester);
   });
+
+  /// Opens the dialog as the window does, over a page, so that Escape and a tap beside it close it.
+  Future<void> shown(WidgetTester tester, FixtureConnections connections) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => unawaited(
+                showDialog<void>(
+                  context: context,
+                  builder: (_) =>
+                      PlacingProjectDialog(project: 'demo', host: 'build', view: null, connections: connections),
+                ),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('placing-project')), findsOneWidget);
+  }
+
+  List<String> reads(FixtureConnections connections) => [
+    for (final each in connections.asked)
+      if (each.startsWith('progress') || each.startsWith('refresh')) each,
+  ];
+
+  // Harm: the dialog closed, the machine's page still shows what it said when the dialog last asked, a minute old, and
+  // asks for the token the machine is taking.
+  for (final (how, closing) in <(String, Future<void> Function(WidgetTester))>[
+    ('its button', (tester) => tester.tap(find.text('Close'))),
+    ('Escape', (tester) => tester.sendKeyEvent(LogicalKeyboardKey.escape)),
+    ('a tap beside it', (tester) => tester.tapAt(const Offset(4, 4))),
+  ]) {
+    testWidgets('closing it by $how reads the machine once', (tester) async {
+      final connections = FixtureConnections(['build'])..hostProgress = waiting;
+      await shown(tester, connections);
+      connections.asked.clear();
+      await closing(tester);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('placing-project')), findsNothing);
+      expect(reads(connections), ['progress build']);
+    });
+  }
+
+  // Harm: a closed dialog logs in as root on a machine it is no longer connected to, or for a project already ended.
+  testWidgets('closing it reads nothing once the project ended there, or the connection went', (tester) async {
+    final ended = FixtureConnections(['build'])..hostProgress = carried;
+    await shown(tester, ended);
+    ended.asked.clear();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(reads(ended), isEmpty, reason: 'carried');
+
+    final gone = FixtureConnections(['build'])..hostProgress = waiting;
+    await shown(tester, gone);
+    gone
+      ..asked.clear()
+      ..hosts.remove('build');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(reads(gone), isEmpty, reason: 'not connected');
+  });
+
+  // Harm: a machine that refuses the read on close throws where nobody is left to hear it.
+  testWidgets('a read on close that the machine refuses is let go quietly', (tester) async {
+    final connections = FixtureConnections(['build'])..hostProgress = waiting;
+    await shown(tester, connections);
+    connections
+      ..asked.clear()
+      ..refuseNext = const OrganizationRefused('Connection closed by 203.0.113.9 port 22');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(reads(connections), ['progress build']);
+    expect(tester.takeException(), isNull);
+  });
+
+  // Harm: the close reads the machine beside the dialog's own fetch on its way, a second root login, and whichever
+  // answer comes last stands, the older one too.
+  testWidgets("closing it while its own fetch is on its way reads nothing more", (tester) async {
+    final connections = _HeldFetch(['build'])..hostProgress = waiting;
+    final hold = connections.hold = Completer<void>();
+    await shown(tester, connections);
+    expect(reads(connections), ['refresh build'], reason: 'its own fetch, held');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    hold.complete();
+    await tester.pumpAndSettle();
+    expect(reads(connections), ['refresh build']);
+  });
+
+  // Harm: the close reads the machine while the token is being given from it, and an answer from before the token
+  // can land after the token's own.
+  testWidgets('closing it while the token is given from it reads nothing more', (tester) async {
+    final connections = FixtureConnections(['build'])..hostProgress = waiting;
+    final giving = Completer<String?>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => unawaited(
+                showDialog<void>(
+                  context: context,
+                  builder: (_) => PlacingProjectDialog(
+                    project: 'demo',
+                    host: 'build',
+                    view: null,
+                    connections: connections,
+                    onGiveToken: (_, {atOnce = false}) => giving.future,
+                  ),
+                ),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('placing-project.giveToken')));
+    await tester.pump();
+    connections.asked.clear();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(reads(connections), isEmpty);
+    giving.complete('No token was given.');
+    await tester.pumpAndSettle();
+  });
+
+  // Harm: the close's read and one of the dialog's own on its way log in as root twice.
+  testWidgets("closing it while its own read is on its way joins that read", (tester) async {
+    final connections = _HeldProgress(['build'])..hostProgress = waiting;
+    await shown(tester, connections);
+    connections.asked.clear();
+    final hold = connections.hold = Completer<void>();
+    await tester.pump(const Duration(seconds: 21));
+    expect(reads(connections), ['progress build'], reason: 'its own read, held');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    hold.complete();
+    await tester.pumpAndSettle();
+    expect(reads(connections), ['progress build']);
+  });
 }
 
 /// Once [holding], answers a refresh only when [held] completes, as a machine does that takes its time.
@@ -367,5 +517,35 @@ class _RefusingProgress extends FixtureConnections {
   Future<HostProgress> progress(String host) async {
     asks++;
     throw const OrganizationRefused('Connection closed by 203.0.113.9 port 22');
+  }
+}
+
+/// Answers each read of how far the machine has come only once [hold], where set, completes.
+class _HeldProgress extends FixtureConnections {
+  _HeldProgress(super.hosts);
+
+  Completer<void>? hold;
+
+  @override
+  Future<HostProgress> progress(String host) async {
+    asked.add('progress $host');
+    final read = beginRead(host);
+    await hold?.future;
+    return keepHeard(host, hostProgress, read: read);
+  }
+}
+
+/// Answers its fetch only once [hold], where set, completes; the fetch is counted when it is asked.
+class _HeldFetch extends FixtureConnections {
+  _HeldFetch(super.hosts);
+
+  Completer<void>? hold;
+
+  @override
+  Future<HostProgress> refresh(String host) async {
+    asked.add('refresh $host');
+    final read = beginRead(host);
+    await hold?.future;
+    return keepHeard(host, hostProgress, read: read);
   }
 }

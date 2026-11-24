@@ -67,6 +67,16 @@ String? waitingWords(HostProjectProgress? said, String forge) {
   return said.why == null ? words : '$words: ${said.why}';
 }
 
+/// Said of a project whose machine is taking the token handed on for it, in place of its wait.
+const tokenTakenWords = 'has your token and is taking it';
+
+/// [waitingWords] for [said], [host]'s word on a project, as [connections] tell it: a wait that a token handed on
+/// answers is said as being taken, never as a wait.
+String? heardWaitingWords(HostConnections? connections, String host, HostProjectProgress? said, String forge) =>
+    said != null && said.waitsForToken && connections != null && !connections.asksForToken(host, said)
+    ? tokenTakenWords
+    : waitingWords(said, forge);
+
 /// One machine an organization names that, as it said last, waits for this person's token for a project, or for that
 /// project's Git repository.
 typedef ProjectWait = ({String host, HostProjectProgress said});
@@ -78,6 +88,7 @@ List<ProjectWait> projectWaits(OrganizationView? view, HostConnections? connecti
     for (final host in view.hosts)
       if (host.projects.contains(project) ||
           view.projects.any((each) => each.name == project && each.host == host.name))
-        if (connections.heard(host.name)?.of(project) case final said? when said.waitsForToken || said.hasNoAddress)
+        if (connections.heard(host.name)?.of(project) case final said?
+            when connections.asksForToken(host.name, said) || said.hasNoAddress)
           (host: host.name, said: said),
 ];

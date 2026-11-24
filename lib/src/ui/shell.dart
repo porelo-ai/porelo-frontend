@@ -6894,7 +6894,7 @@ class _ShellState extends State<Shell> {
       if (heard == null) continue;
       final waiting = {
         for (final project in heard.projects)
-          if (project.waitsForToken) project.project,
+          if (_hostConnections.asksForToken(card.name, project)) project.project,
       };
       // A project the host took is a new wait once it waits again; one passing through another state is not.
       _declaredHandOn.taken(card.name, {
@@ -6964,7 +6964,8 @@ class _ShellState extends State<Shell> {
     if (wait != null && wait.waitsForToken && _declaredHandOn.running(machine.hostCard!.name)) {
       return "handing your $forge token on from this computer's Porelo-Vault";
     }
-    return waitingWords(wait, forge);
+    if (wait == null) return null;
+    return heardWaitingWords(_hostConnections, machine.hostCard!.name, wait, forge);
   }
 
   /// Why work cannot start in [project] on [machine] while it waits, or null: none where the machine has taken some
@@ -6980,8 +6981,10 @@ class _ShellState extends State<Shell> {
   /// *Give it my … token…* for [project] on [machine], where it waits for the token; offered to its Machine Admin.
   Command? _giveTokenFor(Machine machine, String project) {
     final said = _waitOn(machine, project);
-    if (said == null || !said.waitsForToken) return null;
-    final host = machine.hostCard!.name;
+    final host = machine.hostCard?.name;
+    if (said == null || host == null || !(_hostConnections?.asksForToken(host, said) ?? said.waitsForToken)) {
+      return null;
+    }
     final view = _organization?.view;
     final card = view?.hosts.where((each) => each.name == host).firstOrNull;
     return giveTokenCommand(
@@ -7170,7 +7173,12 @@ class _ShellState extends State<Shell> {
     }
     // What the machine waits for, as it said last: on this page however it was opened, never read as carried.
     final waitOn = _waitOn(machine, project.name) ?? progress?.of(project.name);
-    final waits = waitingWords(waitOn, organizationForgeName(_organization?.view));
+    final waits = heardWaitingWords(
+      _hostConnections,
+      machine.hostCard?.name ?? '',
+      waitOn,
+      organizationForgeName(_organization?.view),
+    );
     // Where the machine has taken some of it, each repository's row says whether work starts there.
     final waitWhyNot = waits == null || (waitOn?.taken.isNotEmpty ?? false)
         ? null
@@ -7238,11 +7246,10 @@ class _ShellState extends State<Shell> {
               ),
         waits: waits == null ? null : 'The machine $waits',
         waitsWhy: switch (_organization?.view) {
-          final view? when waitOn != null && waitOn.waitsForToken => organizationTokenWords(
-            view,
-            machine.hostCard!.name,
-            project: project.name,
-          ),
+          final view?
+              when waitOn != null &&
+                  (_hostConnections?.asksForToken(machine.hostCard?.name ?? '', waitOn) ?? waitOn.waitsForToken) =>
+            organizationTokenWords(view, machine.hostCard!.name, project: project.name),
           _ => null,
         },
         giveToken: _giveTokenFor(machine, project.name),
@@ -7331,6 +7338,8 @@ class _ShellState extends State<Shell> {
     final carriedAlone = host?.repositories[project.name];
     final said = progress?.of(project.name);
     final forge = organizationForgeName(_organization?.view);
+    // The same answer the page's head takes: a wait the token handed on answers is being taken.
+    final taking = said != null && said.waitsForToken && !(_hostConnections?.asksForToken(card, said) ?? true);
     return {
       for (final name in {
         ...names,
@@ -7347,6 +7356,7 @@ class _ShellState extends State<Shell> {
             carriedAlone: carriedAlone,
             listed: listed[name],
             forge: forge,
+            taking: taking,
           ),
           carried: carriedOnTheMachine(
             repository: name,
@@ -7355,6 +7365,7 @@ class _ShellState extends State<Shell> {
             carriedAlone: carriedAlone,
             listed: listed[name],
             forge: forge,
+            taking: taking,
           ),
           startRefused: startRefusedOnTheMachine(
             repository: name,
@@ -7363,6 +7374,7 @@ class _ShellState extends State<Shell> {
             carriedAlone: carriedAlone,
             listed: listed[name],
             forge: forge,
+            taking: taking,
           ),
           central: centralOnTheMachine(
             repository: name,

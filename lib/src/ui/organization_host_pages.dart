@@ -23,6 +23,10 @@ import 'tokens.dart';
 import 'page_explanation.dart';
 import 'expandable_list_row.dart';
 
+/// How often a machine's page says anew how long ago a token being taken was given; null stops it, as a test does.
+@visibleForTesting
+Duration? handOnTickEvery = const Duration(seconds: 20);
+
 /// What a preparation running for a machine says on the organization's row: its state, since when, and where.
 String _preparingWords(HostPreparation run) {
   final started = run.record.startedAt?.toLocal();
@@ -170,7 +174,13 @@ class _OrganizationMachineRowState extends State<OrganizationMachineRow> {
     // What the machine said last of each: one it waits for the token for is never ready to work on.
     final forge = organizationForgeName(view);
     final waits = {
-      for (final project in mine) project: ?waitingWords(widget.connections?.heard(host.name)?.of(project), forge),
+      for (final project in mine)
+        project: ?heardWaitingWords(
+          widget.connections,
+          host.name,
+          widget.connections?.heard(host.name)?.of(project),
+          forge,
+        ),
     };
     // One the machine has taken some of is ready to work on there, while it waits for the rest.
     final ready = [
@@ -468,6 +478,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     widget.connections?.removeListener(_askProgress);
     widget.organization.removeListener(_askProgress);
     widget.connections?.removeListener(_askForge);
+    _ticker?.cancel();
     super.dispose();
   }
 
@@ -676,12 +687,52 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     // The button goes once the machine wants no token, or the connection a project's token needs went: its answer
     // then stands at the page's head, not nowhere.
     final connected = connections.connected(widget.host);
-    final buttonStays = (connected && (_progress?.wantsToken ?? false)) || _waitsForItsToken(widget.host);
+    final buttonStays = (connected && _wantsToken) || _waitsForItsToken(widget.host);
     if (mounted && answer != null && (!buttonStays || !byTheButton)) setState(() => _refusal = answer);
     return answer;
   }
 
   void _show(Widget dialog) => unawaited(showDialog<void>(context: context, builder: (_) => dialog));
+
+  /// Whether [said], the machine's word on a project, asks for the token: not while it takes one handed on for it.
+  bool _asks(HostProjectProgress? said) =>
+      said != null && (widget.connections?.asksForToken(widget.host, said) ?? said.waitsForToken);
+
+  /// Whether the machine's word asks for the token: its first one, or that of a project not handed one.
+  bool get _wantsToken => widget.connections?.wantsToken(widget.host, _progress) ?? (_progress?.wantsToken ?? false);
+
+  /// The token handed on for [said]'s project while the machine takes it, though it still says it waits; null else.
+  TokenHandOn? _taking(HostProjectProgress? said) {
+    if (said == null || !said.waitsForToken) return null;
+    final handed = widget.connections?.handedOn(widget.host, said.project);
+    return handed != null && handed.taking ? handed : null;
+  }
+
+  /// How long ago [handed] was given, by the connections' clock.
+  String _since(TokenHandOn handed) {
+    final now = widget.connections?.clock() ?? DateTime.now();
+    final minutes = now.difference(handed.at).inMinutes;
+    return switch (minutes) {
+      < 1 => 'less than a minute ago',
+      1 => '1 minute ago',
+      _ => '$minutes minutes ago',
+    };
+  }
+
+  /// Rebuilds the page while a token handed on is taken, so its time since follows; stopped once none is.
+  Timer? _ticker;
+
+  void _tickWhile(bool taking) {
+    final every = handOnTickEvery;
+    if (!taking || every == null) {
+      _ticker?.cancel();
+      _ticker = null;
+      return;
+    }
+    _ticker ??= Timer.periodic(every, (_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   Future<void> _makeBackupKey(OrganizationView view) async {
     await widget.keys!.makeBackup(context, scope: BackupScope.host(widget.host), base: view.revision);
@@ -716,6 +767,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       final view = widget.organization.view;
       final host = view?.hosts.where((host) => host.name == widget.host).firstOrNull;
       final isAdmin = view != null && host != null && view.holdsRoles && host.admins.contains(view.me);
+      _tickWhile(isAdmin && (_progress?.projects.any((each) => _taking(each) != null) ?? false) && !widget.onlyAdmins);
       final path = widget.path.isEmpty ? <LeafPathStep>[(label: 'My machines', go: widget.onBack)] : widget.path;
       final problems = [
         if (widget.organization.problem case final problem?) _Problem(problem),
@@ -857,7 +909,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     }
     return [
       if (_acting) const Text('Waiting for the machine…'),
-      if (waits || (connected && (progress?.wantsToken ?? false))) ...[
+      if (waits || (connected && _wantsToken)) ...[
         if (waits) Text(organizationTokenWords(view, host.name)),
         // Said of a word this page did not just read: when it was heard, and how the token reaches the machine.
         if (waits && (!connected || !(progress?.waitsForToken ?? false)))
@@ -867,7 +919,19 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
           ),
         if (connected)
           for (final project in progress?.projects ?? const <HostProjectProgress>[])
-            if (project.waitsForToken) Text(organizationTokenWords(view, host.name, project: project.project)),
+            if (_asks(project)) ...[
+              Text(organizationTokenWords(view, host.name, project: project.project)),
+              // Said once as it comes, to a screen reader too: the token given was not enough.
+              if (widget.connections?.handedOn(host.name, project.project)?.notHelped case final why?)
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    why,
+                    key: ValueKey('organization.notHelped/${project.project}'),
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ),
+            ],
         Align(
           alignment: Alignment.centerLeft,
           child: AskingButton(
@@ -1036,6 +1100,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   String _progressChip(HostProjectProgress? said) => switch (said) {
     null => 'not read',
     HostProjectProgress(hasNoAddress: true) => 'Waiting for its repository',
+    _ when _taking(said) != null => 'Token given, being taken',
     HostProjectProgress(waitsForToken: true) => 'Waiting for your token',
     HostProjectProgress(state: 'carried') => 'Carried',
     HostProjectProgress(state: 'pending') => 'Being put on',
@@ -1048,7 +1113,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   /// *Give it my … token…* beside [name]'s row, where [host] waits for it for [name]; given as the page's own button
   /// gives it, and offered to its Machine Admin alone.
   Command? _giveTokenFor(OrganizationView view, OrganizationHost host, String name) {
-    if (!(_progress?.of(name)?.waitsForToken ?? false)) return null;
+    if (!_asks(_progress?.of(name))) return null;
     return giveTokenCommand(
       host: host.name,
       project: name,
@@ -1075,7 +1140,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
               // Put here alone, it is carried only once the machine stops waiting for the token for it; one it has
               // taken already stays carried while it waits for another.
               switch (_takenRow(name, repository) == null
-                  ? waitingWords(_progress?.of(name), organizationForgeName(widget.organization.view))
+                  ? heardWaitingWords(
+                      widget.connections,
+                      widget.host,
+                      _progress?.of(name),
+                      organizationForgeName(widget.organization.view),
+                    )
                   : null) {
                 final waits? => 'Of $name, put here alone; the machine $waits',
                 null => 'Of $name, carried here alone',
@@ -1152,11 +1222,18 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
   }
 
   /// What a fetch that was not refused came to, in the machine's own answer.
-  String _fetchedWords(String name, HostProgress? fetched) => switch (fetched) {
-    HostProgress(refused: final refused?) => '$name did not apply the organization: $refused',
-    HostProgress(wantsToken: true) => '$name fetched the organization and waits for your token.',
-    _ => '$name fetched and applied the organization.',
-  };
+  String _fetchedWords(String name, HostProgress? fetched) {
+    // Still saying it waits while it takes a token given: not applied yet, and no token wanted either.
+    final taking = fetched?.projects.map(_taking).nonNulls.firstOrNull;
+    return switch (fetched) {
+      HostProgress(refused: final refused?) => '$name did not apply the organization: $refused',
+      final fetched? when widget.connections?.wantsToken(name, fetched) ?? fetched.wantsToken =>
+        '$name fetched the organization and waits for your token.',
+      _ when taking != null =>
+        '$name fetched the organization; it is still taking the token you gave ${_since(taking)}.',
+      _ => '$name fetched and applied the organization.',
+    };
+  }
 
   String _count(int n) => n == 1 ? '1 repository' : '$n repositories';
 
@@ -1173,6 +1250,9 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
       return progress.taken.isEmpty
           ? 'on the machine, none of its repositories taken yet'
           : 'on the machine: ${progress.taken.join(', ')}';
+    }
+    if (_taking(progress) case final handed?) {
+      return ['token given ${_since(handed)}, being taken', ?handed.countWords].join(' · ');
     }
     return switch (progress.state) {
       'carried' => switch (progress.why) {
@@ -1322,7 +1402,12 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
     // listed; one with some of it taken is, while it waits for the rest.
     final waiting = {
       for (final said in _progress?.projects ?? const <HostProjectProgress>[])
-        if ((said.waitsForToken || said.hasNoAddress) && said.taken.isEmpty) said.project,
+        if ((_asks(said) || said.hasNoAddress) && said.taken.isEmpty) said.project,
+    };
+    // One whose token was handed on is neither waiting nor ready until the machine took some of it.
+    final taking = {
+      for (final said in _progress?.projects ?? const <HostProjectProgress>[])
+        if (_taking(said) != null && said.taken.isEmpty) said.project,
     };
     final mine = [
       for (final project in view.projects)
@@ -1330,6 +1415,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
         if ((project.host == host.name || host.projects.contains(project.name)) &&
             !view.saysNoRepository(project) &&
             !waiting.contains(project.name) &&
+            !taking.contains(project.name) &&
             (project.admins.contains(view.me) || project.members.contains(view.me)))
           project.name,
     ];
@@ -1411,6 +1497,7 @@ class _OrganizationHostPageState extends State<OrganizationHostPage> {
             ready
                 ? 'Connected as ${view.me}.${mine.isEmpty ? '' : ' Ready to work on: ${mine.join(', ')}.'}'
                       '${waiting.isEmpty ? '' : ' Waiting before $name takes them: ${waiting.join(', ')}.'}'
+                      '${taking.isEmpty ? '' : ' Taking with the token you gave: ${taking.join(', ')}.'}'
                 : isDown
                 ? 'Not connected now: the connection to $name is down. Connect brings it back.'
                 : connected

@@ -424,6 +424,71 @@ void main() {
     await neverCarried('opened by the finder');
   });
 
+  // Harm: right after the token was handed on, the machine still answers that it waits while it takes the project's
+  // repositories, and the machine's own list of projects asks for the token again as if it had not arrived.
+  testWidgets("a project whose token was handed on is said as taken on the machine's list, with no token offered", (
+    tester,
+  ) async {
+    final connections = FixtureConnections(['build']);
+    final machine = await _waitingDemo(tester, connections: connections);
+    await connections.progress('build');
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    final listRow = find.byKey(const ValueKey('projects-row build/demo'));
+    List<String> tokens() => [
+      for (final menu in tester.widgetList<CommandMenu>(
+        find.descendant(of: listRow, matching: find.byType(CommandMenu)),
+      ))
+        for (final command in menu.commands)
+          if (command.id.startsWith('giveToken/')) command.id,
+    ];
+    expect(find.descendant(of: listRow, matching: find.textContaining('waits for your')), findsOneWidget);
+    expect(tokens(), ['giveToken/build/demo']);
+
+    // As the token's step does once the machine took the token; it still says it waits.
+    await connections.tokenTaken('build');
+    await World.settle(tester);
+    expect(find.descendant(of: listRow, matching: find.textContaining('waits for your')), findsNothing);
+    expect(find.descendant(of: listRow, matching: find.textContaining('is taking it')), findsOneWidget);
+    expect(tokens(), isEmpty);
+  });
+
+  // Harm: the project's own page says each repository waits for the token just given, beside a head that says it is
+  // being taken, and refuses work in words that ask for the token again.
+  testWidgets("a project whose token was handed on says so in its repositories' rows too", (tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      ...World.backend.theProjectsItHas,
+      Project.from(const {
+        'name': 'demo',
+        'file': '/srv/demo/project.yml',
+        'carried': true,
+        'repositories': [
+          {'name': 'demo', 'own': true},
+          {'name': 'demo-api', 'carriedHere': true, 'central': 'up-to-date'},
+        ],
+      }),
+    ];
+    final connections = FixtureConnections(['build'])
+      ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+    final machine = await _withTheCard(tester, connections: connections);
+    await connections.progress('build');
+    await connections.tokenTaken('build');
+    World.shell.choosePlace(ShellPlace(Section.machine, machine: machine, machineSection: MachineSection.projects));
+    await World.settle(tester);
+    await _tap(tester, 'project build/demo');
+    await World.showRepository(tester, 'demo-api');
+    final row = find.byKey(const Key('repository-demo-api'));
+    expect(find.descendant(of: row, matching: find.textContaining('waits for your')), findsNothing);
+    expect(find.descendant(of: row, matching: find.textContaining('is taking it')), findsOneWidget);
+    expect(tester.widget<ListTile>(row).onTap, isNull, reason: 'nothing of it taken yet');
+    final start = tester
+        .widget<ProjectDetailsPage>(find.byType(ProjectDetailsPage))
+        .commands
+        .singleWhere((each) => each.id == 'work.start');
+    expect(start.available, isFalse);
+  });
+
   // Harm: while the machine waits for the token for one new repository, the ones it has taken refuse work (seen live).
   testWidgets('a waiting project starts work in the repositories its machine has taken, not in the one that waits', (
     tester,

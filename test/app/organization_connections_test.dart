@@ -5,13 +5,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
-import 'package:porelo_frontend/client.dart' show Project;
+import 'package:porelo_frontend/client.dart' show Connection, Project;
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/host_follow.dart';
 import 'package:porelo_frontend/src/app/host_progress.dart';
+import 'package:porelo_frontend/src/app/host_token_sources.dart';
 import 'package:porelo_frontend/src/app/organization_connections.dart';
 import 'package:porelo_frontend/src/app/person_only_relay.dart';
 import 'package:porelo_frontend/src/app/organization_source.dart';
@@ -897,6 +899,24 @@ void main() {
     expect(made.asked, ['progress build', 'progress build']);
   });
 
+  // Harm: a read begun before another and answered after it puts the machine's older word back over its newer one,
+  // as a waiting answer over the carried one, and the token is asked for again.
+  test('an answer to a read begun earlier never stands over a later one', () async {
+    final made = _HeldReads(['build'])
+      ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+    addTearDown(made.dispose);
+    final hold = made.hold = Completer<void>();
+    final older = made.progress('build');
+    made
+      ..hold = null
+      ..hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"carried"}]}');
+    await made.progress('build');
+    expect(made.heard('build')?.of('demo')?.state, 'carried');
+    hold.complete();
+    await older;
+    expect(made.heard('build')?.of('demo')?.state, 'carried', reason: 'the later read stands');
+  });
+
   // Harm: the machine moved to another address and this computer connected to it, and what the old machine said is
   // shown as the new one's, which is never asked.
   test("what a machine said is no word of the machine moved to another address since", () async {
@@ -1653,6 +1673,254 @@ void main() {
       expect(await forgeAnswersAt(port), isFalse);
     });
   });
+
+  group('a token handed on for a project', () {
+    final waits = HostProgress.read('{"projects":[{"project":"demo","state":"waiting-for-token"}]}');
+    late DateTime now;
+
+    /// Connections to build, which waits for the token for demo and was handed it: as the token's step does, the
+    /// machine's word is heard before it, and asked once after it.
+    Future<_Moving> handedOn() async {
+      now = DateTime.utc(2026, 3, 2, 10);
+      final made = _Moving(['build'])
+        ..hostProgress = waits
+        ..clock = () => now;
+      addTearDown(made.dispose);
+      await made.progress('build');
+      await made.tokenTaken('build');
+      return made;
+    }
+
+    bool asks(_Moving made) => made.asksForToken('build', made.heard('build')?.of('demo'));
+
+    // Harm: the machine answers `waiting-for-token` while its run with the token takes the repositories, and its page
+    // asks for the token again as if it had not arrived.
+    test('a read while the machine takes it keeps it, and five minutes still waiting end it', () async {
+      final made = await handedOn();
+      expect(made.handedOn('build', 'demo')?.taking, isTrue);
+      expect(asks(made), isFalse);
+      expect(made.wantsToken('build', made.heard('build')), isFalse);
+      now = now.add(const Duration(minutes: 2));
+      await made.progress('build');
+      expect(made.handedOn('build', 'demo')?.taking, isTrue, reason: 'still in its run with the token');
+      expect(asks(made), isFalse);
+      now = now.add(const Duration(minutes: 3));
+      final after = made.handedOn('build', 'demo');
+      expect(after?.taking, isFalse);
+      expect(after?.notHelped, 'build still waits for the token you gave 5 minutes ago.');
+      expect(asks(made), isTrue);
+      expect(made.wantsToken('build', made.heard('build')), isTrue);
+    });
+
+    // Harm: a hand-over's word outlives the project's end, and a later wait of it is never asked for.
+    for (final state in ['carried', 'held', 'refused']) {
+      test('the machine saying it $state ends it', () async {
+        final made = await handedOn();
+        made.hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"$state"}]}');
+        await made.progress('build');
+        expect(made.handedOn('build', 'demo'), isNull);
+        made.hostProgress = waits;
+        await made.progress('build');
+        expect(asks(made), isTrue, reason: 'a later wait is a new one');
+      });
+    }
+
+    // Harm: the machine's own Porelo says the project is carried, and the hand-over still stands over a later wait.
+    test("the machine's own list saying it carried ends it", () async {
+      final made = await handedOn();
+      made.listedOn = (_) => (
+        projects: [
+          Project.from(const {'name': 'demo', 'hostState': 'carried'}),
+        ],
+        at: DateTime.now().add(const Duration(minutes: 1)),
+      );
+      made.listedAnew();
+      expect(made.handedOn('build', 'demo'), isNull);
+      made.listedOn = null;
+      expect(asks(made), isTrue);
+    });
+
+    // Harm: a hand-over to a machine the person no longer administers, or that the organization moved or took out,
+    // keeps a wait from being asked for on what stands under that name now.
+    for (final (why, change) in <(String, void Function(_Moving))>[
+      ('taken out of the organization', (made) => made.askOnce(organizationFor('hana', host: _elsewhere))),
+      ('no longer administered', (made) => made.askOnce(organizationFor('mia'))),
+      ('left with no address', (made) => made.askOnce(organizationFor('hana', host: _buildWithoutAddress))),
+      ('moved to another machine', (made) => made.machine = 'another'),
+    ]) {
+      test('a machine $why ends it', () async {
+        final made = await handedOn();
+        change(made);
+        await pumpEventQueue();
+        expect(made.handedOn('build', 'demo'), isNull);
+      });
+    }
+
+    // Harm: a hand-over never made, as a closed token page or a refused token, keeps the token from being asked for.
+    test('a hand-over by a press and one by itself are kept, one refused or not made is not', () async {
+      now = DateTime.utc(2026, 3, 2, 10);
+      final made = _Moving(['build'])
+        ..hostProgress = waits
+        ..clock = () => now;
+      addTearDown(made.dispose);
+      await made.progress('build');
+      String? why = 'build was given no token: refused';
+      HostTokenStep step() => HostTokenStep(
+        host: 'build',
+        sources: HostTokenSources(
+          forge: 'GitHub',
+          repository: 'https://forge.example.org/acme/porelo.git',
+          address: 'forge.example.org',
+          declarations: () async => [_declaredToken],
+          hasKept: (_) async => false,
+          secrets: () => null,
+        ),
+        connect: () async {},
+        give: (_) async => why,
+        heard: () => made.tokenTaken('build'),
+      );
+      final pressed = step();
+      addTearDown(pressed.dispose);
+      await pressed.ask();
+      await pressed.giveFrom(pressed.offered!);
+      expect(made.handedOn('build', 'demo'), isNull, reason: 'refused');
+      final byItself = step();
+      addTearDown(byItself.dispose);
+      expect(await byItself.handOnDeclared(), DeclaredGiving.refused);
+      expect(made.handedOn('build', 'demo'), isNull, reason: 'refused by itself');
+      // A token page closed with nothing given gives nothing, and hears nothing.
+      final closed = step();
+      addTearDown(closed.dispose);
+      await closed.ask();
+      expect(made.handedOn('build', 'demo'), isNull, reason: 'closed');
+      why = null;
+      expect(await byItself.handOnDeclared(), DeclaredGiving.given);
+      expect(made.handedOn('build', 'demo')?.at, now, reason: 'handed on by itself');
+      now = now.add(const Duration(minutes: 1));
+      await pressed.giveFrom(pressed.offered!);
+      expect(made.handedOn('build', 'demo')?.at, now, reason: 'given by a press');
+    });
+
+    // Harm: the count says how many repositories are left where the machine never takes some, or where only its own
+    // list said part of them, and it never reaches its end.
+    test('the count leaves out repositories never taken here, and is none where they are not all listed', () async {
+      final made = await handedOn();
+      made.hostProgress = HostProgress.read(
+        '{"projects":[{"project":"demo","state":"waiting-for-token","repositories":['
+        '{"repository":"a","state":"taken"},{"repository":"b","state":"waiting"},'
+        '{"repository":"c","state":"not-carried"},{"repository":"d","state":"no-central"}]}]}',
+      );
+      await made.progress('build');
+      expect(made.handedOn('build', 'demo')?.countWords, '1 of 2 taken');
+      made.hostProgress = waits;
+      await made.progress('build');
+      expect(made.handedOn('build', 'demo')?.count, isNull, reason: 'no repositories said');
+    });
+
+    // Harm: the count reads Porelo's own list, which leaves out the repositories that share the project's word, as all
+    // of them, and says a project nearly taken where most of it is still to come.
+    test("the count is none where the machine's own list says the repositories in part", () async {
+      final made = await handedOn();
+      made.hostProgress = HostProgress.read(
+        '{"projects":[{"project":"demo","state":"waiting-for-token","repositories":['
+        '{"repository":"a","state":"waiting"},{"repository":"b","state":"waiting"}]}]}',
+      );
+      await made.progress('build');
+      expect(made.handedOn('build', 'demo')?.countWords, '0 of 2 taken', reason: "the machine's whole answer");
+      made.listedOn = (_) => (
+        projects: [
+          Project.from(const {
+            'name': 'demo',
+            'hostState': 'cloning',
+            'repositories': [
+              {'name': 'a', 'hostState': 'taken'},
+              {'name': 'b', 'hostState': 'cloning'},
+            ],
+          }),
+        ],
+        at: DateTime.now().add(const Duration(minutes: 1)),
+      );
+      made.listedAnew();
+      expect(made.heard('build')?.of('demo')?.state, 'cloning', reason: 'read through the list');
+      expect(made.handedOn('build', 'demo')?.taking, isTrue);
+      expect(made.handedOn('build', 'demo')?.count, isNull);
+    });
+
+    // Harm: nothing reads the machine at the five-minute mark, so a token that did not help is asked for again only
+    // where a page happens to be open and redraws, and every other row goes on saying it is being taken.
+    test('the five-minute mark reads the machine once and tells every listener', () {
+      fakeAsync((async) {
+        now = DateTime.utc(2026, 3, 2, 10);
+        final made = _Moving(['build'])
+          ..hostProgress = waits
+          ..clock = () => now;
+        unawaited(made.progress('build'));
+        async.flushMicrotasks();
+        unawaited(made.tokenTaken('build'));
+        async.flushMicrotasks();
+        var told = 0;
+        made
+          ..addListener(() => told++)
+          ..asked.clear();
+        now = now.add(const Duration(minutes: 4));
+        async.elapse(const Duration(minutes: 4));
+        expect(made.asked, isEmpty, reason: 'nothing read before the mark');
+        now = now.add(const Duration(minutes: 1));
+        async.elapse(const Duration(minutes: 1));
+        expect(made.asked, ['progress build']);
+        expect(told, greaterThan(0));
+        expect(made.handedOn('build', 'demo')?.taking, isFalse);
+        made.dispose();
+      });
+    });
+
+    // Harm: the timer of a hand-over outlives its record and reads a machine the person let go of.
+    test('a record ended before the mark reads nothing at it', () {
+      fakeAsync((async) {
+        now = DateTime.utc(2026, 3, 2, 10);
+        final made = _Moving(['build'])
+          ..hostProgress = waits
+          ..clock = () => now;
+        unawaited(made.progress('build'));
+        async.flushMicrotasks();
+        unawaited(made.tokenTaken('build'));
+        async.flushMicrotasks();
+        void listen() {}
+        made.addListener(listen);
+        expect(async.pendingTimers, isNotEmpty, reason: 'its read at the mark');
+        made.hostProgress = HostProgress.read('{"projects":[{"project":"demo","state":"carried"}]}');
+        unawaited(made.progress('build'));
+        async.flushMicrotasks();
+        made.asked.clear();
+        async.elapse(const Duration(minutes: 6));
+        expect(made.asked, isEmpty);
+        expect(async.pendingTimers, isEmpty);
+        made.dispose();
+      });
+    });
+
+    // Harm: a token given where nothing was heard of the machine yet, or the read before it was held back, records no
+    // project, and the button comes back at once while the machine takes the repositories.
+    test('a token given before anything was heard takes its projects from the read after it', () async {
+      now = DateTime.utc(2026, 3, 2, 10);
+      final made = _Moving(['build'])
+        ..hostProgress = waits
+        ..clock = () => now;
+      addTearDown(made.dispose);
+      expect(made.heard('build'), isNull);
+      await made.tokenTaken('build');
+      expect(made.handedOn('build', 'demo')?.taking, isTrue);
+      expect(made.handedOn('build', 'demo')?.at, now);
+      expect(asks(made), isFalse);
+    });
+
+    // Harm: the page of a machine disconnected from goes on saying a token is being taken, its time ticking.
+    test('a disconnect ends it', () async {
+      final made = await handedOn();
+      await made.disconnect('build');
+      expect(made.handedOn('build', 'demo'), isNull);
+    });
+  });
 }
 
 /// Writes as on Linux, but leaves the folder's permissions alone: Windows' ACLs are not this test's.
@@ -1672,9 +1940,36 @@ class _HeldReads extends FixtureConnections {
   Future<HostProgress> progress(String host) async {
     final said = hostProgress;
     asked.add('progress $host');
+    final read = beginRead(host);
     await hold?.future;
     // A machine answers over ssh, never within the call that asked it.
     await Future<void>.value();
-    return keepHeard(host, said);
+    return keepHeard(host, said, read: read);
   }
 }
+
+/// Connections whose machine under each name is [machine], so that a move of it can be told.
+class _Moving extends FixtureConnections {
+  _Moving(super.hosts);
+
+  /// Which machine the organization names now.
+  Object? machine = 'first';
+
+  @override
+  Object? machineOf(String host) => machine;
+}
+
+/// The organization's machines with build taken out.
+const _elsewhere = OrganizationHost(name: 'elsewhere', admins: ['hana']);
+
+/// Build as the organization names it with its address taken away.
+const _buildWithoutAddress = OrganizationHost(name: 'build', admins: ['hana'], projects: ['demo']);
+
+const _declaredToken = Connection(
+  id: 'org-token',
+  kind: 'TOKEN',
+  match: 'https://forge.example.org/acme/',
+  purpose: 'git',
+  source: 'VAULT',
+  present: true,
+);

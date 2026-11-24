@@ -868,9 +868,198 @@ abstract interface class OrganizationSource {
   Future<void> apply(OrganizationWrite write);
 }
 
+/// How long a machine handed the token for a project is taken to be busy with it while it still answers that it waits:
+/// its run with the token reads a key and makes a first copy of each repository, often a minute or more, and says
+/// `waiting-for-token` until it ends.
+const tokenTakingTime = Duration(minutes: 5);
+
+/// A token handed on to a machine for one project, as [HostConnections.handedOn] answers it.
+@immutable
+class TokenHandOn {
+  /// Keeps when it was handed on, and what came of it.
+  const TokenHandOn({required this.at, this.notHelped, this.count});
+
+  /// When the machine took it, by [HostConnections.clock].
+  final DateTime at;
+
+  /// Why the token is asked for again: the machine still waits [tokenTakingTime] after it; null while it is taking it.
+  final String? notHelped;
+
+  /// How many of the project's repositories the machine took, of those it takes, where its answer lists them all.
+  final ({int taken, int of})? count;
+
+  /// Whether the machine is taken to be busy with the token, so nothing asks for it again.
+  bool get taking => notHelped == null;
+
+  /// The count in words, or null where there is none.
+  String? get countWords => switch (count) {
+    (:final taken, of: final all)? => '$taken of $all taken',
+    null => null,
+  };
+}
+
+/// One token handed on to a machine for a project: when, to which machine, and its read at [tokenTakingTime].
+class _HandOnRecord {
+  _HandOnRecord(this.at, this.machine);
+
+  final DateTime at;
+  final Object? machine;
+
+  /// Reads the machine once [tokenTakingTime] is over.
+  Timer? timer;
+
+  /// Whether [tokenTakingTime] is over by the timer, whatever the clock says.
+  bool reached = false;
+}
+
 /// This person's one connection to each host: ssh, its pinned host key and the tunnels, whatever number of projects it
 /// carries. Each throws [OrganizationRefused] in words a person can act on.
 abstract class HostConnections extends ChangeNotifier {
+  /// Where a hand-over's time and its age are read from; a test sets its own.
+  DateTime Function() clock = DateTime.now;
+
+  /// Each token handed on, by host and project, with the machine it went to: it stands until the machine says the
+  /// project is carried, held or refused, or still waits [tokenTakingTime] after it, or the connection goes.
+  final _handOns = <String, Map<String, _HandOnRecord>>{};
+
+  /// Each hand-over that did not help, by host and project: why the token is asked for again, until the next one or
+  /// the project's end.
+  final _notHelped = <String, Map<String, ({DateTime at, Object? machine, String words})>>{};
+
+  /// The token handed on to [host] for [project], as it stands now; null where none was, or its word has ended.
+  ///
+  /// The one place that tells whether a machine's `waiting-for-token` asks for the token: right after the hand-over
+  /// it does not, as the machine still says it while it takes the project's repositories.
+  TokenHandOn? handedOn(String host, String project) {
+    _settleHandOns(host);
+    if (_handOns[host]?[project] case final record?) {
+      return TokenHandOn(at: record.at, count: heard(host)?.of(project)?.takenCount);
+    }
+    if (_notHelped[host]?[project] case final record?) return TokenHandOn(at: record.at, notHelped: record.words);
+    return null;
+  }
+
+  /// Whether [said], [host]'s word on one project, asks for the token: not while a token handed on for it is taken.
+  bool asksForToken(String host, HostProjectProgress? said) =>
+      said != null && said.waitsForToken && !(handedOn(host, said.project)?.taking ?? false);
+
+  /// Whether anything in [progress], [host]'s word, asks for the token: its first one, or one of a project's.
+  bool wantsToken(String host, HostProgress? progress) =>
+      progress != null && (progress.waitsForToken || progress.projects.any((each) => asksForToken(host, each)));
+
+  /// Ends what no longer stands of [host]'s hand-overs: all of them once its connection went, those of another
+  /// machine under its name, those of a project the machine says it carried, held, refused or has no address for, and
+  /// those it still waits for [tokenTakingTime] after, which then ask for the token again with their reason.
+  void _settleHandOns(String host) {
+    final handed = _handOns[host];
+    final notHelped = _notHelped[host];
+    if (handed == null && notHelped == null) return;
+    // Said only of a machine this computer reads: once disconnected, nothing follows how its run goes on.
+    if (!connected(host)) {
+      _forgetHandOns(host);
+      return;
+    }
+    final machine = machineOf(host);
+    final said = heard(host);
+    bool ended(String project, Object? of) {
+      if (of != machine) return true;
+      final word = said?.of(project);
+      return word != null && (word.hasNoAddress || const {'carried', 'held', 'refused'}.contains(word.state));
+    }
+
+    handed?.removeWhere((project, record) {
+      final gone = ended(project, record.machine);
+      if (gone) record.timer?.cancel();
+      return gone;
+    });
+    notHelped?.removeWhere((project, record) => ended(project, record.machine));
+    final now = clock();
+    for (final MapEntry(key: project, value: record)
+        in handed?.entries.toList() ?? <MapEntry<String, _HandOnRecord>>[]) {
+      final waited = now.difference(record.at);
+      if ((waited < tokenTakingTime && !record.reached) || !(said?.of(project)?.waitsForToken ?? false)) continue;
+      record.timer?.cancel();
+      handed!.remove(project);
+      final minutes = waited < tokenTakingTime ? tokenTakingTime.inMinutes : waited.inMinutes;
+      (_notHelped[host] ??= {})[project] = (
+        at: record.at,
+        machine: record.machine,
+        words: '$host still waits for the token you gave $minutes minutes ago.',
+      );
+    }
+    if (handed?.isEmpty ?? false) _handOns.remove(host);
+    if (_notHelped[host]?.isEmpty ?? false) _notHelped.remove(host);
+  }
+
+  /// Starts the word of a token handed on to [host] at [at] for [projects], ending what an earlier one came to; at
+  /// [tokenTakingTime] after it the machine is read once, so that every page hears whether it still waits.
+  void _handedOnNow(String host, Iterable<String> projects, {DateTime? at}) {
+    final machine = machineOf(host);
+    final given = at ?? clock();
+    for (final project in projects) {
+      _handOns[host]?[project]?.timer?.cancel();
+      (_handOns[host] ??= {})[project] = _HandOnRecord(given, machine);
+      _notHelped[host]?.remove(project);
+    }
+    _armTimers();
+  }
+
+  /// Sets each hand-over's read at its [tokenTakingTime], while anyone listens: with nobody left to tell, as once
+  /// every page and the window let go, nothing reads the machine, and [handedOn] still settles by the clock.
+  void _armTimers() {
+    if (_letGo || !hasListeners) return;
+    for (final MapEntry(key: host, value: records) in _handOns.entries) {
+      for (final MapEntry(key: project, value: record) in records.entries) {
+        if (record.timer != null) continue;
+        final left = tokenTakingTime - clock().difference(record.at);
+        record.timer = Timer(left.isNegative ? Duration.zero : left, () => _takingTimeOver(host, project, record));
+      }
+    }
+  }
+
+  void _disarmTimers() {
+    for (final records in _handOns.values) {
+      for (final record in records.values) {
+        record.timer?.cancel();
+        record.timer = null;
+      }
+    }
+  }
+
+  @override
+  void addListener(VoidCallback listener) {
+    super.addListener(listener);
+    _armTimers();
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    super.removeListener(listener);
+    if (!hasListeners) _disarmTimers();
+  }
+
+  /// [record]'s [tokenTakingTime] is over: the machine is asked what it says now, and the record settled on that.
+  void _takingTimeOver(String host, String project, _HandOnRecord record) {
+    record.timer = null;
+    if (_letGo || !identical(_handOns[host]?[project], record)) return;
+    record.reached = true;
+    void settle() {
+      if (_letGo) return;
+      _settleHandOns(host);
+      notifyListeners();
+    }
+
+    if (!connected(host)) return settle();
+    unawaited(ask(host).then<void>((_) => settle(), onError: (Object _) => settle()));
+  }
+
+  void _forgetHandOns(String host) {
+    for (final record in _handOns.remove(host)?.values ?? const <_HandOnRecord>[]) {
+      record.timer?.cancel();
+    }
+    _notHelped.remove(host);
+  }
+
   /// Whether this computer is connected to [host].
   bool connected(String host);
 
@@ -977,12 +1166,35 @@ abstract class HostConnections extends ChangeNotifier {
   /// begun since rather than logging in as root beside it.
   /// An ask begun before the token is no answer to it, a project's token too. A refusal of this ask is kept for
   /// [tokenTakenRead] and thrown.
+  /// The projects heard waiting for it then were handed it: their wait is no longer said while the machine takes them
+  /// (see [handedOn]).
   Future<void> tokenTaken(String host) async {
+    final given = clock();
+    final waited = [
+      for (final project in heard(host)?.projects ?? const <HostProjectProgress>[])
+        if (project.waitsForToken) project.project,
+    ];
+    if (!_letGo && waited.isNotEmpty) {
+      _handedOnNow(host, waited, at: given);
+      notifyListeners();
+    }
     _asking.remove(host);
     hearTokenWait(host, waits: false);
     String? refused;
     try {
-      if (connected(host)) await ask(host);
+      if (connected(host)) {
+        final said = await ask(host);
+        // Nothing was heard waiting before, as of a machine not asked yet: the projects that wait right after the
+        // token are the ones it was handed for, and the machine is taking them.
+        final waiting = [
+          for (final project in said.projects)
+            if (project.waitsForToken) project.project,
+        ];
+        if (!_letGo && waited.isEmpty && waiting.isNotEmpty) {
+          _handedOnNow(host, waiting, at: given);
+          notifyListeners();
+        }
+      }
     } on OrganizationRefused catch (refusal) {
       refused = refusal.words;
       rethrow;
@@ -1078,21 +1290,40 @@ abstract class HostConnections extends ChangeNotifier {
   /// Tells every page that shows what a host said that a machine's own list of its projects was read anew.
   void listedAnew() {
     if (_letGo) return;
+    // What the list says now may end a hand-over's word, as the project carried.
+    for (final host in {..._handOns.keys, ..._notHelped.keys}) {
+      _settleHandOns(host);
+    }
     notifyListeners();
   }
 
-  /// Keeps [progress] as what [host] said last, for every page that shows it, and answers it.
+  /// How many reads of each host were begun, and which of them said what [heard] keeps.
+  final _readsBegun = <String, int>{};
+  final _readKept = <String, int>{};
+
+  /// Counts a read of [host] begun now; its number goes to [keepHeard] with its answer, so that a read begun earlier
+  /// and answered later never stands over a later one's word.
   @protected
-  HostProgress keepHeard(String host, HostProgress progress) {
+  int beginRead(String host) => _readsBegun[host] = (_readsBegun[host] ?? 0) + 1;
+
+  /// Keeps [progress] as what [host] said last, for every page that shows it, and answers it. [read] is its number
+  /// from [beginRead]; without one it counts as the latest begun. An answer to a read begun before the one kept is
+  /// answered to its own asker alone, and not kept.
+  @protected
+  HostProgress keepHeard(String host, HostProgress progress, {int? read}) {
     // An answer that comes after these connections were let go has nobody left to tell.
     if (_letGo) return progress;
     // Asked before the connection went or the role was taken, it stands for nobody now.
     if (!connected(host) || _notTheirs.contains(host)) return progress;
+    final number = read ?? _readsBegun[host] ?? 0;
+    if (number < (_readKept[host] ?? 0) && _heardOf[host] == machineOf(host)) return progress;
+    _readKept[host] = number;
     // When it was heard, so a project list read before it never stands over it.
     progress = progress.heard(DateTime.now());
     _heard[host] = progress;
     _heardOf[host] = machineOf(host);
     _keepTokenWait(host, waits: progress.waitsForToken);
+    _settleHandOns(host);
     notifyListeners();
     return progress;
   }
@@ -1102,6 +1333,9 @@ abstract class HostConnections extends ChangeNotifier {
   @override
   void dispose() {
     _letGo = true;
+    for (final host in [..._handOns.keys]) {
+      _forgetHandOns(host);
+    }
     super.dispose();
   }
 
@@ -1113,7 +1347,14 @@ abstract class HostConnections extends ChangeNotifier {
     // A machine the organization no longer names: its wait and what it said are no word of one added under its name
     // later, at the same address or not.
     final named = {for (final host in view.hosts) host.name};
-    for (final gone in {..._tokenWaits.keys, ..._heard.keys, ..._askedOnce}.difference(named)) {
+    for (final gone in {
+      ..._tokenWaits.keys,
+      ..._heard.keys,
+      ..._askedOnce,
+      ..._handOns.keys,
+      ..._notHelped.keys,
+    }.difference(named)) {
+      _forgetHandOns(gone);
       _tokenWaits.remove(gone);
       dropTokenWait(gone);
       _heard.remove(gone);
@@ -1126,6 +1367,8 @@ abstract class HostConnections extends ChangeNotifier {
         _tokenWaits.remove(host.name);
         dropTokenWait(host.name);
       }
+      // A token handed on is said to its Machine Admin alone, and of a machine the organization still says where it is.
+      if (!administers || host.address == null) _forgetHandOns(host.name);
       // Not theirs to ask, a read on its way is kept for nobody; one not connected yet is kept once connected.
       if (administers) {
         _notTheirs.remove(host.name);

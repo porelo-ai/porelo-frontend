@@ -119,6 +119,7 @@ String repositoryOnTheMachine({
   required List<Task>? tasks,
   List<String>? carriedAlone,
   Repository? listed,
+  bool taking = false,
   String forge = 'central forge',
 }) {
   final held = _standing(
@@ -128,6 +129,7 @@ String repositoryOnTheMachine({
     carriedAlone: carriedAlone,
     listed: listed,
     forge: forge,
+    taking: taking,
   ).words;
   return [held, workIn(project: project, repository: repository, listed: listed, tasks: tasks)].join(' · ');
 }
@@ -140,6 +142,7 @@ bool? carriedOnTheMachine({
   required bool progressRead,
   List<String>? carriedAlone,
   Repository? listed,
+  bool taking = false,
   String forge = 'central forge',
 }) => _standing(
   repository: repository,
@@ -148,6 +151,7 @@ bool? carriedOnTheMachine({
   carriedAlone: carriedAlone,
   listed: listed,
   forge: forge,
+  taking: taking,
 ).carried;
 
 /// Why work cannot start in [repository] on the machine, as [repositoryOnTheMachine] words it: one it does not carry,
@@ -158,6 +162,7 @@ String? startRefusedOnTheMachine({
   required bool progressRead,
   List<String>? carriedAlone,
   Repository? listed,
+  bool taking = false,
   String forge = 'central forge',
 }) => _standing(
   repository: repository,
@@ -166,6 +171,7 @@ String? startRefusedOnTheMachine({
   carriedAlone: carriedAlone,
   listed: listed,
   forge: forge,
+  taking: taking,
 ).startRefused;
 
 /// The states of a repository on its host that a wait of its project for the token does not touch.
@@ -179,6 +185,7 @@ const _waitsNot = {'taken', 'no-central', 'not-carried'};
   required bool progressRead,
   List<String>? carriedAlone,
   Repository? listed,
+  bool taking = false,
   String forge = 'central forge',
 }) {
   final row = progress?.repositories.where((each) => each.repository == repository).firstOrNull;
@@ -186,7 +193,8 @@ const _waitsNot = {'taken', 'no-central', 'not-carried'};
   final notHere = carriedAlone != null && !alone;
   final daemonCarried = listed == null ? null : carriedWords(listed);
   final notCarried = 'This machine does not carry $repository, so work cannot start in it here.';
-  final waits = waitingWords(progress, forge);
+  // A wait the token handed on answers is said as being taken, never as asking for the token.
+  final waits = taking && (progress?.waitsForToken ?? false) ? tokenTakenWords : waitingWords(progress, forge);
   if (listed?.carriedHere == false) {
     // Not carried here, so nothing of it is held here, whatever the project is.
     return (words: daemonCarried!, carried: false, startRefused: notCarried);
@@ -199,7 +207,9 @@ const _waitsNot = {'taken', 'no-central', 'not-carried'};
     return (
       words: waits,
       carried: null,
-      startRefused: 'The machine $waits, and takes no repository before then, so work cannot start in $repository.',
+      startRefused: waits == tokenTakenWords
+          ? 'The machine $waits, so work cannot start in $repository before it has taken it.'
+          : 'The machine $waits, and takes no repository before then, so work cannot start in $repository.',
     );
   }
   // Held is the project's state: it holds only what the machine carries of it, never one the host left out or that is

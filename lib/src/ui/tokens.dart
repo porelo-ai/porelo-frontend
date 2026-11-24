@@ -226,6 +226,7 @@ abstract final class StateColours {
       'not yet vouched for' ||
       'not yet' ||
       'being put on' ||
+      'token given, being taken' ||
       'held' ||
       'degraded' ||
       'shut' ||

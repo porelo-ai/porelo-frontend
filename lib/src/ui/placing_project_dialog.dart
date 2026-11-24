@@ -81,10 +81,28 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
   @override
   void dispose() {
     _timer?.cancel();
+    // Closed however, by its button, Escape or a tap beside it: the machine's page shows what it says now, not what it
+    // said when this last asked. A read on its way is joined; nobody is left to hear a refusal.
+    // While its own read, fetch or hand-over is on its way, that one tells the machine's page what it says now.
+    final reading = _beginning || _asking || _giving || _handingOn;
+    if (!reading && _stopped == null && !_ended && widget.connections.connected(widget.host)) {
+      unawaited(widget.connections.ask(widget.host).then<void>((_) {}, onError: (Object _) {}));
+    }
     super.dispose();
   }
 
+  /// Whether [_begin] still connects or fetches.
+  bool _beginning = true;
+
   Future<void> _begin() async {
+    try {
+      await _beginReads();
+    } finally {
+      _beginning = false;
+    }
+  }
+
+  Future<void> _beginReads() async {
     // Not while the dialog is being built: what the connections tell would mark the screen below it while it builds.
     await Future<void>.value();
     if (!mounted) return;
@@ -100,7 +118,7 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
       // A first fetch may refuse before its account exists; asking still tells how it stands, and if
       // that refuses too, the machine's words are what there is to say.
       try {
-        await _take(widget.connections.progress(widget.host));
+        await _take(widget.connections.ask(widget.host));
       } on OrganizationRefused {
         if (mounted) setState(() => _lastRefusal = refused.words);
       }
@@ -125,7 +143,7 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
     }
     _asking = true;
     try {
-      await _take(widget.connections.progress(widget.host));
+      await _take(widget.connections.ask(widget.host));
       _nextQuiet = 1;
     } on OrganizationRefused catch (refused) {
       // A machine that does not answer now is asked again, less and less often, as each refused login
@@ -179,7 +197,7 @@ class _PlacingProjectDialogState extends State<PlacingProjectDialog> {
       return;
     }
     try {
-      await _take(widget.connections.progress(widget.host));
+      await _take(widget.connections.ask(widget.host));
     } on OrganizationRefused catch (refused) {
       if (mounted) setState(() => _lastRefusal = refused.words);
       return;

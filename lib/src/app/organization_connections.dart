@@ -164,14 +164,14 @@ class CardHostConnections extends HostConnections {
 
   /// What the machine now says of the token is what stands, whoever gave it and from where, while [asked] is still the
   /// machine the organization names.
-  HostProgress _heard(String host, HostProgress progress, {required Object? asked}) {
+  HostProgress _heard(String host, HostProgress progress, {required Object? asked, required int read}) {
     // A machine moved while it was asked: its word is none of the machine named now.
     if (machineOf(host) != asked) return progress;
     if (!progress.waitsForToken) _waiting.remove(host);
     // Root's word is no word to someone whose role was taken while it was asked.
     if (!_administers(host)) return progress;
     // Kept for every page that shows it, which hears of it so.
-    return keepHeard(host, progress);
+    return keepHeard(host, progress, read: read);
   }
 
   @override
@@ -421,13 +421,15 @@ class CardHostConnections extends HostConnections {
   @override
   Future<HostProgress> refresh(String host) async {
     final asked = machineOf(host);
-    return _heard(host, await _progress.refresh(_config(host), host), asked: asked);
+    final read = beginRead(host);
+    return _heard(host, await _progress.refresh(_config(host), host), asked: asked, read: read);
   }
 
   @override
   Future<HostProgress> progress(String host) async {
     final asked = machineOf(host);
-    return _heard(host, await _progress.status(_config(host), host), asked: asked);
+    final read = beginRead(host);
+    return _heard(host, await _progress.status(_config(host), host), asked: asked, read: read);
   }
 
   /// Whether each host offers the start of its read of the organization, as asked once per connection: the reason it

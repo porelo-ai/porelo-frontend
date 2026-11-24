@@ -74,10 +74,27 @@ class HostProjectProgress {
     this.since,
     this.hasNoAddress = false,
     this.repositories = const [],
+    this.repositoriesWhole = true,
   });
 
   /// Each repository's host state and reason, with its central state once taken.
   final List<HostRepositoryProgress> repositories;
+
+  /// Whether [repositories] holds every repository the host said of the project: Porelo's own list leaves out those
+  /// that share the project's word, so a count of it would come up short.
+  final bool repositoriesWhole;
+
+  /// How many repositories the host took, of those it takes at all: one with no central address, or one this machine
+  /// does not carry, is never taken here. Null where the host did not list them all.
+  ({int taken, int of})? get takenCount {
+    if (repositories.isEmpty || !repositoriesWhole) return null;
+    final takes = [
+      for (final each in repositories)
+        if (each.state != 'not-carried' && each.state != 'no-central') each,
+    ];
+    if (takes.isEmpty) return null;
+    return (taken: takes.where((each) => each.state == 'taken').length, of: takes.length);
+  }
 
   /// The repositories the host has taken.
   List<String> get taken => [
@@ -113,6 +130,7 @@ class HostProjectProgress {
     since: since,
     hasNoAddress: true,
     repositories: repositories,
+    repositoriesWhole: repositoriesWhole,
   );
 }
 
@@ -296,6 +314,7 @@ class HostProgress {
     project: listed.name,
     state: listed.hostState!,
     why: listed.hostWhy,
+    repositoriesWhole: false,
     repositories: [
       for (final repository in listed.repositoryStates)
         // While the project waits, each repository carries the project's word rather than its own.

@@ -11,6 +11,7 @@ import 'package:porelo_frontend/src/ui/organization_host_pages.dart';
 import 'package:porelo_frontend/src/ui/placing_project_dialog.dart' show GiveHostToken;
 import 'package:porelo_frontend/src/ui/organization_page.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
+import 'package:porelo_frontend/src/ui/expandable_list_row.dart' show ItemListRow, StateChip;
 import 'package:porelo_frontend/src/ui/filtered_list_section.dart';
 
 import '../support/organization_fixtures.dart';
@@ -1148,6 +1149,232 @@ void main() {
       await pressOrganizationAction(tester, 'giveToken');
       expect(gave, ['build']);
       expect(_action('giveToken'), findsNothing);
+    });
+
+    /// Build as hana administers it, carrying her project `web` and, where [api], her project `api` too.
+    OrganizationHost carrying({bool api = false}) => OrganizationHost(
+      name: 'build',
+      address: buildHost.address,
+      port: buildHost.port,
+      hostKey: buildHost.hostKey,
+      admins: const ['hana'],
+      projects: ['web', if (api) 'api'],
+    );
+    const hers = [
+      OrganizationProject(name: 'web', admins: ['hana'], host: 'build'),
+      OrganizationProject(name: 'api', admins: ['hana'], host: 'build'),
+    ];
+
+    /// Connections to build that heard it wait for the token for `web` and handed it on, as the token's step does: its
+    /// clock at [now], and the machine still saying it waits after it.
+    Future<FixtureConnections> handedOn(DateTime Function() now, {String? said}) async {
+      final connections = FixtureConnections(['build'])
+        ..clock = now
+        ..hostProgress = HostProgress.read(said ?? '{"projects":[{"project":"web","state":"waiting-for-token"}]}');
+      await connections.progress('build');
+      await connections.tokenTaken('build');
+      return connections;
+    }
+
+    String chip(WidgetTester tester, String project) => tester
+        .widget<StateChip>(
+          find.descendant(
+            of: find.ancestor(
+              of: find.byKey(ValueKey('organization.projectSource/$project')),
+              matching: find.byType(ItemListRow),
+            ),
+            matching: find.byType(StateChip),
+          ),
+        )
+        .words;
+
+    String source(WidgetTester tester, String project) =>
+        tester.widget<Text>(find.byKey(ValueKey('organization.projectSource/$project'))).data!;
+
+    String connectionWords(WidgetTester tester) =>
+        tester.widget<Text>(find.byKey(const ValueKey('organization.connectionWords'))).data!;
+
+    bool rowOffersToken(WidgetTester tester, String project) => tester
+        .widgetList<CommandMenu>(find.byType(CommandMenu))
+        .expand((menu) => menu.commands)
+        .any((command) => command.id == 'giveToken/build/$project');
+
+    // Harm: right after the token was handed on, the machine still answers that it waits while it takes the project's
+    // repositories, and its page asks for the token again and calls the project waiting, as if it had not arrived.
+    testWidgets('a project whose token was handed on is said as being taken, and the token is not asked for', (
+      tester,
+    ) async {
+      handOnTickEvery = null;
+      addTearDown(() => handOnTickEvery = const Duration(seconds: 20));
+      final connections = await handedOn(DateTime.now);
+      await page(
+        tester,
+        'hana',
+        connections: connections,
+        moreProjects: hers,
+        shown: carrying(),
+        onStartWork: (_, _) async => null,
+      );
+      expect(chip(tester, 'web'), 'Token given, being taken');
+      expect(find.text('Waiting for your token'), findsNothing);
+      expect(_action('giveToken'), findsNothing);
+      expect(rowOffersToken(tester, 'web'), isFalse);
+      expect(source(tester, 'web'), contains('token given less than a minute ago, being taken'));
+      final said = connectionWords(tester);
+      expect(said, isNot(matches(RegExp('Ready to work on:[^.]*web'))));
+      expect(said, isNot(contains('Waiting before')));
+      expect(said, contains('Taking with the token you gave: web.'));
+      expect(find.text('Start work in api'), findsOneWidget);
+      expect(find.textContaining('Start work in web'), findsNothing, reason: 'nothing of it taken yet');
+    });
+
+    // Harm: a token that did not help is never asked for again, and the Machine Admin does not learn why.
+    testWidgets('a machine still waiting five minutes after the token asks for it again, saying so once', (
+      tester,
+    ) async {
+      handOnTickEvery = null;
+      addTearDown(() => handOnTickEvery = const Duration(seconds: 20));
+      var now = DateTime.utc(2026, 3, 2, 10);
+      final connections = await handedOn(() => now);
+      await page(tester, 'hana', connections: connections, moreProjects: hers, shown: carrying());
+      now = now.add(const Duration(minutes: 2));
+      await connections.progress('build');
+      await tester.pumpAndSettle();
+      expect(_action('giveToken'), findsNothing, reason: 'a read while it takes the repositories');
+      now = now.add(const Duration(minutes: 3));
+      await connections.progress('build');
+      await tester.pumpAndSettle();
+      expect(_action('giveToken'), findsOneWidget);
+      expect(rowOffersToken(tester, 'web'), isTrue);
+      expect(chip(tester, 'web'), 'Waiting for your token');
+      final why = find.byKey(const ValueKey('organization.notHelped/web'));
+      expect(tester.widget<Text>(why).data, 'build still waits for the token you gave 5 minutes ago.');
+      final announced = find.ancestor(
+        of: why,
+        matching: find.byWidgetPredicate((widget) => widget is Semantics && widget.properties.liveRegion == true),
+      );
+      expect(announced, findsOneWidget);
+      expect(
+        find.descendant(
+          of: announced,
+          matching: find.byWidgetPredicate((widget) => widget is Text && widget.data!.contains('ago,')),
+        ),
+        findsNothing,
+        reason: 'the ticking time is never announced',
+      );
+    });
+
+    // Harm: the page's token button goes with the one project handed the token, while another still waits for it.
+    testWidgets('a project not handed the token keeps the button, beside one being taken', (tester) async {
+      handOnTickEvery = null;
+      addTearDown(() => handOnTickEvery = const Duration(seconds: 20));
+      final connections = await handedOn(DateTime.now);
+      connections.hostProgress = HostProgress.read(
+        '{"projects":[{"project":"web","state":"waiting-for-token"},{"project":"api","state":"waiting-for-token"}]}',
+      );
+      await connections.progress('build');
+      await page(tester, 'hana', connections: connections, moreProjects: hers, shown: carrying(api: true));
+      expect(_action('giveToken'), findsOneWidget);
+      expect(chip(tester, 'web'), 'Token given, being taken');
+      expect(chip(tester, 'api'), 'Waiting for your token');
+      expect(rowOffersToken(tester, 'web'), isFalse);
+      expect(rowOffersToken(tester, 'api'), isTrue);
+      final said = connectionWords(tester);
+      expect(said, contains('Waiting before build takes them: api.'));
+      expect(said, contains('Taking with the token you gave: web.'));
+    });
+
+    // Harm: the count says repositories are left that the machine never takes, so it never reaches its end.
+    testWidgets('the count of repositories taken leaves out those not carried and those with no central address', (
+      tester,
+    ) async {
+      handOnTickEvery = null;
+      addTearDown(() => handOnTickEvery = const Duration(seconds: 20));
+      final connections = await handedOn(
+        DateTime.now,
+        said:
+            '{"projects":[{"project":"web","state":"waiting-for-token","repositories":['
+            '{"repository":"web-a","state":"waiting"},{"repository":"web-b","state":"waiting"},'
+            '{"repository":"web-c","state":"not-carried"},{"repository":"web-d","state":"no-central"}]}]}',
+      );
+      await page(tester, 'hana', connections: connections, moreProjects: hers, shown: carrying());
+      expect(source(tester, 'web'), contains('0 of 2 taken'));
+    });
+
+    // Harm: the time since the token was given stands still, so a machine busy for minutes reads as stuck at once.
+    testWidgets('the time since the token was given follows the clock', (tester) async {
+      handOnTickEvery = const Duration(seconds: 1);
+      addTearDown(() => handOnTickEvery = const Duration(seconds: 20));
+      var now = DateTime.utc(2026, 3, 2, 10);
+      final connections = await handedOn(() => now);
+      await page(tester, 'hana', connections: connections, moreProjects: hers, shown: carrying());
+      expect(source(tester, 'web'), contains('token given less than a minute ago'));
+      now = now.add(const Duration(minutes: 3));
+      await tester.pump(const Duration(seconds: 1));
+      expect(source(tester, 'web'), contains('token given 3 minutes ago'));
+    });
+
+    // Harm: with nothing redrawing the page, the five-minute mark passes unseen: the token that did not help is never
+    // asked for again until something else happens.
+    testWidgets('the five-minute mark reads the machine and brings the button back, with no ticker', (tester) async {
+      handOnTickEvery = null;
+      addTearDown(() => handOnTickEvery = const Duration(seconds: 20));
+      var now = DateTime.utc(2026, 3, 2, 10);
+      final connections = await handedOn(() => now);
+      await page(tester, 'hana', connections: connections, moreProjects: hers, shown: carrying());
+      expect(_action('giveToken'), findsNothing);
+      connections.asked.clear();
+      now = now.add(const Duration(minutes: 5));
+      await tester.pump(const Duration(minutes: 5));
+      await tester.pumpAndSettle();
+      expect(connections.asked.where((each) => each.startsWith('progress')), ['progress build']);
+      expect(_action('giveToken'), findsOneWidget);
+      expect(find.byKey(const ValueKey('organization.notHelped/web')), findsOneWidget);
+    });
+
+    // Harm: Fetch now during the machine's run with the token says the organization was applied, while the machine
+    // still says it waits for the project, or says it waits for a token that was just given.
+    testWidgets('Fetch now while the token given is taken says so', (tester) async {
+      handOnTickEvery = null;
+      addTearDown(() => handOnTickEvery = const Duration(seconds: 20));
+      var now = DateTime.utc(2026, 3, 2, 10);
+      final connections = await handedOn(() => now);
+      await page(tester, 'hana', connections: connections, moreProjects: hers, shown: carrying());
+      now = now.add(const Duration(minutes: 2));
+      await pressOrganizationAction(tester, 'refreshHost');
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('organization.refreshWhy'))).data,
+        'build fetched the organization; it is still taking the token you gave 2 minutes ago.',
+      );
+    });
+
+    // Harm: a screen reader reads the ticking time again and again, or the reason a token did not help never.
+    testWidgets('of a reason and a ticking time shown at once, only the reason is announced', (tester) async {
+      handOnTickEvery = null;
+      addTearDown(() => handOnTickEvery = const Duration(seconds: 20));
+      var now = DateTime.utc(2026, 3, 2, 10);
+      final connections = await handedOn(() => now);
+      // api is handed its token four minutes after web, while the machine says web is on its way.
+      now = now.add(const Duration(minutes: 4));
+      connections.hostProgress = HostProgress.read(
+        '{"projects":[{"project":"web","state":"pending"},{"project":"api","state":"waiting-for-token"}]}',
+      );
+      await connections.progress('build');
+      await connections.tokenTaken('build');
+      now = now.add(const Duration(minutes: 1));
+      connections.hostProgress = HostProgress.read(
+        '{"projects":[{"project":"web","state":"waiting-for-token"},{"project":"api","state":"waiting-for-token"}]}',
+      );
+      await connections.progress('build');
+      await page(tester, 'hana', connections: connections, moreProjects: hers, shown: carrying(api: true));
+      final why = find.byKey(const ValueKey('organization.notHelped/web'));
+      expect(why, findsOneWidget);
+      final ticking = find.textContaining('token given 1 minute ago');
+      expect(ticking, findsOneWidget, reason: "api's time since, shown beside the reason");
+      final live = find.byWidgetPredicate((widget) => widget is Semantics && widget.properties.liveRegion == true);
+      expect(live, findsOneWidget);
+      expect(find.ancestor(of: why, matching: live), findsOneWidget);
+      expect(find.ancestor(of: ticking, matching: live), findsNothing);
     });
 
     // Harm: a repository of a project its machine waits for the token for reads as carried there alone.

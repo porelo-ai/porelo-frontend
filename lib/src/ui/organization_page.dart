@@ -544,7 +544,12 @@ class _OrganizationPageState extends State<OrganizationPage> {
     final forge = organizationForgeName(view);
     return {
       for (final project in host.projects)
-        project: ?waitingWords(widget.connections?.heard(host.name)?.of(project), forge),
+        project: ?heardWaitingWords(
+          widget.connections,
+          host.name,
+          widget.connections?.heard(host.name)?.of(project),
+          forge,
+        ),
     };
   }
 

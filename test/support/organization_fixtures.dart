@@ -192,17 +192,19 @@ class FixtureConnections extends HostConnections {
   @override
   Future<HostProgress> refresh(String host) async {
     _ask('refresh $host');
+    final read = beginRead(host);
     // A machine answers over ssh, never within the call that asked it.
     await Future<void>.value();
-    return keepHeard(host, hostProgress);
+    return keepHeard(host, hostProgress, read: read);
   }
 
   @override
   Future<HostProgress> progress(String host) async {
     _ask('progress $host');
+    final read = beginRead(host);
     // A machine answers over ssh, never within the call that asked it.
     await Future<void>.value();
-    return keepHeard(host, hostProgress);
+    return keepHeard(host, hostProgress, read: read);
   }
 
   /// Why the host offers no start of its read of the organization; null where it offers one.
