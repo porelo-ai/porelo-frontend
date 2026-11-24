@@ -92,6 +92,9 @@ Future<HostIdentity> exportHostIdentityPinned({
   try {
     final knownHosts = File('${pinned.path}${Platform.pathSeparator}known_hosts');
     await knownHosts.writeAsString('${port == 22 ? address : '[$address]:$port'} $hostKey\n');
+    // An empty file of its own keeps the person's configuration out on every system: Windows has no `/dev/null`.
+    final config = File('${pinned.path}${Platform.pathSeparator}config');
+    await config.writeAsString('');
     // Named by its host name, reached at its address: ssh reads no address as an option or a login.
     return await _export(
       hostName,
@@ -99,7 +102,7 @@ Future<HostIdentity> exportHostIdentityPinned({
       [
         ...pinnedHostSshOptions(knownHosts.path, ''),
         '-F',
-        '/dev/null',
+        config.path,
         '-o',
         'PreferredAuthentications=publickey',
         '-o',
@@ -131,7 +134,7 @@ Future<HostIdentity> _export(
   }
   // A host whose SSH configuration this computer does not hold is not reached: no ssh starts for it.
   final config = options.indexOf('-F');
-  if (start == null && config >= 0 && config + 1 < options.length && options[config + 1] != '/dev/null') {
+  if (start == null && config >= 0 && config + 1 < options.length) {
     if (!await File(options[config + 1]).exists()) {
       throw HostIdentityExportRefused("This computer holds no SSH configuration for $hostName: connect to it first.");
     }

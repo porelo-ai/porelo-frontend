@@ -330,13 +330,19 @@ class HostRuns extends ChangeNotifier {
     if (machine != null) {
       return exportHostIdentity(machine, hostName: host, start: startExport, cancelled: _ended.future);
     }
-    final String config;
     try {
-      config = poreloHostSshConfig(host, environment: environment);
+      checkHostName(host);
     } on FormatException {
       throw HostIdentityExportRefused('$host is no host name this computer can reach.');
     }
-    if (await File(config).exists()) {
+    // A computer whose configuration directory cannot be named holds no card, yet still reaches a host by its record.
+    String? config;
+    try {
+      config = poreloHostSshConfig(host, environment: environment);
+    } on FormatException {
+      // Left unnamed: the record below is the only way left.
+    }
+    if (config != null && await File(config).exists()) {
       return exportHostIdentityByCard(config, hostName: host, start: startExport, cancelled: _ended.future);
     }
     final record = machines.settings.hostUps.values

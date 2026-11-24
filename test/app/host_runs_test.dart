@@ -61,14 +61,24 @@ void main() {
     late List<List<String>> started;
     late HostRuns owner;
     late _Identities keeper;
+    late Map<String, String> environment;
 
     setUp(() async {
       scratch = await Directory.systemTemp.createTemp('porelo-export-');
       started = [];
       keeper = _Identities();
+      // Each system's own configuration and state directories, so the test reads the same on Linux and Windows.
+      final separator = Platform.pathSeparator;
+      environment = {
+        'HOME': scratch.path,
+        'XDG_CONFIG_HOME': '${scratch.path}${separator}config',
+        'XDG_STATE_HOME': '${scratch.path}${separator}state',
+        'APPDATA': '${scratch.path}${separator}config',
+        'LOCALAPPDATA': '${scratch.path}${separator}state',
+      };
       owner = HostRuns(
         machines,
-        environment: {'HOME': scratch.path, 'XDG_CONFIG_HOME': '${scratch.path}/config'},
+        environment: environment,
         identities: () async => keeper,
         startExport: (program, arguments) async {
           started.add([program, ...arguments]);
@@ -97,17 +107,41 @@ void main() {
       await owner.keepIdentity('orchard');
       final command = started.single;
       expect(command, containsAllInOrder(['HostName=203.0.113.7', 'User=root', 'orchard']));
-      expect(command, containsAllInOrder(['-F', '/dev/null']));
+      expect(command, contains('-F'));
+      expect(command, isNot(contains('/dev/null')));
       expect(command, contains('StrictHostKeyChecking=yes'));
     });
 
-    test('a card host is read as root through its card, on a connection of its own', () async {
-      final config = File(
-        poreloHostSshConfig(
-          'orchard',
-          environment: {'HOME': scratch.path, 'XDG_CONFIG_HOME': '${scratch.path}/config'},
-        ),
+    // Harm: a computer whose configuration directory cannot be named refuses a server its record pins.
+    test('is read by its record where this computer names no configuration directory', () async {
+      await settings.rememberHostUp(
+        'orchard',
+        const HostUpRecord(
+          host: 'orchard',
+          hostName: 'orchard',
+          publicKey: '/keys/person.pub',
+          givenAddress: '203.0.113.7',
+          givenHostKey: hostKey,
+        ).withPreparedHost(PreparedHost.read(sshCompletion())),
       );
+      final bare = HostRuns(
+        machines,
+        environment: const {},
+        identities: () async => keeper,
+        startExport: (program, arguments) async {
+          started.add([program, ...arguments]);
+          final process = HostProcess();
+          scheduleMicrotask(() => process.end(1));
+          return process;
+        },
+      );
+      addTearDown(bare.dispose);
+      await bare.keepIdentity('orchard');
+      expect(started.single, containsAllInOrder(['HostName=203.0.113.7', 'User=root', 'orchard']));
+    });
+
+    test('a card host is read as root through its card, on a connection of its own', () async {
+      final config = File(poreloHostSshConfig('orchard', environment: environment));
       await config.parent.create(recursive: true);
       await config.writeAsString('Host orchard\n');
       await owner.keepIdentity('orchard');

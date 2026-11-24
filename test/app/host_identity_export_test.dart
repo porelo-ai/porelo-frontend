@@ -90,6 +90,30 @@ void main() {
     process.end(143);
   });
 
+  // Harm: a pinned read names `/dev/null` as its ssh configuration, which no Windows ssh opens, or reads the
+  // person's own configuration, which can redirect the pinned connection.
+  test('a pinned read names an empty configuration of its own, on every system', () async {
+    String? configuration;
+    final exporting = exportHostIdentityPinned(
+      hostName: 'orchard',
+      address: '203.0.113.7',
+      hostKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGQw',
+      start: (program, arguments) async {
+        started.add([program, ...arguments]);
+        final named = File(arguments[arguments.indexOf('-F') + 1]);
+        configuration = await named.exists() ? await named.readAsString() : null;
+        return process;
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+    process
+      ..raw(_exported)
+      ..end(0);
+    await exporting;
+    expect(configuration, '');
+    expect(started.single, isNot(contains('/dev/null')));
+  });
+
   // Harm: a hand-on to a host this computer holds no SSH configuration for starts an ssh that can reach nothing.
   test('a card host whose configuration is not here starts no ssh', () async {
     final card = Machine(
