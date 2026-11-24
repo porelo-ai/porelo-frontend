@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/attention.dart';
@@ -8,6 +9,7 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/window_log.dart';
 import 'package:porelo_frontend/src/app/fleet_model.dart';
+import 'package:porelo_frontend/src/ui/attention_view.dart';
 import 'package:porelo_planning/planning_fake.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
@@ -36,6 +38,26 @@ Map<String, dynamic> _snapshot(
   ],
 };
 Future<void> _turn() => Future<void>.delayed(Duration.zero);
+
+/// One save the planner holds: a window's move of `item`, refused while the forge did not answer.
+const _heldSaves = [
+  {
+    'id': 'group-1',
+    'run': false,
+    'earlier': false,
+    'resendable': true,
+    'commands': [
+      {
+        'id': 'c1',
+        'kind': 'SET_FIELDS',
+        'target': 'item',
+        'state': 'REFUSED',
+        'reason': 'Unreachable',
+        'subject': 'the forge did not answer',
+      },
+    ],
+  },
+];
 
 class _Planning extends MockPlanningSource {
   _Planning(Map<String, dynamic> snapshot) {
@@ -239,6 +261,103 @@ void main() {
     await _turn();
     expect(env.boards.sources.single.live, isTrue);
     expect(env.planningRows, isEmpty);
+  });
+
+  // Harm: a row kept while its board is replaced draws the old, disposed board: an assertion in a debug build, and in a
+  // release build buttons that do nothing and say no reason.
+  testWidgets('a kept row of held saves shows what was held and why it cannot be acted on, its old board unused', (
+    tester,
+  ) async {
+    final env = _Environment();
+    late _HeldWatch replacement;
+    await tester.runAsync(() async {
+      final held = _HeldWatch(_snapshot('first'));
+      await env.open(_Backend(held));
+      held.send({..._snapshot('held'), 'heldSaves': _heldSaves});
+      await _turn();
+      replacement = _HeldWatch(_snapshot('second'));
+      await env.replace(_Backend(replacement));
+    });
+    addTearDown(() => tester.runAsync(env.close));
+    expect(env.boards.sources.single.live, isFalse);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AttentionView(
+            attention: env.attention,
+            onDecide: (_, _, {required allow}) {},
+            onReview: (_) {},
+            actionsFor: (_) => [],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Held saves · demo on builder'), findsOneWidget);
+    expect(find.text('item · refused · Unreachable: the forge did not answer'), findsOneWidget);
+    expect(
+      find.text('The planning board of demo on builder is not read; Resend and Drop return when it is.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('held-save-resend group-1')), findsNothing);
+    expect(find.byKey(const Key('held-save-drop group-1')), findsNothing);
+
+    // Read whole again with the save still held, the row acts through the new board.
+    await tester.runAsync(() async {
+      replacement.send({..._snapshot('third'), 'heldSaves': _heldSaves});
+      await _turn();
+    });
+    await tester.pump();
+    expect(find.byKey(const Key('held-save-resend group-1')), findsOneWidget);
+    expect(find.byKey(const Key('held-saves-kept demo')), findsNothing);
+    expect(find.text('Held saves · demo on builder'), findsOneWidget);
+  });
+
+  // Harm: saves the planner still holds leave Needs you while their board is replaced and not read yet, or stay once a
+  // whole board holds none.
+  test('held saves stay while their board is not read whole, and resolve on a whole board holding none', () async {
+    final held = _HeldWatch(_snapshot('first'));
+    final env = _Environment();
+    await env.open(_Backend(held));
+    addTearDown(env.close);
+    List<String> heldRows() => [
+      for (final row in env.attention.openRows)
+        if (row.kind == AttentionKind.heldSaves) row.id,
+    ];
+    expect(heldRows(), isEmpty, reason: 'a board not read holds no saves to show');
+    held.send({
+      ..._snapshot('held'),
+      'heldSaves': [
+        {
+          'id': 'group-1',
+          'run': false,
+          'earlier': false,
+          'resendable': true,
+          'commands': [
+            {'id': 'c1', 'kind': 'SET_FIELDS', 'target': 'item', 'state': 'REFUSED', 'reason': 'Unreachable'},
+          ],
+        },
+      ],
+    });
+    await _turn();
+    expect(heldRows(), ['held saves builder/demo']);
+    expect(env.attention.needingSomebody, 1, reason: 'the held saves count as one row');
+
+    final replacement = _HeldWatch(_snapshot('second'));
+    await env.replace(_Backend(replacement));
+    expect(env.boards.sources.single.live, isFalse);
+    expect(heldRows(), ['held saves builder/demo'], reason: 'a board not read yet says nothing of its saves');
+
+    replacement.send(_snapshot('third'));
+    await _turn();
+    expect(env.boards.sources.single.live, isTrue);
+    expect(heldRows(), isEmpty);
+    expect(
+      env.attention.recentlyResolved.map((each) => each.row.id),
+      contains('held saves builder/demo'),
+      reason: 'a whole board holding none resolves them',
+    );
   });
 
   // Harm: failed work reads silently resolve an outcome that still needs the person.

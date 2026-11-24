@@ -51,6 +51,48 @@ class WindowPlanningSource extends MockPlanningSource implements TellsTaskReport
   /// Each run a confirmed save stopped, as the save named it.
   final List<Map<String, dynamic>> stopped = [];
 
+  /// Each resend and drop of a held save this planner was asked for, as `resend <save>` or `drop <save>`, in order.
+  final List<String> heldSaveCalls = [];
+
+  /// What the planner refuses the next resend of a held save with, keeping the save; null where it resends it.
+  PlanningRefusal? resendRefusal;
+
+  /// Keeps [save] held on [project]'s board, as the planner's outbox keeps a group it could not write, and tells the
+  /// screen with a new board.
+  void holdSave(String project, Map<String, dynamic> save) {
+    final next = Map<String, dynamic>.of(board(project));
+    next['heldSaves'] = [...?(next['heldSaves'] as List?), save];
+    next['revision'] = '${next['revision']}:held';
+    push(project, next);
+  }
+
+  /// Takes [save] off [project]'s board, as the outbox does once the group is written or dropped, with a new revision.
+  String _release(String project, String save) {
+    final next = Map<String, dynamic>.of(board(project));
+    final held = [...?(next['heldSaves'] as List?)].cast<Map<String, dynamic>>();
+    if (!held.any((each) => each['id'] == save)) throw mockRefusal('NoSuchSave', {'save': save});
+    next['heldSaves'] = [
+      for (final each in held)
+        if (each['id'] != save) each,
+    ];
+    next['revision'] = '${next['revision']}:released';
+    push(project, next);
+    return next['revision'] as String;
+  }
+
+  @override
+  Future<String> resendSave(String project, String save) async {
+    heldSaveCalls.add('resend $save');
+    if (resendRefusal case final refusal?) throw refusal;
+    return _release(project, save);
+  }
+
+  @override
+  Future<void> dropSave(String project, String save) async {
+    heldSaveCalls.add('drop $save');
+    _release(project, save);
+  }
+
   /// A follow-up order the answer to the next started report carries, as the planner orders a story's next task; null
   /// where answers order none.
   Map<String, dynamic>? followUpOnStart;

@@ -9,7 +9,8 @@ import '../support/world.dart';
 /// Usage: the planning save is partly saved with story {id} saved in {state}
 ///
 /// Once the save is refused, the planner's store holds what the pushed repository took before any watch tells it, as
-/// the planner answers a push one repository refused: `PartlySaved`, naming those pushed and the one that failed.
+/// the planner answers a push one repository refused: `PartlySaved`, naming those pushed, the one that failed and the
+/// issues it moved.
 Future<void> thePlanningSaveIsPartlySavedWithStorySavedIn(WidgetTester tester, String id, String state) async {
   final held = jsonDecode(jsonEncode(World.planning.board('checkout'))) as Map<String, dynamic>;
   final story = planningMaps(held, 'stories').firstWhere((story) => story['id'] == id);
@@ -24,5 +25,7 @@ Future<void> thePlanningSaveIsPartlySavedWithStorySavedIn(WidgetTester tester, S
     ..moveFailure = const PlanningRefusal('PartlySaved', {
       'pushed': 'porelo',
       'failed': 'porelo-host',
+      // The issues the pushed repository moved, `id=state` comma-joined; one without a state is named alone.
+      'issues': 'B540=Backlog,B541',
     }, 'The repository refused the push.');
 }

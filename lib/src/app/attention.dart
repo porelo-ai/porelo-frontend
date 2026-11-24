@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart'
     show
+        PlanHeldSave,
         PlanningAttention,
         PlanningBoard,
         PlanningBoards,
@@ -106,6 +107,9 @@ enum AttentionKind {
   /// A story ended or an issue reading stopped on its planning source.
   planning,
 
+  /// A project's planner holds saves it could not write, to be sent again or dropped.
+  heldSaves,
+
   /// A project server stopped for a person during preparation.
   host,
 
@@ -160,6 +164,22 @@ enum AttentionKind {
 
   /// A server's identity is not kept in this computer's Porelo-Vault.
   identity,
+}
+
+/// The saves one project's planner holds for the person: its board, which resends and drops them, and the saves it
+/// held when the row was read, which a resolved row still names.
+class HeldSavesRow {
+  /// Keeps [board] and the [saves] it holds now.
+  HeldSavesRow(this.board) : project = board.project, saves = List.unmodifiable(board.heldSaves);
+
+  /// The board whose held saves are shown, resent and dropped.
+  final PlanningBoard board;
+
+  /// The project the board is of.
+  final String project;
+
+  /// The saves held when the row was read.
+  final List<PlanHeldSave> saves;
 }
 
 /// An immutable row snapshot, retained when the condition it describes is resolved.
@@ -362,6 +382,11 @@ class Attention extends ChangeNotifier {
       if (_storyEndSeen(entry.machine, entry.attention) || _readingPutAway(entry.machine, entry.attention)) continue;
       yield AttentionRow(AttentionKind.planning, entry.id, entry.machine, entry.attention);
     }
+    for (final board in _planning?.sources ?? const <PlanningBoard>[]) {
+      if (board.heldSaves.isEmpty) continue;
+      final machine = _planning!.machineOf(board);
+      yield AttentionRow(AttentionKind.heldSaves, _heldSavesId(machine, board.project), machine, HeldSavesRow(board));
+    }
     // Said here, where it stays while the records are set aside, never on a status line the next connection overwrites.
     if (_machines.setAside case final words? when !_seenMarks.contains(_setAsideKey(words))) {
       yield AttentionRow(AttentionKind.setAside, 'set aside', 'This computer', words);
@@ -554,10 +579,44 @@ class Attention extends ChangeNotifier {
     );
   }
 
+  /// The board the held saves of [row] can be resent and dropped through now: its project's current board on its
+  /// machine, live, read whole and holding saves; null where its row was kept from a board gone, replaced or not read
+  /// whole, which then shows what it held without acting on a board that may be disposed.
+  PlanningBoard? heldSavesBoard(AttentionRow row) {
+    final planning = _planning;
+    final value = row.value;
+    if (planning == null || value is! HeldSavesRow) return null;
+    final board = planning.sources.where((each) => identical(each, value.board)).firstOrNull;
+    if (board == null ||
+        board.isDisposed ||
+        !board.live ||
+        board.snapshot?.complete != true ||
+        board.heldSaves.isEmpty ||
+        planning.machineOf(board) != row.machine) {
+      return null;
+    }
+    return board;
+  }
+
+  /// The row of the saves [project]'s planner on [machine] holds: one per board.
+  static String _heldSavesId(String machine, String project) => 'held saves $machine/$project';
+
   void _rememberRows() {
     _noteRanOut();
     final rows = _rows().toList();
     final present = rows.map((row) => row.id).toSet();
+    // Held saves are resolved only by a whole board read that holds none: a board gone, not live or not read whole
+    // says nothing of them, so their row stays as it was last read.
+    for (final old in _lastRows.values.where(
+      (row) => row.kind == AttentionKind.heldSaves && !present.contains(row.id),
+    )) {
+      if (machineNamed(old.machine) == null) continue;
+      final value = old.value as HeldSavesRow;
+      final source = _planning?.sources
+          .where((board) => _planning!.machineOf(board) == old.machine && board.project == value.project)
+          .firstOrNull;
+      if (source == null || !source.live || source.snapshot?.complete != true) rows.add(old);
+    }
     for (final old in _lastRows.values.where(
       (row) => row.kind == AttentionKind.planning && !present.contains(row.id),
     )) {
@@ -677,6 +736,8 @@ class Attention extends ChangeNotifier {
       final PlanningAttention planning =>
         'story ${planning.story.id} of ${planning.project}'
             '${planning.ended == null ? '' : ', its work ended'}${planning.reason.isEmpty ? '' : ': ${planning.reason}'}',
+      final HeldSavesRow held =>
+        '${held.saves.length} ${held.saves.length == 1 ? 'save' : 'saves'} of ${held.project} held by its planner',
       final String words when row.kind == AttentionKind.setAside => words,
       final String name when row.kind == AttentionKind.token => '$name waits for your token',
       final String name when row.kind == AttentionKind.repository => '$name waits for its Git repository',

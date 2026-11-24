@@ -55,11 +55,12 @@ Feature: Planning moves are saved at once
         And planning story {'ST293'} is not being saved
         And the planning story {'ST293'} is in {'Finished'}
 
-    # Harm: a save pushed to some repositories only hides which were pushed, or shows a board the planner no longer holds.
+    # Harm: a save pushed to some repositories only hides which were pushed and which issues moved, or shows a board the
+    # planner no longer holds.
     Scenario: A partly saved move says so in the planner's words and reads the board again
         Given the planning save is partly saved with story {'ST293'} saved in {'Backlog'}
         When I drag planning story {'ST293'} to {'Backlog'}
-        Then the planning move error says {'The repository refused the push. Pushed: porelo. Not pushed: porelo-host.'}
+        Then the planning move error says {'The repository refused the push. Pushed: porelo. Not pushed: porelo-host. Moved: B540 to Backlog, B541.'}
         And planning story {'ST293'} is not being saved
         And the planning story {'ST293'} is in {'Backlog'}
 

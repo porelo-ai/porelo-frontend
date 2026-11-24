@@ -139,7 +139,7 @@ void main() {
       await iDragPlanningStoryTo(tester, 'ST293', 'Backlog');
       await thePlanningMoveErrorSays(
         tester,
-        'The repository refused the push. Pushed: porelo. Not pushed: porelo-host.',
+        'The repository refused the push. Pushed: porelo. Not pushed: porelo-host. Moved: B540 to Backlog, B541.',
       );
       await planningStoryIsNotBeingSaved(tester, 'ST293');
       await thePlanningStoryIsIn(tester, 'ST293', 'Backlog');

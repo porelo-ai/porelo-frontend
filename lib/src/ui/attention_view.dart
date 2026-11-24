@@ -3,7 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_planning/porelo_planning.dart' show PlanningAttention, StoryWorkAttentionView;
+import 'package:porelo_planning/porelo_planning.dart'
+    show
+        PlanHeldCommand,
+        PlanHeldSave,
+        PlanningAttention,
+        PlanningBoard,
+        PlanningHeldSavesView,
+        StoryWorkAttentionView,
+        planningShown;
 
 import '../app/agent_sign_in.dart';
 import '../app/builds.dart';
@@ -121,6 +129,7 @@ class _AttentionViewState extends State<AttentionView> {
   bool _matches(Widget row) {
     final words = switch (row) {
       ExpandableListRow() => '${row.title} ${row.subtitle ?? ''} ${row.state}',
+      _HeldSavesEntry(:final held, :final machine) => 'held saves ${held.project} $machine',
       _PlanningRow(:final view) =>
         '${view.row.story.id} ${view.row.story.title} ${view.row.issue?.id ?? ''} ${view.row.ended?.reason ?? ''} ${view.row.project} ${view.machine}',
       _ => '',
@@ -273,6 +282,15 @@ extension on _AttentionViewState {
         seenKey: ValueKey<String>('story-seen ${row.id}'),
       );
     }
+    if (row.kind == AttentionKind.heldSaves) {
+      return _HeldSavesEntry(
+        key: ValueKey('attention-row ${row.id}'),
+        held: row.value as HeldSavesRow,
+        machine: row.machine,
+        resolved: resolved,
+        live: resolved ? null : widget.attention.heldSavesBoard(row),
+      );
+    }
     final attention = widget.attention;
     final reason = resolved ? 'this row is resolved' : null;
     void details() => unawaited(
@@ -304,6 +322,7 @@ extension on _AttentionViewState {
     var steps = const <Widget>[];
     switch (row.kind) {
       case AttentionKind.planning:
+      case AttentionKind.heldSaves:
         break;
       case AttentionKind.host:
         final stop = row.value as HostStop;
@@ -709,6 +728,7 @@ extension on _AttentionViewState {
     final reason = resolved ? 'this row is resolved' : null;
     switch (row.kind) {
       case AttentionKind.planning:
+      case AttentionKind.heldSaves:
         return const SizedBox.shrink();
       case AttentionKind.host:
         final stop = row.value as HostStop;
@@ -1065,6 +1085,87 @@ class _CauseFacts extends StatelessWidget {
 }
 
 /// A planning entry as the planning package draws it, with *Seen* below where it only informs.
+/// The saves one project's planner holds, as the planning screen shows them with Resend and Drop; once resolved, what
+/// was held, without the board's live buttons.
+/// Its live form is the planning screen's, acting through [live], the current board read whole; a row kept while that
+/// board is gone, replaced or not read whole shows the saves it last held as words, and why nothing can be done now.
+class _HeldSavesEntry extends StatelessWidget {
+  const _HeldSavesEntry({
+    required this.held,
+    required this.machine,
+    required this.resolved,
+    required this.live,
+    super.key,
+  });
+
+  final HeldSavesRow held;
+  final String machine;
+  final bool resolved;
+  final PlanningBoard? live;
+
+  @override
+  Widget build(BuildContext context) {
+    if (resolved) {
+      return Padding(
+        padding: const EdgeInsets.all(Space.normal),
+        child: Text(
+          _shown(
+            'Held saves · ${held.project} on $machine: none held any more '
+            '(${held.saves.length} ${held.saves.length == 1 ? 'was' : 'were'} held)',
+          ),
+          key: ValueKey('held-saves-resolved ${held.project}'),
+        ),
+      );
+    }
+    if (live case final board?) return PlanningHeldSavesView(board: board, machine: machine);
+    return Card(
+      key: ValueKey('held-saves-kept ${held.project}'),
+      child: Padding(
+        padding: const EdgeInsets.all(Space.normal),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_shown('Held saves · ${held.project} on $machine')),
+            for (final save in held.saves) ...[
+              Text(_shown(_source(save))),
+              for (final command in save.commands) Text(_shown(_command(command))),
+            ],
+            Text(
+              _shown(
+                'The planning board of ${held.project} on $machine is not read; Resend and Drop return when it is.',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _shown(String words) => planningShown(words, multiline: false);
+
+  // Worded as the screen's own section words them, so the row reads the same whether it can act or not.
+  static String _source(PlanHeldSave save) => save.earlier
+      ? 'Kept from ${save.repository.isEmpty ? 'another repository' : save.repository}'
+            '${save.branch.isEmpty ? '' : ' on ${save.branch}'}; it is never written here.'
+      : save.run
+      ? 'A save of a run.'
+      : 'A save made on the board.';
+
+  static String _command(PlanHeldCommand command) {
+    final state = switch (command.state) {
+      'QUEUED' => 'waiting',
+      'DONE' => 'saved',
+      'REFUSED' => 'refused',
+      'HELD' => 'held',
+      _ => 'not known',
+    };
+    final reason = command.reason.isEmpty || command.reason == 'NONE'
+        ? ''
+        : ' · ${command.reason}${command.subject.isEmpty ? '' : ': ${command.subject}'}';
+    return '${command.target} · $state$reason';
+  }
+}
+
 class _PlanningRow extends StatelessWidget {
   const _PlanningRow({required this.view, required this.onSeen, required this.seenKey, super.key});
 
