@@ -575,7 +575,12 @@ class _ShellState extends State<Shell> {
     widget.machines.addListener(_machineChanged);
     _plannersLog = _plannersLogNow;
     _plannersLevel = _plannersLevelNow;
-    if (widget.planning?.client case final Listenable planner) planner.addListener(_plannersLogChanged);
+    if (widget.planning?.client case final Listenable planner) {
+      planner.addListener(_plannersLogChanged);
+      planner.addListener(_plannerStartChanged);
+    }
+    // A planner the window started before this frame drew is a start too; said once it has drawn.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _plannerStartChanged());
     final source = widget.organizationSource;
     if (source is PoreloOrganizationSource) {
       source.prepareForgeWrite = (repository) =>
@@ -1240,6 +1245,21 @@ class _ShellState extends State<Shell> {
 
   /// Builds Options anew once the planner names another log, as when it is found after the window started, or answers
   /// another level.
+  /// The program of the planner the window started, as last seen; null while the planner that answers is not one.
+  String? _plannerStarted;
+
+  /// Opens Planning's info once for each start of a planner by the window, where it says so: a person who saw the
+  /// info before learns that the planner answering is not their own. Closed, it stays closed until the next start.
+  void _plannerStartChanged() {
+    final now = switch (widget.planning?.client) {
+      StartedItsPlanner(:final startedProgram) => startedProgram,
+      _ => null,
+    };
+    if (!mounted || now == _plannerStarted) return;
+    _plannerStarted = now;
+    if (now != null) widget.settings.setExplanationOpen('planning', open: true);
+  }
+
   void _plannersLogChanged() {
     final now = _plannersLogNow;
     final level = _plannersLevelNow;
@@ -4710,13 +4730,12 @@ class _ShellState extends State<Shell> {
           wizards: const WindowPlanningWizards(),
           chooseDirectory: (initial) => pickAPlanningDirectory(initialDirectory: initial),
           pageButton: PageExplanationButton(id: 'planning', settings: widget.settings),
-          pageNote: switch (planning.client) {
-            StartedItsPlanner(startedProgram: final program?) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [_plannerStartedHere(program), _planningWords()],
-            ),
-            _ => _planningWords(),
-          },
+          pageNote: _planningWords(
+            started: switch (planning.client) {
+              StartedItsPlanner(:final startedProgram) => startedProgram,
+              _ => null,
+            },
+          ),
         ),
       },
     ),
@@ -4770,21 +4789,21 @@ class _ShellState extends State<Shell> {
     ],
   );
 
-  /// The head's word that no planner was serving, so the window started [program], whose planner answers now: a person
-  /// expecting a planner of their own sees that another one answers.
-  Widget _plannerStartedHere(String program) => Padding(
-    padding: const EdgeInsets.only(bottom: Space.small),
-    child: Text(
-      'No planner was serving, so the window started $program.',
-      key: const Key('planning-started-here'),
-      style: Theme.of(context).textTheme.bodyMedium,
-    ),
-  );
-
   /// Planning's first-time words, standing under its head. The screen draws them in a different place on the board, a
   /// detail page and its fallback, so one global key carries them across, opened and seen once.
-  Widget _planningWords() =>
-      PageExplanation(key: _planningWordsKey, id: 'planning', settings: widget.settings, parts: pageWords['planning']!);
+  ///
+  /// Where the window [started] the planner that answers, they say so: a person expecting a planner of their own finds
+  /// there that another one answers, and no lasting line stands above every page for it.
+  Widget _planningWords({String? started}) => PageExplanation(
+    key: _planningWordsKey,
+    id: 'planning',
+    settings: widget.settings,
+    parts: [
+      ...pageWords['planning']!,
+      if (started != null)
+        (title: 'Which planner answers?', words: 'No planner was serving, so the window started $started.'),
+    ],
+  );
 
   Widget _planningReason(String words, {Future<void> Function()? start}) => Center(
     child: Padding(
@@ -7878,7 +7897,10 @@ class _ShellState extends State<Shell> {
     widget.shell.removeListener(_checkOrganizationPlace);
     _organization?.removeListener(_checkOrganizationPlace);
     widget.machines.removeListener(_machineChanged);
-    if (widget.planning?.client case final Listenable planner) planner.removeListener(_plannersLogChanged);
+    if (widget.planning?.client case final Listenable planner) {
+      planner.removeListener(_plannersLogChanged);
+      planner.removeListener(_plannerStartChanged);
+    }
     for (final tools in _machineTools.values) {
       _releaseTools(tools);
     }
