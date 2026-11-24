@@ -669,6 +669,33 @@ print("yes" if any(p.get("project") == sys.argv[1] for p in json.load(sys.stdin)
         true
 }
 
+# Adds the porelo project's [repository] to the organization, with the person as its first admin, under the run's id.
+# Walks on several VMs add theirs to the one organization at once: where porelo answers that the organization moved on
+# (the reason moved-on of its JSON refusal; its exit 65 is shared with other refusals), nothing was written, so the
+# organization is read anew and the add asked once more under the same id. Any other failure is final at once.
+add_to_the_organization() {
+    local repository=$1 answer reason
+    reason_of() {
+        python3 -I -c 'import json, sys
+lines = sys.stdin.read().strip().splitlines()
+try:
+    print(json.loads(lines[-1]).get("reason") or "" if lines else "")
+except (ValueError, AttributeError):
+    print("")'
+    }
+    answer=$(as_the_person_on_vm "${in_vault}porelo org project add --json --id '$name-org-add' --admin='$person' '$repository'" </dev/null) &&
+        return 0
+    reason=$(printf '%s\n' "$answer" | reason_of)
+    [ "$reason" = moved-on ] || return 1
+    echo "walk: the organization moved on while $repository was added; it is read anew and the add asked once more" >&2
+    as_the_person_on_vm "${in_vault}porelo org --refresh >/dev/null" </dev/null >&2 || return 1
+    answer=$(as_the_person_on_vm "${in_vault}porelo org project add --json --id '$name-org-add' --admin='$person' '$repository'" </dev/null) &&
+        return 0
+    reason=$(printf '%s\n' "$answer" | reason_of)
+    [ "$reason" != moved-on ] || echo "walk: the organization moved on twice while $repository was added" >&2
+    return 1
+}
+
 # The templates the story's repositories are copied from, each with its default branch and whether it is private: the
 # porelo project's, every repository its project.yml names, the issue repositories and the seeded ones. None of the
 # story's own may be there yet: one left by a failed run is named with what deletes it, and nothing is made.
@@ -1038,10 +1065,9 @@ make_repository() {
         # porelo knows a project by the organization's entry alone, and files its address only for a repository it
         # filled first: the entry is added with the person as its first admin, porelo's first signed commit made in
         # the still empty repository on main, and the template's tree put over it in one commit. Noted once it was
-        # added, so every ending takes the entry out again; an add that failed is retried once under its id, and an
-        # entry listed after all is named, never taken out: it may be another's.
-        as_the_person_on_vm "${in_vault}porelo org project add --id '$name-org-add' --admin='$person' '$repository' >/dev/null ||
-            ${in_vault}porelo org project add --id '$name-org-add' --admin='$person' '$repository' >/dev/null" </dev/null >&2 || {
+        # added, so every ending takes the entry out again; an add the organization moved on under is asked once more,
+        # and an entry listed after all is named, never taken out: it may be another's.
+        add_to_the_organization "$repository" || {
             [ "$(in_the_organization)" != yes ] ||
                 left+=("$repository in the organization (porelo org project remove $repository, as the test person on $vm)")
             echo "walk: $repository could not be added to the organization on $vm" >&2
