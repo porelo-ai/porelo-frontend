@@ -9,6 +9,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 
 import 'collection.dart';
+import 'carried_identity.dart';
 import 'host_check.dart';
 import 'provider.dart';
 import 'remote.dart';
@@ -381,8 +382,11 @@ class HostRun {
   final Map<String, String>? environment;
 
   /// Brings [plan]'s host up; run again after the person has completed the stop on the host.
-  Future<int> up(HostPlan plan) =>
-      _withProjectLock(plan, () => _up(plan), forSetup: preparation != null || provider is! GivenMachine);
+  ///
+  /// [identity], on a given server alone, is the host's identity the person's vault kept: the server is set up with
+  /// its keys, and once set up is pinned by its ed25519 host key instead of the one given for the first login.
+  Future<int> up(HostPlan plan, {CarriedIdentity? identity}) =>
+      _withProjectLock(plan, () => _up(plan, identity), forSetup: preparation != null || provider is! GivenMachine);
 
   Future<int> _withProjectLock(HostPlan plan, Future<int> Function() run, {bool forSetup = true}) async {
     final File file;
@@ -422,10 +426,14 @@ class HostRun {
     }
   }
 
-  Future<int> _up(HostPlan plan) async {
+  Future<int> _up(HostPlan plan, CarriedIdentity? identity) async {
     final setup = preparation;
     if (setup == null && provider is GivenMachine && plan.hostName != null) {
-      return _upGiven(plan);
+      return _upGiven(plan, identity);
+    }
+    if (identity != null) {
+      _write(const Step('up', StepState.refused, fix: 'A host identity is carried into a given server alone.'));
+      return Exit.refused;
     }
     if (setup == null || plan.hostName == null || plan.adminSigners.isEmpty) {
       _write(
@@ -470,8 +478,10 @@ class HostRun {
     }
   }
 
-  Future<int> _upGiven(HostPlan plan) async {
+  Future<int> _upGiven(HostPlan plan, CarriedIdentity? identity) async {
     Directory? checkedCollection;
+    // Where the identity may lie on the host until the play took it, or this run removed it.
+    String? identityAt;
     _ownSteps = provider is GivenMachine ? givenUpSteps : upSteps;
     _write(Step('plan', StepState.plan, steps: _ownSteps));
     try {
@@ -555,6 +565,13 @@ done''',
       if (result.exitCode != 0) return _refused('copy', result, 'The collection could not be copied.');
       result = await remote.run(address, 'root', 'cat > $_workdir/inventory.yml', input: _inventory(plan));
       if (result.exitCode != 0) return _refused('copy', result, 'The inventory could not be copied.');
+      if (identity != null) {
+        // Checked before the machine file's step makes the folder: nothing may go through a link placed there.
+        result = await remote.run(address, 'root', _identityFolder);
+        if (result.exitCode != 0) {
+          return _refused('copy', result, "The host's setup folder is not root's alone: no identity was sent.");
+        }
+      }
       if (machineFile != null) {
         result = await remote.copy(address, 'root', machineFile.path, '$_workdir/machine.yml');
         if (result.exitCode != 0) return _refused('copy', result, 'The machine file could not be copied.');
@@ -571,6 +588,12 @@ done''',
           input: '${machineFile.digest}  $place/machine.yml\n',
         );
         if (result.exitCode != 0) return _refused('copy', result, 'The machine file did not arrive as it was sent.');
+      }
+      if (identity != null) {
+        // Counted as there once its folder is checked: a send that broke off may have left a part of it.
+        identityAt = address;
+        result = await remote.run(address, 'root', _identityInstall(identity.digest), input: identity.text);
+        if (result.exitCode != 0) return _refused('copy', result, 'The host identity did not arrive as it was sent.');
       }
       _write(const Step('copy', StepState.done));
       _write(const Step('ansible', StepState.started));
@@ -589,8 +612,19 @@ done''',
       final played = await _play(address, plan, 'porelo.host.up');
       if (played.code != Exit.done) return played.code;
       final completed = played.host;
-      if (completed == null || completed.sshHostKey != host.hostKey) {
-        throw const FormatException('The host did not confirm completion with its pinned SSH key.');
+      // Set up with an identity, the host answers with the identity's host key now, and only with that one.
+      final pinned = identity?.ed25519 ?? host.hostKey;
+      if (completed == null || completed.sshHostKey != pinned) {
+        throw FormatException(
+          identity == null
+              ? 'The host did not confirm completion with its pinned SSH key.'
+              : "The host did not confirm completion with its identity's SSH host key; nothing was pinned anew.",
+        );
+      }
+      if (identity != null) {
+        // The play took the identity and removed it itself.
+        identityAt = null;
+        await trust?.call(address, identity.ed25519);
       }
       _write(Step('up', StepState.done, address: address, admin: 'root'));
       _write(Step('host', StepState.host, host: completed));
@@ -603,7 +637,63 @@ done''',
       return Exit.refused;
     } finally {
       await checkedCollection?.delete(recursive: true);
+      if (identityAt case final address?) await _removeIdentity(address);
     }
+  }
+
+  static const _identityPlace = '/etc/porelo-host/setup/identity.json';
+
+  /// Makes the setup folder root's alone where it is missing, and refuses one that is a link, or another's: checked
+  /// before anything is made, so nothing goes through a link another account placed.
+  static const _identityFolder = r'''set -e
+test ! -L /etc/porelo-host && test ! -L /etc/porelo-host/setup
+install -d -o root -g root -m 0755 /etc/porelo-host
+install -d -o root -g root -m 0700 /etc/porelo-host/setup
+test -d /etc/porelo-host/setup && test ! -L /etc/porelo-host/setup
+test "$(stat -c '%u:%a' /etc/porelo-host/setup)" = '0:700'
+''';
+
+  /// The checks that the setup folder is still root's alone, in a shell where `$place` names it.
+  static const _placeIsRoots =
+      r'''test -d "$place" && test ! -L "$place" && test ! -L "$(dirname "$place")" && '''
+      r'''test "$(stat -c '%u:%a' "$place")" = '0:700' ''';
+
+  /// Writes the identity from standard input as root's alone, into the folder checked again, and checks it by its
+  /// [digest]: never through a file on this computer, and never as an argument.
+  static String _identityInstall(String digest) =>
+      'place=${path.posix.dirname(_identityPlace)}\n'
+      'file=$_identityPlace\n'
+      'set -e\n'
+      'umask 077\n'
+      '$_placeIsRoots\n'
+      r'''test ! -L "$file"
+rm -f "$file"
+cat > "$file"
+chown root:root "$file"
+chmod 0600 "$file"
+'''
+      'test "\$(sha256sum < "\$file" | cut -d " " -f 1)" = $digest\n';
+
+  /// Removes the identity only where its folder is still root's alone, so a removal never goes through a link.
+  static const _identityRemoval =
+      'place=/etc/porelo-host/setup\n'
+      'if $_placeIsRoots; then rm -f $_identityPlace; else exit 3; fi\n';
+
+  /// Removes the identity a run that did not finish left on the host, once; where that fails, says so as a note.
+  Future<void> _removeIdentity(String address) async {
+    try {
+      final removed = await remote.run(address, 'root', _identityRemoval);
+      if (removed.exitCode == 0) return;
+    } on Exception {
+      // Said below, as a removal that did not happen.
+    }
+    _write(
+      const Step(
+        'note',
+        StepState.note,
+        words: 'The host identity may still lie in $_identityPlace on the host: remove it there as root.',
+      ),
+    );
   }
 
   /// Takes [plan]'s host down: the down play, then the host given back. Nothing happens when none is rented.

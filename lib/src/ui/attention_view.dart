@@ -540,6 +540,43 @@ extension on _AttentionViewState {
           primaryKey = const Key('gate-review');
         }
         if (!resolved) steps = _stepsOf(tile);
+      case AttentionKind.identity:
+        final keeping = row.value as IdentityKeeping;
+        final runs = attention.hostRuns;
+        final busy = runs?.keepingIdentities.contains(keeping.host) == true;
+        final unavailable = reason ?? (runs == null ? 'it cannot be kept from here' : null);
+        title = identityNotKeptWords(keeping.host);
+        state = busy
+            ? 'Being kept'
+            : keeping.state == IdentityKeepingState.conflict
+            ? 'Another is kept'
+            : 'Not kept';
+        icon = Icons.key_off_outlined;
+        if (!resolved) {
+          final again = keepHostIdentityAgainCommand(
+            host: keeping.host,
+            run: () => unawaited(runs?.keepIdentity(keeping.host)),
+            unavailable: unavailable ?? (busy ? 'it is being kept now' : null),
+          );
+          final replace = replaceHostIdentityCommand(
+            host: keeping.host,
+            run: () => unawaited(_replaceIdentity(keeping.host)),
+            unavailable: unavailable ?? (busy ? 'it is being kept now' : null),
+          );
+          steps = [
+            OutlinedButton(
+              key: ValueKey('identity-keep ${keeping.host}'),
+              onPressed: again.available ? again.run : null,
+              child: Text(again.label),
+            ),
+            if (keeping.state == IdentityKeepingState.conflict)
+              TextButton(
+                key: ValueKey('identity-replace ${keeping.host}'),
+                onPressed: replace.available ? replace.run : null,
+                child: Text(replace.label),
+              ),
+          ];
+        }
       case AttentionKind.setAside:
         title = 'Saved machines not watched';
         state = 'Set aside';
@@ -632,6 +669,39 @@ extension on _AttentionViewState {
           child: const Text('Seen'),
         ),
     ];
+  }
+
+  /// Replaces the identity the vault keeps for [host] once the person confirmed it; Cancel holds the focus first.
+  Future<void> _replaceIdentity(String host) async {
+    final runs = widget.attention.hostRuns;
+    if (runs == null) return;
+    final error = Theme.of(context).colorScheme.error;
+    final replace = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Replace the identity of $host?'),
+        content: SizedBox(
+          width: Sizes.dialogSmall,
+          child: Text(
+            'Your Porelo-Vault keeps another identity for $host. Replacing it keeps the one $host holds now, and the '
+            'stored one is gone from the vault for good: keys of it the central forge still knows can then only be '
+            'removed there by hand.',
+          ),
+        ),
+        actions: [
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          Semantics(
+            label: 'Replace the stored identity of $host, for good',
+            child: TextButton(
+              style: TextButton.styleFrom(foregroundColor: error),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Replace it'),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (replace == true) await runs.keepIdentity(host, replace: true);
   }
 
   Widget _details(BuildContext context, AttentionRow row, {bool resolved = false, bool includePrimary = true}) {
@@ -896,6 +966,13 @@ extension on _AttentionViewState {
         return _CauseFacts(tile: row.value as Tile, id: row.id);
       case AttentionKind.setAside:
         return Text(row.value as String);
+      case AttentionKind.identity:
+        final keeping = row.value as IdentityKeeping;
+        return Text(
+          '${keeping.why ?? 'It could not be kept.'} Until it is kept, its keys live only on ${keeping.host}: '
+          'given back, they are lost, and those the central forge knows stay there until removed by hand.',
+          key: ValueKey('identity-details ${keeping.host}'),
+        );
       case AttentionKind.ranOut:
         final each = row.value as RanOutQuestion;
         return Text('Nobody answered in time, so ${each.shown} stays blocked.');

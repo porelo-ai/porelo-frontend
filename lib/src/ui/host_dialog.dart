@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:porelo_host/porelo_host.dart' show HostMembership, rootStillClosed;
 
+import '../app/attention.dart' show identityNotKeptWords;
 import '../app/host_runs.dart';
 import '../app/host_access.dart';
 import '../app/host_session.dart';
@@ -32,6 +33,7 @@ Future<void> openHostTakeDownDialog(
   OpenTerminal? openTerminal,
   bool? linux,
   Future<String?> Function(String host)? removeFromOrganization,
+  Future<IdentityKeeping?> Function(String host)? keepIdentity,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
@@ -44,6 +46,7 @@ Future<void> openHostTakeDownDialog(
     hostAccess: hostAccess,
     fromTheCard: fromTheCard,
     readHostProgress: readHostProgress,
+    keepIdentity: keepIdentity,
     start: start,
     takeDownOnly: true,
   ),
@@ -86,6 +89,7 @@ class HostDialog extends StatefulWidget {
     this.fromTheCard,
     this.readHostProgress,
     this.onEnterKeyAgain,
+    this.keepIdentity,
     super.key,
   }) : assert(takeDownOnly || existingRun != null, 'a protocol is of a run');
 
@@ -125,6 +129,10 @@ class HostDialog extends StatefulWidget {
   /// The function that reads the connected host's organization status afresh before give-back.
   final Future<HostProgress> Function(String host)? readHostProgress;
 
+  /// Keeps the server's identity in this computer's vault before give-back; by default through [hostRuns]. Null, or an
+  /// answer of null, where this window keeps no identities.
+  final Future<IdentityKeeping?> Function(String host)? keepIdentity;
+
   @override
   State<HostDialog> createState() => _HostDialogState();
 }
@@ -163,6 +171,7 @@ class _HostDialogState extends State<HostDialog> {
     if (widget.takeDownOnly) {
       unawaited(_readHolders());
       unawaited(_readCentral());
+      unawaited(_keepIdentity());
       return;
     }
     // Root's bootstrap line names the card key, so it is shown only once the identity was read again.
@@ -312,6 +321,39 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
+  String get _hostName => _record?.hostName.isNotEmpty == true ? _record!.hostName : widget.project;
+
+  bool _keepingIdentity = false;
+  IdentityKeeping? _identity;
+
+  /// Whether the ordinary give-back may go as far as the server's identity goes: kept, or kept by no vault here.
+  bool get _identityReady => !_keepingIdentity && (_identity == null || _identity!.state == IdentityKeepingState.kept);
+
+  /// Why the server's identity is not kept, where it is not.
+  String? get _identityProblem => switch (_identity) {
+    IdentityKeeping(state: IdentityKeepingState.conflict || IdentityKeepingState.refused, :final why) =>
+      '${identityNotKeptWords(_hostName)}: ${why ?? 'it could not be kept.'}',
+    _ => null,
+  };
+
+  /// Keeps the server's identity in this computer's vault before it goes: once it is gone, so are its keys.
+  Future<void> _keepIdentity() async {
+    final keep = widget.keepIdentity ?? widget.hostRuns?.keepIdentity;
+    if (keep == null || _keepingIdentity) return;
+    setState(() => _keepingIdentity = true);
+    IdentityKeeping? kept;
+    try {
+      kept = await keep(_hostName);
+    } on Exception catch (error) {
+      kept = IdentityKeeping(_hostName, IdentityKeepingState.refused, why: '$error');
+    }
+    if (!mounted) return;
+    setState(() {
+      _identity = kept;
+      _keepingIdentity = false;
+    });
+  }
+
   /// Today on the machine's calendar, as its purge day is written.
   static String _today() => DateTime.now().toUtc().toIso8601String().substring(0, 10);
 
@@ -336,6 +378,7 @@ class _HostDialogState extends State<HostDialog> {
     if (_busy || _givenBack || _record == null) return;
     if (!_centralReady && !(anyway && centralLossConfirmed && _centralBlockers?.isNotEmpty == true)) return;
     if (!anyway && (holders == null || !identical(holders, _holders) || _checkingMemberships)) return;
+    if (!anyway && !_identityReady || _keepingIdentity) return;
     if (widget.hostRuns?.of(widget.project)?.running == true) return;
     final record = _record!;
     final session = HostSession(
@@ -503,7 +546,24 @@ class _HostDialogState extends State<HostDialog> {
               // Reopened from its row: what stopped it stands above the protocol, with ssh's own line.
               if (_problem == null && run != null && (widget.hostRuns?.mayStartOver(run) ?? false))
                 Text(run.problem!, key: const Key('preparation-key-refused')),
+              // Any other stop, a start refused before its command ran among them, says itself above the protocol.
+              if (_problem == null &&
+                  run != null &&
+                  run.problem != null &&
+                  !run.running &&
+                  _rootCommandAgain(access, run) == null &&
+                  !(widget.hostRuns?.mayStartOver(run) ?? false))
+                Text(run.problem!, key: const Key('preparation-problem')),
               if (widget.takeDownOnly && !_givenBack) ...[
+                if (_keepingIdentity) Text('Keeping the identity of $_hostName in your Porelo-Vault…'),
+                if (_identityProblem ?? (_keepingIdentity ? '${identityNotKeptWords(_hostName)} yet.' : null)
+                    case final problem?)
+                  Text(
+                    '$problem Giving it back anyway loses its keys with it: those the central forge knows stay at '
+                    'the central forge until they are removed there by hand.',
+                    key: const Key('host-identity-not-kept'),
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
                 if (_checkingCentral) const Text('Checking the repositories against central…'),
                 if (_centralBlockers case final blockers? when blockers.isNotEmpty) ...[
                   const Text('This machine cannot be given back safely:'),
@@ -620,6 +680,7 @@ class _HostDialogState extends State<HostDialog> {
                     _checkingMemberships ||
                     holders == null ||
                     record == null ||
+                    !_identityReady ||
                     widget.hostRuns?.of(widget.project)?.running == true
                 ? null
                 : () => _giveBack(holders: holders),
@@ -633,10 +694,19 @@ class _HostDialogState extends State<HostDialog> {
                   : 'Take Porelo off',
             ),
           ),
-        if (widget.takeDownOnly && !_givenBack && _centralBlockers?.isNotEmpty == true)
+        if (widget.takeDownOnly && !_givenBack && _identityProblem != null)
+          TextButton(
+            key: const Key('host-keep-identity-again'),
+            onPressed: _busy || _keepingIdentity ? null : () => unawaited(_keepIdentity()),
+            child: const Text('Keep it again'),
+          ),
+        if (widget.takeDownOnly &&
+            !_givenBack &&
+            (_centralBlockers?.isNotEmpty == true || (_identityProblem != null && _centralReady)))
           OutlinedButton(
             key: const Key('host-give-back-anyway'),
-            onPressed: _busy ? null : () => _giveBack(anyway: true, centralLossConfirmed: true),
+            // Not while the identity is being kept: the give-back would cut the keeping off.
+            onPressed: _busy || _keepingIdentity ? null : () => _giveBack(anyway: true, centralLossConfirmed: true),
             child: const Text('Give it back anyway'),
           ),
         if (widget.takeDownOnly && !_givenBack && _problem != null && _centralBlockers?.isNotEmpty != true)

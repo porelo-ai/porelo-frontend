@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart' show HostIdentity;
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_host/porelo_host.dart';
 
@@ -300,6 +301,61 @@ void main() {
     expect(unreachable.state, HostRunState.unreachable);
     expect(unreachable.fix, 'no route to host');
   });
+
+  // Harm: a host command that ends before it read a large identity throws in the window, its own refusal is lost, and
+  // the run stays "running" with nothing left to end it.
+  test("an input the command did not take leaves its own refusal, and the run ended", () async {
+    final process = _BrokenPipeProcess();
+    final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
+    final identity = HostIdentity.read(<String, dynamic>{'host': 'orchard', 'secret': 'x' * 100000});
+    final up = session.up(identity: identity);
+    process.refuse('porelo-host: the identity is larger than 256 KiB');
+    await up;
+    expect(session.state, HostRunState.refused);
+    expect(session.fix, contains('larger than 256 KiB'));
+  });
+
+  test('a command that could not start leaves no run "running"', () async {
+    final session = HostSession(
+      executable: 'fake',
+      arguments: const [],
+      start: (_, _) async => throw const ProcessException('fake', [], 'not found'),
+    );
+    await expectLater(session.up(), throwsA(isA<ProcessException>()));
+    expect(session.state, isNot(HostRunState.running));
+  });
+}
+
+/// A command whose standard input is closed already, as a program that ended before it read it leaves it.
+class _BrokenPipeProcess extends Fake implements Process {
+  final _out = StreamController<List<int>>();
+  final _err = StreamController<List<int>>();
+  final _exit = Completer<int>();
+
+  void refuse(String words) {
+    _err.add(utf8.encode('$words\n'));
+    unawaited(_out.close());
+    unawaited(_err.close());
+    _exit.complete(65);
+  }
+
+  @override
+  IOSink get stdin => _BrokenSink();
+  @override
+  Stream<List<int>> get stdout => _out.stream;
+  @override
+  Stream<List<int>> get stderr => _err.stream;
+  @override
+  Future<int> get exitCode => _exit.future;
+}
+
+class _BrokenSink extends Fake implements IOSink {
+  @override
+  void add(List<int> data) => throw const SocketException('Broken pipe');
+  @override
+  Future<void> close() => Future.error(const SocketException('Broken pipe'));
+  @override
+  Future<void> get done => Future.error(const SocketException('Broken pipe'));
 }
 
 class _RecordingProcess extends Fake implements Process {

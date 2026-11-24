@@ -427,6 +427,7 @@ void main() {
       'gate.open',
       'host.again',
       'host.copyProtocol',
+      'host.giveUp',
       'host.goOn',
       'host.preparation',
       'host.protocol',

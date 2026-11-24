@@ -188,6 +188,7 @@ import 'work_page.dart';
 import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
+import 'host_give_up_view.dart';
 import 'image_settings_view.dart';
 import '../wire/limit_factors.dart';
 
@@ -407,6 +408,7 @@ class _ShellState extends State<Shell> {
 
   MachineTools _toolsFor(Machine machine) => _machineTools.putIfAbsent(machine, () {
     final tools = MachineTools(widget.vault.devices.store);
+    if (machine.isThisComputer) tools.vault.addListener(() => _thisVaultChanged(tools));
     for (final model in [
       tools.vault,
       tools.vault.devices,
@@ -600,7 +602,20 @@ class _ShellState extends State<Shell> {
         );
       });
     }
-    _hostRuns = HostRuns(widget.machines, hostAccess: widget.hostAccess, onReady: _hostReady, say: _say);
+    _hostRuns = HostRuns(
+      widget.machines,
+      hostAccess: widget.hostAccess,
+      onReady: _hostReady,
+      say: _say,
+      // This computer's own daemon, asked afresh over its own socket for each run: its vault keeps hosts' identities.
+      identities: () async {
+        final here = widget.thisComputer();
+        await here.open();
+        return here;
+      },
+    );
+    // What the finder offers to give up is known from the start, not only once the Vault page was shown.
+    unawaited(_hostRuns.readIdentitiesHere());
     // A read of the organization or the proven identity changes what a host admin is offered at once.
     widget.hostAccess?.addListener(_homeserversChanged);
     // Made before the boards, which leave out what it marks seen.
@@ -946,6 +961,8 @@ class _ShellState extends State<Shell> {
     if (widget.planning?.client case final PlanningReach planning when !quietly && planning.notReached != null) {
       unawaited(planning.reach());
     }
+    // Asked by hand: what this computer's vault keeps is read again too, a read that failed included.
+    if (!quietly) unawaited(_hostRuns.readIdentitiesHere());
     // A key loaded into the agent, or revoked, since the last read changes what a host admin is offered.
     await widget.hostAccess?.readAgain();
     if (!mounted) return;
@@ -1023,6 +1040,7 @@ class _ShellState extends State<Shell> {
         for (final run in _hostRuns.preparing)
           if (run.running && !run.session.renting) run.project,
       ],
+      keepingIdentities: _hostRuns.keepingIdentities,
       onLeave: _hostRuns.leave,
     );
     if (!agreed) return AppExitResponse.cancel;
@@ -1439,6 +1457,7 @@ class _ShellState extends State<Shell> {
         settings: widget.settings,
         hostRuns: _hostRuns,
         takeDown: () => unawaited(_takeDown(machine)),
+        giveUp: (host) => unawaited(_giveUpHost(host)),
       ),
     ];
   }
@@ -1465,6 +1484,32 @@ class _ShellState extends State<Shell> {
       ),
     ),
   ];
+
+  /// Gives [host] up for good in a terminal of this computer, and says what came of it with each key.
+  Future<void> _giveUpHost(String host) => giveHostUp(
+    context,
+    host: host,
+    // Read afresh: a link is a button only on the forge the organization names now.
+    centralForge: () async => (await _organization?.source.read())?.address,
+    openLink: (link) => unawaited(desk.open('$link')),
+    open: widget.sessions.openTerminal,
+    begin: () => _hostRuns.beginGiveUp(host),
+    done: (outcome) => _hostRuns.endGiveUp(host, allGone: outcome.allGone),
+  );
+
+  /// The vault state this computer's list of kept host identities was last read for.
+  bool? _identitiesReadFor;
+
+  /// Reads the kept host identities again whenever this computer's vault opens or shuts, wherever that was done: what
+  /// it keeps can be said only while it is open. A read that failed is tried again at the next look at the vault.
+  void _thisVaultChanged(MachineTools tools) {
+    final state = tools.vault.state;
+    if (!mounted || state == null) return;
+    final failed = state.readable && _hostRuns.identitiesHere == null;
+    if (_identitiesReadFor == state.readable && !failed) return;
+    _identitiesReadFor = state.readable;
+    unawaited(_hostRuns.readIdentitiesHere());
+  }
 
   Future<void> _takeDown(Machine machine) async {
     await openHostTakeDownDialog(
@@ -5139,6 +5184,20 @@ class _ShellState extends State<Shell> {
       notes: [
         if (primary?.unavailable case final reason?) Text(reason),
         const Text('No value is shown, copied or logged.'),
+        // Only this computer's vault keeps hosts' identities; a host given back already is given up from here.
+        if (machine.isThisComputer)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.small),
+            child: ListenableBuilder(
+              listenable: _hostRuns,
+              builder: (context, _) => KeptHostIdentities(
+                hosts: _hostRuns.identitiesHere,
+                problem: _hostRuns.identitiesHereProblem,
+                whyNot: _hostRuns.whyNotGiveUp,
+                onGiveUp: (host) => unawaited(_giveUpHost(host)),
+              ),
+            ),
+          ),
       ],
       onRevoke: (slot) => unawaited(tools.run(() => tools.vault.devices.revoke(backend, slot))),
       onUnlockHere: unlockCommandFor(machine) != null ? () => unawaited(_unlockMachine(machine)) : null,
@@ -6867,7 +6926,12 @@ class _ShellState extends State<Shell> {
         secrets: () => centralToken(widget.settings.secretsFile, desk.environment),
       ),
       connect: () => _connectHost(host),
-      give: (answer) => _giveTokenFrom(host, answer),
+      give: (answer) async {
+        final refused = await _giveTokenFrom(host, answer);
+        // A token taken brings the project's read keys onto the host: the vault keeps its identity as it stands now.
+        if (refused == null) unawaited(_hostRuns.keepIdentity(host));
+        return refused;
+      },
       heard: () async => _hostConnections?.tokenTaken(host),
     );
   }

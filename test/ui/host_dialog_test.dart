@@ -1106,6 +1106,123 @@ void main() {
     await World.settle(tester);
     expect(list().pixels, 0);
   });
+
+  // Harm: a setup that never started, refused for its identity, opens on an empty protocol that says nothing.
+  testWidgets("a run that did not start shows why in its dialog", (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    addTearDown(() {
+      machines.dispose();
+      settings.dispose();
+    });
+    final run = HostPreparation(
+      project: 'orchard',
+      session: HostSession(executable: 'fake', arguments: const [])..state = HostRunState.refused,
+      record: signedSetup,
+    )..problem = 'Setup of orchard did not start: Your Porelo-Vault is shut: open it, then try again.';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(project: 'orchard', machines: machines, settings: settings, existingRun: run),
+        ),
+      ),
+    );
+    await World.settle(tester);
+    expect(find.textContaining('did not start: Your Porelo-Vault is shut'), findsOneWidget);
+  });
+
+  group("the server's identity before a give-back", () {
+    FilledButton ordinary(WidgetTester tester) =>
+        tester.widget<FilledButton>(find.byKey(const Key('host-confirm-down')));
+
+    // Harm: a server goes back while its keys are in no vault, and the keys the central forge knows are lost with it.
+    testWidgets('kept first, the ordinary give-back waits for it and then goes', (tester) async {
+      final asked = <String>[];
+      final held = Completer<IdentityKeeping?>();
+      final state = await openTakeDown(
+        tester,
+        keepIdentity: (host) {
+          asked.add(host);
+          return held.future;
+        },
+      );
+      answerHolders(state.processes.single, []);
+      await World.settle(tester);
+      expect(asked, ['orchard']);
+      expect(find.textContaining('Keeping the identity of orchard'), findsOneWidget);
+      expect(ordinary(tester).onPressed, isNull, reason: 'not before the identity is kept');
+      held.complete(const IdentityKeeping('orchard', IdentityKeepingState.kept));
+      await World.settle(tester);
+      expect(ordinary(tester).onPressed, isNotNull);
+      expect(find.byKey(const Key('host-give-back-anyway')), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    // Harm: a give-back the person thinks safe leaves the server's keys at the central forge with nobody holding them.
+    testWidgets('not kept, only giving it back anyway goes, and it names the keys left at the forge', (tester) async {
+      var tries = 0;
+      final state = await openTakeDown(
+        tester,
+        keepIdentity: (host) async {
+          tries++;
+          return const IdentityKeeping(
+            'orchard',
+            IdentityKeepingState.refused,
+            why: 'Your Porelo-Vault is shut: open it, then try again.',
+          );
+        },
+      );
+      answerHolders(state.processes.single, []);
+      await World.settle(tester);
+      expect(ordinary(tester).onPressed, isNull);
+      expect(find.textContaining('The identity of orchard is not kept in your Porelo-Vault'), findsOneWidget);
+      expect(find.textContaining('Your Porelo-Vault is shut'), findsOneWidget);
+      expect(find.textContaining('stay at the central forge until they are removed there by hand'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('host-keep-identity-again')));
+      await World.settle(tester);
+      expect(tries, 2);
+      await tester.tap(find.byKey(const Key('host-give-back-anyway')));
+      await World.settle(tester);
+      expect(state.commands.last, contains('--give-back-anyway'));
+      state.processes.last.end(65);
+      await World.settle(tester);
+      answerHolders(state.processes.last, []);
+      await World.settle(tester);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    // Harm: a give-back anyway pressed while the identity is being kept again cuts the keeping off, and the keys go
+    // with no word that they do.
+    testWidgets('while it is kept again, giving it back anyway waits, and the keys left behind are said', (
+      tester,
+    ) async {
+      var tries = 0;
+      final again = Completer<IdentityKeeping?>();
+      final state = await openTakeDown(
+        tester,
+        keepIdentity: (host) {
+          tries++;
+          return tries == 1
+              ? Future.value(const IdentityKeeping('orchard', IdentityKeepingState.refused, why: 'shut'))
+              : again.future;
+        },
+      );
+      answerHolders(state.processes.single, []);
+      await World.settle(tester);
+      await tester.tap(find.byKey(const Key('host-keep-identity-again')));
+      await World.settle(tester);
+      expect(
+        tester.widget<OutlinedButton>(find.byKey(const Key('host-give-back-anyway'))).onPressed,
+        isNull,
+        reason: 'not while the keeping runs',
+      );
+      expect(find.textContaining('stay at the central forge until they are removed there by hand'), findsOneWidget);
+      again.complete(const IdentityKeeping('orchard', IdentityKeepingState.refused, why: 'shut'));
+      await World.settle(tester);
+      expect(tester.widget<OutlinedButton>(find.byKey(const Key('host-give-back-anyway'))).onPressed, isNotNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  });
 }
 
 Map<String, Object?> holder(
@@ -1141,6 +1258,7 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
   HostAccess? hostAccess,
   List<Project>? itsDaemonLists,
   Size size = const Size(1280, 800),
+  Future<IdentityKeeping?> Function(String host)? keepIdentity,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -1181,6 +1299,7 @@ Future<({Settings settings, List<List<String>> commands, List<HostProcess> proce
             readHostProgress: readHostProgress,
             removeFromOrganization: removeFromOrganization,
             hostAccess: hostAccess,
+            keepIdentity: keepIdentity,
             start: (_, arguments) async {
               commands.add(arguments);
               final process = HostProcess();

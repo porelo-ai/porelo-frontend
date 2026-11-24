@@ -14,7 +14,7 @@ porelo-host up|down (--host-name NAME | --project NAME --account NAME)
             [--give-back-anyway]
             [--memberships | --purge LOGIN ...]
             [--collection FILE --collection-sha256 HEX]
-            [--machine-file FILE]
+            [--machine-file FILE] [--identity-stdin]
 porelo-host check --given ADDRESS --host-key "TYPE BASE64" --public-key "TYPE BASE64"
             [--forge true|false] [--kvm true|false] [--forge-runner-capacity N] [--forge-job-cpus N]
             [--forge-job-memory SIZE] [--collection FILE --collection-sha256 HEX]
@@ -49,6 +49,9 @@ Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 70 an unforeseen fault, 75 w
             another Elastic Metal offer than EM-I220E-NVME.
 --given names a machine that exists already, with its host key; nothing is rented or given back.
 --machine-file names the file whose organization part a server's up takes; up of a server refuses without it.
+--identity-stdin, with up --given only, reads the host's identity kept in the person's Porelo-Vault from standard
+            input, at most 256 KiB of JSON: the server is set up with its SSH host keys and read keys, and is pinned by
+            its ed25519 host key once set up.
 --memberships reads down's membership holders through the pinned rental login, changing nothing.
 --purge LOGIN removes only that person's server account as root before down's play; repeat for each confirmed login.
 --give-back-anyway gives the host back after a down play that did not finish; what it held is gone.''';
@@ -86,6 +89,8 @@ Future<int> runHostCommand(
   Future<Process> Function(String, List<String>)? startSsh,
   String? resolvedExecutable,
   String? version,
+  Future<void> Function(String address, String hostKey)? trust,
+  Stream<List<int>>? identityInput,
 }) async {
   version ??= _version;
   final out = output ?? stdout;
@@ -130,6 +135,7 @@ Future<int> runHostCommand(
   final options = <String, String>{};
   var giveBackAnyway = false;
   var memberships = false;
+  var identityStdin = false;
   final purge = <String>[];
   for (var i = 1; i < arguments.length; i++) {
     final name = arguments[i];
@@ -137,6 +143,8 @@ Future<int> runHostCommand(
       giveBackAnyway = true;
     } else if (name == '--memberships' && verb == 'down') {
       memberships = true;
+    } else if (name == '--identity-stdin') {
+      identityStdin = true;
     } else if (name == '--purge' && verb == 'down' && i + 1 < arguments.length) {
       final login = arguments[++i];
       try {
@@ -215,6 +223,7 @@ Future<int> runHostCommand(
   final given = options.containsKey('given');
   if (given == options.containsKey('scaleway-project')) return wrong('either --scaleway-project or --given');
   if (given && !options.containsKey('host-key')) return wrong('--given needs --host-key');
+  if (identityStdin && !(verb == 'up' && given)) return wrong('--identity-stdin goes with up --given alone');
   if (options['offer'] case final String offer when given || !RegExp(r'^[A-Z0-9][A-Z0-9-]*$').hasMatch(offer)) {
     return wrong('--offer takes an Elastic Metal offer name such as EM-I220E-NVME, with --scaleway-project');
   }
@@ -252,6 +261,7 @@ Future<int> runHostCommand(
     bundle: options['bundle'],
   );
   final String knownHosts;
+  CarriedIdentity? identity;
   try {
     plan.check(forSetup: false);
     if (verb == 'up') {
@@ -272,6 +282,8 @@ Future<int> runHostCommand(
       });
     }
     knownHosts = '${poreloHostProjectLock(HostPlan.lockNameForTag(plan.tag), environment: environment)}.known_hosts';
+    // Read and checked whole before any connection: a refused identity changes nothing anywhere.
+    if (identityStdin) identity = await CarriedIdentity.readFrom(identityInput ?? stdin, host: plan.hostName!);
   } on FormatException catch (error) {
     writeHostStep(
       Step(verb == 'up' ? 'up' : 'give-back', StepState.refused, fix: error.message),
@@ -299,12 +311,12 @@ Future<int> runHostCommand(
   final run = HostRun(
     provider: provider,
     remote: remote ?? ssh,
-    trust: remote == null ? ssh.trust : null,
+    trust: remote == null ? ssh.trust : trust,
     environment: environment,
     emit: (step) => writeHostStep(step, output: out, errors: err),
   );
   if (memberships) return run.memberships(plan);
-  return verb == 'up' ? run.up(plan) : run.down(plan, giveBackAnyway: giveBackAnyway, purge: purge);
+  return verb == 'up' ? run.up(plan, identity: identity) : run.down(plan, giveBackAnyway: giveBackAnyway, purge: purge);
 }
 
 /// `check`: what the carried collection's check answers of a given machine, as one JSON object.

@@ -25,6 +25,49 @@ class CarryingFakeBackend extends FakeBackend implements CarryingBackend {
   final List<({String key, String? name, String? agent, String? provider})> sealsAsked =
       <({String key, String? name, String? agent, String? provider})>[];
 
+  /// The identities its vault keeps, by host; a host answers [identityFailure] instead where one is set.
+  final Map<String, HostIdentity> identitiesKept = <String, HostIdentity>{};
+
+  /// What every identity call fails with, where set: a shut vault, an older Porelo, a dropped connection.
+  HostIdentityFailure? identityFailure;
+
+  /// Every identity kept, as asked: the host and whether it replaced.
+  final List<({String host, bool replace})> identityKeepsAsked = <({String host, bool replace})>[];
+
+  /// Every whole identity read, by host.
+  final List<String> identityReadsAsked = <String>[];
+
+  HostIdentity _kept(String host) {
+    if (identityFailure case final failure?) throw failure;
+    return identitiesKept[host] ?? (throw HostIdentityUnknown(host));
+  }
+
+  @override
+  Future<void> hostIdentityKeep(String host, HostIdentity identity, {bool replace = false}) async {
+    if (identityFailure case final failure?) throw failure;
+    identityKeepsAsked.add((host: host, replace: replace));
+    identitiesKept[host] = identity;
+  }
+
+  @override
+  Future<HostIdentity> hostIdentityRead(String host) async {
+    identityReadsAsked.add(host);
+    return _kept(host);
+  }
+
+  @override
+  Future<HostIdentityPublic> hostIdentityPublic(String host) async => HostIdentityPublic.read(_kept(host).wire);
+
+  /// How often the list of kept identities was asked for.
+  int identityListsAsked = 0;
+
+  @override
+  Future<List<String>> hostIdentities() async {
+    identityListsAsked++;
+    if (identityFailure case final failure?) throw failure;
+    return identitiesKept.keys.toList()..sort();
+  }
+
   /// Every receipt asked of it, by name and whether it replaces, in order.
   final List<({String name, bool replace})> receiptsAsked = <({String name, bool replace})>[];
 

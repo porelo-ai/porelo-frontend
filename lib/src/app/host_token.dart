@@ -40,7 +40,7 @@ String keptTokenWords(String host, String forge, String where) =>
 /// there now: kind `TOKEN`, for `git` or `any`, whose match is the longest prefix of the repository's address, as
 /// Porelo picks it. Named to the person, never read: Porelo hands it on itself.
 Connection? declaredOrganizationToken(String address, List<Connection> held) {
-  final https = _https(address)?.toLowerCase();
+  final https = httpsAddressOf(address)?.toLowerCase();
   if (https == null) return null;
   Connection? best;
   for (final each in held) {
@@ -54,7 +54,7 @@ Connection? declaredOrganizationToken(String address, List<Connection> held) {
 
 /// [address] as the https address a declaration matches against: `git@host:path`, `host:path` and
 /// `ssh://user@host/path` are read as `https://host/path`, as Porelo normalizes them; null for anything else.
-String? _https(String address) {
+String? httpsAddressOf(String address) {
   final trimmed = address.trim();
   if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) return trimmed;
   final ssh = Uri.tryParse(trimmed);

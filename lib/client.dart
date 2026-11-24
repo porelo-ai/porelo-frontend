@@ -4,6 +4,7 @@
 /// socket, and nothing anywhere may run the `porelo` CLI.
 library;
 
+export 'src/client/host_identity.dart';
 export 'src/client/models.dart';
 export 'src/client/porelo_client.dart';
 export 'src/wire/varlink_connection.dart';

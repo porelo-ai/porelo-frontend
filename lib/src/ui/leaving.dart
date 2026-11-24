@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app/host_runs.dart' show HostRuns;
+
 import 'dialog_scroll.dart';
 import 'tokens.dart';
 
@@ -10,6 +12,7 @@ Future<bool> confirmQuit(
   required int waiting,
   List<String> preparing = const [],
   List<String> continuingSetup = const [],
+  List<String> keepingIdentities = const [],
   Future<void> Function()? onLeave,
 }) async =>
     await showDialog<bool>(
@@ -31,7 +34,7 @@ Future<bool> confirmQuit(
                     children: <Widget>[
                       Text(
                         running.isEmpty
-                            ? preparing.isEmpty
+                            ? preparing.isEmpty && keepingIdentities.isEmpty
                                   ? 'Nothing is running. Closing this changes nothing on any machine.'
                                   : 'No work is running.'
                             : 'The listed work keeps running without this window, whether on this machine or another.',
@@ -58,6 +61,15 @@ Future<bool> confirmQuit(
                                 ? '$project server: Setup runs on without the interface; it shows again when you start it'
                                 : '$project server: Setup stops if it is still renting; the server stays rented and billed. Go on from Needs you.',
                             key: ValueKey('leaving-host $project'),
+                          ),
+                        ),
+                      for (final host in keepingIdentities)
+                        Padding(
+                          padding: const EdgeInsets.only(top: Space.normal),
+                          child: Text(
+                            'The identity of $host is being kept in your Porelo-Vault: closing waits for it, at most '
+                            '${HostRuns.keepingLimit.inSeconds} seconds.',
+                            key: ValueKey('leaving-identity $host'),
                           ),
                         ),
                       if (problem != null) Text(problem!),

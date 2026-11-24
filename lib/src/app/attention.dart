@@ -157,6 +157,9 @@ enum AttentionKind {
 
   /// Stored machines are kept unread and not watched, as their host card does not read in this version.
   setAside,
+
+  /// A server's identity is not kept in this computer's Porelo-Vault.
+  identity,
 }
 
 /// An immutable row snapshot, retained when the condition it describes is resolved.
@@ -365,6 +368,9 @@ class Attention extends ChangeNotifier {
     }
     for (final run in _hostRuns?.needingYou ?? <HostPreparation>[]) {
       yield AttentionRow(AttentionKind.host, 'host ${run.project}', run.name, HostStop(run));
+    }
+    for (final keeping in _hostRuns?.identitiesNotKept ?? const <IdentityKeeping>[]) {
+      yield AttentionRow(AttentionKind.identity, 'identity ${keeping.host}', keeping.host, keeping);
     }
     for (final machine in missedQuestions) {
       yield AttentionRow(AttentionKind.missed, 'missed ${machine.name}', machine.name, (
@@ -664,6 +670,7 @@ class Attention extends ChangeNotifier {
       final Operation operation => '${operation.title}: ${operation.summary}',
       final RanOutQuestion question => '${question.task} asked to reach ${question.shown}, and it ran out',
       final HostStop stop => '${stop.project} server: ${stop.text}',
+      final IdentityKeeping keeping => identityNotKeptWords(keeping.host),
       final PullRequestRow each => 'pull request ${each.request.title} of ${each.project.name}',
       final PullRequestsRefusedRow each => each.words,
       final SigningIn each => 'sign in to ${each.who} on ${each.machine}',
@@ -1493,3 +1500,6 @@ class _Seen extends ChangeNotifier implements PlanningSeen {
 
   void marksChanged() => notifyListeners();
 }
+
+/// The title of the row for a server whose identity this computer's vault does not keep.
+String identityNotKeptWords(String host) => 'The identity of $host is not kept in your Porelo-Vault';

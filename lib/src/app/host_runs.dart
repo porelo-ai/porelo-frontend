@@ -5,6 +5,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart';
 
+import '../client/host_identity.dart';
+import 'fleet_backend.dart' show KeepsHostIdentities;
+import 'host_identity_export.dart';
 import 'host_session.dart';
 import 'host_access.dart';
 import 'machines.dart';
@@ -42,8 +45,8 @@ class HostPreparation {
   /// The command and its immutable arguments, reused for every resume.
   final HostSession session;
 
-  /// The original nonsecret setup answers.
-  final HostUpRecord record;
+  /// The nonsecret setup answers, with the host key the server answers with now.
+  HostUpRecord record;
 
   /// Persists public completion settings independently of the setup dialog's lifetime.
   final Settings? settings;
@@ -112,7 +115,16 @@ class HostPreparation {
 /// Owns host setup just as Operations owns other long actions; views only observe it.
 class HostRuns extends ChangeNotifier {
   /// Adds successful runs through the ordinary Machines path.
-  HostRuns(this.machines, {this.environment, this.hostAccess, this.onReady, this.say}) {
+  HostRuns(
+    this.machines, {
+    this.environment,
+    this.hostAccess,
+    this.onReady,
+    this.say,
+    this.identities,
+    this.exportIdentity,
+    this.startExport,
+  }) {
     for (final entry in machines.settings.hostUps.entries) {
       if (!entry.value.preparing) continue;
       final session = sessionFor(entry.key, entry.value)..restoreProtocol(entry.value.protocol);
@@ -139,6 +151,213 @@ class HostRuns extends ChangeNotifier {
 
   /// Called once a host stands on its card, to give it the host admin's central token.
   final Future<void> Function(String host)? onReady;
+
+  /// This computer's vault, opened, where a given server's identity is kept: a server set up anew under a host name it
+  /// keeps one for gets that identity's keys, which the central forge knows.
+  final Future<KeepsHostIdentities> Function()? identities;
+
+  /// Reads a host's identity from the host itself; by default as root through the machine's pinned connection.
+  final Future<HostIdentity> Function(String host)? exportIdentity;
+
+  /// Starts the default export's ssh; [Process.start] where null.
+  final StartHostCommand? startExport;
+
+  final _keeping = <String, IdentityKeeping>{};
+  final _keepingNow = <String, Future<IdentityKeeping>>{};
+
+  /// How keeping [host]'s identity in this computer's vault last went, or null where it was never tried.
+  IdentityKeeping? keepingOf(String host) => _keeping[host];
+
+  /// The hosts whose identity is not kept, as the last try left it: each a row in *Needs you*.
+  List<IdentityKeeping> get identitiesNotKept => [
+    for (final keeping in _keeping.values)
+      if (keeping.state == IdentityKeepingState.conflict || keeping.state == IdentityKeepingState.refused) keeping,
+  ];
+
+  /// The hosts whose identity is being kept right now; leaving waits for them.
+  List<String> get keepingIdentities => _keepingNow.keys.toList();
+
+  List<String>? _identitiesHere;
+  String? _identitiesHereProblem;
+
+  /// The hosts whose identity this computer's vault keeps, as last read; null before the first read, or where it
+  /// could not be read.
+  List<String>? get identitiesHere => _identitiesHere;
+
+  /// Why the hosts whose identity the vault keeps could not be read, where they could not.
+  String? get identitiesHereProblem => _identitiesHereProblem;
+
+  /// Counts the reads of the kept identities, so only the newest one's answer is taken.
+  int _identitiesRead = 0;
+
+  /// Reads afresh which hosts' identities this computer's vault keeps. Where reads overlap, the one asked last is
+  /// taken, whichever answers last.
+  Future<void> readIdentitiesHere() async {
+    final source = identities;
+    if (source == null) return;
+    final generation = ++_identitiesRead;
+    bool stale() => generation != _identitiesRead;
+    try {
+      final hosts = await (await source()).hostIdentities();
+      if (stale()) return;
+      _identitiesHere = [...hosts]..sort();
+      _identitiesHereProblem = null;
+    } on HostIdentityVaultShut {
+      if (stale()) return;
+      _identitiesHere = null;
+      _identitiesHereProblem = 'your Porelo-Vault is shut';
+    } on HostIdentityFailure catch (failure) {
+      if (stale()) return;
+      _identitiesHere = null;
+      _identitiesHereProblem = failure.words;
+    } on Exception catch (error) {
+      if (stale()) return;
+      _identitiesHere = null;
+      _identitiesHereProblem = "this computer's Porelo did not answer: $error";
+    } on StateError catch (error) {
+      if (stale()) return;
+      _identitiesHere = null;
+      _identitiesHereProblem = "this computer's Porelo did not answer: ${error.message}";
+    }
+    if (!_disposed) _changed();
+  }
+
+  /// Why [host] cannot be given up for good now, or null where it can: a setup or a keeping of it would write the
+  /// identity anew while it goes.
+  String? whyNotGiveUp(String host) {
+    if (identities == null) return 'this window keeps no host identities';
+    if (_givingUp.contains(host)) return 'it is being given up now';
+    if (_runs.values.any((run) => run.record.hostName == host && run.running)) return 'its setup is running';
+    if (_keepingNow.containsKey(host)) return 'its identity is being kept now';
+    if (_identitiesHereProblem case final problem?) return problem;
+    final here = _identitiesHere;
+    if (here == null) return 'the identities your Porelo-Vault keeps are not read yet';
+    if (!here.contains(host)) return 'your Porelo-Vault keeps no identity of $host';
+    return null;
+  }
+
+  final _givingUp = <String>{};
+
+  /// Marks [host] as being given up, from the person's confirmation to its result; false where it is already.
+  bool beginGiveUp(String host) {
+    if (!_givingUp.add(host)) return false;
+    _changed();
+    return true;
+  }
+
+  /// Ends [host]'s give-up: one that left nothing at the forge and no identity in the vault leaves no row offering to
+  /// keep it. The kept identities are read afresh either way.
+  Future<void> endGiveUp(String host, {required bool allGone}) async {
+    _givingUp.remove(host);
+    if (allGone && !_keepingNow.containsKey(host)) _keeping.remove(host);
+    _changed();
+    await readIdentitiesHere();
+  }
+
+  /// Ends once no keeping runs.
+  Future<void> get keepingSettled async {
+    while (_keepingNow.isNotEmpty) {
+      await Future.wait(_keepingNow.values);
+    }
+  }
+
+  /// Reads [host]'s identity from the host and keeps it in this computer's vault: after an up, a token's hand-on and
+  /// before a give-back. [replace] alone overwrites another identity kept for it, and only the person asks for it.
+  ///
+  /// Null where this window keeps no identities. One keeping of a host at a time: a second ask gets the running one.
+  Future<IdentityKeeping?> keepIdentity(String host, {bool replace = false}) {
+    final source = identities;
+    // A window that closes starts none: it would be cut off, or outlive the window.
+    if (source == null || host.isEmpty || _leaving || _disposed) return Future.value();
+    if (_keepingNow[host] case final running?) {
+      // A replace is the person's own ask: it follows the running keeping, never merges into it.
+      return replace ? running.then((_) => keepIdentity(host, replace: true)) : running;
+    }
+    // How the last try went stays until this one ends: a row not kept stays, marked busy, and resolves only once kept.
+    _keeping.putIfAbsent(host, () => IdentityKeeping(host, IdentityKeepingState.keeping));
+    late final Future<IdentityKeeping> keeping;
+    keeping = _keep(source, host, replace: replace).whenComplete(() {
+      if (identical(_keepingNow[host], keeping)) _keepingNow.remove(host);
+      _changed();
+    });
+    _keepingNow[host] = keeping;
+    _changed();
+    return keeping;
+  }
+
+  Future<IdentityKeeping> _keep(
+    Future<KeepsHostIdentities> Function() source,
+    String host, {
+    required bool replace,
+  }) async {
+    IdentityKeeping done;
+    try {
+      final identity = await (exportIdentity ?? _exportFromItsMachine)(host);
+      final vault = await source();
+      await vault.hostIdentityKeep(host, identity, replace: replace);
+      done = IdentityKeeping(host, IdentityKeepingState.kept);
+    } on HostIdentityExists catch (failure) {
+      done = IdentityKeeping(host, IdentityKeepingState.conflict, why: failure.words);
+    } on HostIdentityFailure catch (failure) {
+      done = IdentityKeeping(host, IdentityKeepingState.refused, why: failure.words);
+    } on HostIdentityExportRefused catch (refused) {
+      done = IdentityKeeping(host, IdentityKeepingState.refused, why: refused.words);
+    } on Exception catch (error) {
+      done = IdentityKeeping(host, IdentityKeepingState.refused, why: "This computer's Porelo did not answer: $error");
+    } on StateError catch (error) {
+      done = IdentityKeeping(
+        host,
+        IdentityKeepingState.refused,
+        why: "This computer's Porelo did not answer: ${error.message}",
+      );
+    }
+    if (!_disposed) _keeping[host] = done;
+    if (done.state == IdentityKeepingState.kept) unawaited(readIdentitiesHere());
+    return done;
+  }
+
+  /// Reads [host]'s identity through the machine this window reaches it as; where it has none, through the host's
+  /// verified card, or as porelo-host reached it, at the address and host key its setup record holds.
+  Future<HostIdentity> _exportFromItsMachine(String host) async {
+    final machine = machines.all
+        .where(
+          (machine) =>
+              machine.kind == 'host' &&
+              (machine.hostCard?.name == host ||
+                  (machine.hostCard == null && machines.settings.hostUp(machine.hostProject)?.hostName == host)),
+        )
+        .firstOrNull;
+    if (machine != null) {
+      return exportHostIdentity(machine, hostName: host, start: startExport, cancelled: _ended.future);
+    }
+    final String config;
+    try {
+      config = poreloHostSshConfig(host, environment: environment);
+    } on FormatException {
+      throw HostIdentityExportRefused('$host is no host name this computer can reach.');
+    }
+    if (await File(config).exists()) {
+      return exportHostIdentityByCard(config, hostName: host, start: startExport, cancelled: _ended.future);
+    }
+    final record = machines.settings.hostUps.values
+        .where((record) => record.hostName == host && record.preparedHost != null)
+        .firstOrNull;
+    final values = record?.preparedHost?.values ?? const <String, Object?>{};
+    if (values case {'address': final String address, 'ssh_host_key': final String hostKey}) {
+      return exportHostIdentityPinned(
+        hostName: host,
+        address: address,
+        hostKey: hostKey,
+        port: switch (values['ssh_port']) {
+          final int port => port,
+          _ => 22,
+        },
+        start: startExport,
+        cancelled: _ended.future,
+      );
+    }
+    throw HostIdentityExportRefused('This computer does not reach $host: connect to it first.');
+  }
 
   /// Says what the person must hear with no dialog open: a rental given back after a stop.
   final void Function(String words)? say;
@@ -215,6 +434,8 @@ class HostRuns extends ChangeNotifier {
   Future<void> leave() async {
     _leaving = true;
     try {
+      // A keeping cut short leaves the server's keys out of the vault; each ends within its export's limit.
+      await keepingSettled.timeout(keepingLimit, onTimeout: () {});
       await Future.wait([for (final run in preparing) run.session.leave()]);
       await Future.wait([for (final run in preparing) run.saved]);
       if (preparing.any((run) => run._saveFailed)) {
@@ -225,6 +446,12 @@ class HostRuns extends ChangeNotifier {
       rethrow;
     }
   }
+
+  /// The longest a keeping takes: its export's limit, and the vault's answer after it. Leaving waits at most this.
+  static const keepingLimit = Duration(seconds: 45);
+
+  /// Ends with this window's runs: an export still reading then stops, with its process and its timer.
+  final _ended = Completer<void>();
 
   /// The fleet which receives a host after a successful up.
   final Machines machines;
@@ -366,6 +593,23 @@ class HostRuns extends ChangeNotifier {
           await hostAccess!.check(run.record.hostName);
         }
       }
+      // Decided before anything is kept: a start refused here leaves no setup under way to take up again.
+      HostIdentity? identity;
+      if (!run.record.isRental && run.record.hostName.isNotEmpty) {
+        try {
+          identity = await _identityOf(run.record.hostName);
+        } on HostIdentityFailure catch (failure) {
+          // A vault that could not say is never taken for one that keeps none: the run does not start.
+          if (newPreparation) run.record = run.record.withPreparation(null);
+          run.problem = 'Setup of ${run.name} did not start: ${failure.words}';
+          run.session
+            ..state = HostRunState.refused
+            ..fix = failure.words;
+          say?.call(run.problem!);
+          return;
+        }
+        if (_disposed || _leaving) return;
+      }
       final settings = run.settings;
       if (settings != null && !run.ready) {
         final kept = newPreparation ? run.record : settings.hostUp(run.project) ?? run.record;
@@ -377,12 +621,12 @@ class HostRuns extends ChangeNotifier {
         if (hostAccess == null) throw const HostAccessRefused('The verified Machine Admins are unavailable.');
         hostAccess!.requireAdmin(run.record.hostName);
       }
-      await run.session.up();
+      await run.session.up(identity: identity);
       await run.saved;
       if (run._saveFailed) throw const FileSystemException('The setup protocol could not be kept.');
       if (_disposed) return;
       if (run.session.state == HostRunState.done && !run.ready) {
-        await _addHost(run);
+        await _addHost(run, carried: identity == null ? null : HostIdentityPublic.read(identity.wire).ed25519);
       } else if (!run.ready && const [HostRunState.refused, HostRunState.unreachable].contains(run.session.state)) {
         final said = run.session.fix ?? run.session.stepText;
         final stop = 'Setup of ${run.name} stopped: ${said.endsWith('.') ? said : '$said.'}';
@@ -395,6 +639,10 @@ class HostRuns extends ChangeNotifier {
         }
       }
       if (run.session.state == HostRunState.busy) _poll(run);
+      // The server holds its identity now, a new one or the one carried in: the vault keeps it as it stands.
+      if (run.session.state == HostRunState.done && run.ready && !run.record.isRental) {
+        unawaited(keepIdentity(run.record.hostName));
+      }
     } on Exception {
       if (!_disposed) {
         run.session.state = HostRunState.refused;
@@ -406,7 +654,31 @@ class HostRuns extends ChangeNotifier {
     }
   }
 
-  Future<void> _addHost(HostPreparation run) async {
+  /// The identity this computer's vault keeps for [host], or null where it keeps none; any other answer fails.
+  Future<HostIdentity?> _identityOf(String host) async {
+    final source = identities;
+    if (source == null) return null;
+    final KeepsHostIdentities vault;
+    try {
+      vault = await source();
+    } on HostIdentityFailure {
+      rethrow;
+    } on Exception catch (ex) {
+      throw HostIdentityUnreached('$ex');
+    } on StateError catch (error) {
+      // A connection that cannot open, or is closed, says so as a StateError.
+      throw HostIdentityUnreached(error.message);
+    }
+    try {
+      await vault.hostIdentityPublic(host);
+    } on HostIdentityUnknown {
+      return null;
+    }
+    return vault.hostIdentityRead(host);
+  }
+
+  /// [carried] is the ed25519 key of the identity this up carried in, which the server answers with now.
+  Future<void> _addHost(HostPreparation run, {String? carried}) async {
     final host = run.session.preparedHost;
     if (host == null ||
         host.values['address'] != run.session.address ||
@@ -423,10 +695,15 @@ class HostRuns extends ChangeNotifier {
       return;
     }
     final settings = run.settings ?? machines.settings;
-    await settings.rememberHostUp(
-      run.project,
-      (settings.hostUp(run.project) ?? run.record).withPreparedHost(host).withPreparation(null),
-    );
+    var kept = (settings.hostUp(run.project) ?? run.record).withPreparedHost(host).withPreparation(null);
+    // A given server set up with its identity answers with the identity's key now; the CLI checked it and pinned it.
+    final key = host.values['ssh_host_key'];
+    if (kept.givenAddress.isNotEmpty && key is String && key == carried && key != kept.givenHostKey) {
+      kept = kept.withGivenHostKey(key);
+      run.record = run.record.withGivenHostKey(key);
+      run.session.repinHostKey(key);
+    }
+    await settings.rememberHostUp(run.project, kept);
     await machines.add(
       Machine(
         name: run.name,
@@ -484,6 +761,10 @@ class HostRuns extends ChangeNotifier {
     final kept = machines.settings.hostUp(project);
     if (kept != null) {
       await machines.settings.forgetHostUp(project);
+    }
+    // Its identity can no longer be kept: no row offers it.
+    for (final host in {kept?.hostName, pending?.record.hostName}) {
+      if (host != null && host.isNotEmpty && !_keepingNow.containsKey(host)) _keeping.remove(host);
     }
     final run = _runs[project];
     if (run != null) {
@@ -547,6 +828,7 @@ class HostRuns extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    if (!_ended.isCompleted) _ended.complete();
     for (final run in _runs.values) {
       run._poll?.cancel();
       if (run._listener case final listener?) run.session.removeListener(listener);
@@ -586,3 +868,33 @@ bool hostGivenBack(HostSession session) =>
     session.state == HostRunState.done &&
     !session.steps.any((step) => step.state == StepState.refused) &&
     session.steps.any((step) => step.step == 'give-back' && step.state == StepState.done);
+
+/// How keeping a host's identity in this computer's vault stands.
+enum IdentityKeepingState {
+  /// It is being read from the host and kept.
+  keeping,
+
+  /// The vault keeps it as the host holds it.
+  kept,
+
+  /// The vault keeps another identity for the host; only the person may replace it.
+  conflict,
+
+  /// It could not be read from the host, or the vault refused it.
+  refused,
+}
+
+/// How keeping one host's identity last went.
+final class IdentityKeeping {
+  /// Takes the host, how it went and why where it did not.
+  const IdentityKeeping(this.host, this.state, {this.why});
+
+  /// The host, as its card names it.
+  final String host;
+
+  /// How it went.
+  final IdentityKeepingState state;
+
+  /// Why it was not kept, for a person; never part of a key.
+  final String? why;
+}

@@ -72,6 +72,8 @@ Future<TerminalEnd> runInATerminal(
   ValueChanged<String>? lastLine,
   bool waitsOnItsProgram = false,
   bool answersForTheWindow = false,
+  ValueChanged<String?>? jsonAnswer,
+  List<String> jsonHolding = const [],
   Key? key,
 }) async {
   final closed = Completer<TerminalEnd>();
@@ -102,6 +104,8 @@ Future<TerminalEnd> runInATerminal(
       afterClose: afterClose,
       lastLine: lastLine,
       answersForTheWindow: answersForTheWindow,
+      jsonAnswer: jsonAnswer,
+      jsonHolding: jsonHolding,
       built: () => built = true,
       closing: (leaving) => leaving.then(closed.complete, onError: closed.completeError),
     ),
@@ -123,6 +127,34 @@ Future<TerminalEnd> runInATerminal(
     if (waitsOnItsProgram) rethrow;
     return (started: true, code: null);
   }
+}
+
+/// The last JSON object [terminal] shows, joined over the rows it wrapped over, or null where it shows none: a
+/// program's answer for this one, also where a line of words followed it.
+///
+/// It is the last object that holds every field in [holding], so one printed after it is never taken for it; one larger
+/// than [most] characters is never decoded.
+String? readJsonAnswer(Terminal terminal, {List<String> holding = const [], int most = 256 * 1024}) {
+  final lines = terminal.buffer.lines;
+  var row = lines.length - 1;
+  while (row >= 0) {
+    var first = row;
+    while (first > 0 && lines[first].isWrapped) {
+      first--;
+    }
+    final rows = [for (var each = first; each <= row; each++) lines[each].getText()];
+    final size = rows.fold<int>(0, (sum, each) => sum + each.length);
+    final text = size > most ? '' : rows.join().trim();
+    if (text.startsWith('{') && text.length <= most) {
+      try {
+        if (jsonDecode(text) case final Map<String, dynamic> object when holding.every(object.containsKey)) return text;
+      } on FormatException {
+        // Words that look like an object: the answer, if any, stands above.
+      }
+    }
+    row = first - 1;
+  }
+  return null;
 }
 
 /// Takes the last thing [terminal] shows off its screen if it is a JSON object, however many rows it wrapped over: an
@@ -174,6 +206,8 @@ class _UnlockTerminal extends StatefulWidget {
     this.afterClose,
     this.lastLine,
     this.answersForTheWindow = false,
+    this.jsonAnswer,
+    this.jsonHolding = const [],
     required this.built,
     required this.closing,
     super.key,
@@ -208,6 +242,12 @@ class _UnlockTerminal extends StatefulWidget {
 
   /// Its command ends on a JSON answer meant for this program, taken off the screen once read, unless it is a refusal.
   final bool answersForTheWindow;
+
+  /// Told the last JSON object the terminal shows when its command ends, whatever its code, or null.
+  final ValueChanged<String?>? jsonAnswer;
+
+  /// The fields [jsonAnswer]'s object holds; another object is not its answer.
+  final List<String> jsonHolding;
   final ValueChanged<Future<TerminalEnd>> closing;
 
   /// Told once the terminal is made, so a dialog put away before that ends with nothing started.
@@ -278,6 +318,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
       _reportedExit = true;
       widget.onExit?.call(code);
       _tellLastLine();
+      widget.jsonAnswer?.call(readJsonAnswer(_session.terminal, holding: widget.jsonHolding));
       if (widget.answersForTheWindow && code == 0) eraseJsonAnswer(_session.terminal);
       if (widget.finish case final finish?) {
         _finishing = true;
@@ -336,6 +377,8 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
           _reportedExit = true;
           widget.onExit?.call(code);
           _tellLastLine();
+          // Its answer too: a program that ended as its terminal closed may have done all its work.
+          widget.jsonAnswer?.call(readJsonAnswer(_session.terminal, holding: widget.jsonHolding));
         }
         await widget.afterClose?.call();
         return (started: started, code: code);

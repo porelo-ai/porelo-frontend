@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../wire/varlink_connection.dart';
 import '../wire/varlink_exception.dart';
+import 'host_identity.dart';
 import 'models.dart';
 import 'environment.dart';
 import '../wire/limit_factors.dart';
@@ -1229,6 +1230,56 @@ class PoreloClient {
   }) async => ReceivedCredential.from(
     await _call('ReceiveCredential', {'sealed': sealed, 'name': name, 'kind': kind, 'replace': replace}),
   );
+
+  /// Keeps [identity] in this computer's vault for [host]. Without [replace], only one that adds repositories to what
+  /// is kept is taken; anything else is [HostIdentityExists], and nothing changes.
+  Future<void> hostIdentityKeep(String host, HostIdentity identity, {bool replace = false}) =>
+      _aboutIdentities(() => _call('HostIdentityKeep', {'host': host, 'identity': identity.wire, 'replace': replace}));
+
+  /// The whole identity the vault keeps for [host], private halves included: only for the moment it is handed to the
+  /// host's setup.
+  Future<HostIdentity> hostIdentityRead(String host) =>
+      _aboutIdentities(() async => HostIdentity.read((await _call('HostIdentityRead', {'host': host}))['identity']));
+
+  /// What the vault keeps for [host], without any private half.
+  Future<HostIdentityPublic> hostIdentityPublic(String host) => _aboutIdentities(
+    () async => HostIdentityPublic.read((await _call('HostIdentityPublic', {'host': host}))['identity']),
+  );
+
+  /// The hosts whose identity the vault keeps, sorted.
+  Future<List<String>> hostIdentities() => _aboutIdentities(() async {
+    final hosts = (await _call('HostIdentities', const <String, dynamic>{}))['hosts'];
+    if (hosts is! List) throw const FormatException('HostIdentities answered no list');
+    return hosts.whereType<String>().toList();
+  });
+
+  /// Says each way a call about an identity fails as its own [HostIdentityFailure]: only the vault's own word that it
+  /// keeps none is ever read as none.
+  static Future<T> _aboutIdentities<T>(Future<T> Function() call) async {
+    try {
+      return await call();
+    } on FeatureNotSupported {
+      throw const HostIdentityUnsupported();
+    } on VarlinkDisconnected catch (ex) {
+      throw HostIdentityUnreached(ex.message);
+    } on SocketException catch (ex) {
+      throw HostIdentityUnreached(ex.message);
+    } on FormatException {
+      // An answer that is no identity is refused as one, never taken for one or for none.
+      throw const HostIdentityRefused(HostIdentityRefused.malformed, '');
+    } on VarlinkException catch (ex) {
+      final host = ex.parameters['host'];
+      throw switch (ex.simpleName) {
+        'HostIdentityUnknown' => HostIdentityUnknown(host is String ? host : ''),
+        'HostIdentityExists' => HostIdentityExists(host is String ? host : ''),
+        'VaultLocked' => const HostIdentityVaultShut(),
+        final name => HostIdentityRefused(name, switch (ex.parameters['parameter']) {
+          final String field => field,
+          _ => '',
+        }),
+      };
+    }
+  }
 
   /// Which node this is.
   ///

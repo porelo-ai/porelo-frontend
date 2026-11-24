@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart';
 
+import '../client/host_identity.dart';
 import 'product.dart';
 import 'settings.dart';
 import 'task_certifying.dart';
@@ -163,7 +164,7 @@ class HostSession extends ChangeNotifier {
     required List<String> arguments,
     StartHostCommand? start,
     DateTime Function()? now,
-  }) : arguments = List.unmodifiable(arguments),
+  }) : _arguments = List.unmodifiable(arguments),
        _now = now ?? DateTime.now,
        _start = start ?? ((executable, arguments) => Process.start(executable, arguments));
 
@@ -171,7 +172,16 @@ class HostSession extends ChangeNotifier {
   final String executable;
 
   /// What names the project and where it goes, without `up` or `down`.
-  final List<String> arguments;
+  List<String> get arguments => _arguments;
+  List<String> _arguments;
+
+  /// Pins [key] in every later command of this session, where it names a given server's host key: the server answers
+  /// with its identity's key once set up with it.
+  void repinHostKey(String key) {
+    final at = _arguments.indexOf('--host-key');
+    if (at < 0 || at + 1 >= _arguments.length) return;
+    _arguments = List.unmodifiable([..._arguments.sublist(0, at + 1), key, ..._arguments.sublist(at + 2)]);
+  }
 
   /// How this session starts its command, for a session of the same run.
   StartHostCommand get start => _start;
@@ -470,8 +480,10 @@ class HostSession extends ChangeNotifier {
   /// What the command said for a person, as it came.
   String get said => _words.where((words) => words.unmatched).map((words) => words.line).join('\n').trim();
 
-  /// Brings the host up, as far as it goes.
-  Future<void> up() => _run(<String>['up', ...arguments]);
+  /// Brings the host up, as far as it goes; with [identity], the host's identity the person's vault keeps, which the
+  /// command reads on its standard input and nowhere else.
+  Future<void> up({HostIdentity? identity}) =>
+      _run(<String>['up', ...arguments, if (identity != null) '--identity-stdin'], input: identity?.json);
 
   /// Takes the host down, purging only the [purge] logins explicitly confirmed by the person.
   Future<void> down({bool giveBackAnyway = false, List<String> purge = const []}) => _run(<String>[
@@ -512,7 +524,7 @@ class HostSession extends ChangeNotifier {
   /// Ends a read of the holders that nobody waits for any more.
   void stopReading() => _process?.kill(ProcessSignal.sigterm);
 
-  Future<void> _run(List<String> command) async {
+  Future<void> _run(List<String> command, {String? input}) async {
     if (state == HostRunState.running) return;
     final attempt = HostAttemptRecord._(_now());
     _attempts.add(attempt);
@@ -537,7 +549,7 @@ class HostSession extends ChangeNotifier {
     try {
       _starting = _start(executable, [...limitsArgumentsHere(), ...command]);
       final process = _process = await _starting!;
-      await process.stdin.close();
+      // Read before anything is written: a command that ends early still says why, and a full pipe never blocks.
       final lines = process.stdout.transform(utf8.decoder).transform(const LineSplitter()).forEach(_line);
       final words = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).forEach((line) {
         final words = _ProtocolWords(line, _echoes);
@@ -545,6 +557,7 @@ class HostSession extends ChangeNotifier {
         attempt._entries.add(words);
         _changed();
       });
+      await _feed(process.stdin, input);
       final code = await process.exitCode;
       await lines;
       await words;
@@ -565,6 +578,11 @@ class HostSession extends ChangeNotifier {
       attempt._endedAt = _now();
       _changed();
     } finally {
+      // However it ended, it is not running any more: a start that threw is a refusal.
+      if (state == HostRunState.running) {
+        state = HostRunState.refused;
+        fix ??= 'porelo-host could not be run.';
+      }
       if (attempt._endedAt == null) {
         attempt._endedAt = _now();
         _changed();
@@ -572,6 +590,18 @@ class HostSession extends ChangeNotifier {
       _process = null;
       _starting = null;
       _upCommand = false;
+    }
+  }
+
+  /// Writes [input], if any, and closes [stdin]. A command that ended before it read it, as one that refused it does,
+  /// breaks the pipe: its exit code and its own words then say why, so the broken pipe is not.
+  static Future<void> _feed(IOSink stdin, String? input) async {
+    unawaited(stdin.done.catchError((Object _) {}));
+    try {
+      if (input != null) stdin.add(utf8.encode(input));
+      await stdin.close();
+    } on IOException {
+      // Said by the command itself.
     }
   }
 

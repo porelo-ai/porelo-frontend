@@ -320,6 +320,10 @@ class HostUpRecord {
     return _copy(preparedHost: value);
   }
 
+  /// The same server, answering with [key] now: a given server set up with its kept identity takes the identity's
+  /// host key, and every later setup and give-back pins that one, never the key given for the first login.
+  HostUpRecord withGivenHostKey(String key) => _copy(givenHostKey: key);
+
   /// Retains validated preparation choices without losing rental recovery.
   HostUpRecord withPreparationSettings(HostPreparationSettings value) {
     value.check();
@@ -333,10 +337,11 @@ class HostUpRecord {
     PreparedHost? preparedHost,
     String? host,
     String? rentalTag,
+    String? givenHostKey,
   }) => HostUpRecord(
     scalewayProject: scalewayProject,
     givenAddress: givenAddress,
-    givenHostKey: givenHostKey,
+    givenHostKey: givenHostKey ?? this.givenHostKey,
     host: host ?? this.host,
     hostName: hostName,
     account: account,

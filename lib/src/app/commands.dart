@@ -1024,6 +1024,8 @@ List<Command> hostMachineCommands({
   required Settings settings,
   HostRuns? hostRuns,
   required VoidCallback takeDown,
+  ValueChanged<String>? giveUp,
+  String? Function(String host)? whyNotGiveUp,
 }) => [
   if (machine.kind == 'host') ...[
     Command(
@@ -1039,8 +1041,34 @@ List<Command> hostMachineCommands({
           hostRuns?.hostAccess?.whyNotTakeDown(settings.hostUp(machine.hostProject)?.hostName ?? machine.hostProject) ??
           (settings.hostUp(machine.hostProject) == null ? 'nothing was kept from putting it on a server' : null),
     ),
+    giveUpHostCommand(
+      host: _hostNameOf(machine, settings),
+      run: giveUp,
+      unavailable: whyNotGiveUp ?? hostRuns?.whyNotGiveUp,
+    ),
   ],
 ];
+
+/// The name [machine]'s host goes by on its card.
+String _hostNameOf(Machine machine, Settings settings) => switch (settings.hostUp(machine.hostProject)?.hostName) {
+  final name? when name.isNotEmpty => name,
+  _ => machine.hostCard?.name ?? machine.name,
+};
+
+/// Gives [host] up for good: its keys removed from the central forge, its identity deleted from this computer's vault.
+Command giveUpHostCommand({
+  required String host,
+  ValueChanged<String>? run,
+  String? Function(String host)? unavailable,
+}) => Command(
+  id: 'host.giveUp',
+  label: 'Give this host up for good…',
+  group: 'Machine',
+  home: Home.machineMenu,
+  danger: true,
+  run: () => run?.call(host),
+  unavailable: run == null ? 'not from here' : (unavailable ?? (_) => 'not from here')(host),
+);
 
 /// Removes an account from its room after confirmation on the member's own row.
 Command removeMessageMemberCommand(
@@ -1960,6 +1988,19 @@ Command createRepositoryCommand({required VoidCallback run, String? unavailable}
 /// Leads to where a machine waiting for its first token is given it.
 Command giveMachineTokenCommand({required VoidCallback run, String? unavailable}) =>
     _attentionRowCommand(id: 'machine.giveToken', label: 'Go to its token', run: run, unavailable: unavailable);
+
+/// Reads the server's identity from it and keeps it in this computer's vault again, beside what is kept.
+Command keepHostIdentityAgainCommand({required String host, required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'host.identity.keep', label: 'Keep it again', run: run, unavailable: unavailable);
+
+/// Replaces the identity this computer's vault keeps for the server with the one the server holds, once confirmed.
+Command replaceHostIdentityCommand({required String host, required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(
+      id: 'host.identity.replace',
+      label: 'Replace the stored identity…',
+      run: run,
+      unavailable: unavailable,
+    );
 
 /// Reads a held message before any release or refusal can be decided.
 Command readAttentionMessageCommand({required HeldMessage message, required VoidCallback run, String? unavailable}) =>

@@ -748,8 +748,25 @@ abstract interface class CarriesCredentials {
   });
 }
 
-/// A machine's backend that carries credentials too: this computer's, where a carry reads its sources and seals.
-abstract interface class CarryingBackend implements FleetBackend, CarriesCredentials {}
+/// A machine whose vault keeps hosts' identities: the person's own, on this computer. Each call fails as its own
+/// [HostIdentityFailure], and only [HostIdentityUnknown] says the vault keeps none.
+abstract interface class KeepsHostIdentities {
+  /// Keeps [identity] for [host]; [replace] only at the person's word.
+  Future<void> hostIdentityKeep(String host, HostIdentity identity, {bool replace = false});
+
+  /// The whole identity kept for [host], only for the moment it is handed to the host's setup.
+  Future<HostIdentity> hostIdentityRead(String host);
+
+  /// What is kept for [host], without any private half.
+  Future<HostIdentityPublic> hostIdentityPublic(String host);
+
+  /// The hosts whose identity is kept.
+  Future<List<String>> hostIdentities();
+}
+
+/// A machine's backend that carries credentials too: this computer's, where a carry reads its sources and seals, and
+/// whose vault keeps hosts' identities.
+abstract interface class CarryingBackend implements FleetBackend, CarriesCredentials, KeepsHostIdentities {}
 
 /// A machine that sets a project's room up before its first task, taking a carried project here first.
 ///
@@ -1204,6 +1221,30 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
 
   @override
   Future<CredentialReceiver> credentialReceiver() => _opened().credentialReceiver();
+
+  @override
+  Future<void> hostIdentityKeep(String host, HostIdentity identity, {bool replace = false}) =>
+      _identityClient().hostIdentityKeep(host, identity, replace: replace);
+
+  @override
+  Future<HostIdentity> hostIdentityRead(String host) => _identityClient().hostIdentityRead(host);
+
+  @override
+  Future<HostIdentityPublic> hostIdentityPublic(String host) => _identityClient().hostIdentityPublic(host);
+
+  @override
+  Future<List<String>> hostIdentities() => _identityClient().hostIdentities();
+
+  /// The client, where it is open; else what it is is said as this computer's Porelo not reached, never as no identity.
+  PoreloClient _identityClient() {
+    try {
+      return _opened();
+    } on VarlinkDisconnected catch (ex) {
+      throw HostIdentityUnreached(ex.message);
+    } on StateError {
+      throw const HostIdentityUnreached('the connection is not open yet');
+    }
+  }
 
   @override
   Future<SealedCredential> sealCredential({

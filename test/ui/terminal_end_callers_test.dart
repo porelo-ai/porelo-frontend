@@ -200,4 +200,39 @@ void main() {
 
     expect(exits, [4]);
   });
+
+  // Harm: a give-up that ended as its terminal closed loses its answer, and the person is told nothing was removed.
+  testWidgets('an answer printed as the terminal closes reaches its answer callback', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final answers = <String?>[];
+    late _EndsOnClose channel;
+    channel = _EndsOnClose(0, onClose: () => channel._output.add('{"removed":[],"kept":[]}\r\n'.codeUnits));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => runInATerminal(
+              context,
+              title: 'Run',
+              explanation: 'It runs.',
+              machine: Machine.local(),
+              command: const ['true'],
+              open: (executable, arguments, {columns = 80, rows = 24}) => channel,
+              jsonAnswer: answers.add,
+              jsonHolding: const ['removed', 'kept'],
+            ),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await World.settle(tester);
+
+    await _putAway(tester);
+
+    expect(answers, ['{"removed":[],"kept":[]}']);
+  });
 }
