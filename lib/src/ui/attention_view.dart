@@ -1670,10 +1670,8 @@ class WorkRow extends StatelessWidget {
     final folding = TileFolding.maybeOf(context);
     final id = '${tile.machine.name}/$name';
     final folded = folding != null && !folding.open.contains(id);
-    final row = GestureDetector(
-      onSecondaryTapDown: actions.isEmpty
-          ? null
-          : (details) => showCommandMenu(context, details.globalPosition, actions),
+    final row = CommandMenuArea(
+      enabled: actions.isNotEmpty,
       child: Material(
         key: ValueKey<String>('tile ${tile.machine.name} $name'),
         color: selected ? scheme.surfaceContainer : Colors.transparent,

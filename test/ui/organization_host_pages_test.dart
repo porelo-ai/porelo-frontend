@@ -129,8 +129,8 @@ void main() {
           ? tester.widget<ButtonStyleButton>(find.byKey(const ValueKey('organization.openForge/build'))).onPressed !=
                 null
           : tester
-                .widget<PopupMenuItem<String>>(
-                  find.ancestor(of: find.text('Open its forge'), matching: find.byType(PopupMenuItem<String>)),
+                .widget<MenuItemButton>(
+                  find.ancestor(of: find.text('Open its forge'), matching: find.byType(MenuItemButton)),
                 )
                 .enabled;
 

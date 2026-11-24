@@ -124,7 +124,7 @@ void main() {
     expect(World.backend.starts, isEmpty);
     await tester.tap(find.byKey(const Key('repository-menu payments-api')));
     await World.settle(tester);
-    final item = tester.widget<PopupMenuItem<String>>(find.byKey(const Key('start-in-payments-api')));
+    final item = tester.widget<MenuItemButton>(find.byKey(const Key('start-in-payments-api')));
     expect(item.enabled, isFalse);
     expect(find.textContaining('checkout is not on this machine'), findsOneWidget);
   });

@@ -71,7 +71,7 @@ void main() {
       World.backend.takeAnswers = const TakenProject(reason: 'cannot-say', words: 'The forge did not answer.');
       await World.tapInView(tester, 'repository-menu api');
       for (final id in ['sync-api', 'backups-api', 'opens-api', 'reach-api']) {
-        expect(tester.widget<PopupMenuItem<String>>(find.byKey(ValueKey<String>(id))).enabled, isFalse, reason: id);
+        expect(tester.widget<MenuItemButton>(find.byKey(ValueKey<String>(id))).enabled, isFalse, reason: id);
       }
       await World.tapInView(tester, 'start-in-api');
       expect(World.backend.taken, <String>['foo'], reason: 'taken once');
@@ -120,7 +120,7 @@ void main() {
       for (final id in <String>['project.sync', 'project.backups', 'project.clear', 'project.delete']) {
         final found = find.byKey(Key(id));
         expect(found, findsOneWidget, reason: id);
-        expect(tester.widget<PopupMenuItem<String>>(found).enabled, isFalse, reason: id);
+        expect(tester.widget<MenuItemButton>(found).enabled, isFalse, reason: id);
       }
     });
 

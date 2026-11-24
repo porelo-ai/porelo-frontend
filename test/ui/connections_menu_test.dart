@@ -46,8 +46,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     return {
-      for (final item in tester.widgetList<PopupMenuItem<String>>(find.byType(PopupMenuItem<String>)))
-        item.value!: item.enabled,
+      for (final item in tester.widgetList<MenuItemButton>(find.byType(MenuItemButton)))
+        (item.key! as ValueKey<String>).value: item.enabled,
     };
   }
 
@@ -100,8 +100,7 @@ void main() {
     return (connections, forgotten);
   }
 
-  bool forgetOffered(WidgetTester tester) =>
-      tester.widget<PopupMenuItem<String>>(find.byType(PopupMenuItem<String>).last).enabled;
+  bool forgetOffered(WidgetTester tester) => tester.widget<MenuItemButton>(find.byType(MenuItemButton).last).enabled;
 
   // Harm: a key's re-read ends while the menu is open, and its grey Forget does nothing when chosen.
   testWidgets('an entry greyed out when the menu opened turns runnable once the reading ends', (tester) async {

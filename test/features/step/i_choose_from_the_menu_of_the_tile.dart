@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tiles.dart';
 import '../support/world.dart';
+import '../../support/menu_entries.dart';
 
 /// Usage: I choose {'Stop it and remove it'} from the menu of the tile {'porelo-shared-shell'}
 Future<void> iChooseFromTheMenuOfTheTile(WidgetTester tester, String label, String work) async {
@@ -16,11 +17,8 @@ Future<void> iChooseFromTheMenuOfTheTile(WidgetTester tester, String label, Stri
     ),
   );
   await World.settle(tester);
-  final item = find.ancestor(
-    of: find.text(label),
-    matching: find.byWidgetPredicate((widget) => widget is PopupMenuItem),
-  );
-  // Scrolled to first, as a person would: a long menu puts its last entries below the fold.
+  // Opened from its submenu first, where it stands in one, as a person would.
+  final item = await revealMenuEntryLabeled(tester, label);
   await tester.ensureVisible(item);
   await tester.pump();
   await tester.tap(item);

@@ -239,8 +239,8 @@ void main() {
       return terminals;
     }
 
-    PopupMenuItem<String> item(WidgetTester tester) =>
-        tester.widget<PopupMenuItem<String>>(find.byKey(const ValueKey<String>('forge.storeToken')));
+    MenuItemButton item(WidgetTester tester) =>
+        tester.widget<MenuItemButton>(find.byKey(const ValueKey<String>('forge.storeToken')));
 
     // Harm: the token entered in a form of this interface, or stored under a name no Git transfer finds.
     testWidgets('is typed in a terminal on the machine, under the forge\'s own entry', (tester) async {

@@ -52,6 +52,8 @@ void main() {
     await tester.tap(find.byKey(const Key('action')).first);
     await World.settle(tester);
     await tester.tap(find.text('Action'));
+    // A chosen entry runs once its menu has closed, in the next frame.
+    await World.settle(tester);
     expect(runs, 1);
     await showCommands(tester, <Command>[command.unless('the machine is not answering')]);
     await tester.tap(find.byKey(const Key('action')).first);

@@ -116,7 +116,6 @@ void main() {
     await World.settle(tester);
     final highlighted = find.byKey(const Key('highlighted'));
     expect(highlighted, findsOneWidget);
-    expect(tester.widget<PopupMenuItem<String>>(highlighted).value, 'vault.show');
     expect(find.descendant(of: highlighted, matching: find.text('Show the vault')), findsOneWidget);
   });
 }

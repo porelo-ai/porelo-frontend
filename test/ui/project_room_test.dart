@@ -114,7 +114,7 @@ void main() {
     World.shell.goTo(Section.projects);
     await World.settle(tester);
     await World.tapInView(tester, 'projects-menu ${World.machines.current.name}/checkout');
-    expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('project.forge'))).enabled, isTrue);
+    expect(tester.widget<MenuItemButton>(find.byKey(const Key('project.forge'))).enabled, isTrue);
     await World.tapInView(tester, 'project.forge');
     expect(find.byKey(const Key('project-forge-dialog')), findsOneWidget);
     expect(World.fleet.selectedProject?.name, 'checkout');

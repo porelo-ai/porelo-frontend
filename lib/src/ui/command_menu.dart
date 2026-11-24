@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -10,6 +11,9 @@ import 'tokens.dart';
 /// One menu rather than a button each: a row with five actions is wider than the pane, and icons
 /// say nothing about what they do. What cannot be run stays in the menu, grayed out, carrying the
 /// reason — a row whose actions disappear reads as a row with nothing to offer.
+///
+/// A command that names a [Command.submenu] stands in that submenu, so a thing with many commands shows the few a
+/// person reaches for most and the rest by what they do; a command that names none stands in the menu itself.
 class CommandMenu extends StatefulWidget {
   /// Constructor taking what to offer and what to say it is for.
   const CommandMenu({
@@ -40,13 +44,51 @@ class CommandMenu extends StatefulWidget {
   State<CommandMenu> createState() => _CommandMenuState();
 }
 
+/// A row in which a right click opens the row's own [CommandMenu], at the pointer.
+///
+/// The same menu as the row's button, rather than a copy of its entries: its submenus, its following of the view and
+/// its guard against another row drawn in its place are then the button's own.
+class CommandMenuArea extends StatefulWidget {
+  /// Constructor taking the row.
+  const CommandMenuArea({required this.child, this.enabled = true, super.key});
+
+  /// The row, holding its menu.
+  final Widget child;
+
+  /// Whether a right click opens anything.
+  final bool enabled;
+
+  @override
+  State<CommandMenuArea> createState() => _CommandMenuAreaState();
+}
+
+class _CommandMenuAreaState extends State<CommandMenuArea> {
+  _CommandMenuState? _menu;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onSecondaryTapDown: widget.enabled ? (details) => _menu?._openAt(details.globalPosition) : null,
+    child: widget.child,
+  );
+}
+
+/// How a submenu none of whose entries can run is read out.
+const _allUnavailable = 'none of its entries can run now';
+
 class _CommandMenuState extends State<CommandMenu> {
-  final _button = GlobalKey<PopupMenuButtonState<String>>();
+  final _controller = MenuController();
+  final _anchor = GlobalKey();
+  final _button = FocusNode(debugLabel: 'command menu');
+  final _first = FocusNode(debugLabel: 'command menu first entry');
+  final _marked = FocusNode(debugLabel: 'command menu marked entry');
+  final _submenus = <String, MenuController>{};
+  _CommandMenuAreaState? _area;
   String? _openedFor;
 
-  /// The commands as the view offers them now, which an open menu's entries follow: a read that ends or
-  /// a change that begins while it is open turns an entry runnable or grey without opening it again.
-  late final ValueNotifier<List<Command>> _now = ValueNotifier<List<Command>>(widget.commands);
+  /// The entry the open menu was opened on for the finder, which stays marked while it is open, after the finder
+  /// has been told.
+  String? _marking;
+  var _byPointer = false;
 
   /// What the menu is for: its key and the thing its tooltip names. A list that draws another row in this one's place
   /// keeps this State, and an open menu then offers nothing of that row.
@@ -55,153 +97,320 @@ class _CommandMenuState extends State<CommandMenu> {
   /// What the open menu was opened for.
   (Key?, String)? _openedAs;
 
+  /// The entries the open menu was opened with: an entry stays where it was while the menu is open, and one whose
+  /// command is gone since is drawn grey.
+  List<Command> _opened = const [];
+
   @override
-  void didUpdateWidget(CommandMenu oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final commands = _openedAs == null || _openedAs == _subject ? widget.commands : const <Command>[];
-    // The open menu is another route: it is told after this frame's build, never during it.
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _now.value = commands;
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final area = context.findAncestorStateOfType<_CommandMenuAreaState>();
+    if (area != _area) {
+      if (_area?._menu == this) _area?._menu = null;
+      _area = area?.._menu = this;
+    }
   }
 
   @override
   void dispose() {
-    _now.dispose();
+    if (_area?._menu == this) _area?._menu = null;
+    _button.dispose();
+    _first.dispose();
+    _marked.dispose();
     super.dispose();
   }
 
-  String? get _mine =>
-      widget.commands.any((command) => command.visible && command.id == widget.highlight) ? widget.highlight : null;
+  List<Command> get _visible => widget.commands.where((command) => command.visible).toList();
+
+  String? get _mine => _visible.any((command) => command.id == widget.highlight) ? widget.highlight : null;
+
+  /// Opens the menu for the thing it is for now, marking [marking].
+  ///
+  /// What it opens for is taken after the opening: opening a menu still open closes it first, and that closing
+  /// forgets what the open one was for.
+  void _openFor({Offset? position, String? marking}) {
+    _controller.open(position: position);
+    setState(() {
+      _openedAs = _subject;
+      _opened = _visible;
+      _marking = marking;
+    });
+  }
+
+  void _openAt(Offset global) {
+    if (!mounted || !widget.enabled || _visible.isEmpty) return;
+    final box = _anchor.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    _byPointer = true;
+    _openFor(position: box.globalToLocal(global));
+  }
+
+  void _toggle() {
+    if (_controller.isOpen) return _controller.close();
+    _openFor();
+  }
+
+  /// Gives the first entry the keyboard only where the keyboard opened the menu: one the pointer opened shows no
+  /// entry as focused, so Enter must not press one.
+  void _onOpen() {
+    final byPointer = _byPointer;
+    _byPointer = false;
+    if (byPointer) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusFirst();
+    });
+  }
+
+  /// Gives the keyboard to the menu's first row that takes it.
+  void _focusFirst() {
+    if (!_controller.isOpen || _first.context == null) return;
+    _first.requestFocus();
+    // A submenu opens as soon as its row has the keyboard: the keyboard lands on the row, and the person opens it.
+    FocusManager.instance.applyFocusChangesIfNeeded();
+    for (final submenu in _submenus.values) {
+      if (submenu.isOpen) submenu.close();
+    }
+  }
+
+  void _onClose() {
+    // A closing that ends after the menu opened again belongs to the menu that was, not to this one.
+    if (!mounted || _controller.isOpen) return;
+    setState(() {
+      _openedAs = null;
+      _opened = const [];
+      _marking = null;
+    });
+  }
+
+  /// Runs [id] as the view offers it now, and only for the thing the menu was opened for.
+  void _press((Key?, String)? openedAs, String id) {
+    if (!mounted || openedAs != _subject) return;
+    for (final command in widget.commands) {
+      if (command.id == id && command.visible && command.available) command.run();
+    }
+  }
+
+  /// Opens the menu on [id], and the submenu that holds it, then marks it: the finder is told only once the person
+  /// can see where it went.
+  void _openOn(String id) {
+    final submenu = _visible.where((command) => command.id == id).firstOrNull?.submenu;
+    // A menu closed or turned off meanwhile is not opened again, and the finder is not told of what nobody saw.
+    bool stillOpening() => mounted && widget.enabled && _controller.isOpen && _marking == id;
+    void mark() {
+      if (!stillOpening()) return;
+      _marked.requestFocus();
+      // Settled now rather than at the end of the frame, so whoever is told finds the entry focused.
+      FocusManager.instance.applyFocusChangesIfNeeded();
+      widget.onShown?.call();
+    }
+
+    void next(VoidCallback then) {
+      SchedulerBinding.instance
+        ..addPostFrameCallback((_) => then())
+        ..scheduleFrame();
+    }
+
+    _byPointer = true;
+    // The row is brought into view first: a menu opened on a row scrolled out of sight is opened nowhere a person
+    // looks.
+    unawaited(Scrollable.ensureVisible(context));
+    _openFor(marking: id);
+    next(() {
+      if (!stillOpening()) return;
+      if (submenu == null) return mark();
+      _submenus[submenu]?.open();
+      next(mark);
+    });
+  }
+
+  /// The entries as they are drawn now: while open, those it was opened with, each as the view offers it now.
+  List<Command> _shown() {
+    final openedAs = _openedAs;
+    if (openedAs == null) return _visible;
+    final now = openedAs == _subject ? _visible : const <Command>[];
+    return [
+      for (final opened in _opened)
+        now.where((each) => each.id == opened.id).firstOrNull ??
+            Command(
+              id: opened.id,
+              label: opened.label,
+              group: opened.group,
+              home: opened.home,
+              danger: opened.danger,
+              submenu: opened.submenu,
+              checked: opened.checked,
+              unavailable: 'no longer offered here',
+              run: () {},
+            ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.commands.any((command) => command.visible)) return const SizedBox.shrink();
+    // An open menu stays while it is open, its entries no longer offered, rather than vanishing half-open.
+    if (_visible.isEmpty && _openedAs == null) return const SizedBox.shrink();
     final mine = _mine;
     if (widget.enabled && mine != null && mine != _openedFor) {
       _openedFor = mine;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _button.currentState?.showButtonMenu();
-        widget.onShown?.call();
+        if (mounted && widget.enabled && _mine == mine) _openOn(mine);
       });
     }
     if (mine == null) _openedFor = null;
-    return PopupMenuButton<String>(
-      key: _button,
-      enabled: widget.enabled,
-      tooltip: widget.tooltip,
-      icon: const Icon(Icons.more_vert, size: Sizes.rowIcon),
-      initialValue: mine,
-      onSelected: (id) {
-        if (_openedAs == _subject) _run(widget.commands, id);
-      },
-      itemBuilder: (context) {
-        _openedAs = _subject;
-        _now.value = widget.commands;
-        return commandMenuEntries(context, widget.commands, highlight: mine, following: _now);
-      },
+    final openedAs = _openedAs;
+    var first = true;
+    FocusNode? firstOf({required bool focusable}) {
+      if (!first || !focusable) return null;
+      first = false;
+      return _first;
+    }
+
+    final marking = _marking;
+    Widget entry(Command command, {FocusNode? focusNode}) => _entry(
+      context,
+      command,
+      marked: command.id == marking,
+      focusNode: command.id == marking ? _marked : focusNode,
+      onPressed: () => _press(openedAs, command.id),
+    );
+
+    return MenuAnchor(
+      controller: _controller,
+      consumeOutsideTap: true,
+      crossAxisUnconstrained: false,
+      childFocusNode: _button,
+      onOpen: _onOpen,
+      onClose: _onClose,
+      menuChildren: [
+        for (final (name, commands) in commandMenuLayout(_shown()))
+          if (name == null)
+            entry(commands.single, focusNode: firstOf(focusable: commands.single.available))
+          else
+            _submenu(
+              context,
+              name,
+              commands,
+              controller: _submenus.putIfAbsent(name, MenuController.new),
+              focusNode: firstOf(focusable: true),
+              entries: [for (final command in commands) entry(command)],
+            ),
+      ],
+      builder: (context, controller, _) => Listener(
+        key: _anchor,
+        onPointerDown: (_) => _byPointer = true,
+        // The press's tap, which opens the menu, runs right after its release; a press that opens nothing leaves no
+        // mark for the keyboard's next opening.
+        onPointerUp: (_) => scheduleMicrotask(() => _byPointer = false),
+        onPointerCancel: (_) => _byPointer = false,
+        // Whoever opened it, the arrows lead from the button into the open menu, never to the page behind it.
+        child: Actions(
+          actions: {DirectionalFocusIntent: _IntoTheMenu(this)},
+          child: IconButton(
+            focusNode: _button,
+            tooltip: widget.tooltip,
+            icon: const Icon(Icons.more_vert, size: Sizes.rowIcon),
+            onPressed: widget.enabled ? _toggle : null,
+          ),
+        ),
+      ),
     );
   }
 }
 
-void _run(List<Command> commands, String id) {
-  for (final command in commands) {
-    if (command.id == id && command.visible && command.available) command.run();
+/// An arrow key on the button of an open menu, which gives the keyboard to the menu's first row.
+class _IntoTheMenu extends Action<DirectionalFocusIntent> {
+  _IntoTheMenu(this._menu);
+
+  final _CommandMenuState _menu;
+
+  @override
+  bool isEnabled(DirectionalFocusIntent intent) => _menu.mounted && _menu._controller.isOpen;
+
+  @override
+  void invoke(DirectionalFocusIntent intent) => _menu._focusFirst();
+}
+
+/// A menu's entries in the order they stand: an entry without a submenu where it comes, a submenu where its name
+/// first comes with its entries in their order, and an entry that takes something away last, so it is never pressed
+/// in passing. A submenu with nothing offered is left out.
+List<(String?, List<Command>)> commandMenuLayout(List<Command> commands) {
+  final layout = <(String?, List<Command>)>[];
+  final submenus = <String, List<Command>>{};
+  final last = <Command>[];
+  for (final command in commands.where((command) => command.visible)) {
+    final name = command.submenu;
+    if (name == null) {
+      if (command.danger) {
+        last.add(command);
+      } else {
+        layout.add((null, [command]));
+      }
+    } else if (submenus[name] case final held?) {
+      held.add(command);
+    } else {
+      final held = [command];
+      submenus[name] = held;
+      layout.add((name, held));
+    }
   }
+  return [
+    ...layout,
+    for (final command in last) (null, [command]),
+  ];
 }
 
-/// The entries of a command menu, so a button and a right-click offer the same list.
-///
-/// With [following], each entry is drawn from the commands it holds now, while the menu is open; an entry
-/// whose command is gone since is drawn grey and runs nothing.
-List<PopupMenuEntry<String>> commandMenuEntries(
+Widget _entry(
   BuildContext context,
-  List<Command> commands, {
-  String? highlight,
-  ValueListenable<List<Command>>? following,
-}) => <PopupMenuEntry<String>>[
-  for (final command in commands.where((command) => command.visible))
-    if (following == null)
-      _entry(context, command, highlight: highlight)
-    else
-      _FollowingEntry(opened: command, highlight: highlight, following: following),
-];
-
-PopupMenuItem<String> _entry(BuildContext context, Command command, {String? highlight}) => PopupMenuItem<String>(
-  // The finder's destination carries a key of its own, so the way there can be followed.
-  key: command.id == highlight ? const Key('highlighted') : ValueKey<String>(command.id),
-  value: command.id,
-  enabled: command.available,
-  child: ListTile(
-    dense: true,
-    enabled: command.available,
-    contentPadding: EdgeInsets.zero,
-    title: Text(
-      command.label,
-      style: command.danger && command.available ? TextStyle(color: Theme.of(context).colorScheme.error) : null,
-    ),
-    subtitle: command.available ? null : Text('Unavailable: ${command.unavailable}'),
-  ),
-);
-
-/// One entry of an open menu, redrawn from its command as the view offers it now.
-class _FollowingEntry extends PopupMenuEntry<String> {
-  const _FollowingEntry({required this.opened, required this.following, this.highlight});
-
-  /// The command as it was when the menu opened.
-  final Command opened;
-
-  /// The command the finder went to, whose entry is marked.
-  final String? highlight;
-
-  /// The view's commands now.
-  final ValueListenable<List<Command>> following;
-
-  @override
-  double get height => kMinInteractiveDimension;
-
-  @override
-  bool represents(String? value) => value == opened.id;
-
-  @override
-  State<_FollowingEntry> createState() => _FollowingEntryState();
-}
-
-class _FollowingEntryState extends State<_FollowingEntry> {
-  @override
-  Widget build(BuildContext context) => ValueListenableBuilder<List<Command>>(
-    valueListenable: widget.following,
-    builder: (context, commands, _) {
-      final now = commands.where((each) => each.id == widget.opened.id && each.visible).firstOrNull;
-      return _entry(
-        context,
-        now ??
-            Command(
-              id: widget.opened.id,
-              label: widget.opened.label,
-              group: widget.opened.group,
-              home: widget.opened.home,
-              danger: widget.opened.danger,
-              checked: widget.opened.checked,
-              unavailable: 'no longer offered here',
-              run: () {},
+  Command command, {
+  required bool marked,
+  required VoidCallback onPressed,
+  FocusNode? focusNode,
+}) {
+  final theme = Theme.of(context);
+  return MenuItemButton(
+    // The finder's destination carries a key of its own, so the way there can be followed.
+    key: marked ? const Key('highlighted') : ValueKey<String>(command.id),
+    focusNode: focusNode,
+    overflowAxis: Axis.vertical,
+    onPressed: command.available ? onPressed : null,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: Sizes.menuEntry),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: Space.tight),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              command.label,
+              style: command.danger && command.available ? TextStyle(color: theme.colorScheme.error) : null,
             ),
-        highlight: widget.highlight,
-      );
-    },
+            if (command.unavailable case final reason?)
+              // Without a color of its own, so it is drawn as grey as the entry it explains.
+              Text('Unavailable: $reason', style: TextStyle(fontSize: theme.textTheme.bodySmall?.fontSize)),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
-/// Opens a command menu where the pointer is, and runs what is chosen.
-Future<void> showCommandMenu(BuildContext context, Offset at, List<Command> commands) async {
-  final visible = commands.where((command) => command.visible).toList();
-  if (visible.isEmpty) return;
-  final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
-  final chosen = await showMenu<String>(
-    context: context,
-    position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
-    items: commandMenuEntries(context, visible),
+Widget _submenu(
+  BuildContext context,
+  String name,
+  List<Command> commands, {
+  required MenuController controller,
+  required List<Widget> entries,
+  FocusNode? focusNode,
+}) {
+  // Still opened when nothing in it can run, so each reason can be read where the action is.
+  final grey = !commands.any((command) => command.available);
+  return SubmenuButton(
+    key: Key('submenu $name'),
+    controller: controller,
+    focusNode: focusNode,
+    style: grey ? SubmenuButton.styleFrom(foregroundColor: Theme.of(context).disabledColor) : null,
+    menuChildren: entries,
+    child: Semantics(hint: grey ? _allUnavailable : null, child: Text(name)),
   );
-  if (chosen != null) _run(commands, chosen);
 }

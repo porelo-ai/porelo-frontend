@@ -16,8 +16,8 @@ Future<void> addingAndForgettingStandOnlyInTheMenuOfTheConnections(WidgetTester 
     reason: 'forgetting stands in the view itself',
   );
   await openTheConnectionsMenu(tester);
-  expect(tester.widget<PopupMenuItem<Object?>>(connectionsMenuEntry('add-connection')).enabled, isTrue);
-  expect(tester.widget<PopupMenuItem<Object?>>(connectionsMenuEntry('forget ssh://github.com')).enabled, isTrue);
+  expect(tester.widget<MenuItemButton>(connectionsMenuEntry('add-connection')).enabled, isTrue);
+  expect(tester.widget<MenuItemButton>(connectionsMenuEntry('forget ssh://github.com')).enabled, isTrue);
   await tester.sendKeyEvent(LogicalKeyboardKey.escape);
   await World.settle(tester);
 }

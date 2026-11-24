@@ -13,4 +13,4 @@ Future<void> openTheConnectionsMenu(WidgetTester tester) async {
 
 /// The entry [id] of the open menu of the connections.
 Finder connectionsMenuEntry(String id) =>
-    find.byWidgetPredicate((w) => w is PopupMenuItem && w.key == ValueKey<String>(id));
+    find.byWidgetPredicate((w) => w is MenuItemButton && w.key == ValueKey<String>(id));

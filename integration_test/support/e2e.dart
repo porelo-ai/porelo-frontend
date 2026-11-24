@@ -11,6 +11,7 @@ import 'package:porelo_frontend/src/ui/command_menu.dart';
 import 'package:porelo_frontend/src/ui/choice_field.dart';
 
 import 'remote.dart';
+import '../../test/support/menu_entries.dart';
 
 /// The machine these tests run against, as `tool/e2e.sh` names it.
 abstract final class E2e {
@@ -238,7 +239,7 @@ Future<void> tapInTheConnectionsMenu(WidgetTester tester, String id) async {
     await pumpUntil(tester, () => entry.evaluate().isNotEmpty, what: 'the entry $id in the menu of the connections');
     // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
     await pumpFor(tester);
-    final enabled = tester.widget<PopupMenuItem<String>>(entry.last).enabled;
+    final enabled = tester.widget<MenuItemButton>(entry.last).enabled;
     if (enabled) break;
     expect(
       attempt,
@@ -358,7 +359,8 @@ Future<void> chooseFromTheMenuOfTheTile(WidgetTester tester, String task, String
   // Keyed by its work, so each tile's menu can be told apart.
   await tester.tap(find.descendant(of: tile, matching: find.byKey(ValueKey<String>('tile-menu $task'))));
   await pumpFor(tester);
-  final item = find.ancestor(of: find.text(label), matching: find.byWidgetPredicate((w) => w is PopupMenuItem));
+  // Opened from its submenu first, where it stands in one, as a person would.
+  final item = await revealMenuEntryLabeled(tester, label);
   // The menu is taller than a 720-pixel window when the tile sits low (CI's leased machine, run
   // 36884349003): scrolled inside the menu until the entry can be pressed, not only made "visible".
   await pumpFor(tester);

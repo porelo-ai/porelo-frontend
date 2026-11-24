@@ -76,7 +76,7 @@ void main() {
     await World.machines.add(machine);
     await toTheMachinesPage(tester, machine.name);
     await _tap(tester, 'machine-menu');
-    expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('host.again'))).enabled, isTrue);
+    expect(tester.widget<MenuItemButton>(find.byKey(const Key('host.again'))).enabled, isTrue);
   });
 
   // Harm: a stopped preparation loses its recovery and protocol, leaving a rented server running.

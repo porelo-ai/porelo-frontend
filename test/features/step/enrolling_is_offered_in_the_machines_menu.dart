@@ -13,10 +13,10 @@ Future<void> enrollingIsOfferedInTheMachinesMenu(WidgetTester tester) async {
   await World.settle(tester);
   final item = find.ancestor(
     of: find.text('Enroll this device on this machine'),
-    matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+    matching: find.byWidgetPredicate((w) => w is MenuItemButton),
   );
   expect(item, findsOneWidget);
-  expect(tester.widget<PopupMenuItem<Object?>>(item).enabled, isTrue);
+  expect(tester.widget<MenuItemButton>(item).enabled, isTrue);
   await tester.sendKeyEvent(LogicalKeyboardKey.escape);
   await World.settle(tester);
 }

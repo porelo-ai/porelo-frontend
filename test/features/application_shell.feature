@@ -67,6 +67,13 @@ Feature: Moving around the frame by keyboard and by pointer
         And I pick {'Check whether this machine can run anything'} in the finder
         Then the menu that holds {'Check whether this machine can run anything'} is open with it marked
 
+    Scenario: the finder goes to an action in a submenu of a task's menu and marks it there
+        When I select the project {'checkout'}
+        And I select the work {'porelo-checkout-shell'}
+        And I open the command finder
+        And I pick {'Take something back from this work'} in the finder
+        Then the menu that holds {'Take something back from this work'} is open with it marked
+
     Scenario: the title says where you are
         Then the title is {'this machine'}
         When I select the project {'checkout'}

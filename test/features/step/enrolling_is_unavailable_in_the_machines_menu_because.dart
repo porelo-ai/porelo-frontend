@@ -13,10 +13,10 @@ Future<void> enrollingIsUnavailableInTheMachinesMenuBecause(WidgetTester tester,
   await World.settle(tester);
   final item = find.ancestor(
     of: find.text('Enroll this device on this machine'),
-    matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+    matching: find.byWidgetPredicate((w) => w is MenuItemButton),
   );
   expect(item, findsOneWidget);
-  expect(tester.widget<PopupMenuItem<Object?>>(item).enabled, isFalse);
+  expect(tester.widget<MenuItemButton>(item).enabled, isFalse);
   expect(find.descendant(of: item, matching: find.textContaining(reason)), findsOneWidget);
   await tester.sendKeyEvent(LogicalKeyboardKey.escape);
   await World.settle(tester);

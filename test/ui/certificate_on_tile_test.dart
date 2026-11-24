@@ -10,6 +10,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 
 import '../features/support/world.dart';
+import '../support/menu_entries.dart';
 
 void main() {
   Task certified(DateTime until) => Task.from(<String, dynamic>{
@@ -39,14 +40,14 @@ void main() {
     expect(find.byKey(const Key('tile-certificate')), findsNothing);
   });
 
-  // Scrolled to first, as a person would: the tile's menu is taller than the window, and a tap below
-  // the fold misses without failing.
+  // From its submenu, as a person would.
   Future<void> chooseRenewal(WidgetTester tester) async {
     await tester.tap(find.byType(CommandMenu).first);
     await World.settle(tester);
-    await tester.ensureVisible(find.text('Certify it for another week').last);
+    final entry = await revealMenuEntryLabeled(tester, 'Certify it for another week');
+    await tester.ensureVisible(entry);
     await tester.pump();
-    await tester.tap(find.text('Certify it for another week').last);
+    await tester.tap(entry);
   }
 
   // Harm: the one line that says it worked, or why it did not, is gone before it can be read.

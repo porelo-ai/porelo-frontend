@@ -141,7 +141,7 @@ void main() {
     await _openMenu(tester, 'ahead');
     final entry = find.byKey(const ValueKey<String>('project.bringToCentral'));
     expect(entry, findsOneWidget);
-    expect(tester.widget<PopupMenuItem<String>>(entry).enabled, isFalse);
+    expect(tester.widget<MenuItemButton>(entry).enabled, isFalse);
     expect(find.text('Unavailable: It is being brought to central now; wait for the answer.'), findsOneWidget);
     await tester.tap(find.text('Bring it to central…'), warnIfMissed: false);
     await tester.pump(const Duration(seconds: 1));

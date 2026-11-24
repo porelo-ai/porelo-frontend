@@ -19,7 +19,7 @@ Future<void> pressOrganizationAction(WidgetTester tester, String id, {Future<voi
   await tester.tap(target);
   await settled();
   final entry = find.byKey(ValueKey<String>('organization.$id'));
-  if (tester.any(find.byType(PopupMenuItem<String>))) {
+  if (tester.any(find.byType(MenuItemButton))) {
     await tester.tap(entry);
     await settled();
   }

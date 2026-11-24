@@ -25,6 +25,48 @@ void main() {
     expect(details.label, 'See its details');
   });
 
+  // Harm: a removal made unavailable, or wrapped to select its row first, loses its danger color or leaves its
+  // submenu for the top of the menu.
+  test('a command made unavailable or run after something keeps its danger and its submenu', () {
+    const command = Command(id: 'x.remove', label: 'Remove it', group: 'X', danger: true, submenu: 'Run', run: _none);
+    for (final copy in [command.unless('the machine is not answering'), command.after(() {})]) {
+      expect(copy.danger, isTrue);
+      expect(copy.submenu, 'Run');
+    }
+  });
+
+  // Harm: a task's removal is drawn like any other entry, and a person takes it for a harmless one.
+  test('a task\'s removal is a danger, and its menu groups the rest into submenus', () {
+    final commands = workCommands(
+      task: null,
+      fleet: null,
+      machine: const Machine(name: 'demo', socketPath: '/tmp/demo.sock'),
+      askToRemove: (_) {},
+      askWhichLog: (_) {},
+      openSession: (_) {},
+      continueTheWork: (_) {},
+      recreate: (_) {},
+      nameTheWork: (_) {},
+      widenTheWork: (_) {},
+      enforceOnTheWork: (_) {},
+      narrowTheWork: (_) {},
+    );
+    Command byId(String id) => commands.singleWhere((command) => command.id == id);
+    expect(byId('work.remove').danger, isTrue);
+    expect(byId('work.remove').submenu, isNull, reason: 'it stands at the top, last');
+    expect(
+      {
+        for (final command in commands)
+          if (command.submenu == null) command.id,
+      },
+      {'work.resume', 'work.stop', 'work.session', 'work.log', 'work.remove'},
+    );
+    expect(byId('work.refresh').submenu, 'Run');
+    expect(byId('work.tell').submenu, 'Write and hand over');
+    expect(byId('work.room').submenu, 'What it may reach');
+    expect(byId('work.rename').submenu, 'Name');
+  });
+
   // Harm: a new or duplicated command silently exposes server changes to ordinary work.
   test('each command id has one role and only the declared commands require administration', () async {
     final settings = Settings(MemorySettingsStore());
@@ -297,3 +339,5 @@ void main() {
     });
   });
 }
+
+void _none() {}

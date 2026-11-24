@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
@@ -30,14 +31,19 @@ void main() {
     return (row, change);
   }
 
-  PopupMenuItem<String> entry(WidgetTester tester, String id) =>
-      tester.widget<PopupMenuItem<String>>(find.byKey(ValueKey<String>(id)));
+  MenuItemButton entry(WidgetTester tester, String id) =>
+      tester.widget<MenuItemButton>(find.byKey(ValueKey<String>(id)));
+
+  Future<void> openName(WidgetTester tester) async {
+    await tester.tap(find.byKey(const Key('submenu Name')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+  }
 
   // Harm: a menu opened for one forge removes another one of the list, drawn in its place while it was open.
   testWidgets('a menu rebuilt for another row while open runs nothing of that row', (tester) async {
     final (row, change) = await open(tester);
     change(() => row.name = 'beta');
-    await tester.pump();
     await tester.pump();
     expect(entry(tester, 'forge.remove').enabled, isFalse, reason: 'the menu was opened for alpha');
     await tester.tap(find.textContaining('Remove'), warnIfMissed: false);
@@ -60,31 +66,85 @@ void main() {
     expect(row.ran, isEmpty);
   });
 
-  // Harm: a press in the frame between the view's change and the menu's redraw runs what can no longer run.
-  testWidgets('choosing an entry still drawn runnable runs nothing once the view says it cannot run', (tester) async {
+  // Harm: a press in the frame after the view's change runs what can no longer run.
+  testWidgets('choosing an entry once the view says it cannot run runs nothing', (tester) async {
     final (row, change) = await open(tester);
     change(() => row.removable = false);
-    // One frame: the view has changed, and the open menu redraws only in the next.
     await tester.pump();
-    expect(entry(tester, 'forge.remove').enabled, isTrue, reason: 'the gap this test is about');
-    await tester.tap(find.textContaining('Remove alpha'));
+    expect(entry(tester, 'forge.remove').enabled, isFalse, reason: 'the open menu follows in the same frame');
+    await tester.tap(find.textContaining('Remove alpha'), warnIfMissed: false);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(row.ran, isEmpty);
   });
 
-  // Harm: a view taken away before the menu's late update fails the window on it.
-  testWidgets('a menu taken away before its update after a change is not updated', (tester) async {
+  // Harm: an entry inside an open submenu keeps offering what the view no longer can, or never offers what it now can.
+  testWidgets('an entry of an open submenu turns grey and runnable again as the view changes', (tester) async {
     final (row, change) = await open(tester);
-    // The change is built in the last phase of a frame, so the menu's update waits for the end of the next one, and
-    // that next frame takes the menu away before it.
-    tester.binding.addPostFrameCallback((_) {
-      change(() => row.removable = false);
-      tester.binding.buildOwner!.buildScope(tester.binding.rootElement!);
-    });
-    tester.binding.scheduleFrame();
+    await openName(tester);
+    expect(entry(tester, 'forge.rename').enabled, isTrue);
+    change(() => row.renamable = false);
     await tester.pump();
+    expect(entry(tester, 'forge.rename').enabled, isFalse);
+    expect(find.textContaining('Unavailable: a rename is under way'), findsOneWidget);
+    expect(
+      tester.widget<SubmenuButton>(find.byKey(const Key('submenu Name'))).style?.foregroundColor,
+      isNotNull,
+      reason: 'a submenu with nothing runnable left turns grey too',
+    );
+    change(() => row.renamable = true);
+    await tester.pump();
+    expect(entry(tester, 'forge.rename').enabled, isTrue);
+    await tester.tap(find.textContaining('Rename alpha'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(row.ran, ['rename alpha']);
+  });
+
+  // Harm: a submenu opened for one row renames another one, drawn in its place while it was open.
+  testWidgets('a submenu rebuilt for another row while open runs nothing of that row', (tester) async {
+    final (row, change) = await open(tester);
+    await openName(tester);
+    change(() => row.name = 'beta');
+    await tester.pump();
+    expect(entry(tester, 'forge.rename').enabled, isFalse, reason: 'the menu was opened for alpha');
+    await tester.tap(find.textContaining('Rename'), warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(row.ran, isEmpty);
+  });
+
+  // Harm: a view taken away while its menu is still opening fails the window on the menu's next step.
+  testWidgets('a menu taken away before its next opening step is not touched', (tester) async {
+    Widget menu({String? highlight}) => MaterialApp(
+      home: Scaffold(
+        body: CommandMenu(
+          highlight: highlight,
+          tooltip: 'What can be done',
+          commands: [
+            Command(id: 'forge.open', label: 'Open alpha', group: 'Forge', run: () {}),
+            Command(id: 'forge.rename', label: 'Rename alpha', group: 'Forge', submenu: 'Name', run: () {}),
+          ],
+        ),
+      ),
+    );
+
+    // The finder's opening: the menu opens at the end of the first frame, its submenu at the end of the next, which
+    // takes the menu away first.
+    await tester.pumpWidget(menu(highlight: 'forge.rename'));
     await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    // The keyboard's opening: the first entry is given the keyboard at the end of the next frame, which takes the
+    // menu away first.
+    await tester.pumpWidget(menu());
+    final button = find.byTooltip('What can be done');
+    Focus.of(tester.element(find.descendant(of: button, matching: find.byType(Icon)))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
     expect(tester.takeException(), isNull);
   });
 }
@@ -97,6 +157,7 @@ class _Row {
   String name = 'alpha';
   bool removable = true;
   bool offered = true;
+  bool renamable = true;
 
   List<Command> get commands => [
     if (offered)
@@ -109,5 +170,13 @@ class _Row {
         run: () => ran.add('remove $name'),
       ),
     Command(id: 'forge.open', label: 'Open $name', group: 'Forge', run: () => ran.add('open $name')),
+    Command(
+      id: 'forge.rename',
+      label: 'Rename $name',
+      group: 'Forge',
+      submenu: 'Name',
+      unavailable: renamable ? null : 'a rename is under way',
+      run: () => ran.add('rename $name'),
+    ),
   ];
 }

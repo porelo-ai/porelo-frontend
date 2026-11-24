@@ -13,7 +13,7 @@ Future<void> iChooseFromTheMenuOfTheProject(WidgetTester tester, String entry, S
   await World.settle(tester);
   final item = find.ancestor(
     of: find.text(entry),
-    matching: find.byWidgetPredicate((widget) => widget is PopupMenuItem),
+    matching: find.byWidgetPredicate((widget) => widget is MenuItemButton),
   );
   await tester.ensureVisible(item);
   await tester.pump();

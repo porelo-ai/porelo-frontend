@@ -9,7 +9,7 @@ Future<void> theMachineCanBeRemovedFromTheList(WidgetTester tester, String machi
   await toTheMachinesPage(tester, machine);
   await tester.tap(find.byKey(const Key('machine-menu')));
   await World.settle(tester);
-  final remove = tester.widget<PopupMenuItem<String>>(find.byKey(const Key('machine.forget')));
+  final remove = tester.widget<MenuItemButton>(find.byKey(const Key('machine.forget')));
   expect(remove.enabled, can, reason: 'removal availability must reflect the command, including a visible refusal');
   await tester.tapAt(Offset.zero);
   await World.settle(tester);

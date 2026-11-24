@@ -124,6 +124,14 @@ void main() {
       await iPickInTheFinder(tester, 'Check whether this machine can run anything');
       await theMenuThatHoldsIsOpenWithItMarked(tester, 'Check whether this machine can run anything');
     });
+    testWidgets('''the finder goes to an action in a submenu of a task's menu and marks it there''', (tester) async {
+      await bddSetUp(tester);
+      await iSelectTheProject(tester, 'checkout');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
+      await iOpenTheCommandFinder(tester);
+      await iPickInTheFinder(tester, 'Take something back from this work');
+      await theMenuThatHoldsIsOpenWithItMarked(tester, 'Take something back from this work');
+    });
     testWidgets('''the title says where you are''', (tester) async {
       await bddSetUp(tester);
       await theTitleIs(tester, 'this machine');

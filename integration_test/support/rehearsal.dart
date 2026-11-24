@@ -225,9 +225,9 @@ Future<String?> theMenuItemIsHeldBack(WidgetTester tester, Finder menu, String l
   await tester.ensureVisible(menu.first);
   await tester.tap(menu.first);
   await pumpFor(tester);
-  final item = find.ancestor(of: find.text(label), matching: find.byWidgetPredicate((w) => w is PopupMenuItem));
+  final item = find.ancestor(of: find.text(label), matching: find.byWidgetPredicate(_isMenuEntry));
   await pumpUntil(tester, () => item.evaluate().isNotEmpty, what: 'the menu to offer $label');
-  final held = !tester.widget<PopupMenuItem<Object?>>(item.first).enabled;
+  final held = !_menuEntryEnabled(tester.widget(item.first));
   final why = held
       ? find
             .descendant(of: item.first, matching: find.byType(Text))
@@ -249,7 +249,7 @@ Future<void> chooseFromTheMenu(WidgetTester tester, Finder menu, String label) a
   await tester.ensureVisible(menu.first);
   await tester.tap(menu.first);
   await pumpFor(tester);
-  final item = find.ancestor(of: find.text(label), matching: find.byWidgetPredicate((w) => w is PopupMenuItem));
+  final item = find.ancestor(of: find.text(label), matching: find.byWidgetPredicate(_isMenuEntry));
   await pumpUntil(tester, () => item.evaluate().isNotEmpty, what: 'the menu to offer $label');
   await tester.tap(item.first);
   await pumpFor(tester);
@@ -397,3 +397,13 @@ Future<void> _keepAPicture(WidgetTester tester, String named) async {
     debugPrint('no picture of the failure: $missed');
   }
 }
+
+/// Whether [widget] is an entry of an open menu: a command menu's, or a popup menu's as the planning screen draws.
+bool _isMenuEntry(Widget widget) => widget is MenuItemButton || widget is PopupMenuItem;
+
+/// Whether the menu entry [widget] can be chosen.
+bool _menuEntryEnabled(Widget widget) => switch (widget) {
+  final MenuItemButton entry => entry.enabled,
+  final PopupMenuItem<Object?> entry => entry.enabled,
+  _ => false,
+};

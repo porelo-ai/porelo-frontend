@@ -34,7 +34,7 @@ void main() {
     expect(find.byKey(const Key('highlighted')), findsOneWidget);
     expect(find.byKey(const Key('job checkout/Check API')), findsOneWidget);
     expect(World.shell.highlight, isNull, reason: 'the row reports when its command has been shown');
-    expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('highlighted'))).enabled, isTrue);
+    expect(tester.widget<MenuItemButton>(find.byKey(const Key('highlighted'))).enabled, isTrue);
     expect(World.fleet.selectedProject?.name, 'checkout');
     await tester.ensureVisible(find.byKey(const Key('highlighted')));
     await tester.tap(find.byKey(const Key('highlighted')));
@@ -140,7 +140,7 @@ void main() {
       await World.tapInView(tester, 'project offline/default');
       expect(opened, [(machine: second, project: defaultProject)]);
       await World.tapInView(tester, 'projects-menu offline/default');
-      final start = tester.widget<PopupMenuItem<String>>(find.byKey(const Key('work.start')));
+      final start = tester.widget<MenuItemButton>(find.byKey(const Key('work.start')));
       expect(start.enabled, isFalse);
       expect(starts, isEmpty);
       await tester.tapAt(const Offset(5, 5));

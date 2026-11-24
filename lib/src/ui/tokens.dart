@@ -523,6 +523,9 @@ abstract final class Sizes {
   /// A tile in a wall of them: a task, a failed operation, the tile that starts work.
   static const tile = 320.0;
 
+  /// The widest an entry of a command menu draws its words, so a long reason wraps rather than widens the menu.
+  static const menuEntry = 320.0;
+
   /// How tall the tile that starts work is.
   static const startTileHeight = 120.0;
 

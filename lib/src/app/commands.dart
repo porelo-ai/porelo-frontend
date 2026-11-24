@@ -279,9 +279,16 @@ class Command {
     this.checked,
     this.hidden = false,
     this.danger = false,
+    this.submenu,
     // The public named argument remains compatible with existing const commands.
     // ignore: prefer_initializing_formals
   }) : _unavailable = unavailable;
+
+  /// The submenu of its menu it stands in, or null for the menu itself.
+  ///
+  /// A menu with many entries is read by its groups: the entries a person reaches for most stand at the top, the
+  /// rest one step further, under the name of what they do.
+  final String? submenu;
 
   /// Stable identifier, used to route a keystroke to this command.
   final String id;
@@ -339,6 +346,8 @@ class Command {
           unavailableNow: unavailableNow,
           home: home,
           checked: checked,
+          danger: danger,
+          submenu: submenu,
           run: run,
         );
 
@@ -353,6 +362,8 @@ class Command {
     unavailableNow: unavailableNow,
     home: home,
     checked: checked,
+    danger: danger,
+    submenu: submenu,
     run: () {
       first();
       run();
@@ -448,20 +459,94 @@ List<Command> workCommands({
       run: () => askWhichLog(task!),
       unavailable: task == null ? nothingSelected : null,
     ),
+    // What moved in the checkout or the remote it works from, brought to it without stopping it.
+    Command(
+      id: 'work.refresh',
+      label: 'Bring it up to its source',
+      group: 'Work',
+      home: Home.tileMenu,
+      submenu: 'Run',
+      run: () => refreshFromItsSource!(task!),
+      unavailable: refreshFromItsSource == null
+          ? 'not offered here'
+          : task == null
+          ? nothingSelected
+          : null,
+    ),
+    Command(
+      id: 'work.recreate',
+      label: 'Recreate it, so it picks up a newly built environment',
+      group: 'Work',
+      home: Home.tileMenu,
+      submenu: 'Run',
+      run: () => recreate(task!),
+      // A stopped task is recreated as readily as a running one, and that is often when it is.
+      unavailable: task == null ? nothingSelected : null,
+    ),
+    Command(
+      id: 'work.certifyAgain',
+      label: 'Certify it for another week',
+      group: 'Work',
+      home: Home.tileMenu,
+      submenu: 'Run',
+      run: () => certifyAgain!(task!),
+      unavailable: certifyAgain == null
+          ? 'not offered here'
+          : task == null
+          ? nothingSelected
+          : machine.needsATunnel || (machine.host.isEmpty && machine.socketPath == Backend.local().socketPath)
+          ? whyNoCertifyAgain(task)
+          : 'the command line reaches this computer or a host over ssh, and not this machine',
+    ),
     Command(
       id: 'work.continue',
       label: 'Continue this work with a new prompt',
       group: 'Work',
       home: Home.tileMenu,
+      submenu: 'Write and hand over',
       run: () => continueTheWork(task!),
       // Three separate reasons, each said rather than collapsed into "not now".
       unavailable: StartWork.whyNotContinue(task),
+    ),
+    // Straight into its inbox, where its agent reads: a person's own words, which never leave the
+    // machine and so are neither signed nor filtered.
+    Command(
+      id: 'work.tell',
+      label: 'Write to its agent',
+      group: 'Work',
+      home: Home.tileMenu,
+      submenu: 'Write and hand over',
+      run: () => tellTheWork?.call(task!),
+      unavailable: task == null
+          ? nothingSelected
+          : tellTheWork == null
+          ? 'not offered here'
+          : null,
+    ),
+    Command(
+      id: 'work.handIn',
+      label: 'Hand it a file from this computer',
+      group: 'Work',
+      home: Home.tileMenu,
+      submenu: 'Write and hand over',
+      run: () => handInTo!(task!),
+      unavailable: handInTo == null ? 'not offered here' : HandingIn.whyNot(task),
+    ),
+    Command(
+      id: 'work.takeBack',
+      label: 'Take back a file it was handed',
+      group: 'Work',
+      home: Home.tileMenu,
+      submenu: 'Write and hand over',
+      run: () => takeBackFrom!(task!),
+      unavailable: takeBackFrom == null ? 'not offered here' : HandingIn.whyNotTakeBack(task),
     ),
     Command(
       id: 'work.widen',
       label: 'Let this work reach something new',
       group: 'Work',
       home: Home.tileMenu,
+      submenu: 'What it may reach',
       run: () => widenTheWork(task!),
       // Both refusals the daemon would give are knowable here, so they are said, not discovered.
       unavailable: Widening.whyNot(task),
@@ -471,6 +556,7 @@ List<Command> workCommands({
       label: 'Take something back from this work',
       group: 'Work',
       home: Home.tileMenu,
+      submenu: 'What it may reach',
       run: () => narrowTheWork(task!),
       unavailable: Narrowing.whyNot(task),
     ),
@@ -479,6 +565,7 @@ List<Command> workCommands({
       label: 'Change what this work does with a blocked connection',
       group: 'Work',
       home: Home.tileMenu,
+      submenu: 'What it may reach',
       run: () => enforceOnTheWork(task!),
       unavailable: task == null
           ? nothingSelected
@@ -491,6 +578,7 @@ List<Command> workCommands({
       label: "Hold its project's messages to a peer",
       group: 'Work',
       home: Home.tileMenu,
+      submenu: 'What it may reach',
       run: () => talkForTheWork?.call(task!),
       unavailable: task == null
           ? nothingSelected
@@ -506,6 +594,7 @@ List<Command> workCommands({
       label: 'Open its project’s room',
       group: 'Work',
       home: Home.tileMenu,
+      submenu: 'What it may reach',
       run: () => roomOfTheWork?.call(task!),
       unavailable: task == null
           ? nothingSelected
@@ -520,20 +609,6 @@ List<Command> workCommands({
           ? '${task.project} has no conversation: none of its peers is reached through a transport of its own'
           : null,
     ),
-    // Straight into its inbox, where its agent reads: a person's own words, which never leave the
-    // machine and so are neither signed nor filtered.
-    Command(
-      id: 'work.tell',
-      label: 'Write to its agent',
-      group: 'Work',
-      home: Home.tileMenu,
-      run: () => tellTheWork?.call(task!),
-      unavailable: task == null
-          ? nothingSelected
-          : tellTheWork == null
-          ? 'not offered here'
-          : null,
-    ),
     Command(
       id: 'work.label',
       label: task != null && task.label.isNotEmpty
@@ -541,67 +616,8 @@ List<Command> workCommands({
           : 'Give this work something to read by',
       group: 'Work',
       home: Home.tileMenu,
+      submenu: 'Name',
       run: () => nameTheWork(task!),
-      unavailable: task == null ? nothingSelected : null,
-    ),
-    Command(
-      id: 'work.certifyAgain',
-      label: 'Certify it for another week',
-      group: 'Work',
-      home: Home.tileMenu,
-      run: () => certifyAgain!(task!),
-      unavailable: certifyAgain == null
-          ? 'not offered here'
-          : task == null
-          ? nothingSelected
-          : machine.needsATunnel || (machine.host.isEmpty && machine.socketPath == Backend.local().socketPath)
-          ? whyNoCertifyAgain(task)
-          : 'the command line reaches this computer or a host over ssh, and not this machine',
-    ),
-    Command(
-      id: 'work.handIn',
-      label: 'Hand it a file from this computer',
-      group: 'Work',
-      home: Home.tileMenu,
-      run: () => handInTo!(task!),
-      unavailable: handInTo == null ? 'not offered here' : HandingIn.whyNot(task),
-    ),
-    Command(
-      id: 'work.takeBack',
-      label: 'Take back a file it was handed',
-      group: 'Work',
-      home: Home.tileMenu,
-      run: () => takeBackFrom!(task!),
-      unavailable: takeBackFrom == null ? 'not offered here' : HandingIn.whyNotTakeBack(task),
-    ),
-    // What moved in the checkout or the remote it works from, brought to it without stopping it.
-    Command(
-      id: 'work.refresh',
-      label: 'Bring it up to its source',
-      group: 'Work',
-      home: Home.tileMenu,
-      run: () => refreshFromItsSource!(task!),
-      unavailable: refreshFromItsSource == null
-          ? 'not offered here'
-          : task == null
-          ? nothingSelected
-          : null,
-    ),
-    Command(
-      id: 'work.recreate',
-      label: 'Recreate it, so it picks up a newly built environment',
-      group: 'Work',
-      home: Home.tileMenu,
-      run: () => recreate(task!),
-      // A stopped task is recreated as readily as a running one, and that is often when it is.
-      unavailable: task == null ? nothingSelected : null,
-    ),
-    Command(
-      id: 'work.remove',
-      label: 'Remove it',
-      group: 'Work',
-      home: Home.tileMenu,
-      run: () => askToRemove(task!),
       unavailable: task == null ? nothingSelected : null,
     ),
     Command(
@@ -609,8 +625,18 @@ List<Command> workCommands({
       label: 'Rename it',
       group: 'Work',
       home: Home.tileMenu,
+      submenu: 'Name',
       run: () {},
       unavailable: 'the backend has no method for renaming work',
+    ),
+    Command(
+      id: 'work.remove',
+      label: 'Remove it',
+      group: 'Work',
+      home: Home.tileMenu,
+      danger: true,
+      run: () => askToRemove(task!),
+      unavailable: task == null ? nothingSelected : null,
     ),
   ].map((command) => command.unless(offline)).toList();
 }
