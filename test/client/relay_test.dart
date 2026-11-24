@@ -289,6 +289,7 @@ void main() {
     late int started;
     late int live;
     late int most;
+    late List<Future<int>> exits;
 
     setUp(() async {
       mock = MockDaemon();
@@ -297,6 +298,7 @@ void main() {
       started = 0;
       live = 0;
       most = 0;
+      exits = [];
     });
 
     /// Stands in for ssh with a relay to the mock, counting the relays started and those still running.
@@ -306,7 +308,16 @@ void main() {
       live++;
       if (live > most) most = live;
       unawaited(process.exitCode.then((_) => live--));
+      exits.add(process.exitCode);
       return process;
+    }
+
+    /// Waits for every relay started so far to exit, on their exit itself rather than a clock: how long a relay takes to
+    /// end follows the machine's load, and one that never ends still fails, by the test's own timeout.
+    Future<void> allExited(String what) async {
+      printOnFailure('waiting for $what');
+      await Future.wait(exits);
+      expect(live, 0, reason: what);
     }
 
     Future<Process> relay(String executable, List<String> arguments) => relayWith(joins);
@@ -502,7 +513,7 @@ void main() {
     test('a stream left at once starts no relay', () async {
       endless('Tail', <String>[]);
       final client = await PoreloClient.connect(windowsBackend(CarrierBudget(daemonCalls: 2)));
-      await until(() => live == 0, 'the connect relay to exit');
+      await allExited('the connect relay to exit');
       await client.tailLog('t', 'task.log').listen((_) {}).cancel();
       await client.agentSignInWait('claude').listen((_) {}).cancel();
       await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -512,7 +523,7 @@ void main() {
     test('a stream left while it waits for a place starts no relay', () async {
       mock.pushes('Prepare', (_) => StreamController<Map<String, dynamic>>().stream);
       final client = await PoreloClient.connect(windowsBackend(CarrierBudget(daemonCalls: 2)));
-      await until(() => live == 0, 'the connect relay to exit');
+      await allExited('the connect relay to exit');
       final first = client.prepare('p').listen((_) {});
       await until(() => started == 2, 'the first stream to start its relay');
       final second = client.prepare('p').listen((_) {});
@@ -520,7 +531,7 @@ void main() {
       expect(started, 2, reason: 'a stream may not take the place kept for calls');
       await second.cancel();
       await first.cancel();
-      await until(() => live == 0, 'the first stream to exit');
+      await allExited('the first stream to exit');
       await Future<void>.delayed(const Duration(milliseconds: 300));
       expect(started, 2, reason: 'the stream that was left never starts a relay');
     });
@@ -529,7 +540,7 @@ void main() {
     test('a sign-in start left while it waits for a place starts no relay', () async {
       mock.pushes('Prepare', (_) => StreamController<Map<String, dynamic>>().stream);
       final client = await PoreloClient.connect(windowsBackend(CarrierBudget(daemonCalls: 2)));
-      await until(() => live == 0, 'the connect relay to exit');
+      await allExited('the connect relay to exit');
       final first = client.prepare('p').listen((_) {});
       await until(() => started == 2, 'the first stream to start its relay');
       final left = Completer<void>();
@@ -540,7 +551,7 @@ void main() {
       left.complete();
       await ended.timeout(const Duration(seconds: 5));
       await first.cancel();
-      await until(() => live == 0, 'the first stream to exit');
+      await allExited('the first stream to exit');
       await Future<void>.delayed(const Duration(milliseconds: 300));
       expect(started, 2, reason: 'the start that was left never starts a relay');
     });
