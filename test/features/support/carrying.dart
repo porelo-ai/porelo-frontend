@@ -58,6 +58,35 @@ class CarryingFakeBackend extends FakeBackend implements CarryingBackend {
   @override
   Future<HostIdentityPublic> hostIdentityPublic(String host) async => HostIdentityPublic.read(_kept(host).wire);
 
+  /// The forge adapters installed on it, by name, as `Forges` lists them. Set by the scenario.
+  List<String> forgeAdapters = <String>['github'];
+
+  /// The forges it knows, by host, as `Forges` answers them; `ForgeSet` adds or replaces one.
+  final Map<String, ForgeInstance> forgesKnown = <String, ForgeInstance>{};
+
+  /// What every forge call fails with, where set: an older Porelo, a refusal of the machine.
+  Exception? forgeFailure;
+
+  /// Every forge made known, as asked: host, adapter and comments.
+  final List<({String host, String adapter, String? comments})> forgeSetsAsked =
+      <({String host, String adapter, String? comments})>[];
+
+  @override
+  Future<MachineForges> forges() async {
+    if (forgeFailure case final failure?) throw failure;
+    return MachineForges(forges: forgesKnown.values.toList(), adapters: forgeAdapters);
+  }
+
+  @override
+  Future<void> forgeSet(String host, String adapter, {String? comments}) async {
+    if (forgeFailure case final failure?) throw failure;
+    if (!forgeAdapters.contains(adapter)) {
+      throw VarlinkException('org.fuin.porelo.Tasks1.AdapterNotInstalled', {'adapter': adapter});
+    }
+    forgeSetsAsked.add((host: host, adapter: adapter, comments: comments));
+    forgesKnown[host] = ForgeInstance(host: host, adapter: adapter, comments: comments ?? 'EXTENDED');
+  }
+
   /// How often the list of kept identities was asked for.
   int identityListsAsked = 0;
 

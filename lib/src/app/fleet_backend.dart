@@ -774,9 +774,19 @@ abstract interface class KeepsHostIdentities {
   Future<List<String>> hostIdentities();
 }
 
-/// A machine's backend that carries credentials too: this computer's, where a carry reads its sources and seals, and
-/// whose vault keeps hosts' identities.
-abstract interface class CarryingBackend implements FleetBackend, CarriesCredentials, KeepsHostIdentities {}
+/// A machine that keeps the forges its tasks reach, each with the forge adapter that reaches it.
+abstract interface class KnowsForges {
+  /// The forges the machine knows and the forge adapters installed on it; [FeatureNotSupported] from an older one.
+  Future<MachineForges> forges();
+
+  /// Makes [host] known as a forge reached by [adapter]; [comments] `TRUSTED` only on the person's own choice.
+  Future<void> forgeSet(String host, String adapter, {String? comments});
+}
+
+/// A machine's backend that carries credentials too: this computer's, where a carry reads its sources and seals, whose
+/// vault keeps hosts' identities, and which knows the forges its tasks reach.
+abstract interface class CarryingBackend
+    implements FleetBackend, CarriesCredentials, KeepsHostIdentities, KnowsForges {}
 
 /// A machine that sets a project's room up before its first task, taking a carried project here first.
 ///
@@ -1243,6 +1253,13 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
 
   @override
   Future<HostIdentityPublic> hostIdentityPublic(String host) => _identityClient().hostIdentityPublic(host);
+
+  @override
+  Future<MachineForges> forges() => _opened().forges();
+
+  @override
+  Future<void> forgeSet(String host, String adapter, {String? comments}) =>
+      _opened().forgeSet(host, adapter, comments: comments);
 
   @override
   Future<List<String>> hostIdentities() => _identityClient().hostIdentities();

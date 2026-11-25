@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_host/porelo_host.dart' show forgeAddress;
 
 import '../app/default_at_forge.dart';
 import '../app/commands.dart';
@@ -217,6 +218,15 @@ Widget forgeMenu(
       run: () => unawaited(forges.choose(entry)),
       unavailable: forges.busy ? 'Still checking access.' : null,
     ),
+    if (!entry.isHost)
+      Command(
+        id: 'forge.comments',
+        label: entry.trusted ? 'Read its comments as extended' : 'Trust its comments',
+        group: 'Forges',
+        home: Home.forgeRow,
+        run: () => unawaited(forges.readComments(entry, entry.trusted ? 'EXTENDED' : 'TRUSTED')),
+        unavailable: forges.busy ? 'Still checking access.' : null,
+      ),
     if (entry.isHost) ...[
       Command(
         id: 'forge.browser',
@@ -371,8 +381,12 @@ class ForgePage extends StatefulWidget {
     this.onBack,
     this.onMachine,
     this.tokenVault,
+    this.notKnown,
     super.key,
   });
+
+  /// Why each watched machine that does not know a forge's host as a forge does not, in words.
+  final List<String> Function(String host)? notKnown;
 
   /// The configured forges and current access state.
   final ForgeConnection forges;
@@ -420,6 +434,14 @@ class ForgePage extends StatefulWidget {
 class _ForgePageState extends State<ForgePage> {
   String? _said;
 
+  static String _hostOf(ForgeEntry entry) {
+    try {
+      return forgeAddress(entry.address);
+    } on FormatException {
+      return entry.address;
+    }
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.forges,
@@ -449,6 +471,17 @@ class _ForgePageState extends State<ForgePage> {
                   '${forges.account == null ? '' : ' · login ${forges.account!.login}'}',
                   key: const Key('forge-account'),
                 ),
+              if (entry != null && !entry.isHost)
+                Text(switch (entry.comments) {
+                  'TRUSTED' => "Tasks trust this forge's comments.",
+                  'EXTENDED' => "Tasks read this forge's comments as extended, not trusted.",
+                  _ =>
+                    "Tasks read this forge's comments as extended, not trusted, unless a machine was told to trust "
+                        'them before.',
+                }, key: const Key('forge-comments')),
+              if (entry != null && !entry.isHost)
+                for (final words in widget.notKnown?.call(_hostOf(entry)) ?? const <String>[])
+                  Text(words, key: const Key('forge-not-known')),
               if (_said case final said?) Text(said, key: const Key('forge-said')),
               if (!forges.connected && !forges.busy)
                 const Text('Access has not been confirmed. Check my access from the menu.'),

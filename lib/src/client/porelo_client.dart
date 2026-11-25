@@ -1269,6 +1269,25 @@ class PoreloClient {
     return hosts.whereType<String>().toList();
   });
 
+  /// The forges this machine knows, and the forge adapters installed on it.
+  Future<MachineForges> forges() async =>
+      MachineForges.from(await _supported('Forges', () => _call('Forges', const <String, dynamic>{})));
+
+  /// Makes [host] known to this machine as a forge reached by [adapter], an installed forge adapter by the name
+  /// [forges] lists it; [comments] is `TRUSTED` only on the person's own choice, and absent keeps it extended.
+  Future<void> forgeSet(String host, String adapter, {String? comments}) =>
+      _supported('ForgeSet', () => _call('ForgeSet', {'host': host, 'adapter': adapter, 'comments': ?comments}));
+
+  /// [call], a machine older than [method] answering [FeatureNotSupported] for it alone.
+  static Future<T> _supported<T>(String method, Future<T> Function() call) async {
+    try {
+      return await call();
+    } on VarlinkException catch (refusal) {
+      if (refusal.isMethodNotFound) throw FeatureNotSupported(method);
+      rethrow;
+    }
+  }
+
   /// Says each way a call about an identity fails as its own [HostIdentityFailure]: only the vault's own word that it
   /// keeps none is ever read as none.
   static Future<T> _aboutIdentities<T>(Future<T> Function() call) async {

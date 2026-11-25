@@ -373,6 +373,44 @@ void main() {
     expect(terminals, isEmpty);
   });
 
+  // Harm: a forge's comments are trusted without the person's choice, or the page hides how they are read and which
+  // machine cannot know the forge.
+  testWidgets("a forge's comments are read as extended until the person trusts them", (tester) async {
+    tester.view
+      ..physicalSize = const Size(1280, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final forge = _IdentityForge();
+    final forges = ForgeConnection(MemoryForgeTokens(), identityAccess: (_) async => forge);
+    addTearDown(forges.dispose);
+    await forges.addIdentity(name: 'Central', address: 'forge.example.org');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ForgePage(
+            forges: forges,
+            usedBy: (_) => [],
+            usedOn: (_) => [],
+            notKnown: (host) => ['fedora has no forge adapter for github installed, so its tasks cannot reach $host.'],
+          ),
+        ),
+      ),
+    );
+    await World.settle(tester);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('forge-comments'))).data,
+      contains('as extended, not trusted, unless'),
+    );
+    expect(tester.widget<Text>(find.byKey(const Key('forge-not-known'))).data, contains('reach forge.example.org.'));
+
+    await World.tapInView(tester, 'forges-menu Central');
+    await World.tapInView(tester, 'forge.comments');
+    await World.settle(tester);
+
+    expect(forges.entries.single.trusted, isTrue);
+    expect(tester.widget<Text>(find.byKey(const Key('forge-comments'))).data, "Tasks trust this forge's comments.");
+  });
+
   late OpenLink previousOpenLink;
   setUp(() => previousOpenLink = openLink);
   tearDown(() => openLink = previousOpenLink);

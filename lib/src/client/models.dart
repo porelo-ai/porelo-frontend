@@ -6787,3 +6787,51 @@ class CentralPushProgress {
 /// The issue a planned stage works on, as its tracker names it (`owner/repo#123`), and its phase in the project's own
 /// workflow, both as the planner's order gives them.
 typedef TrackedWork = ({String issue, String phase});
+
+/// One forge the machine knows, as `Forges` answers it: its host, the forge adapter that reaches it, and how far a
+/// task trusts its comments.
+class ForgeInstance {
+  /// The forge's host, as the machine keeps it.
+  final String host;
+
+  /// The installed forge adapter that reaches it, by the name `Forges` lists it.
+  final String adapter;
+
+  /// `EXTENDED` or `TRUSTED`; null where the machine said none, which is extended.
+  final String? comments;
+
+  /// Why the machine could not read what it keeps of this forge; null where it could.
+  final String? unreadable;
+
+  /// Constructor taking every part.
+  const ForgeInstance({required this.host, required this.adapter, this.comments, this.unreadable});
+
+  /// Whether a task trusts this forge's comments: only on the machine's own word `TRUSTED`.
+  bool get trusted => comments == 'TRUSTED';
+
+  /// Reads one from a reply.
+  factory ForgeInstance.from(Map<String, dynamic> map) => ForgeInstance(
+    host: _string(map, 'host'),
+    adapter: _string(map, 'adapter'),
+    comments: _optional(map, 'comments'),
+    unreadable: _optional(map, 'unreadable'),
+  );
+}
+
+/// What `Forges` answers: every forge the machine knows, and the forge adapters installed on it.
+class MachineForges {
+  /// The forges the machine knows.
+  final List<ForgeInstance> forges;
+
+  /// The installed forge adapters, by name.
+  final List<String> adapters;
+
+  /// Constructor taking both.
+  const MachineForges({required this.forges, required this.adapters});
+
+  /// Reads one from a reply.
+  factory MachineForges.from(Map<String, dynamic> map) => MachineForges(
+    forges: List.unmodifiable(_list(map, 'forges').map(ForgeInstance.from)),
+    adapters: List.unmodifiable(_strings(map, 'adapters')),
+  );
+}

@@ -23,6 +23,7 @@ import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
+import '../app/forge_records.dart';
 import '../app/forge_key_check.dart';
 import '../app/machine_binding.dart';
 import '../app/machine_tools.dart';
@@ -575,6 +576,8 @@ class _ShellState extends State<Shell> {
     _organization?.addListener(_checkOrganizationPlace);
     _observedMachine = widget.machines.current;
     widget.machines.addListener(_machineChanged);
+    widget.machines.addListener(_forgeRecords.look);
+    _forges.addListener(_forgeRecords.look);
     _plannersLog = _plannersLogNow;
     _plannersLevel = _plannersLevelNow;
     if (widget.planning?.client case final Listenable planner) {
@@ -1761,6 +1764,16 @@ class _ShellState extends State<Shell> {
         openTerminal: widget.sessions.openTerminal,
       );
 
+  /// Makes the forges set up here known to every watched machine whose list of work was read.
+  late final ForgeRecords _forgeRecords = ForgeRecords(
+    forges: _forges,
+    machines: () => [
+      for (final machine in widget.machines.all)
+        if (widget.machines.watching(machine) case final fleet? when fleet.listRead)
+          (name: machine.name, backend: fleet.backend),
+    ],
+  );
+
   /// The repositories this machine works on in the Default project, in `default`, and the projects asked
   /// again once it is put away: a repository added there is what lets work start in default.
   Future<void> _showTheDefault() async {
@@ -2457,9 +2470,14 @@ class _ShellState extends State<Shell> {
           ListenableBuilder(
             listenable: Listenable.merge(<Listenable>[
               for (final machine in widget.machines.all) ?widget.machines.watching(machine),
+              _forgeRecords,
             ]),
             builder: (context, _) => ForgePage(
               onBack: () => widget.shell.goTo(Section.forges),
+              notKnown: (host) => [
+                for (final MapEntry(key: (_, known), :value) in _forgeRecords.problems.entries)
+                  if (known == host) value,
+              ],
               onMachine: (name) {
                 final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
                 if (machine != null) _openPageMachine(machine);
@@ -7963,6 +7981,9 @@ class _ShellState extends State<Shell> {
     widget.shell.removeListener(_checkOrganizationPlace);
     _organization?.removeListener(_checkOrganizationPlace);
     widget.machines.removeListener(_machineChanged);
+    widget.machines.removeListener(_forgeRecords.look);
+    _forges.removeListener(_forgeRecords.look);
+    _forgeRecords.dispose();
     if (widget.planning?.client case final Listenable planner) {
       planner.removeListener(_plannersLogChanged);
       planner.removeListener(_plannerStartChanged);

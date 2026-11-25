@@ -42,7 +42,15 @@ class ForgeEntry {
     this.hostMachine,
     this.tunnelAddress,
     this.gitAddress,
+    this.comments,
   });
+
+  /// How a machine's tasks read this forge's comments, as the person chose it: `TRUSTED` or `EXTENDED`; null where they
+  /// chose nothing, which a machine reads as extended unless it was told trusted before.
+  final String? comments;
+
+  /// Whether the person chose to trust this forge's comments.
+  bool get trusted => comments == 'TRUSTED';
 
   /// The explicit access choice, defaulting to the person's SSH identity.
   final String authentication;
@@ -110,6 +118,7 @@ class ForgeEntry {
     'name': name,
     'address': address,
     'authentication': authentication,
+    'comments': ?comments,
   };
 
   /// Read back from what was stored, or null where it is not one.
@@ -120,6 +129,11 @@ class ForgeEntry {
     if (id.isEmpty || address.isEmpty) return null;
     final authentication = stored['authentication'];
     if (authentication != null && authentication != 'ssh' && authentication != 'token') return null;
+    // A reading this build does not know is dropped, never the forge: unchosen is the stricter reading.
+    final comments = switch (stored['comments']) {
+      final String chosen when chosen == 'TRUSTED' || chosen == 'EXTENDED' => chosen,
+      _ => null,
+    };
     try {
       forgeAddress(address);
     } on FormatException {
@@ -131,6 +145,7 @@ class ForgeEntry {
       name: name.isEmpty ? address : name,
       address: address,
       authentication: authentication == 'token' ? 'token' : 'ssh',
+      comments: comments,
     );
   }
 
@@ -144,6 +159,20 @@ class ForgeEntry {
     hostMachine: hostMachine,
     tunnelAddress: tunnelAddress,
     gitAddress: gitAddress,
+    comments: comments,
+  );
+
+  /// The same entry with its comments read as [comments], `TRUSTED` or `EXTENDED`.
+  ForgeEntry readingComments(String comments) => ForgeEntry(
+    id: id,
+    kind: kind,
+    name: name,
+    address: address,
+    authentication: authentication,
+    hostMachine: hostMachine,
+    tunnelAddress: tunnelAddress,
+    gitAddress: gitAddress,
+    comments: comments,
   );
 }
 
@@ -406,10 +435,19 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
       name: changed.name,
       address: changed.address,
       authentication: 'token',
+      comments: changed.comments,
     );
     entries = <ForgeEntry>[for (final each in entries) each.id == entry.id ? renamed : each];
     await _keep();
     await _open(renamed);
+  });
+
+  /// Keeps how machines' tasks read [entry]'s comments, `TRUSTED` or `EXTENDED`, as the person chose it.
+  Future<void> readComments(ForgeEntry entry, String comments) => _asking(() async {
+    if (comments != 'TRUSTED' && comments != 'EXTENDED') throw ArgumentError.value(comments, 'comments');
+    entries = <ForgeEntry>[for (final each in entries) each.id == entry.id ? each.readingComments(comments) : each];
+    if (current?.id == entry.id) current = current!.readingComments(comments);
+    await _keep();
   });
 
   /// Whether the terminal command kept a token; no value reaches a widget.
