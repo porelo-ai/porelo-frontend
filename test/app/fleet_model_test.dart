@@ -86,6 +86,8 @@ class _Wedged implements FleetBackend {
     bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
+    String? role,
+    Map<String, Object?>? place,
   }) async => throw const VarlinkDisconnected('nothing there');
 
   @override
@@ -607,6 +609,8 @@ class _Machine implements FleetBackend {
     bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
+    String? role,
+    Map<String, Object?>? place,
   }) async => throw const VarlinkDisconnected('nothing there');
 
   @override

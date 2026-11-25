@@ -736,6 +736,8 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
+    String? role,
+    Map<String, Object?>? place,
   }) async {
     startsOrdered.add(callerKey);
     final ordered = FakeBackend.ordered;

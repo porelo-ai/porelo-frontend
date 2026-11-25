@@ -1727,6 +1727,8 @@ class _Machine extends Fake implements FleetBackend {
     bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
+    String? role,
+    Map<String, Object?>? place,
   }) async {
     if (refuseNext case final words?) {
       refuseNext = null;

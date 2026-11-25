@@ -568,6 +568,8 @@ class _Starting extends Fake implements FleetBackend {
     bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
+    String? role,
+    Map<String, Object?>? place,
   }) async {
     says.forEach(onEvent ?? (_) {});
     if (fault case final fault?) throw fault;
@@ -583,6 +585,8 @@ class _Starting extends Fake implements FleetBackend {
       if (readOnly) 'readOnly': true,
       if (given.isNotEmpty) 'given': given,
       'work': ?work,
+      'role': ?role,
+      'place': ?place,
     });
     final container = 'porelo-$project-$repository';
     final answer = this.answer ?? StartProgress(container: container, exitCode: 0, action: StartAction.create);
