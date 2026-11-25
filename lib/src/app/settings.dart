@@ -63,6 +63,98 @@ class PendingStart {
   final List<String> issues;
 }
 
+/// An offer whose start Porelo refused after it was handed to Start, kept until its planner took the refusal: what the
+/// report names, and the refusal within the bounds the planner takes ([RefusedStart.bounded]).
+@immutable
+class RefusedStart {
+  /// What the report of [offer]'s refused start names; [name], [parameters] and [detail] are taken as given.
+  const RefusedStart({
+    required this.offer,
+    required this.machine,
+    required this.provider,
+    required this.project,
+    required this.story,
+    required this.task,
+    required this.name,
+    this.parameters = const {},
+    this.detail = '',
+  });
+
+  /// The refusal of [offer]'s start cut to the planner's bounds: a name of 1 to 64 letters and digits (`StartRefused`
+  /// where Porelo's is none such), at most 16 parameters with keys of 1 to 64 characters and values of at most 500, each
+  /// value not a string as its JSON text, and a detail of at most 1000 characters with no control character but a line
+  /// break.
+  factory RefusedStart.bounded({
+    required String offer,
+    required String machine,
+    required String provider,
+    required String project,
+    required String story,
+    required String task,
+    required String name,
+    Map<String, Object?> parameters = const {},
+    String detail = '',
+  }) => RefusedStart(
+    offer: offer,
+    machine: machine,
+    provider: provider,
+    project: project,
+    story: story,
+    task: task,
+    name: _refusalName.hasMatch(name) ? name : 'StartRefused',
+    parameters: Map.unmodifiable({
+      for (final MapEntry(:key, :value)
+          in parameters.entries.where((each) => each.value != null && _parameterKey(each.key)).take(16))
+        key: _cut(_withoutControls(value is String ? value : jsonEncode(value), lineBreaks: false), 500),
+    }),
+    detail: _cut(_withoutControls(detail, lineBreaks: true), 1000),
+  );
+
+  /// The offer handed to Start, and the machine it was handed on.
+  final String offer, machine;
+
+  /// The provider, project and story the report names, and the task as Start was handed it: the order's repository.
+  final String provider, project, story, task;
+
+  /// Porelo's name of the refusal.
+  final String name;
+
+  /// Porelo's parameters of the refusal, each as text.
+  final Map<String, String> parameters;
+
+  /// The refusal in words.
+  final String detail;
+
+  /// Whether this is within the planner's bounds, as [RefusedStart.bounded] makes it.
+  bool get withinBounds =>
+      _refusalName.hasMatch(name) &&
+      parameters.length <= 16 &&
+      parameters.entries.every(
+        (each) =>
+            _parameterKey(each.key) &&
+            each.value.length <= 500 &&
+            _withoutControls(each.value, lineBreaks: false) == each.value,
+      ) &&
+      detail.length <= 1000 &&
+      _withoutControls(detail, lineBreaks: true) == detail;
+
+  static final _refusalName = RegExp(r'^[A-Za-z0-9]{1,64}$');
+
+  static bool _parameterKey(String key) => key.isNotEmpty && key.length <= 64;
+
+  // The planner refuses a control character as a shape fault; only the detail may keep its line breaks.
+  static String _withoutControls(String text, {required bool lineBreaks}) =>
+      text.replaceAll(lineBreaks ? RegExp(r'[\x00-\x09\x0b-\x1f\x7f-\x9f]') : RegExp(r'[\x00-\x1f\x7f-\x9f]'), ' ');
+
+  // Cut by UTF-16 units, the larger count of the two a reader may take, never inside a surrogate pair.
+  static String _cut(String text, int most) {
+    if (text.length <= most) return text;
+    final cut = text.substring(0, most);
+    final last = cut.codeUnitAt(most - 1);
+    return last >= 0xd800 && last <= 0xdbff ? cut.substring(0, most - 1) : cut;
+  }
+}
+
 /// A task this window started for a planner's offer, kept by its machine and container with what a report needs.
 @immutable
 class PlannedOffer {
@@ -1134,6 +1226,7 @@ class Settings extends ChangeNotifier {
     if (!_handedOffers.add(offer) && pending == null) return;
     while (_handedOffers.length > mostHandedOffers) {
       _pendingStarts.remove(_handedOffers.first);
+      _refusedStarts.remove(_handedOffers.first);
       _handedOffers.remove(_handedOffers.first);
     }
     await _write();
@@ -1151,9 +1244,42 @@ class Settings extends ChangeNotifier {
 
   /// Lets [offer] be handed to Start again: a window before this one handed it and ended before Start made its task.
   Future<void> releasePlanningOffer(String offer) async {
-    final pending = _pendingStarts.remove(offer) != null;
+    final pending = (_pendingStarts.remove(offer) != null) | (_refusedStarts.remove(offer) != null);
     if (_handedOffers.remove(offer) || pending) await _write();
   }
+
+  final _refusedStarts = <String, RefusedStart>{};
+
+  /// How many refused starts are kept for their planner at most, the oldest let go first: each may be some kilobytes,
+  /// and the settings file is written whole on every change.
+  static const mostRefusedStarts = 100;
+
+  /// The offers whose start Porelo refused and whose planner has not taken the refusal yet, oldest first.
+  List<RefusedStart> get refusedStarts => List.unmodifiable(_refusedStarts.values);
+
+  /// Keeps that Porelo refused the start of [refused]'s offer, which this window handed to Start, until its planner
+  /// took that refusal; the first refusal of an offer is the one kept.
+  Future<void> keepRefusedStart(RefusedStart refused) async {
+    if (!_validRefused(refused) || !_handedOffers.contains(refused.offer)) {
+      throw ArgumentError('A refused start must be complete, within bounds, of an offer handed to Start.');
+    }
+    if (_refusedStarts.containsKey(refused.offer)) return;
+    _refusedStarts[refused.offer] = refused;
+    while (_refusedStarts.length > mostRefusedStarts) {
+      _refusedStarts.remove(_refusedStarts.keys.first);
+    }
+    await _write();
+  }
+
+  /// Forgets the refused start of [offer]: its planner took the refusal, or holds nothing of the offer.
+  Future<void> forgetRefusedStart(String offer) async {
+    if (_refusedStarts.remove(offer) != null) await _write();
+  }
+
+  static bool _validRefused(RefusedStart refused) =>
+      _validOffer(refused.machine, 'container', refused.offer) &&
+      [refused.provider, refused.project, refused.story, refused.task].every(_validLabel) &&
+      refused.withinBounds;
 
   static bool _validPending(PendingStart pending) =>
       _validOffer(pending.machine, 'container', pending.offer) &&
@@ -1334,6 +1460,37 @@ class Settings extends ChangeNotifier {
         }
       }
     }
+    _refusedStarts.clear();
+    if (stored['planningStartsRefused'] case final List<dynamic> refused) {
+      for (final value in refused) {
+        if (value
+            case {
+              'offer': final String offer,
+              'machine': final String machine,
+              'provider': final String provider,
+              'project': final String project,
+              'story': final String story,
+              'task': final String task,
+              'name': final String name,
+              'parameters': final Map<String, dynamic> parameters,
+              'detail': final String detail,
+            }
+            when parameters.values.every((each) => each is String)) {
+          final kept = RefusedStart(
+            offer: offer,
+            machine: machine,
+            provider: provider,
+            project: project,
+            story: story,
+            task: task,
+            name: name,
+            parameters: Map.unmodifiable(parameters.cast<String, String>()),
+            detail: detail,
+          );
+          if (_handedOffers.contains(offer) && _validRefused(kept)) _refusedStarts[offer] = kept;
+        }
+      }
+    }
   }
 
   Map<String, Object?> get _storedPlanningOffers => {
@@ -1376,6 +1533,20 @@ class Settings extends ChangeNotifier {
           'result': ?pending.result,
           'role': ?pending.role,
           if (pending.issues.isNotEmpty) 'issues': pending.issues,
+        },
+    ],
+    'planningStartsRefused': [
+      for (final refused in _refusedStarts.values)
+        {
+          'offer': refused.offer,
+          'machine': refused.machine,
+          'provider': refused.provider,
+          'project': refused.project,
+          'story': refused.story,
+          'task': refused.task,
+          'name': refused.name,
+          'parameters': refused.parameters,
+          'detail': refused.detail,
         },
     ],
   };

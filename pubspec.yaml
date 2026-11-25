@@ -58,7 +58,7 @@ dependencies:
     porelo_planning:
         git:
             url: https://github.com/porelo-ai/porelo-planner.git
-            ref: bd8b5dc0ce00df516a3814ce19feaac186beb4ce
+            ref: 9bafdecce104657c4da24f6e8c6aba478df93f91
             path: screen
     cryptography: ^2.9.0
     path: ^1.9.1

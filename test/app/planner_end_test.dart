@@ -199,6 +199,23 @@ rm -f "\$dir/planner.json"''');
     await local.end();
   });
 
+  // Harm: a refused start sent through the screen's own run is reported twice, or as the screen's, not the window's.
+  test('a refused start is never reported through the screen\'s run', () async {
+    final local = client(candidates: const []);
+    await expectLater(
+      local.taskEvent(
+        'demo',
+        'porelo',
+        PlanningTaskEvent.refused,
+        offer: 'o-1',
+        container: '',
+        machine: 'laptop',
+        refusal: const PlanningStartRefusal(name: 'UnknownForge'),
+      ),
+      throwsA(isA<PlanningRefusal>().having((refusal) => refusal.name, 'name', 'TaskEventConflict')),
+    );
+  });
+
   // Harm: a planner the window started outlives it, so the next planner cannot start.
   test('a planner the window started is ended with SIGTERM', () async {
     final started = PlannerProcess();

@@ -120,6 +120,24 @@ bool isStartRefusal(Object error) =>
     error is UpstreamUnreadable ||
     error is StartRefused;
 
+/// Porelo's name and parameters of a refusal Start answered, as the machine gave them; null for anything else, such as
+/// a connection lost on the way, after which nobody knows whether Start made the task.
+(String, Map<String, Object?>)? poreloStartRefusal(Object error) => switch (error) {
+  VarlinkException(:final simpleName, :final parameters) => (simpleName, parameters),
+  SignInNeeded(:final agent, :final running) => ('SignInNeeded', {'agent': agent, 'running': ?running}),
+  NoSuchDestination(:final credential) => ('NoSuchDestination', {'name': credential}),
+  EarlierWorkWaits(:final task, :final commit, :final subject) => (
+    'EarlierWorkWaits',
+    {'task': task, 'commit': commit, 'subject': subject},
+  ),
+  UpstreamUnreadable(:final cause, :final detail, :final fix) => (
+    'UpstreamUnreadable',
+    {'cause': cause, 'detail': detail, 'fix': fix},
+  ),
+  StartRefused(:final action) => ('StartRefused', {'action': action.name}),
+  _ => null,
+};
+
 String _task(String task) => task.isEmpty ? 'The task' : task;
 
 /// The sign-ins a start refused for, one per agent and machine, each offered under *Needs you* until the machine says

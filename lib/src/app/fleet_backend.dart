@@ -287,7 +287,7 @@ abstract class FleetBackend {
   /// [repository] is the one the task works in; none is sent to a machine that names none.
   Future<StartProgress> startAgain({required String project, required String task, String? repository});
 
-  /// Starts a task ordered elsewhere with exactly these arguments, naming no task, and answers Start's final reply
+  /// Starts a task ordered elsewhere with exactly these arguments, and answers Start's final reply
   /// with what it printed: the [StartProgress.container] it made, or its refusal and why. **It answers once the task
   /// stands, not when its agent's run ends.**
   ///
@@ -301,7 +301,9 @@ abstract class FleetBackend {
   /// them now; a machine that cannot start one so refuses with `FeatureNotSupported`, never starting it writable.
   /// [work] is the issue and phase of a project kept in a tracker; a machine whose Start takes none refuses the same way.
   /// [role] and [place] are the run's role and where it works, as the planner's order names them and Porelo's `Start`
-  /// takes them, handed on unchanged; a machine whose Start takes neither refuses the same way.
+  /// takes them, handed on unchanged; a machine whose Start takes neither refuses the same way. [task] names the task
+  /// within the project where the order needs a name of its own, as a reviewer does; absent, Porelo takes the
+  /// repository's.
   Future<StartProgress> startOrdered({
     required String project,
     required String repository,
@@ -318,6 +320,7 @@ abstract class FleetBackend {
     TrackedWork? work,
     String? role,
     Map<String, Object?>? place,
+    String? task,
   });
 
   /// Starts a discussion a planner ordered: every repository of [project] read only, nothing writable and nothing
@@ -989,12 +992,14 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     TrackedWork? work,
     String? role,
     Map<String, Object?>? place,
+    String? task,
   }) => _startRunning(
     project: project,
     repository: repository,
     callerKey: callerKey,
     onEvent: onEvent,
     () => _opened().start(
+      task: task,
       project: project,
       repository: repository,
       agent: agent,

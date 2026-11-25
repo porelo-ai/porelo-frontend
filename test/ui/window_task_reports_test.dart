@@ -45,6 +45,7 @@ void main() {
     DateTime Function()? now,
     Future<void> Function()? waitForOutcome,
     bool Function()? listed,
+    TellRefused? tellRefused,
   }) {
     final starts = WindowTaskStarts(
       machineFor: (_) => on,
@@ -73,6 +74,7 @@ void main() {
         if (stageAnswers.isNotEmpty) throw stageAnswers.removeAt(0);
       },
       now: now ?? DateTime.now,
+      tellRefused: tellRefused ?? planner.told,
     );
     reports.onFollowUps = (source, project, story, tasks) async => shown.add((project, story, tasks));
     return (starts, reports);
@@ -170,6 +172,198 @@ void main() {
     ]);
     expect(planner.calls[1].ended!.landed, isEmpty);
     expect(planner.calls.last.landed.map((landing) => landing.toMap()), [_landing]);
+  });
+
+  // Harm: the planner holds an offer started that Porelo refused, and its story waits for an end that never comes.
+  test('a start Porelo refused is reported once as refused, in its own name and words', () async {
+    final (starts, reports) = window();
+    final order = (await plannedOrders()).first;
+    machine.throwNext = const VarlinkException('org.fuin.porelo.Tasks1.RoleNotAllowed', {
+      'role': 'REVIEWER',
+      'place': {'pullRequest': 'https://forge.example/o/r/pull/7'},
+    });
+
+    await expectLater(starts(planner, 'demo', 'ST291', order), throwsA(isA<PlanningRefusal>()));
+    await reports.idle;
+    reports.sweep();
+    await reports.idle;
+
+    final told = planner.refusedTold.single;
+    expect(
+      (told.offer, told.machine, told.provider, told.project, told.story, told.task, told.name),
+      (order.offer, 'laptop', _provider, 'demo', 'ST291', order.repository, 'RoleNotAllowed'),
+    );
+    expect(told.parameters, {'role': 'REVIEWER', 'place': '{"pullRequest":"https://forge.example/o/r/pull/7"}'});
+    expect(told.detail, contains('laptop'));
+    expect(planner.calls, isEmpty, reason: 'no task stands to be reported started');
+    expect((await loaded()).refusedStarts, isEmpty, reason: 'the planner took it');
+  });
+
+  // Harm: a refusal told while the planner was not reached is lost, or told again after the planner took it.
+  test('a refused start not taken is kept across a restart and told until the planner takes it', () async {
+    var reached = false;
+    final (starts, reports) = window(reached: () => reached);
+    final order = (await plannedOrders()).first;
+    machine.throwNext = const VarlinkException('org.fuin.porelo.Tasks1.UnknownForge', {'host': 'forge.example'});
+
+    await expectLater(starts(planner, 'demo', 'ST291', order), throwsA(isA<PlanningRefusal>()));
+    await reports.idle;
+    expect(planner.refusedTold, isEmpty);
+    expect((await loaded()).refusedStarts.single.name, 'UnknownForge');
+
+    reached = true;
+    planner.refusedAnswers.add(const PlanningRefusal('TimedOut', {}, 'The planner did not answer in time.'));
+    final (_, reopened) = window(kept: await loaded(), reached: () => reached);
+    reopened.sweep();
+    await reopened.idle;
+    reopened.sweep();
+    await reopened.idle;
+    reopened.sweep();
+    await reopened.idle;
+
+    expect(planner.refusedTold.map((each) => each.offer), [order.offer, order.offer]);
+    expect((await loaded()).refusedStarts, isEmpty);
+  });
+
+  // Harm: a refusal the planner turned away for good is sent again on every change of a machine.
+  test('a refused start the planner refused for good is not told again in the window\'s life', () async {
+    final (starts, reports) = window();
+    final problems = <String>[];
+    reports.onProblem = (provider, project, error) => problems.add(planningFailureWords(error));
+    planner.refusedAnswers.add(
+      const PlanningRefusal('InvalidRequest', {}, 'The refusal is not what the planner takes.'),
+    );
+    machine.throwNext = const VarlinkException('org.fuin.porelo.Tasks1.NoPullRequest');
+
+    await expectLater(starts(planner, 'demo', 'ST291', (await plannedOrders()).first), throwsA(isA<PlanningRefusal>()));
+    await reports.idle;
+    reports.sweep();
+    await reports.idle;
+
+    expect(planner.refusedTold, hasLength(1));
+    expect(problems, ['The refusal is not what the planner takes.']);
+    expect((await loaded()).refusedStarts, isEmpty, reason: 'nor is it kept for a later window');
+  });
+
+  // Harm: a refusal is told for an offer the planner already let go, and kept for ever.
+  test('a refused start whose offer the planner no longer holds is let go', () async {
+    final (starts, reports) = window();
+    planner.refusedAnswers.add(const PlanningRefusal('TaskNotAnswered', {}, 'The planner holds nothing of it.'));
+    machine.throwNext = const VarlinkException('org.fuin.porelo.Tasks1.NotTheTasksPush');
+
+    await expectLater(starts(planner, 'demo', 'ST291', (await plannedOrders()).first), throwsA(isA<PlanningRefusal>()));
+    await reports.idle;
+
+    expect(planner.refusedTold, hasLength(1));
+    expect((await loaded()).refusedStarts, isEmpty);
+  });
+
+  // Harm: the planner is told Porelo refused a start that never reached Start, or one that may have made its task.
+  test('a start refused before Start, lost on the way, failed after it, or a discussion is not reported', () async {
+    final (starts, reports) = window();
+    final orders = await plannedOrders();
+    final noMachine = WindowTaskStarts(
+      machineFor: (_) => null,
+      backendOf: (_) => machine,
+      settings: settings,
+      providerOf: (_) => _provider,
+    );
+    await expectLater(noMachine(planner, 'demo', 'ST291', orders.first), throwsA(isA<PlanningRefusal>()));
+    machine.throwNext = const VarlinkDisconnected('the tunnel closed');
+    await expectLater(starts(planner, 'demo', 'ST291', orders.first), throwsA(isA<PlanningRefusal>()));
+    // Start answered a failed exit: it may have made its task, so nothing says Porelo refused it.
+    machine.refuseNext = 'the agent exited';
+    await expectLater(starts(planner, 'demo', 'ST291', orders[1]), throwsA(isA<PlanningRefusal>()));
+    machine.throwNext = const VarlinkException('org.fuin.porelo.Tasks1.NoRepositoryReadable');
+    starts.chooseDiscussion = (machine, project, task) async => (agent: 'pi', model: 'm');
+    await expectLater(starts(planner, 'demo', '', discussionOrder()), throwsA(isA<PlanningRefusal>()));
+    await reports.idle;
+    reports.sweep();
+    await reports.idle;
+
+    expect(planner.refusedTold, isEmpty);
+    expect((await loaded()).refusedStarts, isEmpty);
+  });
+
+  // Harm: the planner's call carries a container, or the refusal in other fields than kept, and the report is refused.
+  test('a refused start is told through the task event call, with no container', () async {
+    const refused = RefusedStart(
+      offer: 'o-1',
+      machine: 'laptop',
+      provider: _provider,
+      project: 'demo',
+      story: 'ST291',
+      task: 'foo',
+      name: 'UnknownForge',
+      parameters: {'host': 'forge.example'},
+      detail: 'laptop refused.',
+    );
+
+    await tellPlannerRefused(planner, refused);
+
+    final call = planner.calls.single;
+    expect(
+      (call.project, call.task, call.event, call.offer, call.container, call.machine),
+      ('demo', 'foo', PlanningTaskEvent.refused, 'o-1', '', 'laptop'),
+    );
+    expect(call.refusal?.toMap(), {
+      'name': 'UnknownForge',
+      'parameters': {'host': 'forge.example'},
+      'detail': 'laptop refused.',
+    });
+  });
+
+  // Harm: a value of a refusal the planner does not name, which the window never shows, is written down and sent on.
+  test('a refusal the planner does not name goes by its name and words alone', () async {
+    final (starts, reports) = window();
+    machine.throwNext = const VarlinkException('org.fuin.porelo.Tasks1.SomethingNew', {
+      'url': 'https://x@forge.example',
+    });
+
+    await expectLater(starts(planner, 'demo', 'ST291', (await plannedOrders()).first), throwsA(isA<PlanningRefusal>()));
+    await reports.idle;
+
+    final told = planner.refusedTold.single;
+    expect(told.name, 'SomethingNew');
+    expect(told.parameters, isEmpty);
+    expect(told.detail, isNot(contains('x@forge.example')));
+  });
+
+  // Harm: the planner refuses the whole report as a shape fault, and never learns the start was refused.
+  test('a refusal is cut to the bounds the planner takes', () {
+    final refused = RefusedStart.bounded(
+      offer: 'o',
+      machine: 'laptop',
+      provider: _provider,
+      project: 'demo',
+      story: 'ST291',
+      task: 'foo',
+      name: 'Not.A-Name',
+      parameters: {'nothing': null, for (var i = 0; i < 20; i++) 'key$i': 'v\u0007${'x' * 600}', '': 'no key'},
+      detail: 'line one\nline\ttwo ${'d' * 1200}',
+    );
+
+    expect(refused.name, 'StartRefused');
+    expect(refused.parameters, hasLength(16));
+    expect(refused.parameters.keys, isNot(contains('nothing')), reason: 'a value Porelo did not give is not sent');
+    expect(refused.parameters.values.every((value) => value.length == 500 && !value.contains('\u0007')), isTrue);
+    expect(refused.detail.length, 1000);
+    expect(refused.detail, startsWith('line one\nline two '));
+    expect(refused.withinBounds, isTrue);
+    expect(
+      RefusedStart.bounded(
+        offer: 'o',
+        machine: 'm',
+        provider: 'p',
+        project: 'p',
+        story: 's',
+        task: 't',
+        name: 'N',
+        detail: '${'a' * 999}\u{1F600}',
+      ).detail,
+      'a' * 999,
+      reason: 'never cut inside a surrogate pair',
+    );
   });
 
   // Harm: a refused report undoes or hides a task that runs, or its refusal goes unsaid.
@@ -1556,6 +1750,7 @@ typedef _Call = ({
   String machine,
   PlanningTaskEnded? ended,
   List<PlanningLanding> landed,
+  PlanningStartRefusal? refusal,
 });
 
 /// A provider's source that records each report and answers what a test queued, an empty answer when none is.
@@ -1602,6 +1797,18 @@ class _Planner extends Fake implements PlanningSource {
   /// Held until completed: the answer a report waits for meanwhile.
   Completer<void>? hold;
 
+  /// Each refused start told, and what the next ones are answered, an empty answer when nothing is queued.
+  final refusedTold = <RefusedStart>[];
+  final refusedAnswers = <Object>[];
+
+  Future<TaskEventResolution> told(PlanningSource source, RefusedStart refused) async {
+    expect(source, same(this));
+    refusedTold.add(refused);
+    final next = refusedAnswers.isEmpty ? _answer(const []) : refusedAnswers.removeAt(0);
+    if (next is Exception) throw next;
+    return TaskEventResolution.from(next as Map<String, dynamic>);
+  }
+
   @override
   String get label => 'planner';
 
@@ -1615,6 +1822,7 @@ class _Planner extends Fake implements PlanningSource {
     required String machine,
     PlanningTaskEnded? ended,
     List<PlanningLanding> landed = const [],
+    PlanningStartRefusal? refusal,
   }) async {
     calls.add((
       project: project,
@@ -1625,6 +1833,7 @@ class _Planner extends Fake implements PlanningSource {
       machine: machine,
       ended: ended,
       landed: landed,
+      refusal: refusal,
     ));
     await hold?.future;
     final next = answers.isEmpty ? _answer(const []) : answers.removeAt(0);
@@ -1639,6 +1848,9 @@ class _Machine extends Fake implements FleetBackend {
   final listed = <Task>[];
   Map<String, dynamic>? endBeforeStart;
   String? refuseNext;
+
+  /// What the next Start throws, as the machine or the way to it refused.
+  Object? throwNext;
 
   /// Start answers, but the window ends before it hears it: the call never returns.
   bool hangAfterStart = false;
@@ -1729,10 +1941,15 @@ class _Machine extends Fake implements FleetBackend {
     TrackedWork? work,
     String? role,
     Map<String, Object?>? place,
+    String? task,
   }) async {
     if (refuseNext case final words?) {
       refuseNext = null;
       return StartProgress(exitCode: 1, output: [words]);
+    }
+    if (throwNext case final error?) {
+      throwNext = null;
+      throw error;
     }
     if (hangBeforeStart) await Completer<void>().future;
     started.add({'project': project, 'repository': repository, 'callerKey': ?callerKey, 'reads': reads});
@@ -1766,6 +1983,10 @@ class _Machine extends Fake implements FleetBackend {
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) async {
+    if (throwNext case final error?) {
+      throwNext = null;
+      throw error;
+    }
     final container = 'porelo-$project-discussion';
     listed.removeWhere((task) => task.name == container);
     listed.add(

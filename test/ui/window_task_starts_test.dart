@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
@@ -141,9 +143,123 @@ void main() {
       await starts()(MockPlanningSource('planner'), 'demo', 'ST617', order);
 
       expect(machine.started.single['role'], 'REVIEWER');
+      expect(machine.started.single['task'], 'porelo-reviewer', reason: 'never the name of the push it reviews');
       expect(machine.started.single['place'], {
         'gatePush': {'name': 'porelo-617', 'repository': 'porelo'},
       });
+    });
+
+    // Harm: a reviewer takes up a stopped reviewer of an earlier round, with its older head and points, or one of another
+    // project's name is counted as held; or a reviewer with no free name starts anyway.
+    test('a reviewer starts under the first reviewer name no task of its project holds, stopped or not', () async {
+      PlanningTaskOrder reviewer(String offer) => PlanningTaskOrder.from({
+        'offer': offer,
+        'repository': 'porelo',
+        'issues': ['porelo#617'],
+        'role': 'MAIN',
+        'agent': 'claude',
+        'model': 'opus',
+        'mode': 'AGENT',
+        'prompt': 'Review the push of porelo#617.',
+        'runRole': 'REVIEWER',
+        'place': {
+          'gatePush': {'name': 'porelo-617', 'repository': 'porelo'},
+        },
+      });
+      machine
+        ..list(Task.from({'name': 'porelo-demo-porelo-reviewer', 'task': 'porelo-reviewer', 'project': 'demo'}))
+        ..list(Task.from({'name': 'porelo-other-porelo-reviewer-2', 'task': 'porelo-reviewer-2', 'project': 'other'}));
+
+      await starts()(MockPlanningSource('planner'), 'demo', 'ST617', reviewer('00000000-0000-4000-8000-0000000006b1'));
+      expect(machine.started.last['task'], 'porelo-reviewer-2');
+
+      for (var n = 3; n <= 9; n++) {
+        machine.list(
+          Task.from({'name': 'porelo-demo-porelo-reviewer-$n', 'task': 'porelo-reviewer-$n', 'project': 'demo'}),
+        );
+      }
+      final full = reviewer('00000000-0000-4000-8000-0000000006b2');
+      await expectLater(
+        starts()(MockPlanningSource('planner'), 'demo', 'ST617', full),
+        throwsA(isA<PlanningRefusal>().having((refusal) => refusal.name, 'name', 'NoReviewerName')),
+      );
+      expect(machine.started, hasLength(1));
+      expect(settings.planningOfferHanded(full.offer!), isFalse, reason: 'refused before its offer was handed');
+    });
+
+    // Harm: a name Porelo refuses is handed to Start, the offer spent on it; or a machine whose tasks cannot be read
+    // starts a reviewer under a name it may already hold.
+    test(
+      'a reviewer with no name Porelo takes, or on a machine not read, is refused before its offer is handed',
+      () async {
+        PlanningTaskOrder reviewer(String offer, String repository) => PlanningTaskOrder.from({
+          'offer': offer,
+          'repository': repository,
+          'issues': ['porelo#617'],
+          'role': 'MAIN',
+          'agent': 'claude',
+          'model': 'opus',
+          'mode': 'AGENT',
+          'prompt': 'Review.',
+          'runRole': 'REVIEWER',
+        });
+        // porelo-demo_<repository>-reviewer fits in 64 characters with this repository, its -2 to -9 do not.
+        final long = 'r' * 43;
+        machine.list(Task.from({'name': 'porelo-demo_$long-reviewer', 'task': '$long-reviewer', 'project': 'demo'}));
+        final odd = reviewer('00000000-0000-4000-8000-0000000006c1', long);
+        await expectLater(
+          starts()(MockPlanningSource('planner'), 'demo', 'ST617', odd),
+          throwsA(
+            isA<PlanningRefusal>()
+                .having((refusal) => refusal.name, 'name', 'NoReviewerName')
+                .having(planningFailureWords, 'words', contains('too long')),
+          ),
+        );
+        machine.tasksFault = const VarlinkDisconnected('the tunnel closed');
+        final unread = reviewer('00000000-0000-4000-8000-0000000006c2', 'porelo');
+        await expectLater(
+          starts()(MockPlanningSource('planner'), 'demo', 'ST617', unread),
+          throwsA(isA<PlanningRefusal>()),
+        );
+
+        expect(machine.started, isEmpty);
+        expect([odd, unread].where((each) => settings.planningOfferHanded(each.offer!)), isEmpty);
+      },
+    );
+
+    // Harm: two reviewers started at once read the same tasks and the second takes up the first's task.
+    test('two reviewers of one repository started at once get two names', () async {
+      PlanningTaskOrder reviewer(String offer) => PlanningTaskOrder.from({
+        'offer': offer,
+        'repository': 'porelo',
+        'issues': ['porelo#617'],
+        'role': 'MAIN',
+        'agent': 'claude',
+        'model': 'opus',
+        'mode': 'AGENT',
+        'prompt': 'Review.',
+        'runRole': 'REVIEWER',
+      });
+      final held = Completer<void>();
+      machine.holdStart = held;
+      final window = starts();
+      final first = window(
+        MockPlanningSource('planner'),
+        'demo',
+        'ST617',
+        reviewer('00000000-0000-4000-8000-0000000006d1'),
+      );
+      final second = window(
+        MockPlanningSource('planner'),
+        'demo',
+        'ST618',
+        reviewer('00000000-0000-4000-8000-0000000006d2'),
+      );
+      await pumpEventQueue();
+      held.complete();
+      await Future.wait([first, second]);
+
+      expect(machine.started.map((each) => each['task']), unorderedEquals(['porelo-reviewer', 'porelo-reviewer-2']));
     });
 
     // Harm: the offer of a started task is lost, so its end cannot be reported against it.
@@ -152,6 +268,7 @@ void main() {
 
       final started = await starts()(MockPlanningSource('planner'), 'demo', 'ST291', order);
 
+      expect(machine.started.single, isNot(contains('task')), reason: 'an author takes the repository\'s name');
       expect(order.offer, isNotNull);
       final again = Settings(store);
       await again.load();
@@ -567,6 +684,15 @@ class _Starting extends Fake implements FleetBackend {
   VarlinkException? refusal;
   final _listed = <Task>[];
 
+  /// What reading the tasks throws, where set.
+  Object? tasksFault;
+
+  /// Held until completed: Start waits for it before it answers.
+  Completer<void>? holdStart;
+
+  /// Lists [task] on the machine, as one that stood before.
+  void list(Task task) => _listed.add(task);
+
   /// What breaks in the window while Start answers, after it said [says]: no refusal of the machine's.
   Object? fault;
 
@@ -593,6 +719,7 @@ class _Starting extends Fake implements FleetBackend {
     TrackedWork? work,
     String? role,
     Map<String, Object?>? place,
+    String? task,
   }) async {
     says.forEach(onEvent ?? (_) {});
     if (fault case final fault?) throw fault;
@@ -610,11 +737,13 @@ class _Starting extends Fake implements FleetBackend {
       'work': ?work,
       'role': ?role,
       'place': ?place,
+      'task': ?task,
     });
-    final container = 'porelo-$project-$repository';
+    await holdStart?.future;
+    final container = 'porelo-$project-${task ?? repository}';
     final answer = this.answer ?? StartProgress(container: container, exitCode: 0, action: StartAction.create);
     if (answer.action?.starts ?? false) {
-      _listed.add(Task.from({'name': container, 'task': repository, 'project': project, 'running': true}));
+      _listed.add(Task.from({'name': container, 'task': task ?? repository, 'project': project, 'running': true}));
     }
     return answer;
   }
@@ -646,7 +775,10 @@ class _Starting extends Fake implements FleetBackend {
   }
 
   @override
-  Future<List<Task>> tasks() async => List.of(_listed);
+  Future<List<Task>> tasks() async {
+    if (tasksFault case final fault?) throw fault;
+    return List.of(_listed);
+  }
 
   @override
   Future<AgentsOnTheMachine> agentsOn() async => (

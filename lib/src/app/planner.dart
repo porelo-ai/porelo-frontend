@@ -15,6 +15,7 @@ import 'package:porelo_planning/porelo_planning.dart'
         PlanningLanding,
         PlanningProvider,
         PlanningRefusal,
+        PlanningStartRefusal,
         PlanningTaskEnded,
         PlanningTaskEvent,
         TaskEventResolution;
@@ -131,6 +132,7 @@ class WindowPlannerSource extends HttpPlanningSource implements TellsTaskReports
     required String machine,
     PlanningTaskEnded? ended,
     List<PlanningLanding> landed = const [],
+    PlanningStartRefusal? refusal,
   }) => ReportAtPlanner.told(
     offer,
     () => super.taskEvent(
@@ -142,6 +144,7 @@ class WindowPlannerSource extends HttpPlanningSource implements TellsTaskReports
       machine: machine,
       ended: ended,
       landed: landed,
+      refusal: refusal,
     ),
   );
 }
@@ -817,7 +820,12 @@ class LocalPlanner extends ChangeNotifier
     required String machine,
     PlanningTaskEnded? ended,
     List<PlanningLanding> landed = const [],
+    PlanningStartRefusal? refusal,
   }) async {
+    // A refused start is reported by the window itself, never through the screen's run.
+    if (refusal != null) {
+      throw const PlanningRefusal('TaskEventConflict', {}, 'The window reports a refused start itself.');
+    }
     final report = reports;
     if (report == null) {
       throw const PlanningRefusal('NotReporting', {}, 'This window does not report the tasks it starts.');

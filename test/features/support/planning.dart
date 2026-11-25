@@ -123,6 +123,7 @@ class WindowPlanningSource extends MockPlanningSource implements TellsTaskReport
     required String machine,
     PlanningTaskEnded? ended,
     List<PlanningLanding> landed = const [],
+    PlanningStartRefusal? refusal,
   }) => ReportAtPlanner.told(
     offer,
     () => _taskEvent(

@@ -443,6 +443,7 @@ class _PathPlanner extends ChangeNotifier implements PlanningClient {
     required String machine,
     PlanningTaskEnded? ended,
     List<PlanningLanding> landed = const [],
+    PlanningStartRefusal? refusal,
   }) async {}
 }
 
@@ -487,5 +488,6 @@ class _NoPlanner extends ChangeNotifier implements PlanningClient {
     required String machine,
     PlanningTaskEnded? ended,
     List<PlanningLanding> landed = const [],
+    PlanningStartRefusal? refusal,
   }) async {}
 }

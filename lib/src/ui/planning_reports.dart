@@ -60,6 +60,20 @@ List<PlanningLanding> plannedLandings(Task task) => [
     ),
 ];
 
+/// Tells [source] that Porelo refused the start of [refused]'s offer, answering the orders that follow.
+typedef TellRefused = Future<TaskEventResolution> Function(PlanningSource source, RefusedStart refused);
+
+/// Tells the planner a refused start through its task event call, with no container: Start made none.
+Future<TaskEventResolution> tellPlannerRefused(PlanningSource source, RefusedStart refused) => source.taskEvent(
+  refused.project,
+  refused.task,
+  PlanningTaskEvent.refused,
+  offer: refused.offer,
+  container: '',
+  machine: refused.machine,
+  refusal: PlanningStartRefusal(name: refused.name, parameters: refused.parameters, detail: refused.detail),
+);
+
 /// Reports each task this window started for a planner's offer: its start right after Start confirmed it, each new end
 /// of its agent once, also across restarts of the window, and the planner's follow-up orders started once each.
 ///
@@ -83,8 +97,10 @@ class WindowTaskReports {
     this.missingSettles = const Duration(minutes: 1),
     this.now = DateTime.now,
     this.waitForOutcome = _aMoment,
+    this.tellRefused = tellPlannerRefused,
   }) {
     starts.onConfirmed = started;
+    starts.onRefused = refusedStart;
   }
 
   /// The watched machines' own, reporting to [client]'s providers, starting through [starts].
@@ -118,6 +134,9 @@ class WindowTaskReports {
 
   /// Where offers are kept.
   final Settings settings;
+
+  /// How a refused start is told its planner.
+  final TellRefused tellRefused;
 
   /// Waits while an ended run's row does not show the outcome its task declared yet; the end is told after it either
   /// way, without one where the row still shows none.
@@ -252,6 +271,75 @@ class WindowTaskReports {
     );
   }
 
+  /// Reports that Porelo refused [refused]'s start, once the reports before it are sent.
+  void refusedStart(RefusedStart refused) => unawaited(_queued(() => _tellRefusedQuietly(refused)));
+
+  /// Reports each refused start kept and not taken by its planner yet; one the planner refused for good is not sent
+  /// again in this window's life.
+  Future<void> _tellRefusedStarts() async {
+    for (final refused in settings.refusedStarts) {
+      await _tellRefusedQuietly(refused);
+    }
+  }
+
+  /// Tells [refused] as [_tellRefused] does; one that cannot be told or forgotten is said, and never holds back the
+  /// other reports.
+  Future<void> _tellRefusedQuietly(RefusedStart refused) async {
+    try {
+      await _tellRefused(refused);
+    } on Object catch (error) {
+      _say(refused.provider, refused.project, error);
+    }
+  }
+
+  /// Tells [refused]'s planner that Porelo refused its offer's start, once: kept until the planner took it, or holds
+  /// nothing of the offer, and sent again on a later sweep where the planner was not reached.
+  Future<void> _tellRefused(RefusedStart refused) async {
+    final attempt = (refused.offer, 'refused');
+    if (_refused.contains(attempt)) return;
+    if (!settings.refusedStarts.any((each) => each.offer == refused.offer)) return;
+    final source = sourceNamed(refused.provider);
+    if (source == null) {
+      if (!_unreachedSaid) {
+        _unreachedSaid = true;
+        _say(
+          refused.provider,
+          refused.project,
+          PlanningRefusal('PlannerUnreachable', const {}, '${refused.provider} is not reached now.'),
+        );
+      }
+      return;
+    }
+    final TaskEventResolution answer;
+    try {
+      answer = await tellRefused(source, refused);
+    } on PlanningRefusal catch (refusal) {
+      if (refusal.name == 'TaskNotAnswered') {
+        await settings.forgetRefusedStart(refused.offer);
+        return;
+      }
+      if (_transient(refusal)) {
+        if (_unreachedSaid) return;
+        _unreachedSaid = true;
+        _say(refused.provider, refused.project, refusal);
+        return;
+      }
+      // Refused for good: said once, and not kept for a later window to send again.
+      _refused.add(attempt);
+      _say(refused.provider, refused.project, refusal);
+      await settings.forgetRefusedStart(refused.offer);
+      return;
+    } on Object catch (error) {
+      _refused.add(attempt);
+      _say(refused.provider, refused.project, error);
+      return;
+    }
+    _unreachedSaid = false;
+    if (await _startFollowUps(source, refused.provider, refused.project, refused.story, answer.tasks, refused.offer)) {
+      await settings.forgetRefusedStart(refused.offer);
+    }
+  }
+
   /// Reports [kept] as started, once the reports before it are sent.
   void started(PlannedOffer kept) =>
       unawaited(_queued(() => _quietly(kept, () => _deliver(kept, PlanningTaskEvent.started))));
@@ -377,6 +465,7 @@ class WindowTaskReports {
 
   Future<void> _sweepNow() async {
     await _keepFoundAgain();
+    await _tellRefusedStarts();
     for (var kept in settings.plannedOffers) {
       if (!kept.reportable) {
         _sayOlder(kept);

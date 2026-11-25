@@ -29,6 +29,7 @@ import '../app/planner.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
 import '../app/start_refusals.dart';
+import '../app/task_names.dart' show taskNameProblem;
 import '../app/window_log.dart';
 import '../client/models.dart' show Agent, AgentEnded, Mode, StartEvent, Task;
 import '../client/porelo_client.dart' show FeatureNotSupported, StartProgress;
@@ -195,11 +196,61 @@ class WindowTaskStarts {
     try {
       return await _start(source, project, story, task, pressed: pressed);
     } finally {
-      if (offer != null) _starting.remove(offer);
+      if (offer != null) {
+        _starting.remove(offer);
+        _reviewerNames.remove(offer);
+      }
     }
   }
 
   final _starting = <String>[];
+
+  /// How many names a reviewer of one repository is tried under before its start is refused.
+  static const mostReviewerNames = 9;
+
+  /// The reviewer names a start of this window holds until it ends, by its offer: a second start of the same
+  /// repository's reviewer reads the machine's tasks before the first one's stands.
+  final _reviewerNames = <String, (String, String, String)>{};
+
+  /// The task name a reviewer of [repository] starts under: never the push's own, which Porelo refuses a reviewer, never
+  /// one a task of [project] holds, stopped or not, since Start would take that one up again with its older head and
+  /// points, and never one Porelo would refuse as a name. Refused before any offer is handed where the machine's tasks
+  /// cannot be read or no name is left.
+  Future<String> _reviewerName(
+    FleetBackend backend,
+    Machine machine,
+    String project,
+    String repository,
+    String? offer,
+  ) async {
+    final List<Task> listed;
+    try {
+      listed = await backend.tasks();
+    } on Exception catch (error) {
+      final words = 'The tasks on ${machine.name} could not be read to name the reviewer of $repository: $error';
+      throw PlanningRefusal('StartRefused', {'detail': words}, words);
+    }
+    final taken = {
+      for (final each in listed)
+        if (each.project == project) each.task,
+      for (final (onMachine, ofProject, name) in _reviewerNames.values)
+        if (onMachine == machine.name && ofProject == project) name,
+    };
+    String? problem;
+    for (var n = 1; n <= mostReviewerNames; n++) {
+      final name = n == 1 ? '$repository-reviewer' : '$repository-reviewer-$n';
+      if (taken.contains(name)) continue;
+      problem = taskNameProblem(name, project: project);
+      if (problem != null) continue;
+      if (offer != null) _reviewerNames[offer] = (machine.name, project, name);
+      return name;
+    }
+    final words = problem != null
+        ? 'No task name for the reviewer of $repository in $project is one Porelo takes: $problem'
+        : 'Every reviewer name of $repository in $project on ${machine.name} is held by a task, up to '
+              '$repository-reviewer-$mostReviewerNames; remove a reviewer that is done, then start this one again.';
+    throw PlanningRefusal('NoReviewerName', {'detail': words}, words);
+  }
 
   /// Whether a start of [offer] runs in this window: its task is kept by that start, never by a sweep.
   bool isStarting(String offer) => _starting.contains(offer);
@@ -264,8 +315,12 @@ class WindowTaskStarts {
           onEvent: shown.add,
         );
       case (false, final repository?, final result):
+        final named = task.runRole == 'REVIEWER'
+            ? await _reviewerName(backend, machine, project, repository, task.offer)
+            : null;
         // A task that hands back a result is a planned stage: it reads its repository and pushes nothing.
         start = () => backend.startOrdered(
+          task: named,
           project: project,
           repository: repository,
           agent: task.agent,
@@ -334,6 +389,9 @@ class WindowTaskStarts {
         final offered =
             refused is SignInNeeded && (onSignInNeeded?.call(machine, backend, refused.agent, refused.label) ?? false);
         final told = offered ? '$words Needs you offers its sign-in.' : words;
+        if (poreloStartRefusal(error) case (final name, final parameters)) {
+          await _keepRefused(source, project, story, task, machine, name, parameters, words);
+        }
         _sayRefused(machine, project, story, task, words);
         shown.refused(refused);
         // The board reads a refusal's detail first: it carries these words, which say the machine's own within them.
@@ -422,6 +480,58 @@ class WindowTaskStarts {
         : 'the ${task.role.toLowerCase()} task of $story${task.repository == null ? '' : ' in ${task.repository}'}';
     final said = 'Start of $what for $project on ${machine.name} was refused: $words';
     windowLog.warn('Planning: $said', machine: machine.name);
+  }
+
+  /// The refusals of Start the planner names, whose parameters it is handed; any other goes by its name and words.
+  static const plannerNamedRefusals = {
+    'UnknownForge',
+    'NoPullRequest',
+    'NotTheTasksPush',
+    'RoleNotAllowed',
+    'PlaceUnreadable',
+    'AdapterNotInstalled',
+  };
+
+  /// Told each refusal Porelo answered to a start of story work this window handed an offer to Start for, once it is
+  /// kept to be reported to the offer's planner.
+  void Function(RefusedStart refused)? onRefused;
+
+  /// Keeps that Porelo refused [task]'s start, to be reported to its planner: only story work whose offer was handed to
+  /// Start, never a discussion, which is no story's task. Not kept is said in the log; the start's refusal stands.
+  Future<void> _keepRefused(
+    PlanningSource source,
+    String project,
+    String story,
+    PlanningTaskOrder task,
+    Machine machine,
+    String name,
+    Map<String, Object?> parameters,
+    String words,
+  ) async {
+    final (offer, repository, provider) = (task.offer, task.repository, providerOf(source));
+    if (offer == null || repository == null || provider == null || task.role == 'DISCUSSION') return;
+    try {
+      final refused = RefusedStart.bounded(
+        offer: offer,
+        machine: machine.name,
+        provider: provider,
+        project: project,
+        story: story,
+        task: repository,
+        name: name,
+        // Only a refusal the planner names carries its values on: any other may hold what the window never shows.
+        parameters: plannerNamedRefusals.contains(name) ? parameters : const {},
+        detail: words,
+      );
+      await settings.keepRefusedStart(refused);
+    } on Object catch (error) {
+      windowLog.warn(
+        'Planning: the refused start of $offer could not be kept to report: $error',
+        machine: machine.name,
+      );
+    }
+    // Told also where it could not be written: it is still reported in this window's life.
+    if (settings.refusedStarts.where((each) => each.offer == offer).firstOrNull case final kept?) onRefused?.call(kept);
   }
 
   /// No task stands for [offer]: nothing is left to find again.

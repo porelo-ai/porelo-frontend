@@ -77,5 +77,6 @@ class _Planner extends ChangeNotifier implements PlanningClient, NamesItsBuild {
     required String machine,
     PlanningTaskEnded? ended,
     List<PlanningLanding> landed = const [],
+    PlanningStartRefusal? refusal,
   }) async {}
 }

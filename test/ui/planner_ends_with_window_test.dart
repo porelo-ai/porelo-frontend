@@ -67,5 +67,6 @@ class _Planner extends ChangeNotifier implements PlanningClient, EndsWithTheWind
     required String machine,
     PlanningTaskEnded? ended,
     List<PlanningLanding> landed = const [],
+    PlanningStartRefusal? refusal,
   }) async {}
 }
