@@ -233,7 +233,7 @@ class WindowTaskStarts {
     );
     final Future<StartProgress> Function() start;
     switch ((discussion, task.repository, task.result)) {
-      case (true, _, final result?):
+      case (true, _, _):
         // Asked before the offer is handed and before the person chooses: a machine that cannot is said at once.
         final String? why;
         try {
@@ -260,7 +260,6 @@ class WindowTaskStarts {
           model: chosen.model,
           mode: Mode(task.mode),
           prompt: task.prompt,
-          result: result,
           callerKey: task.offer,
           onEvent: shown.add,
         );
@@ -300,7 +299,9 @@ class WindowTaskStarts {
       // Kept until its task is: a window that ends before Start answers finds the task again by the offer.
       await settings.handPlanningOffer(
         offer,
+        // Nothing is kept of a discussion, so nothing of one waits to be found again.
         pending: switch (providerOf(source)) {
+          _ when discussion => null,
           final provider? => PendingStart(
             offer: offer,
             machine: machine.name,
@@ -378,20 +379,8 @@ class WindowTaskStarts {
       throw PlanningRefusal('NotListed', {'detail': words}, words);
     }
     if ((discussion, listed) case (true, final started?)) {
-      // Its idea is handed in when it ends, with its offer; an end it showed as it started is an earlier run's.
-      if ((task.offer, providerOf(source)) case (final offer?, final provider?)) {
-        await settings.rememberDiscussion(
-          machine: machine.name,
-          container: container,
-          offer: offer,
-          provider: provider,
-          project: project,
-          ended: switch (started.agentEnded) {
-            final ended? => plannedEndKey(ended),
-            null => null,
-          },
-        );
-      }
+      // Its idea comes back as a report its planner reads itself: nothing more is kept of it.
+      if (task.offer case final offer?) await settings.forgetPendingStart(offer);
       onDiscussionStarted?.call(machine, started);
     }
     // A discussion is no story's task: its end is the person's, not a run's to report.

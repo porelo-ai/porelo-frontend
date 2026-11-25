@@ -6425,6 +6425,7 @@ class _ShellState extends State<Shell> {
       onReadLog: task == null ? null : () => _readLogOf(tile),
       onImageSettings: task == null ? null : () => _showImageSettings(tile),
       onSeeInNeedsYou: () => widget.shell.goTo(Section.attention),
+      settings: widget.machines.settings,
     );
   }
 

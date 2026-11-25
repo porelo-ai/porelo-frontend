@@ -161,7 +161,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
           .map((change) => change.$2);
     });
     daemon.method('Remove', _remove);
-    daemon.method('TakeIdea', _takeIdea);
+    daemon.method('Reports', _reports);
     daemon.method('Panic', _panic);
     daemon.method('RemoveProject', _deleteProject);
     daemon.method('RefreshTask', _refreshTask);
@@ -361,55 +361,47 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     _changes.add(<String, dynamic>{'tasks': _listing});
   }
 
-  /// The task in [container] proposes an idea for itself, as its agent does over its own socket, and every open
-  /// `Watch` is told. Driven by a test alone: no situation proposes one, so a walk never hands one to a real planner.
-  void proposeIdea(String container, String title, String whatMustBeTrue) {
-    // Counted per task, taken ones too: a taken idea's id is not given again.
-    final number = _proposed[container] = (_proposed[container] ?? 0) + 1;
+  /// The task in [container] reports [text] of [kind] back to its starter, as its agent does over its own socket, and
+  /// every open `Watch` is told by the row's new last number. Driven by a test alone: no situation reports anything.
+  void report(String container, String kind, String text) {
+    final kept = _reported.putIfAbsent(container, () => <Map<String, dynamic>>[]);
+    kept.add(<String, dynamic>{
+      'seq': kept.length + 1,
+      'kind': kind,
+      'text': text,
+      'at': DateTime.now().toUtc().toIso8601String(),
+    });
     tasks = <Map<String, dynamic>>[
       for (final task in tasks)
-        if (task['name'] == container)
-          <String, dynamic>{
-            ...task,
-            'ideas': <Map<String, dynamic>>[
-              ...(task['ideas'] as List<Map<String, dynamic>>? ?? const <Map<String, dynamic>>[]),
-              <String, dynamic>{
-                'id': 'idea-$number',
-                'title': title,
-                'whatMustBeTrue': whatMustBeTrue,
-                'at': DateTime.now().toUtc().toIso8601String(),
-              },
-            ],
-          }
-        else
-          task,
+        if (task['name'] == container) <String, dynamic>{...task, 'reports': kept.length} else task,
     ];
     _changes.add(<String, dynamic>{'tasks': _listing});
   }
 
-  /// How many ideas each task proposed, by its name.
-  final _proposed = <String, int>{};
+  /// The reports each task made, by its name, oldest first.
+  final _reported = <String, List<Map<String, dynamic>>>{};
 
-  /// Takes one of a task's ideas: it leaves the row, as Porelo forgets it once the window handed it on.
-  Map<String, dynamic> _takeIdea(Map<String, dynamic> parameters) {
+  /// How many reports one `Reports` answer holds, as Porelo's bound of an answer's bytes would leave out the rest.
+  int reportsPerAnswer = 100;
+
+  /// What `Reports` answers in place of the reports, where a test sets it: a refusal by its error's name.
+  String? reportsRefused;
+
+  Map<String, dynamic> _reports(Map<String, dynamic> parameters) {
     final name = parameters['task'];
-    final id = parameters['id'];
+    final after = parameters['after'];
+    if (reportsRefused case final refused?) throw MockRefusal(refused, const <String, dynamic>{});
     if (name is! String || !tasks.any((task) => task['name'] == name)) {
-      throw const MockRefusal('org.varlink.service.InvalidParameter', <String, dynamic>{'parameter': 'task'});
+      throw const MockRefusal('org.fuin.porelo.Tasks1.NoSuchTask', <String, dynamic>{});
     }
-    final task = tasks.firstWhere((task) => task['name'] == name);
-    final ideas = task['ideas'] as List<Map<String, dynamic>>? ?? const <Map<String, dynamic>>[];
-    final kept = <Map<String, dynamic>>[
-      for (final idea in ideas)
-        if (idea['id'] != id) idea,
-    ];
-    final taken = kept.length != ideas.length;
-    tasks = <Map<String, dynamic>>[
-      for (final each in tasks)
-        if (identical(each, task)) <String, dynamic>{...task, 'ideas': kept} else each,
-    ];
-    if (taken) _changes.add(<String, dynamic>{'tasks': _listing});
-    return <String, dynamic>{'taken': taken};
+    final kept = _reported[name] ?? const <Map<String, dynamic>>[];
+    final from = after is int ? after : 0;
+    final later = kept.where((report) => (report['seq'] as int) > from).toList();
+    return <String, dynamic>{
+      'reports': later.take(reportsPerAnswer).toList(),
+      'last': kept.length,
+      'more': later.length > reportsPerAnswer,
+    };
   }
 
   /// Stops answering.
@@ -2126,8 +2118,8 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
         'builds': <Map<String, dynamic>>[],
         'buildReader': '',
         'buildProblem': '',
-        // A task proposes none until a test says it does.
-        'ideas': <Map<String, dynamic>>[],
+        // A task reports nothing until a test says it does.
+        'reports': 0,
         ...task,
       },
   ];
@@ -2322,6 +2314,8 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
       };
     }
     tasks = tasks.where((task) => task['name'] != name).toList();
+    // Its reports go with it: a later task under its name starts at none.
+    _reported.remove(name);
     _changes.add(<String, dynamic>{'tasks': _listing});
     return <String, dynamic>{
       'outcome': situation == 'newer-outcome' ? 'QUARANTINED' : 'REMOVED',

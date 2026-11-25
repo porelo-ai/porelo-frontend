@@ -769,11 +769,10 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     required String model,
     required Mode mode,
     required String prompt,
-    required String result,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) async {
-    discussed.add((project: project, agent: agent, model: model, mode: mode, prompt: prompt, result: result));
+    discussed.add((project: project, agent: agent, model: model, mode: mode, prompt: prompt));
     if (discussionFails case final failure?) throw failure;
     if (discussionAnswer case final answer?) return answer;
     final ordered = FakeBackend.ordered;
@@ -791,7 +790,7 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
   StartProgress? discussionAnswer;
 
   /// Each discussion of an idea started on this machine, as Start was asked.
-  final discussed = <({String project, String agent, String model, Mode mode, String prompt, String result})>[];
+  final discussed = <({String project, String agent, String model, Mode mode, String prompt})>[];
 
   @override
   Future<String?> whyNoDiscussion() async => discussionRefused;
@@ -802,6 +801,41 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
   @override
   Future<TaskResult> taskResult(String task) =>
       throw UnimplementedError('No scenario asks a task\'s result of this stand-in.');
+
+  @override
+  Future<TaskReports> taskReports(String task, {int? after}) async {
+    reportsAsked.add((task, after));
+    if (reportsHeld case final held?) await held.future;
+    if (reportsRefusal case final refusal?) throw refusal;
+    final kept = reportsOf[task] ?? const <TaskReport>[];
+    final later = [
+      for (final report in kept)
+        if (report.seq > (after ?? 0)) report,
+    ];
+    return TaskReports(
+      reports: later.take(reportsPerAnswer).toList(),
+      last: reportsLastOf[task] ?? (kept.isEmpty ? 0 : kept.last.seq),
+      more: later.length > reportsPerAnswer,
+    );
+  }
+
+  /// The reports each task made, by its name, oldest first; a test raises the row's `reports` itself.
+  final reportsOf = <String, List<TaskReport>>{};
+
+  /// The last number `Reports` answers for a task, where set apart from the reports it still keeps.
+  final reportsLastOf = <String, int>{};
+
+  /// What `Reports` is refused with, where set.
+  Object? reportsRefusal;
+
+  /// Holds every answer of `Reports` back until it completes, where set.
+  Completer<void>? reportsHeld;
+
+  /// How many reports one answer holds.
+  int reportsPerAnswer = 100;
+
+  /// Each read of reports, by task and the number it read after.
+  final reportsAsked = <(String, int?)>[];
 
   /// The planning stand-in's start of the order the window hands to Start now, or null where it hands none.
   static Future<PlanningTaskStarted> Function()? ordered;
@@ -4860,6 +4894,8 @@ Map<String, dynamic> wire(Task task) => <String, dynamic>{
   'phase': task.phase,
   'repository': task.repository,
   'readOnly': task.readOnly,
+  'run': ?task.run,
+  'reports': ?task.reports,
   'credentials': task.credentials,
   'grants': <String, dynamic>{
     for (final each in task.grants.entries)

@@ -50,7 +50,7 @@ class PendingStart {
   /// be empty.
   final String provider, project, story;
 
-  /// Whether it starts a discussion, which is kept as one, not as a story's task.
+  /// Whether it starts a discussion, of which nothing is kept once its task is found: it is no story's task.
   final bool discussion;
 
   /// The file a planned stage hands back, kept with its task once found again; null for work that pushes.
@@ -178,44 +178,6 @@ class PlannedOffer {
         role: role,
         issues: issues,
       );
-}
-
-/// A discussion of an idea this window started for a planner's offer: where it runs, and whose idea it hands in
-/// when it ends.
-@immutable
-class KeptDiscussion {
-  /// Takes what is kept.
-  const KeptDiscussion({
-    required this.machine,
-    required this.container,
-    required this.offer,
-    required this.provider,
-    required this.project,
-    this.ended,
-    this.stays,
-  });
-
-  /// The machine's name, as the window shows it.
-  final String machine;
-
-  /// The container Start made.
-  final String container;
-
-  /// The discussion's offer, which goes with its idea.
-  final String offer;
-
-  /// The name of the provider of planning that gave the offer.
-  final String provider;
-
-  /// The project the discussion was about.
-  final String project;
-
-  /// The end whose idea was handed in, or said not to be, or seen when the discussion started; null for none.
-  final String? ended;
-
-  /// Where its idea was saved and it stays only while ideas it proposed wait to be handed in, the run of the ended
-  /// task that stays (empty where the machine names none): it goes once none waits, as that very task; null otherwise.
-  final String? stays;
 }
 
 /// A validated rental identity and optional signed-state setup progress.
@@ -1201,128 +1163,53 @@ class Settings extends ChangeNotifier {
 
   void _kept(String offer) => _pendingStarts.remove(offer);
 
-  final _discussions = <(String, String), KeptDiscussion>{};
-
-  /// How many discussions are kept: far more than a person starts between two removals of their tasks.
-  static const mostDiscussions = 200;
-
-  /// Every discussion this window started for a planner and still keeps.
-  List<KeptDiscussion> get keptDiscussions => List.unmodifiable(_discussions.values);
-
-  /// Keeps the discussion started in [container] on [machine] for [offer] of [provider]'s [project], with the end its
-  /// agent showed when it started ([ended]), which is no new end.
-  Future<void> rememberDiscussion({
-    required String machine,
-    required String container,
-    required String offer,
-    required String provider,
-    required String project,
-    String? ended,
-  }) async {
-    if (!_validOffer(machine, container, offer) || !_validLabel(provider) || !_validLabel(project)) {
-      throw ArgumentError('A machine, a container, an offer, a provider and a project must be given.');
-    }
-    if (ended != null && !_validEnd(ended)) throw ArgumentError('An end must be a short line.');
-    _discussions.remove((machine, container));
-    _discussions[(machine, container)] = KeptDiscussion(
-      machine: machine,
-      container: container,
-      offer: offer,
-      provider: provider,
-      project: project,
-      ended: ended,
-    );
-    while (_discussions.length > mostDiscussions) {
-      _discussions.remove(_discussions.keys.first);
-    }
-    _kept(offer);
-    await _write();
-  }
-
-  /// Notes that the idea of the discussion in [container] on [machine] was handed in at [ended], or said not to be.
-  Future<void> discussionHanded(String machine, String container, String ended) async {
-    final kept = _discussions[(machine, container)];
-    if (kept == null) return;
-    if (!_validEnd(ended)) throw ArgumentError('An end must be a short line.');
-    _discussions[(machine, container)] = KeptDiscussion(
-      machine: kept.machine,
-      container: kept.container,
-      offer: kept.offer,
-      provider: kept.provider,
-      project: kept.project,
-      ended: ended,
-    );
-    await _write();
-  }
-
-  /// Notes that the ended discussion in [container] on [machine], whose idea was saved, stays only for ideas it proposed
-  /// that wait to be handed in, as the task of the run [stays]; null where it no longer does.
-  Future<void> discussionStays(String machine, String container, {required String? stays}) async {
-    final kept = _discussions[(machine, container)];
-    if (kept == null || kept.stays == stays) return;
-    _discussions[(machine, container)] = KeptDiscussion(
-      machine: kept.machine,
-      container: kept.container,
-      offer: kept.offer,
-      provider: kept.provider,
-      project: kept.project,
-      ended: kept.ended,
-      stays: stays,
-    );
-    await _write();
-  }
-
   /// Drops the offer kept for the task in [container] on [machine] alone, once a later task holds that container's
-  /// name: a discussion kept under the name since is that later task's.
+  /// name.
   Future<void> forgetEarlierPlanningOffer(String machine, String container) async {
     if (_planningOffers.remove((machine, container)) != null) await _write();
   }
 
-  /// Drops the offer and the discussion kept for the task in [container] on [machine], once that task is removed or
-  /// the planner voided its offer.
+  /// Drops the offer kept for the task in [container] on [machine], once that task is removed or the planner voided
+  /// its offer.
   Future<void> forgetPlanningOffer(String machine, String container) async {
-    final offer = _planningOffers.remove((machine, container));
-    final discussion = _discussions.remove((machine, container));
-    if (offer != null || discussion != null) await _write();
+    if (_planningOffers.remove((machine, container)) != null) await _write();
   }
 
-  /// Drops everything kept for the task in [container] on [machine] once it is removed: its offer, its discussion
-  /// and the marks of the ideas it proposed, which went with it.
+  /// Drops everything kept for the task in [container] on [machine] once it is removed: its offer and the reports seen
+  /// of it, which went with it.
   Future<void> forgetRemovedTask(String machine, String container) async {
-    final marks = _ideasHanded.length;
-    _ideasHanded.removeWhere((key, _) => key.$1 == machine && key.$2 == container);
+    final seen = _reportsSeen.length;
+    _reportsSeen.removeWhere((key, _) => key.$1 == machine && key.$2 == container);
     // At once, before any write: an offer kept for a later task of that name meanwhile is that task's.
     final offer = _planningOffers.remove((machine, container));
-    final discussion = _discussions.remove((machine, container));
-    if (offer != null || discussion != null || marks != _ideasHanded.length) await _write();
+    if (offer != null || seen != _reportsSeen.length) await _write();
   }
 
-  /// The ideas handed to the planner, or marked not to be, by machine, container and the task's run: each as the
-  /// digest of its id and words.
-  final _ideasHanded = <(String, String, String), Set<String>>{};
+  /// The number of the last report the person has seen of each task, by machine, container and the task's run.
+  final _reportsSeen = <(String, String, String), int>{};
 
-  /// How many tasks' marks are kept: far more than propose ideas between two removals of their tasks.
-  static const mostTasksWithIdeas = 500;
+  /// How many tasks' seen reports are kept: far more than report between two removals of their tasks.
+  static const mostTasksWithReports = 500;
 
-  static final _ideaMark = RegExp(r'^[0-9a-f]{32}$');
+  /// The number of the last report of the task [run] in [container] on [machine] the person has seen; 0 for none.
+  int reportsSeen(String machine, String container, String run) => _reportsSeen[(machine, container, run)] ?? 0;
 
-  /// Whether the idea of the task [run] in [container] on [machine] whose id and words have the digest [mark] was
-  /// handed to the planner or marked not to be.
-  bool ideaHanded(String machine, String container, String run, String mark) =>
-      _ideasHanded[(machine, container, run)]?.contains(mark) ?? false;
-
-  /// Marks the idea of the task [run] in [container] on [machine] whose id and words have the digest [mark] as handed
-  /// to the planner or not to be; the oldest task's marks go past [mostTasksWithIdeas].
-  Future<void> markIdeaHanded(String machine, String container, String run, String mark) async {
-    if (!_validOffer(machine, container, run) || !_ideaMark.hasMatch(mark)) {
-      throw ArgumentError('A machine, a container, a run and the digest of an idea must be given.');
+  /// Notes that the person has seen the reports of the task [run] in [container] on [machine] up to the number [seq];
+  /// a lower number than one seen before changes nothing, and the oldest task's goes past [mostTasksWithReports].
+  Future<void> seeReports(String machine, String container, String run, int seq) async {
+    if (!_validOffer(machine, container, run) || seq < 1) {
+      throw ArgumentError('A machine, a container, a run and a report number must be given.');
     }
+    // Written before the stored settings were read, it would write over them.
+    if (!_loaded) return;
     final key = (machine, container, run);
-    final marks = _ideasHanded.remove(key) ?? <String>{};
-    _ideasHanded[key] = marks..add(mark);
-    while (_ideasHanded.length > mostTasksWithIdeas) {
-      _ideasHanded.remove(_ideasHanded.keys.first);
+    final before = _reportsSeen.remove(key) ?? 0;
+    _reportsSeen[key] = seq > before ? seq : before;
+    while (_reportsSeen.length > mostTasksWithReports) {
+      _reportsSeen.remove(_reportsSeen.keys.first);
     }
+    if (seq <= before) return;
+    notifyListeners();
     await _write();
   }
 
@@ -1389,48 +1276,22 @@ class Settings extends ChangeNotifier {
         }
       }
     }
-    _discussions.clear();
-    if (stored['discussions'] case final List<dynamic> discussions) {
-      for (final value in discussions) {
-        if (value
-            case {
-              'machine': final String machine,
-              'container': final String container,
-              'offer': final String offer,
-              'provider': final String provider,
-              'project': final String project,
-            }
-            when _validOffer(machine, container, offer) && _validLabel(provider) && _validLabel(project)) {
-          final ended = value['ended'];
-          _discussions[(machine, container)] = KeptDiscussion(
-            machine: machine,
-            container: container,
-            offer: offer,
-            provider: provider,
-            project: project,
-            ended: ended is String && _validEnd(ended) ? ended : null,
-            stays: value['stays'] is String && _validEnd(value['stays'] as String) ? value['stays'] as String : null,
-          );
-        }
-      }
-    }
-    _ideasHanded.clear();
-    if (stored['ideasHanded'] case final List<dynamic> handed) {
-      for (final value in handed) {
+    _reportsSeen.clear();
+    if (stored['reportsSeen'] case final List<dynamic> seen) {
+      for (final value in seen) {
         if (value
             case {
               'machine': final String machine,
               'container': final String container,
               'run': final String run,
-              'ideas': final List<dynamic> ideas,
+              'seen': final int seq,
             }
-            when _validOffer(machine, container, run)) {
-          final marks = ideas.whereType<String>().where(_ideaMark.hasMatch).toSet();
-          if (marks.isNotEmpty) _ideasHanded[(machine, container, run)] = marks;
+            when _validOffer(machine, container, run) && seq > 0) {
+          _reportsSeen[(machine, container, run)] = seq;
         }
       }
-      while (_ideasHanded.length > mostTasksWithIdeas) {
-        _ideasHanded.remove(_ideasHanded.keys.first);
+      while (_reportsSeen.length > mostTasksWithReports) {
+        _reportsSeen.remove(_reportsSeen.keys.first);
       }
     }
     _handedOffers.clear();
@@ -1498,9 +1359,9 @@ class Settings extends ChangeNotifier {
           },
         },
     ],
-    'ideasHanded': [
-      for (final MapEntry(key: (machine, container, run), value: ideas) in _ideasHanded.entries)
-        {'machine': machine, 'container': container, 'run': run, 'ideas': ideas.toList()},
+    'reportsSeen': [
+      for (final MapEntry(key: (machine, container, run), value: seq) in _reportsSeen.entries)
+        {'machine': machine, 'container': container, 'run': run, 'seen': seq},
     ],
     'planningOffersHanded': _handedOffers.toList(),
     'planningStartsPending': [
@@ -1515,18 +1376,6 @@ class Settings extends ChangeNotifier {
           'result': ?pending.result,
           'role': ?pending.role,
           if (pending.issues.isNotEmpty) 'issues': pending.issues,
-        },
-    ],
-    'discussions': [
-      for (final kept in _discussions.values)
-        {
-          'machine': kept.machine,
-          'container': kept.container,
-          'offer': kept.offer,
-          'provider': kept.provider,
-          'project': kept.project,
-          'ended': ?kept.ended,
-          'stays': ?kept.stays,
         },
     ],
   };
@@ -1934,10 +1783,13 @@ class Settings extends ChangeNotifier {
     return writing;
   }
 
+  /// Keys an earlier build wrote that are kept no more: dropped at the next write rather than carried for ever.
+  static const _dropped = {'forgeCa', 'ideasHanded', 'discussions'};
+
   Future<void> _writeKnown(Map<String, Object?> known) async {
     final kept = <String, Object?>{
       for (final entry in (await _store.read()).entries)
-        if (entry.key != 'forgeCa' && !known.containsKey(entry.key)) entry.key: entry.value,
+        if (!_dropped.contains(entry.key) && !known.containsKey(entry.key)) entry.key: entry.value,
     };
     await _store.write(<String, Object?>{...kept, ...known});
   }

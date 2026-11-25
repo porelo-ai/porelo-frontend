@@ -617,8 +617,7 @@ class Task {
     this.run,
     this.callerKey = '',
     this.landed,
-    this.ideas,
-    this.ideasHeldBack = 0,
+    this.reports,
     this.readOnly = false,
     this.handInLimit,
     this.files,
@@ -650,13 +649,9 @@ class Task {
   /// unchanged: empty while the work waits at the gate, and null from a machine that does not say.
   final List<Map<String, dynamic>>? landed;
 
-  /// The ideas it proposed for itself, oldest first, as the machine kept them. **Null is not empty**: a machine that
-  /// does not list them cannot say, which is not *it proposed none*. Their text is the task's agent's own.
-  final List<ProposedIdea>? ideas;
-
-  /// How many of its ideas the machine's listing left out for room, to come in a later listing; 0 where it listed
-  /// them all, and from a machine that does not say.
-  final int ideasHeldBack;
+  /// The sequence number of the last report it made, which `Reports` reads; 0 where it made none. **Null is not 0**: a
+  /// machine that does not say cannot say whether it made any.
+  final int? reports;
 
   /// Whether it only reads: made read only or over all repositories, with no gate and nothing it can push. False for
   /// any other task, and from a machine that does not say.
@@ -738,16 +733,7 @@ class Task {
             (map['landed'] as List).whereType<Map<String, dynamic>>().map(Map<String, dynamic>.unmodifiable),
           )
         : null,
-    ideas: map['ideas'] is List
-        ? List.unmodifiable([
-            // An entry that is no object stays, empty, for the window to refuse in words rather than lose unseen.
-            for (final entry in map['ideas'] as List)
-              ProposedIdea.from(entry is Map<String, dynamic> ? entry : const <String, dynamic>{}),
-          ])
-        : null,
-    ideasHeldBack: map['ideasHeldBack'] is num && (map['ideasHeldBack'] as num) > 0
-        ? (map['ideasHeldBack'] as num).toInt()
-        : 0,
+    reports: map['reports'] is int && (map['reports'] as int) >= 0 ? map['reports'] as int : null,
     readOnly: map['readOnly'] == true,
     handInLimit: map['handInLimit'] is num ? (map['handInLimit'] as num).toInt() : null,
     files: map['files'] is List
@@ -1223,31 +1209,66 @@ class TaskResult {
   final String? content;
 }
 
-/// An idea a task proposed for itself while it worked: a new issue it found. **Every field is the task's agent's own
-/// text**, as the machine kept it; nothing here checks it.
-class ProposedIdea {
+/// Something a task reported back to whoever started it. **Its kind and text are the task's agent's own**, passed
+/// through Porelo unread.
+class TaskReport {
   /// Constructor taking every field.
-  const ProposedIdea({required this.id, required this.title, required this.mustBeTrue, this.at = ''});
+  const TaskReport({required this.seq, required this.kind, required this.text, this.at = ''});
 
-  /// Reads one from a row, a field missing or of another type as empty.
-  factory ProposedIdea.from(Map<String, dynamic> map) => ProposedIdea(
-    id: _string(map, 'id'),
-    title: _string(map, 'title'),
-    mustBeTrue: _string(map, 'whatMustBeTrue'),
-    at: _string(map, 'at'),
-  );
+  /// Reads one from a `Reports` answer; one without a positive sequence number or without its kind and text is no
+  /// report Porelo sends.
+  factory TaskReport.from(Object? entry) {
+    if (entry case {'seq': final int seq, 'kind': final String kind, 'text': final String text} when seq > 0) {
+      final at = entry['at'];
+      return TaskReport(seq: seq, kind: kind, text: text, at: at is String ? at : '');
+    }
+    throw const FormatException('Reports answered a report without its number, kind and text');
+  }
 
-  /// The task's own counter, `idea-1`, `idea-2`, ...: one task's ideas apart, never another task's.
-  final String id;
+  /// The task's own sequence, 1, 2, ...; never reused.
+  final int seq;
 
-  /// Its title, one line.
-  final String title;
+  /// The one line the starter's brief asked for.
+  final String kind;
 
-  /// What must be true, one or two sentences; it may hold line breaks.
-  final String mustBeTrue;
+  /// Its text; it may hold line breaks.
+  final String text;
 
-  /// When the machine kept it, ISO-8601.
+  /// When the machine kept it, ISO-8601 UTC.
   final String at;
+}
+
+/// The most reports one task may make, as Porelo bounds them.
+const mostReportsOfATask = 100;
+
+/// One page of a task's reports, oldest first.
+class TaskReports {
+  /// Constructor taking every field.
+  const TaskReports({required this.reports, required this.last, required this.more});
+
+  /// Reads a `Reports` answer, refusing one that does not hold its shape rather than reading it as no reports.
+  factory TaskReports.from(Map<String, dynamic> map) {
+    if (map case {'reports': final List<dynamic> reports, 'last': final int last, 'more': final bool more}
+        when last >= 0 && !(more && reports.isEmpty) && reports.length <= mostReportsOfATask) {
+      final read = List<TaskReport>.unmodifiable(reports.map(TaskReport.from));
+      for (final (index, report) in read.indexed) {
+        if (report.seq > last || index > 0 && report.seq <= read[index - 1].seq) {
+          throw const FormatException('Reports answered reports out of order or past its last number');
+        }
+      }
+      return TaskReports(reports: read, last: last, more: more);
+    }
+    throw const FormatException('Reports answered without its reports, last number and more');
+  }
+
+  /// The reports on this page.
+  final List<TaskReport> reports;
+
+  /// The number of the task's last report.
+  final int last;
+
+  /// Whether reports after this page were left out, to be read on.
+  final bool more;
 }
 
 /// How a task's work ended, as Porelo answers it on the task's row: the task's own declaration (`DONE`, or `BLOCKED`

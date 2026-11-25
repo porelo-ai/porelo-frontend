@@ -356,7 +356,6 @@ void main() {
         'model': 'z-ai/glm-5.3-flash',
         'mode': 'AGENT',
         'prompt': order.prompt,
-        'result': 'idea.json',
         'callerKey': order.offer!,
       });
       expect(started.container, 'porelo-demo-discussion');
@@ -480,14 +479,15 @@ void main() {
 }
 
 /// A planner's order to discuss an idea: no repository, no issue, the person driving it, a result file to hand back.
-PlanningTaskOrder discussionOrder() => PlanningTaskOrder.from({
-  'offer': '00000000-0000-4000-8000-00000000d15c',
+PlanningTaskOrder discussionOrder({String offer = '00000000-0000-4000-8000-00000000d15c'}) => PlanningTaskOrder.from({
+  'offer': offer,
   'issues': <String>[],
   'role': 'DISCUSSION',
   'agent': 'codex',
   'model': 'mock-model',
   'mode': 'AGENT',
-  'prompt': 'Discuss this idea with the person, change nothing, and once they agree write idea.json.',
+  'prompt': 'Discuss this idea with the person, change nothing, and once they agree report it as an idea.',
+  // The pinned planner still names one; the window starts a discussion without it.
   'result': 'idea.json',
 });
 
@@ -601,7 +601,6 @@ class _Starting extends Fake implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
-    required String result,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) async {
@@ -612,7 +611,6 @@ class _Starting extends Fake implements FleetBackend {
       'model': model,
       'mode': mode.name,
       'prompt': prompt,
-      'result': result,
       'callerKey': ?callerKey,
     });
     final container = 'porelo-$project-discussion';

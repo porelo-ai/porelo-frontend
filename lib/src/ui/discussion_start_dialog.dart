@@ -107,7 +107,7 @@ class _DiscussionStartDialogState extends State<DiscussionStartDialog> {
           children: <Widget>[
             Text(
               'On ${widget.machine}, every repository of the project, read only: the agent changes nothing and pushes '
-              'nothing. You lead the talk; once you agree, it writes ${widget.task.result ?? 'its result'}.',
+              'nothing. You lead the talk; once you agree, it reports the idea back to the planner.',
             ),
             if (_notOffered case final why?) ...[
               const SizedBox(height: Space.normal),

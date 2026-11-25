@@ -34,14 +34,55 @@ void main() {
   test('a removal forgets only what was kept before it, not an offer kept while it is written', () async {
     final settings = Settings(MemorySettingsStore());
     addTearDown(settings.dispose);
-    await settings.markIdeaHanded('laptop', 'porelo-demo-pi', 'run-1', 'a' * 32);
+    await settings.load();
+    await settings.seeReports('laptop', 'porelo-demo-pi', 'run-1', 3);
+    expect(settings.reportsSeen('laptop', 'porelo-demo-pi', 'run-1'), 3);
 
     final removal = settings.forgetRemovedTask('laptop', 'porelo-demo-pi');
     await settings.rememberPlanningOffer(machine: 'laptop', container: 'porelo-demo-pi', offer: 'a later offer');
     await removal;
 
     expect(settings.planningOffer('laptop', 'porelo-demo-pi'), 'a later offer');
-    expect(settings.ideaHanded('laptop', 'porelo-demo-pi', 'run-1', 'a' * 32), isFalse);
+    expect(
+      settings.reportsSeen('laptop', 'porelo-demo-pi', 'run-1'),
+      0,
+      reason: 'the removed task\'s reports went with it',
+    );
+  });
+
+  // Harm: reports the person read show as new again after a restart, an older number takes a newer one's place, or a
+  // stored entry nobody wrote is trusted; what an earlier build kept of ideas and discussions stays in the file for ever.
+  test('the reports seen survive a restart, only grow, are checked when read, and old idea marks go', () async {
+    final store = MemorySettingsStore({
+      'ideasHanded': ['an earlier build\'s marks'],
+      'discussions': ['an earlier build\'s discussions'],
+      'reportsSeen': [
+        {'machine': 'laptop', 'container': 'porelo-demo-pi', 'run': 'kept', 'seen': 2},
+        {'machine': 'laptop', 'container': 'porelo-demo-pi', 'run': 'zero', 'seen': 0},
+        {'machine': 'laptop', 'container': 'porelo-demo-pi', 'run': 'text', 'seen': '2'},
+        {'machine': '', 'container': 'porelo-demo-pi', 'run': 'nameless', 'seen': 2},
+        {'machine': 'laptop', 'container': 'porelo\u0000pi', 'run': 'control', 'seen': 2},
+        'not an entry',
+      ],
+    });
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    await settings.load();
+    expect(settings.reportsSeen('laptop', 'porelo-demo-pi', 'kept'), 2);
+    for (final run in ['zero', 'text', 'nameless', 'control']) {
+      expect(settings.reportsSeen('laptop', 'porelo-demo-pi', run), 0, reason: run);
+    }
+
+    await settings.seeReports('laptop', 'porelo-demo-pi', 'kept', 5);
+    await settings.seeReports('laptop', 'porelo-demo-pi', 'kept', 4);
+    final again = Settings(store);
+    addTearDown(again.dispose);
+    await again.load();
+
+    expect(again.reportsSeen('laptop', 'porelo-demo-pi', 'kept'), 5);
+    final written = await store.read();
+    expect(written.containsKey('ideasHanded'), isFalse);
+    expect(written.containsKey('discussions'), isFalse);
   });
 
   // Harm: malformed settings supply a branch or identity that was never confirmed.

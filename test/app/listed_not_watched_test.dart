@@ -210,11 +210,6 @@ void main() {
       [defaultProject],
       reason: 'a machine not watched lists only the project every machine has',
     );
-    await expectLater(
-      removeHandedDiscussion(machines, listed.name, 'porelo-demo-discussion'),
-      throwsA(isA<StateError>().having((error) => error.message, 'message', contains('not answering'))),
-      reason: 'a removal that could not go is said, in words',
-    );
     final source = _Source();
     expect(planningMachineOf(machines, _PathPlanner(source), source, project: 'demo'), same(machines.current));
     final starts = WindowTaskStarts.of(machines, _PathPlanner(source));

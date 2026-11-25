@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:porelo_planning/porelo_planning.dart' show PlannerProjects;
 
-import 'planner_ideas.dart';
+import 'planner_post.dart';
 
 /// Hands what the planned stage task [task] of [offer] in [project] produced to the planner of this account: its
 /// [result] file's object, or [missing], one line of why there is none. Answers once the planner saved it.

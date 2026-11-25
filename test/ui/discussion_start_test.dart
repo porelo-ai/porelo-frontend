@@ -85,12 +85,15 @@ void main() {
   });
 
   // Harm: the person cannot tell that the agent reads the whole project and changes nothing.
-  testWidgets('it says the project, every repository read only, and the file it hands back', (tester) async {
+  testWidgets('it says the project, every repository read only, and that the idea goes back as a report', (
+    tester,
+  ) async {
     await show(tester, listed);
 
     expect(find.textContaining('demo'), findsWidgets);
     expect(find.textContaining('every repository of the project, read only'), findsOneWidget);
-    expect(find.textContaining('idea.json'), findsOneWidget);
+    expect(find.textContaining('reports the idea back to the planner'), findsOneWidget);
+    expect(find.textContaining('idea.json'), findsNothing, reason: 'it hands back no file');
   });
 
   // Harm: the discussion starts with the planner's agent and model, which the person never saw.

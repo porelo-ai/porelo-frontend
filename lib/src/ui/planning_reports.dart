@@ -1,19 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:porelo_planning/porelo_planning.dart';
 
 import '../app/machines.dart';
-import '../app/fleet_backend.dart' show PoreloBackend;
-import '../app/outcome_words.dart' show removeWords;
 import '../app/planner.dart' show plannerProjectOf;
-import '../app/planner_ideas.dart';
 import '../app/planner_stage_results.dart';
 import '../app/report_at_planner.dart';
 import '../app/settings.dart';
 import '../app/window_log.dart';
-import '../client/models.dart' show AgentEnded, ProposedIdea, ResultState, Task, TaskEnd, TaskResult, defaultProject;
+import '../client/models.dart' show AgentEnded, ResultState, Task, TaskEnd, TaskResult;
 import 'planning_embedding.dart';
 import '../wire/limit_factors.dart';
 
@@ -28,82 +24,6 @@ String? plannerMachineNameProblem(String machine) {
     return 'The machine name holds a control character or a line break, which the planner does not keep.';
   }
   return null;
-}
-
-/// The most characters of an idea's title, as a forge takes an issue's.
-const mostIdeaTitleCharacters = 256;
-
-/// The most characters of an idea's what-must-be-true, as a forge takes an issue's body.
-const mostIdeaTextCharacters = 65536;
-
-/// The most ideas one task may propose, as Porelo bounds a project's allowance; the window hands no more of a row.
-const mostIdeasOfATask = 100;
-
-/// Why [idea] is not handed to the planner, or null where it is: it holds the bounds Porelo states for a proposal, an
-/// id `idea-<n>`, a title of one line of at most [mostIdeaTitleCharacters] characters, and at most
-/// [mostIdeaTextCharacters] characters of what must be true, with no control characters but its line breaks. Never
-/// quotes the idea, which is the task's agent's own text.
-String? proposedIdeaProblem(ProposedIdea idea) {
-  if (!RegExp(r'^idea-([1-9][0-9]?|100)$').hasMatch(idea.id)) return 'its id is not one Porelo gives';
-  if (idea.title.trim().isEmpty) return 'it has no title';
-  if (idea.title.runes.length > mostIdeaTitleCharacters) {
-    return 'its title is longer than $mostIdeaTitleCharacters characters';
-  }
-  if (_unsafe.hasMatch(idea.title) || idea.title.contains(RegExp('[\n\r]'))) {
-    return 'its title is not one line of plain text';
-  }
-  if (idea.mustBeTrue.trim().isEmpty) return 'it does not say what must be true';
-  if (idea.mustBeTrue.runes.length > mostIdeaTextCharacters) {
-    return 'what must be true is longer than $mostIdeaTextCharacters characters';
-  }
-  if (_unsafe.hasMatch(idea.mustBeTrue)) return 'what must be true holds a control character';
-  return null;
-}
-
-// A control character but a line break, a line or paragraph separator, a lone surrogate, or a mark that turns text.
-final _unsafe = RegExp(
-  '[\x00-\x09\x0b\x0c\x0e-\x1f\x7f-\x9f\u2028\u2029\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]'
-  '|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]',
-);
-
-/// A new issue the window hands to the planner for an idea a task proposed.
-class ProposedIssue {
-  /// Takes where it goes, what it says, and the task it came from.
-  const ProposedIssue({required this.repository, required this.title, required this.mustBeTrue, required this.task});
-
-  /// The repository the task works in.
-  final String repository;
-
-  /// The idea's title, as the task wrote it.
-  final String title;
-
-  /// What must be true, as the task wrote it.
-  final String mustBeTrue;
-
-  /// The task's name in its project.
-  final String task;
-}
-
-/// Hands [issue] to [source] as a new issue in the state New of [project], with no size, and answers its id.
-typedef IssueFromIdea = Future<String> Function(PlanningSource source, String project, ProposedIssue issue);
-
-/// The task names the planner takes, matched whole; a name outside them would hold its idea back at every start.
-final _plannerTaskName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$');
-
-/// The planner's `createIssue`, naming the task the idea came from where the planner takes its name. The issue joins
-/// no story, so the write names no item it changes and carries no versions seen.
-Future<String> issueFromIdea(PlanningSource source, String project, ProposedIssue issue) async {
-  final task = _plannerTaskName.hasMatch(issue.task) ? issue.task : null;
-  final added = await source.createIssue(
-    project,
-    issue.repository,
-    issue.title,
-    issue.mustBeTrue,
-    null,
-    const <String, String>{},
-    task: task,
-  );
-  return added.id;
 }
 
 /// Porelo's record of how an agent ended, as the planner takes it: every field as the machine gave it, none mapped.
@@ -141,8 +61,7 @@ List<PlanningLanding> plannedLandings(Task task) => [
 ];
 
 /// Reports each task this window started for a planner's offer: its start right after Start confirmed it, each new end
-/// of its agent once, also across restarts of the window, and the planner's follow-up orders started once each. Hands
-/// each idea a task on a watched machine proposed to the planner once, as a new issue in the state New.
+/// of its agent once, also across restarts of the window, and the planner's follow-up orders started once each.
 ///
 /// A task the planning screen's run handed to Start in this window's life is reported through that run, as the screen's
 /// own client reports, so the run no longer counts its start as unreported and starts the follow-up orders itself. A
@@ -157,17 +76,10 @@ class WindowTaskReports {
     required this.sourceNamed,
     required this.tasksOn,
     required this.stopOn,
-    this.removeOn = _noRemoval,
-    this.takeIdeaOn = _noTaking,
     this.resultOf = _noResult,
-    this.hand = handIdea,
     this.handResult = handStageResult,
     this.runtimeDirectory,
     this.projects,
-    this.watched = _noMachines,
-    this.ideaPlanner = _noPlanner,
-    this.repositoryOf = _noRepository,
-    this.handIssue = issueFromIdea,
     this.missingSettles = const Duration(minutes: 1),
     this.now = DateTime.now,
     this.waitForOutcome = _aMoment,
@@ -193,14 +105,6 @@ class WindowTaskReports {
       final fleet? => fleet.stopWork(container),
       null => Future.error(StateError('${machine.name} is not answering yet, so $container was not stopped.')),
     },
-    removeOn: (name, container) => removeHandedDiscussion(machines, name, container),
-    takeIdeaOn: (name, container, id) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
-      final machine? => switch (machines.watching(machine)?.backend) {
-        final PoreloBackend backend => backend.takeIdea(container, id),
-        _ => Future.error(StateError('$name is not answering yet.')),
-      },
-      null => Future.error(StateError('$name is not watched.')),
-    },
     resultOf: (name, container) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
       final machine? => switch (machines.watching(machine)) {
         final fleet? => fleet.backend.taskResult(container),
@@ -210,15 +114,6 @@ class WindowTaskReports {
     },
     runtimeDirectory: runtimeDirectory,
     projects: (project) => plannerProjectOf(machines, project),
-    watched: () => [for (final machine in machines.all) machine.name],
-    ideaPlanner: () => switch (client.providers.firstOrNull) {
-      final provider? => (provider.name, provider.source),
-      null => null,
-    },
-    repositoryOf: (name, task) => switch (machines.all.where((machine) => machine.name == name).firstOrNull) {
-      final machine? => machines.watching(machine)?.projectOf(task)?.repositoryOf(task),
-      null => null,
-    },
   );
 
   /// Where offers are kept.
@@ -242,18 +137,8 @@ class WindowTaskReports {
   /// Stops a container on the machine it runs on.
   final Future<void> Function(Machine machine, String container) stopOn;
 
-  /// Removes the ended task in a container on the machine by that name; a refusal is the machine's to say.
-  final Future<void> Function(String machine, String container) removeOn;
-
-  /// Takes the idea of the given id from the task in the given container on the given machine, once it was handed on
-  /// or marked not to be: Porelo forgets it, and lists the ideas it held back behind it. Answers whether it was there.
-  final Future<bool> Function(String machine, String container, String id) takeIdeaOn;
-
   /// The result file the task in a container handed back on the machine by that name, with its content.
   final Future<TaskResult> Function(String machine, String container) resultOf;
-
-  /// How an ended discussion's idea is handed to the planner.
-  final HandIdea hand;
 
   /// How what an ended planned stage produced is handed to the planner, before its end is reported.
   final HandStageResult handResult;
@@ -264,28 +149,12 @@ class WindowTaskReports {
   /// The repository of each project, told a planner that was not given the project since it started.
   final PlannerProjects? projects;
 
-  /// The names of the watched machines, whose tasks' ideas are handed in.
-  final List<String> Function() watched;
-
-  /// The provider of planning a task's idea goes to, by name with its source, or null where none is reached now.
-  final (String, PlanningSource)? Function() ideaPlanner;
-
-  /// The repository a task on the machine by that name works in, as that machine lists its project; null where it
-  /// names none yet.
-  final String? Function(String machine, Task task) repositoryOf;
-
-  /// How a task's idea is handed to the planner as a new issue.
-  final IssueFromIdea handIssue;
-
-  /// How long a discussion left with its result file missing is looked at again before it is said to have written no
-  /// idea: a task listed after its container was made, before it started, shows as stopped with its result missing.
+  /// How long a planned stage's result file missing at its end is looked at again before it is said to be missing: a
+  /// listing may show the end before the machine took the file.
   final Duration missingSettles;
 
   /// The time now.
   final DateTime Function() now;
-
-  /// Told the story an ended discussion's idea was saved as.
-  void Function(KeptDiscussion discussion, String story)? onIdeaHanded;
 
   /// Says a refused report or start where the window shows planning problems: the board of that provider's project.
   void Function(String? provider, String? project, Object error)? onProblem;
@@ -314,17 +183,6 @@ class WindowTaskReports {
   /// of the machine.
   final _refused = <(String, String)>{};
 
-  /// Discussion ends whose idea could not be handed in this window's life, by offer and end, so it is not tried again
-  /// on every change of the machine; the next start of the window tries once more.
-  final _ideasNotHanded = <(String, String)>{};
-
-  /// When each left discussion was first seen with its result file missing, by offer and end, so it is looked at again
-  /// until [missingSettles] passed.
-  final _missingSince = <(String, String), DateTime>{};
-
-  /// Whether a planner not reached for an idea was said since the last idea that went through.
-  bool _ideaUnreachedSaid = false;
-
   /// When each planned stage was first seen ended with its result file missing, by offer and end, so it is looked at
   /// again until [missingSettles] passed.
   final _resultMissingSince = <(String, String), DateTime>{};
@@ -335,16 +193,6 @@ class WindowTaskReports {
 
   /// Whether a planner not reached for a stage's result was said since the last one that went through.
   bool _resultUnreachedSaid = false;
-
-  /// Ideas of tasks the planner could not take in this window's life, by machine, run and id, so they are not tried on
-  /// every change of a machine; the next start of the window tries once more.
-  final _proposedNotHanded = <(String, String, String)>{};
-
-  /// Whether a planner not reached for a task's idea was said since the last one that went through.
-  bool _proposedUnreachedSaid = false;
-
-  /// Tasks whose ideas past [mostIdeasOfATask], or whose names the window cannot keep, were said, by machine and run.
-  final _tooManySaid = <(String, String)>{};
 
   /// The offers of tasks a stop took over: whatever report of them still waits is not sent, nor its answer followed.
   final _voided = <String>{};
@@ -580,23 +428,6 @@ class WindowTaskReports {
         await _quietly(told, () => _deliver(told, PlanningTaskEvent.landed, landed: landed));
       }
     }
-    // Before the discussions: a discussion handed in is removed, and the ideas it proposed with it.
-    await _handProposed();
-    await _removeWaitedDiscussions();
-    for (final kept in settings.keptDiscussions) {
-      final task = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
-      if (task == null) continue;
-      final (String, TaskResult?)? ending = switch (task) {
-        // A prompt run records how its agent ended, with its result.
-        Task(agentEnded: final ended?) => (plannedEndKey(ended), ended.result),
-        // An attended session records no end of its agent: a stopped task with its result file is its end.
-        Task(running: false, result: final result?) => ('$_left${task.since}', result),
-        _ => null,
-      };
-      if (ending case (final end, final named) when end != kept.ended && !_ideasNotHanded.contains((kept.offer, end))) {
-        await _handIdea(kept, named, end);
-      }
-    }
   }
 
   /// Keeps each task Start made for an offer this window handed but never kept, found by the offer given as its key:
@@ -610,13 +441,8 @@ class WindowTaskReports {
           .firstOrNull;
       if (task == null) continue;
       if (pending.discussion) {
-        await settings.rememberDiscussion(
-          machine: pending.machine,
-          container: task.name,
-          offer: pending.offer,
-          provider: pending.provider,
-          project: pending.project,
-        );
+        // A discussion hands its idea back as a report its planner reads: nothing more is kept of it.
+        await settings.forgetPendingStart(pending.offer);
       } else if (task.task.isEmpty) {
         // Kept neither as a discussion nor as a story's task, it would wait in the settings for ever.
         windowLog.warn('Planning: the task ${task.name} on ${pending.machine} names no task; its start is let go.');
@@ -635,277 +461,6 @@ class WindowTaskReports {
           role: pending.role,
           issues: pending.issues,
         );
-      }
-    }
-  }
-
-  /// Hands each idea a task on a watched machine proposed and the window has not handed, in the order proposed: one
-  /// saved, refused for its fields or out of Porelo's bounds is marked and not handed again, also across restarts; one
-  /// waiting for the planner or its repository keeps the task's later ideas behind it.
-  Future<void> _handProposed() async {
-    for (final machine in watched()) {
-      // A copy: the machine's list may change while an idea is handed.
-      for (final task in List.of(tasksOn(machine) ?? const <Task>[])) {
-        if (task.ideas case final ideas? when ideas.isNotEmpty) {
-          if (!await _handProposedOf(machine, task, ideas)) return;
-        }
-      }
-    }
-  }
-
-  /// Hands [ideas] of [task] on [machine]; false once no planner is reached, so nothing more is tried in this sweep.
-  Future<bool> _handProposedOf(String machine, Task task, List<ProposedIdea> ideas) async {
-    final run = _runKey(task);
-    if ([machine, task.name].any((name) => name.trim().isEmpty || name.contains(RegExp(r'[\x00-\x1f]')))) {
-      if (_tooManySaid.add((machine, run))) {
-        _sayProposed(
-          null,
-          task.project,
-          'A task on a machine whose name holds a control character proposed ideas; '
-          'they are not handed to the planner.',
-        );
-      }
-      return true;
-    }
-    if (ideas.length > mostIdeasOfATask && _tooManySaid.add((machine, run))) {
-      _sayProposed(
-        null,
-        task.project,
-        'The task ${task.name} on $machine lists more ideas than the $mostIdeasOfATask Porelo allows a task; '
-        'only the first $mostIdeasOfATask are handed to the planner.',
-      );
-    }
-    for (final (index, idea) in ideas.take(mostIdeasOfATask).indexed) {
-      final digest = proposedIdeaDigest(idea);
-      final key = (machine, run, idea.id);
-      // Handed before, maybe by an earlier window or while the machine could not take it: taken now.
-      if (settings.ideaHanded(machine, task.name, run, digest)) {
-        await _take(machine, task, idea);
-        continue;
-      }
-      // Not tried again before the next start of the window, and the task's later ideas stay behind it.
-      if (_proposedNotHanded.contains(key)) return true;
-      if (proposedIdeaProblem(idea) case final problem?) {
-        await settings.markIdeaHanded(machine, task.name, run, digest);
-        await _take(machine, task, idea);
-        _sayProposed(
-          null,
-          task.project,
-          'Idea ${index + 1} of the task ${task.name} on $machine is not handed to the planner: $problem.',
-        );
-        continue;
-      }
-      final named = 'The idea ${idea.id} of the task ${task.name} on $machine';
-      if (task.project.isEmpty || task.project == defaultProject) {
-        await settings.markIdeaHanded(machine, task.name, run, digest);
-        await _take(machine, task, idea);
-        _sayProposed(
-          null,
-          task.project,
-          '$named is not handed to the planner: its task belongs to no planned project.',
-        );
-        continue;
-      }
-      final planner = ideaPlanner();
-      if (planner == null) {
-        _proposedUnreached(null, task.project, '$named waits: no planner is reached now.');
-        return false;
-      }
-      final (provider, source) = planner;
-      final repository = repositoryOf(machine, task);
-      if (repository == null || repository.isEmpty) {
-        _proposedUnreached(provider, task.project, '$named waits: no watched machine names its repository yet.');
-        return true;
-      }
-      final String id;
-      try {
-        id = await handIssue(
-          source,
-          task.project,
-          ProposedIssue(
-            repository: repository,
-            title: idea.title,
-            mustBeTrue: idea.mustBeTrue,
-            task: task.task.isNotEmpty ? task.task : task.name,
-          ),
-        );
-      } on PlanningRefusal catch (refusal) {
-        if (_transient(refusal) || const {'Busy', 'Http503', 'Http504', 'Unreachable'}.contains(refusal.name)) {
-          _proposedUnreached(provider, task.project, '$named waits: ${planningFailureWords(refusal)}');
-          return refusal.name == 'NoRepository';
-        }
-        // Only a refusal of the idea's own words is final; one of the planner's own, such as a store it could not
-        // write, is tried again at the next start of the window.
-        if (refusal.name != 'IssueNotAllowed' || !const {'title', 'mustBeTrue'}.contains(refusal.parameters['field'])) {
-          _proposedNotHanded.add(key);
-          _sayProposed(provider, task.project, '$named is not handed in: ${planningFailureWords(refusal)}');
-          return true;
-        }
-        await settings.markIdeaHanded(machine, task.name, run, digest);
-        await _take(machine, task, idea);
-        _sayProposed(
-          provider,
-          task.project,
-          '$named was refused by the planner and is not sent again: ${planningFailureWords(refusal)}',
-        );
-        continue;
-      } on Object catch (error) {
-        _proposedNotHanded.add(key);
-        _sayProposed(provider, task.project, '$named is not handed in: ${planningFailureWords(error)}');
-        return true;
-      }
-      _proposedUnreachedSaid = false;
-      await settings.markIdeaHanded(machine, task.name, run, digest);
-      await _take(machine, task, idea);
-      windowLog.info('Planning: ${idea.id} of the task ${task.name} on $machine was saved as $id in ${task.project}.');
-    }
-    return true;
-  }
-
-  /// Takes [idea] from [task] on [machine], once it is handed or marked not to be: Porelo forgets it and lists the
-  /// ideas it held back behind it. Asked once in this window's life, so one the machine could not take is asked again
-  /// at the next start of the window, never at every sweep.
-  Future<void> _take(String machine, Task task, ProposedIdea idea) async {
-    if (!_takeAsked.add((machine, _runKey(task), idea.id))) return;
-    try {
-      await takeIdeaOn(machine, task.name, idea.id);
-    } on Object catch (error) {
-      windowLog.info(
-        'Planning: ${idea.id} of the task ${task.name} on $machine was not taken from it: ${planningFailureWords(error)}',
-      );
-    }
-  }
-
-  /// The ideas asked to be taken from their tasks in this window's life, by machine, task's run and id.
-  final _takeAsked = <(String, String, String)>{};
-
-  /// Whether the task in [container] on [machine] lists an idea the window has neither handed nor marked.
-  bool _ideasWaiting(String machine, String container) {
-    final task = tasksOn(machine)?.where((each) => each.name == container).firstOrNull;
-    final ideas = task?.ideas;
-    if (task == null) return false;
-    // Ideas the listing held back for room come later: the discussion waits for them too.
-    if (task.ideasHeldBack > 0) return true;
-    if (ideas == null) return false;
-    final run = _runKey(task);
-    return ideas
-        .take(mostIdeasOfATask)
-        .any((idea) => !settings.ideaHanded(machine, task.name, run, proposedIdeaDigest(idea)));
-  }
-
-  // Kept as a digest, whatever the machine wrote into it.
-  static String _runKey(Task task) => crypto.sha256
-      .convert(utf8.encode(task.run != null && task.run!.isNotEmpty ? task.run! : task.name))
-      .toString()
-      .substring(0, 32);
-
-  void _proposedUnreached(String? provider, String project, String words) {
-    if (_proposedUnreachedSaid) return;
-    _proposedUnreachedSaid = true;
-    _sayProposed(provider, project, words);
-  }
-
-  void _sayProposed(String? provider, String project, String words) =>
-      _sayLogged(provider, project.isEmpty ? null : project, words);
-
-  /// Hands the idea [kept]'s discussion wrote to the planner, once for its [end]: an idea handed in, refused for its
-  /// faults or never written is not handed again, also across restarts; the result file stays in the task either way.
-  Future<void> _handIdea(KeptDiscussion kept, TaskResult? named, String end) async {
-    if (named == null) return _noIdea(kept, end, 'it was asked for no result file');
-    if (named.state == ResultState.missing && end.startsWith(_left)) {
-      // No change of the machine may come once it settled: a sweep then looks again.
-      if (!_missingSince.containsKey((kept.offer, end))) Timer(pollEvery(missingSettles), sweep);
-      final first = _missingSince.putIfAbsent((kept.offer, end), now);
-      if (now().difference(first) < pollEvery(missingSettles)) return;
-    }
-    _missingSince.remove((kept.offer, end));
-    if (named.state != ResultState.handed) {
-      return _noIdea(kept, end, switch (named.state) {
-        ResultState.missing => 'it wrote no ${named.name}',
-        ResultState.tooLarge => '${named.name} is larger than the machine takes',
-        ResultState.unreadable => '${named.name} could not be read as text',
-        _ => '${named.name} was not handed back',
-      });
-    }
-    final TaskResult result;
-    try {
-      result = await resultOf(kept.machine, kept.container);
-    } on Object catch (error) {
-      _ideasNotHanded.add((kept.offer, end));
-      return _sayIdea(
-        kept,
-        'The idea of the discussion ${kept.container} could not be read from ${kept.machine}: $error',
-      );
-    }
-    final content = result.content;
-    if (result.state != ResultState.handed || content == null) {
-      return _noIdea(kept, end, '${result.name} was not handed back');
-    }
-    if (utf8.encode(content).length > mostIdeaBytes) {
-      return _noIdea(kept, end, '${result.name} is larger than the planner takes (1 MiB)');
-    }
-    final Object? idea;
-    try {
-      idea = jsonDecode(content);
-    } on FormatException {
-      return _noIdea(kept, end, '${result.name} holds no JSON');
-    }
-    if (idea is! Map<String, Object?>) return _noIdea(kept, end, '${result.name} holds no JSON object');
-    final String story;
-    try {
-      story = await hand(kept.project, kept.offer, idea, runtimeDirectory: runtimeDirectory, projects: projects);
-    } on IdeaNotSaved catch (refusal) {
-      if (refusal.transient) {
-        if (_ideaUnreachedSaid) return;
-        _ideaUnreachedSaid = true;
-        return _sayIdea(kept, 'The idea of the discussion ${kept.container} is not handed in yet: ${refusal.words}');
-      }
-      if (refusal.faults.isNotEmpty) {
-        await settings.discussionHanded(kept.machine, kept.container, end);
-      } else {
-        _ideasNotHanded.add((kept.offer, end));
-      }
-      return _sayIdea(kept, _refusedIdea(kept, refusal));
-    }
-    _ideaUnreachedSaid = false;
-    await settings.discussionHanded(kept.machine, kept.container, end);
-    if (onIdeaHanded case final told?) {
-      told(kept, story);
-    } else {
-      windowLog.info('Planning: the idea of the discussion ${kept.container} was saved as $story in ${kept.project}.');
-    }
-    // Its idea is the planner's now, so the ended discussion goes, as a person would remove it; one whose idea was not
-    // saved stays with its result file, and one with ideas of its own not yet handed stays with them.
-    if (_ideasWaiting(kept.machine, kept.container)) {
-      final run = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull?.run;
-      await settings.discussionStays(kept.machine, kept.container, stays: run ?? '');
-      return _sayIdea(
-        kept,
-        'The discussion ${kept.container} was handed in as $story; it stays until the ideas it proposed are handed in.',
-      );
-    }
-    try {
-      await removeOn(kept.machine, kept.container);
-    } on Object catch (error) {
-      _sayIdea(kept, 'The discussion ${kept.container} was handed in as $story, but could not be removed: $error');
-    }
-  }
-
-  /// Removes each ended discussion whose idea was saved and that stayed for ideas it proposed, once its machine lists it
-  /// with none of them waiting or held back: once, also across restarts, as a person would remove it.
-  Future<void> _removeWaitedDiscussions() async {
-    for (final kept in settings.keptDiscussions) {
-      final run = kept.stays;
-      if (run == null) continue;
-      final task = tasksOn(kept.machine)?.where((each) => each.name == kept.container).firstOrNull;
-      // Only the ended task that stayed: a later one under its name, started meanwhile, is not it.
-      if (task == null || task.running || (task.run ?? '') != run) continue;
-      if (_ideasWaiting(kept.machine, kept.container)) continue;
-      await settings.discussionStays(kept.machine, kept.container, stays: null);
-      try {
-        await removeOn(kept.machine, kept.container);
-      } on Object catch (error) {
-        _sayIdea(kept, 'The discussion ${kept.container} was handed in, but could not be removed: $error');
       }
     }
   }
@@ -1006,24 +561,10 @@ class WindowTaskReports {
     return true;
   }
 
-  /// Says that [kept]'s discussion left no idea to hand in at [end], once.
-  Future<void> _noIdea(KeptDiscussion kept, String end, String why) async {
-    await settings.discussionHanded(kept.machine, kept.container, end);
-    _sayIdea(kept, 'The discussion ${kept.container} ended with no idea to hand to the planner: $why.');
-  }
-
-  static String _refusedIdea(KeptDiscussion kept, IdeaNotSaved refusal) {
-    final faults = [for (final fault in refusal.faults) fault.endsWith('.') ? ' $fault' : ' $fault.'].join();
-    return 'The planner did not save the idea of the discussion ${kept.container}: ${refusal.words}$faults '
-        'Its result file stays in the task.';
-  }
-
-  void _sayIdea(KeptDiscussion kept, String words) => _sayLogged(kept.provider, kept.project, words);
-
-  /// Says what became of an idea where the window shows planning problems, and writes it to the window's log too, so
+  /// Says what became of a stage's result where the window shows planning problems, and writes it to the window's log too, so
   /// it is still known once the board is gone.
   void _sayLogged(String? provider, String? project, String words) {
-    final refusal = PlanningRefusal('IdeaNotHanded', {'detail': words}, words);
+    final refusal = PlanningRefusal('ResultNotHanded', {'detail': words}, words);
     if (onProblem != null) windowLog.warn('Planning: ${planningFailureWords(refusal)}');
     _say(provider, project, refusal);
   }
@@ -1281,21 +822,8 @@ class WindowTaskReports {
     }
   }
 
-  /// How the end of a discussion left by its person is keyed: a stopped task with its result file.
-  static const _left = 'left|';
-
-  static List<String> _noMachines() => const [];
-
-  static (String, PlanningSource)? _noPlanner() => null;
-
-  static String? _noRepository(String machine, Task task) => null;
-
   static Future<TaskResult> _noResult(String machine, String container) =>
       Future.error(StateError('$machine answers no result files here.'));
-
-  static Future<void> _noRemoval(String machine, String container) async {}
-
-  static Future<bool> _noTaking(String machine, String container, String id) async => false;
 
   static String _endKey(PlanningTaskEnded ended) =>
       plannedEndKey(AgentEnded(at: ended.at, finished: ended.finished, unpushed: ended.unpushed));
@@ -1319,7 +847,6 @@ class WindowTaskReports {
     'InvalidName',
     'InvalidLevel',
     'NotACloneUrl',
-    'IdeaRefused',
     'ResultRefused',
   };
 
@@ -1327,25 +854,6 @@ class WindowTaskReports {
   // later change of a machine tries again.
   static bool _transient(PlanningRefusal refusal) =>
       const {'PlannerUnreachable', 'TimedOut', 'NoAddress', 'NoRepository'}.contains(refusal.name);
-}
-
-/// What tells one idea of a task from another, also one of the same id in other words: a digest of its id, its title
-/// and what must be true.
-String proposedIdeaDigest(ProposedIdea idea) =>
-    crypto.sha256.convert(utf8.encode(jsonEncode([idea.id, idea.title, idea.mustBeTrue]))).toString().substring(0, 32);
-
-/// Removes the handed-in discussion in [container] on the watched machine [name], as a person would. A refusal is the
-/// hand-in's to say, not a question to the person, who never asked for this removal: it is put away and thrown.
-Future<void> removeHandedDiscussion(Machines machines, String name, String container) async {
-  final machine = machines.all.where((machine) => machine.name == name).firstOrNull;
-  if (machine == null) return;
-  final fleet = machines.watching(machine);
-  if (fleet == null) throw StateError('$name is not answering yet.');
-  await fleet.removeWork(container);
-  if (fleet.refusal case final refused? when refused.task == container) {
-    fleet.letItBe();
-    throw StateError(removeWords(container, refused.result));
-  }
 }
 
 /// Reports a task through the planning screen's run that handed its offer to Start, as the screen's own client does,

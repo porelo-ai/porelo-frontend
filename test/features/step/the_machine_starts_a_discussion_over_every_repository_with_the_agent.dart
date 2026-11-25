@@ -6,6 +6,5 @@ import '../support/world.dart';
 Future<void> theMachineStartsADiscussionOverEveryRepositoryWithTheAgent(WidgetTester tester, String agent) async {
   final started = World.backend.discussed.single;
   expect(started.agent, agent);
-  expect(started.result, 'idea.json');
   expect(started.mode.name, 'AGENT');
 }

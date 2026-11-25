@@ -495,10 +495,10 @@ class PoreloClient {
 
   Future<bool> _declaresStartSteps() => _declaresStartInput('steps');
 
-  /// Why this machine's Porelo cannot start a discussion of an idea - every repository of a project read only, a
-  /// result file handed back - in words, or null where it can.
+  /// Why this machine's Porelo cannot start a discussion of an idea - every repository of a project read only - in
+  /// words, or null where it can.
   Future<String?> whyNoDiscussion() async {
-    if (!await _startDeclares('allRepositories') || !await _startDeclares('result')) {
+    if (!await _startDeclares('allRepositories')) {
       return "This machine's Porelo cannot read every repository of a project for a discussion; it needs a newer "
           'Porelo.';
     }
@@ -855,11 +855,15 @@ class PoreloClient {
   Future<Removed> remove(String task, {bool? rescue, bool? force}) async =>
       Removed.from(await _call('Remove', {'task': task, 'rescue': ?rescue, 'force': ?force}));
 
-  /// Takes the idea [id] of [task], once the window handed it on: Porelo forgets it, so the task's row lists it no more
-  /// and the ideas it held back behind it come. False where the task holds no such idea: taken before, never proposed,
-  /// or the task removed.
-  Future<bool> takeIdea(String task, String id) async =>
-      (await _call('TakeIdea', {'task': task, 'id': id}))['taken'] == true;
+  /// The reports [task] made after the one numbered [after], all where it is null, oldest first: as many as one
+  /// answer holds, with [TaskReports.more] where some were left out.
+  Future<TaskReports> reports(String task, {int? after}) async {
+    final page = TaskReports.from(await _call('Reports', {'task': task, 'after': ?after}));
+    if (after != null && page.reports.any((report) => report.seq <= after)) {
+      throw FormatException('Reports answered a report at or before $after');
+    }
+    return page;
+  }
 
   /// Every project on the machine.
   ///

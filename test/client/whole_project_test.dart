@@ -76,14 +76,13 @@ void main() {
   test('a machine says ahead whether it can start a discussion', () async {
     daemon.description = declares;
     expect(await (await connect()).whyNoDiscussion(), isNull);
-    for (final lacking in <String?>[
-      null,
-      'method Start(task: ?string, result: ?string) -> (exitCode: ?int)',
-      'method Start(task: ?string, allRepositories: ?bool) -> (exitCode: ?int)',
-    ]) {
+    for (final lacking in <String?>[null, 'method Start(task: ?string, result: ?string) -> (exitCode: ?int)']) {
       daemon.description = lacking;
       expect(await (await connect()).whyNoDiscussion(), contains('newer Porelo'), reason: '$lacking');
     }
+    // A discussion hands back no file: reading every repository is all it needs.
+    daemon.description = 'method Start(task: ?string, allRepositories: ?bool) -> (exitCode: ?int)';
+    expect(await (await connect()).whyNoDiscussion(), isNull);
   });
 
   // Harm: one failed read of the contract leaves a machine unable to start a discussion until the window restarts.

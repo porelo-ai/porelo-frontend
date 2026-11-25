@@ -21,7 +21,7 @@ import '../app/task_certifying.dart';
 import '../app/vault_devices.dart' show clockTime;
 import '../app/attention.dart';
 import '../app/commands.dart';
-import '../app/settings.dart' show RanOutQuestion;
+import '../app/settings.dart' show RanOutQuestion, Settings;
 import '../app/fleet_model.dart';
 import '../app/host_forge_token.dart';
 import '../app/host_pull_requests.dart';
@@ -40,6 +40,7 @@ import 'filtered_list_section.dart';
 import 'gate_view.dart' show WhoMadeIt;
 import 'page_explanation.dart';
 import 'sign_in_panel.dart';
+import 'task_reports_view.dart';
 import 'tokens.dart';
 import 'window_size.dart';
 import '../wire/limit_factors.dart';
@@ -1758,11 +1759,15 @@ class WorkRow extends StatelessWidget {
     this.onSeeInNeedsYou,
     this.highlight,
     this.onShown,
+    this.settings,
     super.key,
   });
 
   /// What the row is about.
   final Tile tile;
+
+  /// Where the reports seen of its work are kept; without it the row shows none.
+  final Settings? settings;
 
   /// What its work can be told to do, in its menu.
   final List<Command> actions;
@@ -1970,6 +1975,19 @@ class WorkRow extends StatelessWidget {
                 _BuildLine(said, scheme, folded: folded),
             if (task != null && task.phase.isNotEmpty)
               Text(task.phase, key: const Key('tile-phase'), style: text.bodySmall),
+            // Folded too: the only sign that its work reported something since it was last opened.
+            if ((task, settings) case (final task?, final settings?))
+              ListenableBuilder(
+                listenable: settings,
+                builder: (context, _) => switch (newReports(settings, tile.machine.name, task)) {
+                  0 => const SizedBox.shrink(),
+                  final count => Text(
+                    count == 1 ? '1 new report' : '$count new reports',
+                    key: const Key('tile-reports-new'),
+                    style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                },
+              ),
             // Folded too: its pushes begin to be refused, and nothing else would say it is coming.
             if (task != null)
               if (certificateEnding(task) case final ending?)
@@ -1991,6 +2009,7 @@ class WorkRow extends StatelessWidget {
                       ),
                     ),
                     if (task != null) _WorkFacts(tile: tile),
+                    if ((task, settings) case (_?, final settings?)) TaskReportsView(tile: tile, settings: settings),
                     ...TileSaid.of(context, tile, onTheRow: true),
                     // The last answer, so a question that ran out does not quietly disappear.
                     if (tile.questions.isEmpty && tile.settled != null)

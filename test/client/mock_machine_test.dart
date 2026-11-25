@@ -145,50 +145,52 @@ void main() {
     await watching.cancel();
   });
 
-  // Harm: a mock walk hands an idea nobody proposed into the person's real planner, or a proposed idea never reaches
-  // a watcher, so a hand-in that never comes looks like a quiet task.
-  test('no situation lists an idea by itself, and a proposed one reaches a watcher numbered per task', () async {
+  // Harm: a mock walk shows reports nobody made, or a report never reaches a watcher, so a task that reported back
+  // looks like a quiet one.
+  test('no situation reports anything by itself, and a report moves the row a watcher sees', () async {
     for (final situation in MockMachine.situations.keys) {
       await machineIn(situation);
       final client = await connect();
-      expect([for (final task in await client.tasks()) task.ideas], everyElement(isEmpty), reason: situation);
+      expect([for (final task in await client.tasks()) task.reports], everyElement(0), reason: situation);
     }
     await machineIn('work');
     final client = await connect();
-    final seen = <List<ProposedIdea>?>[];
+    final seen = <int>[];
     final second = Completer<void>();
     final watching = client.watchTasks().listen((tasks) {
-      seen.add(tasks.firstWhere((task) => task.name == 'porelo-checkout-shell').ideas);
+      seen.add(tasks.firstWhere((task) => task.name == 'porelo-checkout-shell').reports!);
       if (seen.length == 3) second.complete();
     });
     while (seen.isEmpty) {
       await Future<void>.delayed(Duration.zero);
     }
 
-    machine.proposeIdea('porelo-checkout-shell', 'Cache the mirror', 'A second build fetches nothing.');
-    machine.proposeIdea('porelo-checkout-shell', 'Name the run', 'The log names its run.');
+    machine.report('porelo-checkout-shell', 'idea', 'Cache the mirror.');
+    machine.report('porelo-checkout-shell', 'note', 'The log names its run.');
     await second.future;
 
-    expect(seen.last!.map((idea) => (idea.id, idea.title, idea.mustBeTrue)), [
-      ('idea-1', 'Cache the mirror', 'A second build fetches nothing.'),
-      ('idea-2', 'Name the run', 'The log names its run.'),
-    ]);
+    expect(seen, [0, 1, 2]);
     await watching.cancel();
   });
 
-  // Harm: an idea the window handed on stays on the task's row, so the ideas held back behind it never come.
-  test('a taken idea leaves the row for good, and its id is not given again', () async {
+  // Harm: reports are read again from the start, past a page, or a refusal reads as a task with no reports.
+  test('reports are read after a number, a page at a time, and a refusal is the machine\'s', () async {
     await machineIn('work');
     final client = await connect();
-    machine.proposeIdea('porelo-checkout-shell', 'Cache the mirror', 'A second build fetches nothing.');
-    machine.proposeIdea('porelo-checkout-shell', 'Name the run', 'The log names its run.');
+    for (final text in ['one', 'two', 'three']) {
+      machine.report('porelo-checkout-shell', 'note', text);
+    }
+    machine.reportsPerAnswer = 2;
 
-    expect(await client.takeIdea('porelo-checkout-shell', 'idea-1'), isTrue);
-    expect(await client.takeIdea('porelo-checkout-shell', 'idea-1'), isFalse, reason: 'taken before');
-    machine.proposeIdea('porelo-checkout-shell', 'Keep the cache', 'A third build fetches nothing.');
+    final first = await client.reports('porelo-checkout-shell');
+    expect([for (final report in first.reports) (report.seq, report.text)], [(1, 'one'), (2, 'two')]);
+    expect((first.last, first.more), (3, true));
+    final rest = await client.reports('porelo-checkout-shell', after: 2);
+    expect([for (final report in rest.reports) report.seq], [3]);
+    expect(rest.more, isFalse);
 
-    final ideas = (await client.tasks()).firstWhere((task) => task.name == 'porelo-checkout-shell').ideas;
-    expect(ideas!.map((idea) => idea.id), ['idea-2', 'idea-3']);
+    machine.reportsRefused = 'org.varlink.service.MethodNotFound';
+    await expectLater(client.reports('porelo-checkout-shell'), throwsA(isA<FeatureNotSupported>()));
   });
 
   test('a log is followed, and a name it does not have is refused', () async {

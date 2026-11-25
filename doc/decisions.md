@@ -70,7 +70,7 @@ taken, `git log` answers.
 | [Each organization role answers for the one below](#each-organization-role-answers-for-the-one-below) |
 | [Planning is porelo-planner's, and the window keeps none of its own](#planning-is-porelo-planners-and-the-window-keeps-none-of-its-own) |
 | [A planner the window started ends with the window](#a-planner-the-window-started-ends-with-the-window) |
-| [The window carries ideas to the planner, which talks to no Porelo](#the-window-carries-ideas-to-the-planner) |
+| [The window only shows a task's reports; the planner reads its own](#the-window-only-shows-a-tasks-reports) |
 | [The planner is given the one Porelo the window vouches for, by its path](#the-planner-is-given-the-one-porelo-the-window-vouches-for) |
 | [A task on a host is certified by this computer's agent, which is never forwarded](#a-task-on-a-host-is-certified-by-this-computers-agent) |
 | [An organization may be created at an https address, with a word that no machine can follow it](#an-organization-may-be-created-at-an-https-address) |
@@ -989,17 +989,16 @@ running, and so is one that took the started one's place.
 **What it costs:** a planner the window started no longer serves the account's other windows and tools once that
 window ends; they find or start their own.
 
-## The window carries ideas to the planner
+## The window only shows a task's reports
 
-The planner runs on this computer and talks to no Porelo, while the ideas it plans come from tasks on machines, a rented
-host as often as not. The window reaches both, so it carries them: the idea file an ended discussion names, read from
-its machine with `Result` and handed as `POST /projects/{project}/ideas` with the offer it came from, and each idea a
-task on a watched machine proposes, handed as a new issue in the state New of the task's repository and then taken from
-its task with `TakeIdea`. Each is handed once, also across restarts, by a mark kept in the settings.
+A task reports back to whoever started it through Porelo's `Report`, a one-line kind and a text, numbered per task.
+The planner reads the reports of the tasks it started itself, through Porelo, and keeps the last number it read; a
+discussion's idea reaches it the same way. The window hands it nothing and takes nothing from a task: it shows a task's
+reports when its row is opened, and keeps per task only the last number the person has seen, so the row can say how
+many are new.
 
-**What it costs:** an idea reaches the planner only while a window runs. The planner's new issue takes no key that makes
-a second send harmless, so a window that ends between the planner's save and its mark hands that idea once more at its
-next start. Against a Porelo without `TakeIdea` the idea stays on its task's row, and the window logs it.
+**What it costs:** an ended discussion is no longer removed for the person once its idea was saved, since the window no
+longer knows when that was; it stays until the person removes it, as any ended task does.
 
 ## The planner is given the one Porelo the window vouches for
 

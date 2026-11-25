@@ -58,13 +58,15 @@ class _Wedged implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
-    required String result,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) => throw UnimplementedError();
 
   @override
   Future<TaskResult> taskResult(String task) => throw UnimplementedError();
+
+  @override
+  Future<TaskReports> taskReports(String task, {int? after}) => throw UnimplementedError();
 
   @override
   Future<String?> whyNoDiscussion() => throw UnimplementedError();
@@ -577,13 +579,15 @@ class _Machine implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
-    required String result,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) => throw UnimplementedError();
 
   @override
   Future<TaskResult> taskResult(String task) => throw UnimplementedError();
+
+  @override
+  Future<TaskReports> taskReports(String task, {int? after}) => throw UnimplementedError();
 
   @override
   Future<String?> whyNoDiscussion() => throw UnimplementedError();

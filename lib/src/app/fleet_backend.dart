@@ -317,15 +317,14 @@ abstract class FleetBackend {
   });
 
   /// Starts a discussion a planner ordered: every repository of [project] read only, nothing writable and nothing
-  /// pushed, and [result] the file the task is to hand back when it ends. Answers as [startOrdered] does; a machine
-  /// that cannot read every repository refuses with `FeatureNotSupported`.
+  /// pushed; its idea comes back as a report its planner reads. Answers as [startOrdered] does; a machine that cannot
+  /// read every repository refuses with `FeatureNotSupported`.
   Future<StartProgress> startDiscussion({
     required String project,
     required String agent,
     required String model,
     required Mode mode,
     required String prompt,
-    required String result,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   });
@@ -335,6 +334,9 @@ abstract class FleetBackend {
 
   /// The result file [task] handed back at its end, with its content.
   Future<TaskResult> taskResult(String task);
+
+  /// The reports [task] made after the one numbered [after]; see [PoreloClient.reports].
+  Future<TaskReports> taskReports(String task, {int? after});
 
   /// Sets or clears the caption a task reads by. **Nothing about its identity moves.**
   Future<Labelled> labelTask(String task, {String? label});
@@ -1001,7 +1003,6 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     required String model,
     required Mode mode,
     required String prompt,
-    required String result,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) => _startRunning(
@@ -1018,7 +1019,6 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
       now: true,
       certify: asksToCertify,
       allRepositories: true,
-      result: result,
     ),
   );
 
@@ -1071,8 +1071,8 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
   @override
   Future<TaskResult> taskResult(String task) => _opened().result(task);
 
-  /// Takes the idea [id] of [task] once the window handed it on; false where the task holds no such idea.
-  Future<bool> takeIdea(String task, String id) => _opened().takeIdea(task, id);
+  @override
+  Future<TaskReports> taskReports(String task, {int? after}) => _opened().reports(task, after: after);
 
   /// Follows a start to its final reply, certifying what it asks, and answers that reply with what it printed.
   ///

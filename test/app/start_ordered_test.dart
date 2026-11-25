@@ -458,7 +458,6 @@ void main() {
       model: 'opus',
       mode: Mode.agent,
       prompt: 'Discuss the idea.',
-      result: 'idea.json',
     );
 
     expect(asked.single, <String, dynamic>{
@@ -469,7 +468,6 @@ void main() {
       'prompt': 'Discuss the idea.',
       'now': true,
       'allRepositories': true,
-      'result': 'idea.json',
     });
     expect(answer.container, 'porelo-demo-idea');
   });
