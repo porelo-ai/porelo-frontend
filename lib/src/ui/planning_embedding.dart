@@ -279,6 +279,9 @@ class WindowTaskStarts {
           readOnly: result != null,
           // The issues as the planner holds them now, each a name and a text; Start mounts them read only.
           given: {for (final file in task.given) file.name: file.text},
+          // The run's role and place as the planner read them; the window builds none of its own.
+          role: task.runRole,
+          place: task.place?.toJson(),
           // The tracker issue and phase a task of a project kept in a tracker works; absent for one kept in Markdown.
           work: switch (task.work) {
             final work? => (issue: work.issue, phase: work.phase),
@@ -457,13 +460,24 @@ String plannedEndKey(AgentEnded ended) {
 /// Where the window's planning place reads its boards, and how a start of story work it confirms reaches them.
 class EmbeddedPlanning {
   /// Takes the providers of planning, how a start reaches a machine, and where a started task runs.
-  const EmbeddedPlanning(this.client, {required this.startTask, this.startedOn = _nowhere, this.reports, this.starts});
+  const EmbeddedPlanning(
+    this.client, {
+    required this.startTask,
+    this.startOffered,
+    this.startedOn = _nowhere,
+    this.reports,
+    this.starts,
+  });
 
   /// The providers of planning, one per machine that serves it.
   final PlanningClient client;
 
   /// How a task of story work is started.
   final PlanningStartTask startTask;
+
+  /// How a task the planner offers without a press is started: listed among the operations, never opened over what the
+  /// person does; absent where such offers are not started.
+  final PlanningStartTask? startOffered;
 
   /// The machine a task [startTask] started for a project runs on, by its container, or null where it does not know.
   final Machine? Function(String project, String container) startedOn;
@@ -491,6 +505,7 @@ EmbeddedPlanning plannerPlanning(LocalPlanner planner, Machines machines) {
   return EmbeddedPlanning(
     planner,
     startTask: starts.pressed,
+    startOffered: starts.call,
     startedOn: starts.startedOn,
     reports: reports,
     starts: starts,

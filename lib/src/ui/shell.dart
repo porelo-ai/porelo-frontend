@@ -699,6 +699,7 @@ class _ShellState extends State<Shell> {
     final planning? => PlanningBoards(
       planning.client,
       startTask: planning.startTask,
+      startOffered: planning.startOffered,
       agents: _planningAgents!,
       wizards: const WindowPlanningWizards(),
       seen: _attention.seen,

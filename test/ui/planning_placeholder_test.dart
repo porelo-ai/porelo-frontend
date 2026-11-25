@@ -103,6 +103,26 @@ void main() {
     expect(find.byKey(const Key('planning-not-reached')), findsNothing);
   }, skip: Platform.isWindows); // Linux only: porelo-planner, its runtime directory and POSIX modes.
 
+  // Harm: an offer the planner makes with no press opens the start's progress over what the person does, or is never
+  // started.
+  testWidgets('an offer nobody pressed is started as one the window only lists', (tester) async {
+    final runtime = Directory.systemTemp.createTempSync('planning-offered');
+    addTearDown(() => runtime.deleteSync(recursive: true));
+    final planner = LocalPlanner(
+      projects: () => const [],
+      repositories: (project) => throw StateError('no project is read'),
+      runtimeDirectory: runtime.path,
+      candidates: const [],
+    );
+    addTearDown(planner.dispose);
+    late EmbeddedPlanning embedded;
+    await World.startBackend(World.work);
+    await World.startApp(tester, planning: (machines) => embedded = plannerPlanning(planner, machines));
+
+    expect(embedded.startOffered, embedded.starts!.call);
+    expect(embedded.startTask, embedded.starts!.pressed);
+  }, skip: Platform.isWindows); // Linux only: porelo-planner's runtime directory and POSIX modes.
+
   // Harm: a planner that was not reached at the start stays unreached until the window is restarted.
   testWidgets('refreshing tries a planner not yet reached again', (tester) async {
     final planner = _Unreached();

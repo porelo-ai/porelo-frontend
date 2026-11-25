@@ -121,6 +121,31 @@ void main() {
       expect(machine.started.single['work'], (issue: 'porelo-ai/porelo-frontend#617', phase: 'Implementing'));
     });
 
+    // Harm: a reviewer starts at another place than the planner read, or as an author at its own work.
+    test('a run starts with the role and the place its order names, as the planner read them', () async {
+      final order = PlanningTaskOrder.from({
+        'offer': '00000000-0000-4000-8000-0000000006a2',
+        'repository': 'porelo',
+        'issues': ['porelo#617'],
+        'role': 'MAIN',
+        'agent': 'claude',
+        'model': 'opus',
+        'mode': 'AGENT',
+        'prompt': 'Review the push of porelo#617.',
+        'runRole': 'REVIEWER',
+        'place': {
+          'gatePush': {'name': 'porelo-617', 'repository': 'porelo'},
+        },
+      });
+
+      await starts()(MockPlanningSource('planner'), 'demo', 'ST617', order);
+
+      expect(machine.started.single['role'], 'REVIEWER');
+      expect(machine.started.single['place'], {
+        'gatePush': {'name': 'porelo-617', 'repository': 'porelo'},
+      });
+    });
+
     // Harm: the offer of a started task is lost, so its end cannot be reported against it.
     test('an order\'s offer is kept beside the machine and the container it started in', () async {
       final order = (await plannedOrders()).first;
@@ -487,8 +512,6 @@ PlanningTaskOrder discussionOrder({String offer = '00000000-0000-4000-8000-00000
   'model': 'mock-model',
   'mode': 'AGENT',
   'prompt': 'Discuss this idea with the person, change nothing, and once they agree report it as an idea.',
-  // The pinned planner still names one; the window starts a discussion without it.
-  'result': 'idea.json',
 });
 
 /// The tasks a planner orders for ST291's analysis, each with an offer and a prompt of its own.

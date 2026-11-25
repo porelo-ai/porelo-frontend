@@ -17,7 +17,6 @@ void main() {
     'model': 'gpt-6',
     'mode': 'AGENT',
     'prompt': 'Discuss this idea.',
-    'result': 'idea.json',
   });
 
   Agent agent(String name) => Agent.from({'name': name, 'label': name, 'binary': name});
