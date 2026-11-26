@@ -70,14 +70,14 @@ void main() {
     return badge.isLabelVisible ? '${(badge.label! as Text).data} need you' : 'nothing needs you';
   }
 
-  /// Republishes [name] in a terminal mode with the end given.
+  /// Republishes [name] in a terminal mode with the end given, its activity ENDED as the machine then says it.
   void aTerminalEnded(String name, Map<String, dynamic> ended) {
     World.backend.publish(<Task>[
       for (final task in World.backend.tasksNow)
         if (task.name != name)
           task
         else
-          Task.from(<String, dynamic>{...wire(task), 'mode': 'SHELL', 'agentEnded': ended}),
+          Task.from(<String, dynamic>{...wire(task), 'mode': 'SHELL', 'activity': 'ENDED', 'agentEnded': ended}),
     ]);
   }
 
