@@ -142,6 +142,18 @@ Future<void> prepareWork(WidgetTester tester, String condition) async {
         ...proposed,
         'modes': ['UNATTENDED'],
       };
+    case 'one issue held behind a blocker':
+      final proposed = World.planning.work.call('ProposeStoryWork', {
+        'project': 'checkout',
+        'story': 'ST291',
+        'to': 'In analysis',
+      });
+      World.planning.work.proposals['ST291'] = {
+        ...proposed,
+        'held': [
+          {'issue': 'B542', 'reason': 'Waits on B540, which is not done'},
+        ],
+      };
     case 'second machine proposal':
       final proposed = World.planningOn(World.elsewhere).work
           .call('ProposeStoryWork', {'project': 'checkout', 'story': 'ST291', 'to': 'In analysis'});
@@ -357,6 +369,13 @@ Future<void> proveWork(WidgetTester tester, String proof) async {
       expect(find.text('Unattended'), findsOneWidget);
       expect(workKey('story-work-mode AGENT'), findsNothing);
       expect(find.text('Start 2 tasks'), findsOneWidget);
+    case 'held issue and its blocker visible':
+      expect(_inWindowWizard(), isTrue, reason: 'Start work shows in the window\'s own wizard here');
+      expect((await workSee(tester, 'story-work-held B542')), findsOneWidget);
+      expect(find.textContaining('Waits on B540, which is not done'), findsOneWidget);
+    case 'held issue and its blocker visible in a narrow host':
+      expect((await workSee(tester, 'story-work-held B542')), findsOneWidget);
+      expect(find.textContaining('Waits on B540, which is not done'), findsOneWidget);
     case 'other machine proposal visible':
       expect(find.textContaining('Story supplied by another machine'), findsOneWidget);
       final model = find.descendant(

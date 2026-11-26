@@ -147,6 +147,18 @@ void main() {
       await thePlanningWatchFails(tester);
       await storyWorkProves(tester, 'stale reading retained');
     });
+    testWidgets('''Start work names the issues a start leaves waiting and what blocks each''', (tester) async {
+      await bddSetUp(tester);
+      await storyWorkIsPreparedWith(tester, 'one issue held behind a blocker');
+      await iOpenStoryWorkFor(tester, 'ST291');
+      await storyWorkProves(tester, 'held issue and its blocker visible');
+    });
+    testWidgets('''Start work names a waiting issue in a narrow window too''', (tester) async {
+      await bddSetUp(tester);
+      await storyWorkIsPreparedWith(tester, 'one issue held behind a blocker');
+      await iOpenStoryWorkInANarrowHost(tester);
+      await storyWorkProves(tester, 'held issue and its blocker visible in a narrow host');
+    });
     testWidgets('''Start is usable in a narrow window''', (tester) async {
       await bddSetUp(tester);
       await iOpenStoryWorkInANarrowHost(tester);

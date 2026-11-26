@@ -116,6 +116,18 @@ Feature: Start and decide story work from the planning board
         And the planning watch fails
         Then story work proves {'stale reading retained'}
 
+    # Harm: a person starts a story's work believing every open issue is in it, while one waits behind its blocker.
+    Scenario: Start work names the issues a start leaves waiting and what blocks each
+        Given story work is prepared with {'one issue held behind a blocker'}
+        When I open story work for {'ST291'}
+        Then story work proves {'held issue and its blocker visible'}
+
+    # Harm: on a narrow window the waiting issue and its blocker are out of reach.
+    Scenario: Start work names a waiting issue in a narrow window too
+        Given story work is prepared with {'one issue held behind a blocker'}
+        When I open story work in a narrow host
+        Then story work proves {'held issue and its blocker visible in a narrow host'}
+
     # Harm: a narrow window makes a start decision unreachable.
     Scenario: Start is usable in a narrow window
         When I open story work in a narrow host
