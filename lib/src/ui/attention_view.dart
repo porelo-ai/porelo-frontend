@@ -1495,9 +1495,9 @@ abstract final class TileSaid {
       // What an unattended run came to, under what it wrote, and where to go from here: on a row of Work, and on the
       // row of its end, never on the row of another cause of its work.
       if (onTheRow || tile.demand == Demand.ended) ...<Widget>[
-        if (task?.agentEnded?.lastAnswer case final answer? when answer.isNotEmpty)
+        if (task case Task(runEnded: true, agentEnded: AgentEnded(lastAnswer: final answer)) when answer.isNotEmpty)
           Text(answer, key: const Key('tile-last-answer')),
-        if (task case Task(mode: Mode.unattended, agentEnded: final ended?))
+        if (task case Task(runEnded: true, mode: Mode.unattended, agentEnded: final ended?))
           Text(TileWords._cameTo(task, ended), key: const Key('tile-run-ended'), style: text.bodyMedium),
       ],
       // Why it is down, when a restart of its machine took it: in the machine's words.

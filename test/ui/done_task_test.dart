@@ -8,6 +8,7 @@ import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/attention_view.dart';
 import 'package:porelo_frontend/src/ui/machine_tree.dart';
 
+import '../features/support/tiles.dart';
 import '../features/support/world.dart';
 
 /// A task as the machine lists it: its container up, and its activity as given.
@@ -25,6 +26,19 @@ Task _task(String name, String activity, {int waiting = 0}) => Task.from(<String
   'agent': 'an-agent',
   'repository': 'checkout',
 });
+
+Map<String, dynamic> _wire(String name, String activity) => <String, dynamic>{
+  'name': name,
+  'task': name.replaceFirst('porelo-checkout-', ''),
+  'project': 'checkout',
+  'securityClass': 'guarded',
+  'state': 'Up 4 minutes',
+  'running': true,
+  'activity': activity,
+  'helpers': 0,
+  'agent': 'an-agent',
+  'repository': 'checkout',
+};
 
 String _text(WidgetTester tester, String key) => tester.widget<Text>(find.byKey(Key(key))).data!;
 
@@ -45,6 +59,51 @@ void main() {
       Demand.gate,
       reason: 'its work at the gate still waits for review',
     );
+  });
+
+  // Harm: a person believes ended work is still running and waits for it.
+  test('a task whose run ended reads as done, and one started again reads by its new run', () {
+    Task listed(String activity, {bool running = true}) => Task.from(<String, dynamic>{
+      'name': 'porelo-checkout-ended',
+      'task': 'ended',
+      'running': running,
+      'activity': activity,
+      'agentEnded': <String, dynamic>{'at': '2026-11-26T10:30:00Z', 'finished': true},
+    });
+    expect(Attention.demandOf(listed('ENDED'), const <Prompt>[], endSeen: true), Demand.done);
+    expect(Attention.demandOf(listed('ENDED', running: false), const <Prompt>[], endSeen: true), Demand.done);
+    expect(Attention.demandOf(listed('WORKING'), const <Prompt>[], endSeen: true), Demand.working);
+    expect(listed('WORKING').runEnded, isFalse);
+    expect(listed('UNKNOWN').runEnded, isFalse);
+    expect(listed('ENDED').runEnded, isTrue);
+    expect(listed('WORKING', running: false).runEnded, isTrue);
+  });
+
+  // Harm: a task started again still says its previous run "Finished", so the person takes live work for ended work.
+  testWidgets('a task started again does not show the end of its previous run', (tester) async {
+    List<Task> work(String activity) => <Task>[
+      Task.from(<String, dynamic>{
+        ..._wire('porelo-checkout-again', activity),
+        'mode': 'UNATTENDED',
+        'agentEnded': <String, dynamic>{
+          'at': '2026-11-10T09:00:00Z',
+          'finished': true,
+          'answer': 'All done.',
+          'unpushed': 0,
+        },
+      }),
+    ];
+    await World.startBackend(work('ENDED'));
+    await World.startApp(tester);
+    World.shell.goTo(Section.work);
+    await World.settle(tester);
+    await tester.tap(tileFor('porelo-checkout-again'));
+    await World.settle(tester);
+    expect(find.byKey(const Key('tile-run-ended')), findsOneWidget);
+    World.backend.publish(work('WORKING'));
+    await World.settle(tester);
+    expect(find.byKey(const Key('tile-run-ended')), findsNothing);
+    expect(find.byKey(const Key('tile-last-answer')), findsNothing);
   });
 
   // Harm: a done task is drawn and counted as running in Work.

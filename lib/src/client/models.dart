@@ -474,6 +474,10 @@ class Task {
   /// its gate's `Pending` still lists is said from that, not from here.
   bool get hasWorkWaiting => waiting > 0 && !online;
 
+  /// Whether its latest run is over, by the machine's word: a restarted task keeps its old [agentEnded], so that
+  /// alone says nothing of the run now.
+  bool get runEnded => activity == Activity.ended || activity == Activity.done || activity == Activity.dead || !running;
+
   /// Whether it belongs to an `online` project, as the machine says: an empty or unknown class is not one.
   bool get online => securityClass == 'online';
 

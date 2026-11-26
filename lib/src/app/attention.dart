@@ -1463,7 +1463,7 @@ class Attention extends ChangeNotifier {
     if (!endSeen && (task.agentEnded?.needsSomebody ?? false)) return Demand.ended;
     if (task.hasWorkWaiting) return Demand.gate;
     // Before stopped and running alike: its own word, which a stopped container and an idle one both keep.
-    if (task.activity == Activity.done) return Demand.done;
+    if (task.activity == Activity.done || task.activity == Activity.ended) return Demand.done;
     if (task.activity == Activity.dead || !task.running) return Demand.stopped;
     return switch (task.activity.name) {
       'WORKING' => Demand.working,
