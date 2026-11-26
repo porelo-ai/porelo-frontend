@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A save the planner holds under *Needs you* opens in place to what it changes, the value last read on the forge with its time, the reason, the forge's answer word for word with its request id and *Copy*, and every try; identical saves stand as one line. While the project's board is not read, the kept row shows the same details read-only, without *Resend* and *Drop*.
 - A machine stored with a host and no `socket`, as the IntelliJ plugin or a hand edit can leave it, gets the window's own endpoint for it and is reached; one naming neither a host nor a socket stays listed and says which fields are missing instead of being dropped or shown with an empty path, and the tunnel refuses an empty socket path in those words before it checks a folder or starts ssh.
 - *My forges* lists the forges each watched machine already keeps beside the ones set up in the window, each marked *kept by* its machine with its adapter and how its comments are read; a host the window also set up shows once with both marks. A machine not read yet, one that cannot read its forges (in its words) and one whose Porelo is older say so in words and are never shown as keeping none; the side bar counts the window's own forges and the machines' apart, and nothing is changed on a machine from these rows.
 - A task can no longer be named `people`, `person` or `review`, the names Porelo keeps for itself: the window refuses them before a start, and a repository named so suggests the task name `work`.

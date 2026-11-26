@@ -14,6 +14,10 @@ import './step/needs_you_counts.dart';
 import './step/i_resend_the_held_save_of.dart';
 import './step/needs_you_holds_no_held_saves_of.dart';
 import './step/the_planner_was_asked_to_the_held_save_of.dart';
+import './step/i_open_the_held_save_of.dart';
+import './step/the_held_save_of_shows_its_change_the_forges_answer_and_its_tries.dart';
+import './step/i_copy_the_request_id_of_the_held_save_of.dart';
+import './step/the_clipboard_holds_the_request_id_alone.dart';
 import './step/the_planner_holds_a_save_of_made_by_a_halted_run.dart';
 import './step/i_drop_the_held_save_of.dart';
 import './step/the_planner_refuses_to_resend_a_save_as_no_longer_held.dart';
@@ -38,6 +42,17 @@ void main() {
       await needsYouCounts(tester, 1);
       await thePlannerWasAskedToTheHeldSaveOf(tester, 'resend', 'cart-move');
     });
+    testWidgets(
+      '''A held save opens to its change, the forge's answer and its tries, and its request id copies whole''',
+      (tester) async {
+        await bddSetUp(tester);
+        await thePlannerHoldsASaveOfMadeOnTheBoard(tester, 'cart-move');
+        await iOpenTheHeldSaveOf(tester, 'cart-move');
+        await theHeldSaveOfShowsItsChangeTheForgesAnswerAndItsTries(tester, 'cart-move');
+        await iCopyTheRequestIdOfTheHeldSaveOf(tester, 'cart-move');
+        await theClipboardHoldsTheRequestIdAlone(tester);
+      },
+    );
     testWidgets('''A halted run's held save can only be dropped''', (tester) async {
       await bddSetUp(tester);
       await thePlannerHoldsASaveOfMadeByAHaltedRun(tester, 'cart-move');

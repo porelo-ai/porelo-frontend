@@ -5,11 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_planning/porelo_planning.dart'
     show
-        PlanHeldCommand,
-        PlanHeldSave,
         PlanningAttention,
         PlanningBoard,
         PlanningHeldSavesView,
+        PlanningKeptHeldSavesView,
         StoryWorkAttentionView,
         planningShown;
 
@@ -1089,7 +1088,8 @@ class _CauseFacts extends StatelessWidget {
 /// The saves one project's planner holds, as the planning screen shows them with Resend and Drop; once resolved, what
 /// was held, without the board's live buttons.
 /// Its live form is the planning screen's, acting through [live], the current board read whole; a row kept while that
-/// board is gone, replaced or not read whole shows the saves it last held as words, and why nothing can be done now.
+/// board is gone, replaced or not read whole shows the screen's read-only form of the saves it last held, and why
+/// nothing can be done now.
 class _HeldSavesEntry extends StatelessWidget {
   const _HeldSavesEntry({
     required this.held,
@@ -1119,52 +1119,23 @@ class _HeldSavesEntry extends StatelessWidget {
       );
     }
     if (live case final board?) return PlanningHeldSavesView(board: board, machine: machine);
-    return Card(
-      key: ValueKey('held-saves-kept ${held.project}'),
-      child: Padding(
-        padding: const EdgeInsets.all(Space.normal),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_shown('Held saves · ${held.project} on $machine')),
-            for (final save in held.saves) ...[
-              Text(_shown(_source(save))),
-              for (final command in save.commands) Text(_shown(_command(command))),
-            ],
-            Text(
-              _shown(
-                'The planning board of ${held.project} on $machine is not read; Resend and Drop return when it is.',
-              ),
-            ),
-          ],
+    // The screen's own read-only form, so a kept row says what the live one says, without Resend and Drop.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PlanningKeptHeldSavesView(saves: held.saves, project: held.project, machine: machine),
+        Padding(
+          padding: const EdgeInsets.all(Space.normal),
+          child: Text(
+            _shown('The planning board of ${held.project} on $machine is not read; Resend and Drop return when it is.'),
+            key: ValueKey('held-saves-kept-why ${held.project}'),
+          ),
         ),
-      ),
+      ],
     );
   }
 
   static String _shown(String words) => planningShown(words, multiline: false);
-
-  // Worded as the screen's own section words them, so the row reads the same whether it can act or not.
-  static String _source(PlanHeldSave save) => save.earlier
-      ? 'Kept from ${save.repository.isEmpty ? 'another repository' : save.repository}'
-            '${save.branch.isEmpty ? '' : ' on ${save.branch}'}; it is never written here.'
-      : save.run
-      ? 'A save of a run.'
-      : 'A save made on the board.';
-
-  static String _command(PlanHeldCommand command) {
-    final state = switch (command.state) {
-      'QUEUED' => 'waiting',
-      'DONE' => 'saved',
-      'REFUSED' => 'refused',
-      'HELD' => 'held',
-      _ => 'not known',
-    };
-    final reason = command.reason.isEmpty || command.reason == 'NONE'
-        ? ''
-        : ' · ${command.reason}${command.subject.isEmpty ? '' : ': ${command.subject}'}';
-    return '${command.target} · $state$reason';
-  }
 }
 
 class _PlanningRow extends StatelessWidget {

@@ -56,6 +56,20 @@ const _heldSaves = [
         'subject': 'the forge did not answer',
       },
     ],
+    'reason': 'The forge did not answer the save.',
+    'changes': [
+      {'target': 'item', 'field': 'status', 'now': 'Backlog', 'nowAt': '2026-11-26T07:00:00Z', 'saved': 'In analysis'},
+    ],
+    'tries': [
+      {
+        'at': '2026-11-26T07:01:00Z',
+        'result': 'REFUSED',
+        'reason': 'Unreachable',
+        'answer': {'status': 502, 'text': 'Bad gateway', 'requestId': 'req-7f3a'},
+      },
+    ],
+    'answer': {'status': 502, 'text': 'Bad gateway', 'requestId': 'req-7f3a'},
+    'saves': ['group-1'],
   },
 ];
 
@@ -294,8 +308,19 @@ void main() {
     );
     await tester.pump();
     expect(tester.takeException(), isNull);
-    expect(find.text('Held saves · demo on builder'), findsOneWidget);
-    expect(find.text('item · refused · Unreachable: the forge did not answer'), findsOneWidget);
+    expect(find.byKey(const Key('held-saves-kept demo')), findsOneWidget);
+    // Opened in place, the kept line says what the live one says: the change, the forge's answer and every try.
+    await tester.tap(find.byKey(const Key('held-save-open group-1')));
+    await tester.pump();
+    final details = find.byKey(const Key('held-save-details group-1'));
+    expect(details, findsOneWidget);
+    Finder inIt(Finder what) => find.descendant(of: details, matching: what);
+    expect(inIt(find.byKey(const Key('held-save-change group-1 0'))), findsOneWidget);
+    expect(inIt(find.byKey(const Key('held-save-answer group-1'))), findsOneWidget);
+    expect(inIt(find.textContaining('HTTP 502 · Bad gateway')), findsWidgets);
+    expect(inIt(find.byKey(const Key('held-save-request group-1'))), findsOneWidget);
+    expect(inIt(find.textContaining('req-7f3a')), findsWidgets);
+    expect(inIt(find.byKey(const Key('held-save-try group-1 0'))), findsOneWidget);
     expect(
       find.text('The planning board of demo on builder is not read; Resend and Drop return when it is.'),
       findsOneWidget,

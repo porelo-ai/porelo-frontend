@@ -19,6 +19,15 @@ Feature: Saves the planner holds wait in Needs you until resent or dropped
         And Needs you counts {1}
         And the planner was asked to {'resend'} the held save of {'cart-move'}
 
+    # Harm: a person decides on a held save without seeing what it changes, what the forge answered or how often it was
+    # tried, or cannot hand the forge's request id on whole.
+    Scenario: A held save opens to its change, the forge's answer and its tries, and its request id copies whole
+        When the planner holds a save of {'cart-move'} made on the board
+        And I open the held save of {'cart-move'}
+        Then the held save of {'cart-move'} shows its change, the forges answer and its tries
+        When I copy the request id of the held save of {'cart-move'}
+        Then the clipboard holds the request id alone
+
     # Harm: a halted run's save is offered again from here, where only its run's Stop or Start decides it.
     Scenario: A halted run's held save can only be dropped
         When the planner holds a save of {'cart-move'} made by a halted run
