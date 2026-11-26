@@ -552,7 +552,7 @@ class Attention extends ChangeNotifier {
       for (final question in tile.questions) cause(Demand.question, <Prompt>[question]),
       if (task != null && tile.questions.isEmpty && task.activity == Activity.waiting && !_answeredSince(tile))
         cause(Demand.question),
-      if (task != null && !_endSeen(tile.machine, task) && (task.agentEnded?.needsSomebody ?? false))
+      if (task != null && task.runEnded && !_endSeen(tile.machine, task) && (task.agentEnded?.needsSomebody ?? false))
         cause(Demand.ended),
       if (task?.hasWorkWaiting ?? false) cause(Demand.gate),
     ];
@@ -1459,8 +1459,9 @@ class Attention extends ChangeNotifier {
   /// Why one piece of work sits where it does. With [endSeen], how it ended is known to somebody.
   static Demand demandOf(Task task, List<Prompt> questions, {bool endSeen = false}) {
     if (questions.isNotEmpty || task.activity == Activity.waiting) return Demand.question;
-    // Before the gate and before working: an ended agent's container can still look busy.
-    if (!endSeen && (task.agentEnded?.needsSomebody ?? false)) return Demand.ended;
+    // Before the gate and before working: an ended agent's container can still look busy. A run started since
+    // replaces it, though the machine keeps the old end on record.
+    if (!endSeen && task.runEnded && (task.agentEnded?.needsSomebody ?? false)) return Demand.ended;
     if (task.hasWorkWaiting) return Demand.gate;
     // Before stopped and running alike: its own word, which a stopped container and an idle one both keep.
     if (task.activity == Activity.done || task.activity == Activity.ended) return Demand.done;

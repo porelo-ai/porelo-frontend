@@ -481,8 +481,8 @@ class Task {
   /// Whether it belongs to an `online` project, as the machine says: an empty or unknown class is not one.
   bool get online => securityClass == 'online';
 
-  /// Whether it is running work: its container up, and its agent has not said its work is done.
-  bool get runningWork => running && activity != Activity.done;
+  /// Whether it is running work: its container up, and its agent has neither said its work is done nor ended.
+  bool get runningWork => running && activity != Activity.done && activity != Activity.ended;
 
   /// What `Start` would do to it, without doing it. Empty from a daemon too old to say.
   final StartAction startAction;

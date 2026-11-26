@@ -79,6 +79,30 @@ void main() {
     expect(listed('WORKING', running: false).runEnded, isTrue);
   });
 
+  // Harm: a task started again over an earlier end nobody looked at still says "its agent ended" and asks a person.
+  test('a task started again over an unseen unfinished end reads by its new run', () {
+    final again = Task.from(const <String, dynamic>{
+      'name': 'porelo-checkout-again',
+      'task': 'again',
+      'running': true,
+      'activity': 'WORKING',
+      'agentEnded': <String, dynamic>{'at': '2026-11-26T10:30:00Z', 'finished': false, 'unpushed': 2},
+    });
+    expect(Attention.demandOf(again, const <Prompt>[]), Demand.working);
+  });
+
+  // Harm: counts of running work count a task whose run ended, so the person waits for work that is over.
+  test("a project's running count and running work leave out a task whose run ended", () {
+    final ended = _task('porelo-checkout-ended', 'ENDED');
+    final busy = _task('porelo-checkout-busy', 'WORKING');
+    expect(ended.runningWork, isFalse);
+    final project = ProjectOnScreen(
+      project: Project.from(const <String, dynamic>{'name': 'checkout', 'tasks': 2, 'running': 2}),
+      tasks: <Task>[ended, busy],
+    );
+    expect(project.running, 1);
+  });
+
   // Harm: a task started again still says its previous run "Finished", so the person takes live work for ended work.
   testWidgets('a task started again does not show the end of its previous run', (tester) async {
     List<Task> work(String activity) => <Task>[
