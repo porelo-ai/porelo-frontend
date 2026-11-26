@@ -56,6 +56,8 @@ class ShellRail extends StatefulWidget {
     required this.machines,
     required this.projects,
     this.forges,
+    this.machineForges,
+    this.machinesNotRead = const <String>[],
     this.machineEntries = const [],
     this.machinesWithSections,
     this.machinesWithAdmins = const {},
@@ -98,6 +100,12 @@ class ShellRail extends StatefulWidget {
 
   /// Observed totals; null means they cannot currently be read.
   final int? running, work, needing, machines, projects, forges;
+
+  /// The forges machines keep that this window did not set up, counted apart from [forges]; null while unknown.
+  final int? machineForges;
+
+  /// The watched machines whose own forges are not known, so the machines' count is not the whole of it.
+  final List<String> machinesNotRead;
 
   /// The issues waiting for the person's review over every project the planner serves, shown as a count of its own
   /// beside Needs you; null while no board has said, or where no planner is reached, and then not shown.
@@ -144,6 +152,8 @@ class _TreeRow {
     this.selectedIcon,
     this.count,
     this.countKey,
+    this.alsoCount,
+    this.alsoUnknown = const <String>[],
     this.badge = false,
     this.state,
     this.rowId,
@@ -164,6 +174,12 @@ class _TreeRow {
   final bool branch, badge;
   final IconData? icon, selectedIcon;
   final int? count;
+
+  /// A second count of another kind, shown beside [count] as `+n` and only above zero.
+  final int? alsoCount;
+
+  /// Machines whose part of the second count is not known, shown as `+?`.
+  final List<String> alsoUnknown;
   final String? countKey, state;
 }
 
@@ -256,6 +272,8 @@ class _ShellRailState extends State<ShellRail> {
       selectedIcon: Icons.hub,
       count: widget.forges,
       countKey: 'rail-forges-count',
+      alsoCount: widget.machineForges,
+      alsoUnknown: widget.machinesNotRead,
     ),
     _TreeRow(
       const ShellPlace(Section.projects),
@@ -446,6 +464,9 @@ class _ShellRailState extends State<ShellRail> {
     Widget? count;
     if (row.countKey != null || row.badge) {
       final value = row.count;
+      final known = row.alsoCount ?? 0;
+      // A machine whose forges are not known is never counted as keeping none: its part is `?`.
+      final alsoWords = [if (known > 0) '+$known', if (row.alsoUnknown.isNotEmpty) '+?'].join(' ');
       count = Tooltip(
         message: value == null
             ? 'Not read: a machine is not answering or its list has not been read'
@@ -453,8 +474,22 @@ class _ShellRailState extends State<ShellRail> {
             ? '$value need you'
             : row.place.section == Section.work
             ? '${widget.running ?? '?'} running'
+            : alsoWords.isNotEmpty
+            ? [
+                '$value set up here',
+                if (known > 0) '$known more kept by machines',
+                if (row.alsoUnknown.isNotEmpty) 'forges of ${row.alsoUnknown.join(', ')} not read',
+              ].join(', ')
             : '$value',
-        child: row.badge && value != null
+        child: alsoWords.isNotEmpty
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(value == null ? '?' : '$value', key: row.countKey == null ? null : Key(row.countKey!)),
+                  Text(' $alsoWords', key: Key('${row.countKey}-machines')),
+                ],
+              )
+            : row.badge && value != null
             ? Badge(
                 key: const Key('needing-count-badge'),
                 isLabelVisible: value > 0,

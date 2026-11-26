@@ -961,6 +961,8 @@ class _ShellState extends State<Shell> {
       if (_organization?.view case final view?) _hostConnections?.askOnce(view, again: true);
       setState(() => _organizationPageRefresh++);
     }
+    // What each machine keeps of its own forges is asked anew, so one set up on a machine itself shows.
+    if (!quietly) _forgeRecords.askAgain();
     // Planning not reached at the start, as a planner installed or answering since, is looked for again.
     if (widget.planning?.client case final PlanningReach planning when !quietly && planning.notReached != null) {
       unawaited(planning.reach());
@@ -1774,6 +1776,12 @@ class _ShellState extends State<Shell> {
     ],
   );
 
+  /// The names of the machines watched now.
+  List<String> get _watchedNames => [
+    for (final machine in widget.machines.all)
+      if (widget.machines.watching(machine) != null) machine.name,
+  ];
+
   /// The repositories this machine works on in the Default project, in `default`, and the projects asked
   /// again once it is put away: a repository added there is what lets work start in default.
   Future<void> _showTheDefault() async {
@@ -2449,6 +2457,11 @@ class _ShellState extends State<Shell> {
             held: _heldConnections,
             heldOn: widget.machines.current.name,
             organizationForge: organizationForgeAddress(_organization?.view),
+            kept: _forgeRecords,
+            watched: [
+              for (final machine in widget.machines.all)
+                if (widget.machines.watching(machine) != null) machine.name,
+            ],
             usedBy: _usedBy,
             onMachine: (name) {
               final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
@@ -5562,7 +5575,11 @@ class _ShellState extends State<Shell> {
               : 'not read — run Check whether this machine can run anything',
           known: tools?.readiness.health != null,
         ),
-        (label: 'Address', value: machine.where, known: true),
+        (
+          label: 'Address',
+          value: machine.where.isEmpty ? (machine.whyNotReachableHere ?? 'not stored in frontend.json') : machine.where,
+          known: machine.where.isNotEmpty,
+        ),
       ],
       commands: watched
           ? [
@@ -6163,6 +6180,7 @@ class _ShellState extends State<Shell> {
       ?_planning?.review,
       ?_planning?.open,
       ?_organization,
+      _forgeRecords,
       for (final machine in widget.machines.all) ?widget.machines.watching(machine),
     ]),
     builder: (context, _) {
@@ -6228,6 +6246,13 @@ class _ShellState extends State<Shell> {
                           .fold<int>(0, (count, machine) => count + projectsOnMachine(widget.machines, machine).length),
               ),
         forges: !_forges.loaded || _forges.busy ? null : listedForges(_forges.allEntries, _heldConnections).length,
+        machineForges: !_forges.loaded || _forges.busy
+            ? null
+            : forgesOnlyMachinesKeep(
+                forgesKeptByMachines(_forgeRecords.kept, _watchedNames),
+                listedForges(_forges.allEntries, _heldConnections),
+              ),
+        machinesNotRead: machinesNotRead(_forgeRecords.kept, _watchedNames),
         width: width,
         onGo: _goToSection,
         onRefresh: () => unawaited(_refreshAll()),

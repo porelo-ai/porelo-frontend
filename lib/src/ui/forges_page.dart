@@ -12,6 +12,7 @@ import '../app/fleet_backend.dart';
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
 import '../app/forge_key_check.dart';
+import '../app/forge_records.dart';
 import '../app/links.dart';
 import '../app/machine_binding.dart';
 import '../app/machines.dart';
@@ -53,8 +54,16 @@ class ForgesPage extends StatefulWidget {
     this.held = const <Connection>[],
     this.heldOn = '',
     this.organizationForge = '',
+    this.kept,
+    this.watched = const <String>[],
     super.key,
   });
+
+  /// What each watched machine keeps of its own forges, read for this page; absent where none is asked.
+  final ForgeRecords? kept;
+
+  /// The watched machines by name, in the order they are listed: each is named here, read or not.
+  final List<String> watched;
 
   /// The configured forges and current access state.
   final ForgeConnection forges;
@@ -99,9 +108,17 @@ class _ForgesPageState extends State<ForgesPage> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.forges,
+    animation: Listenable.merge(<Listenable>[widget.forges, ?widget.kept]),
     builder: (context, _) {
       final forges = widget.forges;
+      final listed = listedForges(forges.allEntries, widget.held);
+      final keptBy = forgesKeptByMachines(widget.kept?.kept ?? const <String, KeptForges>{}, widget.watched);
+      final machinesOnly = forgesOnlyMachinesKeep(keptBy, listed);
+      final notRead = <(String, KeptForges?)>[
+        for (final name in widget.watched)
+          if (widget.kept?.kept[name] case final standing when standing?.standing != KeptStanding.read)
+            (name, standing),
+      ];
       return ListView(
         key: const Key('forges-page'),
         padding: const EdgeInsets.all(Space.normal),
@@ -117,10 +134,19 @@ class _ForgesPageState extends State<ForgesPage> {
             leaf: true,
             subtitle: !forges.loaded
                 ? 'not read'
-                : counted(listedForges(forges.allEntries, widget.held).length, 'forge', 'forges'),
+                : [
+                    // Said as this window's own where machines' are shown too, so "0" is not taken for all of them.
+                    '${counted(listed.length, 'forge', 'forges')}${machinesOnly > 0 || notRead.isNotEmpty ? ' set up here' : ''}',
+                    if (machinesOnly > 0) '$machinesOnly more kept by machines',
+                    // A machine not read is not counted as keeping none.
+                    if (notRead.isNotEmpty) '${counted(notRead.length, 'machine', 'machines')} not read',
+                  ].join(' · '),
             busy: forges.busy,
             problem: forges.problem,
-            onRetry: () => unawaited(forges.readList()),
+            onRetry: () {
+              unawaited(forges.readList());
+              widget.kept?.askAgain();
+            },
             storageId: 'forges',
             actions: [
               FilledButton.icon(
@@ -131,7 +157,7 @@ class _ForgesPageState extends State<ForgesPage> {
               ),
             ],
             rows: [
-              for (final ListedForge(:address, :entry, :held) in listedForges(forges.allEntries, widget.held))
+              for (final ListedForge(:address, :entry, :held) in listed)
                 if (entry == null)
                   (
                     words: '$address ${_heldWords(held)}',
@@ -141,7 +167,12 @@ class _ForgesPageState extends State<ForgesPage> {
                       bodyKey: ValueKey('forge $address'),
                       title: address,
                       state: 'not read',
-                      subtitle: [_heldWords(held), ?_organizationWords(address)].join(' · '),
+                      subtitle: [
+                        _heldWords(held),
+                        ?_organizationWords(address),
+                        ?_keptWords(keptBy[address.toLowerCase()], both: false),
+                      ].join(' · '),
+                      subtitleMaxLines: null,
                       leading: const Icon(Icons.hub_outlined),
                       onOpen: null,
                       menu: const SizedBox.shrink(),
@@ -162,7 +193,9 @@ class _ForgesPageState extends State<ForgesPage> {
                               entry.authentication == 'ssh' ? 'by SSH key' : 'token chosen explicitly',
                               if (held.isNotEmpty) _heldWords(held),
                               ?_organizationWords(entry.address),
+                              ?_keptWords(keptBy[keptHostOf(entry)], both: true),
                             ].join(' · '),
+                      subtitleMaxLines: null,
                       leading: const Icon(Icons.hub_outlined),
                       onOpen: () => widget.onOpen(entry),
                       menu: forgeMenu(
@@ -177,12 +210,62 @@ class _ForgesPageState extends State<ForgesPage> {
                       ),
                     ),
                   ),
+              // What machines keep that this window did not set up: shown, never acted on from these rows.
+              for (final MapEntry(key: host, value: on) in keptBy.entries)
+                if (!listedHosts(listed).contains(host))
+                  (
+                    words: '$host ${on.map((each) => each.words).join(' ')}',
+                    child: ItemListRow(
+                      key: ValueKey('forges-row kept $host'),
+                      bodyKey: ValueKey('kept-forge $host'),
+                      title: host,
+                      state: 'kept by ${on.map((each) => each.machine).join(', ')}',
+                      // The host and the machines stand whole here, since a title is cut to one line.
+                      subtitle: '$host · ${_keptWords(on, both: false)!}',
+                      subtitleMaxLines: null,
+                      leading: const Icon(Icons.dns_outlined),
+                      onOpen: null,
+                      menu: const SizedBox.shrink(),
+                    ),
+                  ),
+              for (final (name, standing) in notRead)
+                (
+                  words: '$name ${standing?.words ?? ''}',
+                  child: ItemListRow(
+                    key: ValueKey('forges-row machine $name'),
+                    bodyKey: ValueKey('machine-forges $name'),
+                    title: name,
+                    state: switch (standing?.standing) {
+                      KeptStanding.unreadable => 'not readable',
+                      KeptStanding.older => 'cannot list its forges',
+                      _ => 'not read yet',
+                    },
+                    subtitle: switch (standing?.standing) {
+                      KeptStanding.unreadable => standing!.words ?? '$name cannot read the forges it keeps.',
+                      KeptStanding.older => '$name cannot list its forges: its Porelo is older.',
+                      KeptStanding.notReached => standing!.words ?? '$name was not reached yet.',
+                      _ => 'The forges $name keeps were not read yet.',
+                    },
+                    subtitleMaxLines: null,
+                    leading: const Icon(Icons.dns_outlined),
+                    onOpen: null,
+                    menu: const SizedBox.shrink(),
+                  ),
+                ),
             ],
           ),
         ],
       );
     },
   );
+
+  /// The machines that keep a forge, each with its adapter and how its comments are read; null where none does.
+  /// [both] marks a forge this window also set up.
+  String? _keptWords(List<KeptOn>? on, {required bool both}) {
+    if (on == null || on.isEmpty) return null;
+    final marks = 'kept by ${on.map((each) => each.words).join('; ')}';
+    return both ? 'set up here and $marks' : marks;
+  }
 
   /// Where the machine's credentials for a forge come from, by name and source, and whether each is there now.
   String _heldWords(List<Connection> held) {

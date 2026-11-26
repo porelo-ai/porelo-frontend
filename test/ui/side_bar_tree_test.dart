@@ -13,6 +13,7 @@ import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/ui/shell_rail.dart';
 import 'package:porelo_frontend/src/ui/vault_view.dart';
 
+import '../features/support/carrying.dart';
 import '../features/support/world.dart';
 import '../support/organization_fixtures.dart';
 
@@ -179,6 +180,36 @@ void main() {
     await _tap(tester, _leafKey('vault'));
     expect(find.byKey(const Key('shell-rail')).hitTestable(), findsNothing);
     expect(find.byKey(const Key('vault-view')), findsOneWidget);
+  });
+
+  // Harm: the side bar shows nothing of the forges a machine keeps until something unrelated rebuilds it.
+  testWidgets('the side bar shows the forges a machine keeps once they are read', (tester) async {
+    await World.startBackend(World.work);
+    final answer = Completer<void>();
+    final machine = _SlowForges(World.work, answer.future)
+      ..forgesKnown['kept.example.org'] = const ForgeInstance(host: 'kept.example.org', adapter: 'github');
+    World.backend = machine;
+    addTearDown(machine.stop);
+    await World.startApp(tester);
+    await World.settle(tester);
+    // Read only now, after everything else the side bar listens to has settled.
+    answer.complete();
+    await World.settle(tester);
+
+    expect(tester.widget<Text>(find.byKey(const Key('rail-forges-count'))).data, '0');
+    expect(tester.widget<Text>(find.byKey(const Key('rail-forges-count-machines'))).data, ' +1');
+  });
+
+  // Harm: a machine whose forges are not known is counted as keeping none, so the side bar says a plain 0.
+  testWidgets('the side bar says unknown, never a plain 0, while a machine\'s forges are not read', (tester) async {
+    await World.startBackend(World.work);
+    final machine = CarryingFakeBackend(World.work)..forgeFailure = const FeatureNotSupported('Forges');
+    World.backend = machine;
+    addTearDown(machine.stop);
+    await World.startApp(tester);
+    await World.settle(tester);
+
+    expect(tester.widget<Text>(find.byKey(const Key('rail-forges-count-machines'))).data, ' +?');
   });
 
   // Harm: different counts imply that some watched data was lost.
@@ -385,4 +416,16 @@ class _WaitingCredentials extends FakeBackend {
   final reply = Completer<VaultState>();
   @override
   Future<VaultState> credentials() => reply.future;
+}
+
+/// A machine whose `Forges` answers only when told.
+class _SlowForges extends CarryingFakeBackend {
+  _SlowForges(super.tasks, this._answer);
+  final Future<void> _answer;
+
+  @override
+  Future<MachineForges> forges() async {
+    await _answer;
+    return super.forges();
+  }
 }

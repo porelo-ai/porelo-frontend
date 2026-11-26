@@ -200,6 +200,100 @@ void main() {
     expect(ForgeEntry.fromJson(_github.toJson())?.comments, isNull);
     expect(ForgeEntry.fromJson({..._github.toJson(), 'comments': 'ANYTHING'})?.comments, isNull);
   });
+
+  // Harm: My forges takes "0 forges" for none where a machine was not read, was refused or is older, or shows the
+  // forges of a machine that answered nothing yet.
+  group('what each machine keeps of its own forges', () {
+    test('is absent before the machine is asked, then each answer is kept with its standing', () async {
+      watched = {'laptop': _Machine(), 'older': _Machine()..older = true, 'refused': _Machine(), 'gone': _Machine()};
+      watched['laptop']!.known['github.com'] = const ForgeInstance(
+        host: 'github.com',
+        adapter: 'github',
+        comments: 'TRUSTED',
+      );
+      watched['refused']!.refusal = const VarlinkException('org.fuin.porelo.Forges1.ForgeFileUnreadable', {
+        'reason': 'permission denied',
+      });
+      watched['gone']!.unreached = true;
+      expect(records.kept, isEmpty);
+
+      await look();
+
+      expect(records.kept['laptop']!.standing, KeptStanding.read);
+      expect(records.kept['laptop']!.answer!.forges.single.host, 'github.com');
+      expect(records.kept['older']!.standing, KeptStanding.older);
+      expect(records.kept['older']!.answer, isNull);
+      expect(records.kept['refused']!.standing, KeptStanding.unreadable);
+      expect(records.kept['refused']!.words, contains('permission denied'));
+      expect(records.kept['gone']!.standing, KeptStanding.notReached);
+      expect(records.kept['gone']!.answer, isNull);
+    });
+
+    test(
+      'a forge set up here that the machine is told is kept as the machine now has it, and listeners hear',
+      () async {
+        forges.entries = [_github];
+        var heard = 0;
+        records.addListener(() => heard++);
+
+        await look();
+
+        expect(records.kept['laptop']!.answer!.forges.map((each) => each.host), ['github.com']);
+        expect(heard, greaterThan(0));
+      },
+    );
+
+    // Harm: after a failed second read the old answer stands as read and the machine is never asked again.
+    test('a failed read after a forge was told is said, and the machine is asked again', () async {
+      forges.entries = [_github];
+      final machine = watched['laptop']!..failAfterSet = true;
+
+      await look();
+
+      expect(records.kept['laptop']!.standing, KeptStanding.notReached);
+      expect(records.kept['laptop']!.answer, isNull);
+      machine.failAfterSet = false;
+      at = at.add(const Duration(minutes: 2));
+      await look();
+      expect(records.kept['laptop']!.standing, KeptStanding.read);
+      expect(records.kept['laptop']!.answer!.forges.map((each) => each.host), ['github.com']);
+    });
+
+    // Harm: a forge the machine keeps under another case of its host is told again as if it were missing.
+    test('a host is compared without regard to case', () async {
+      forges.entries = [_github];
+      watched['laptop']!.known['GitHub.com'] = const ForgeInstance(host: 'GitHub.com', adapter: 'github');
+
+      await look();
+
+      expect(watched['laptop']!.set, isEmpty);
+    });
+
+    // Harm: a refresh does not ask the machines, so a forge set up on a machine itself never shows.
+    test('asking again reads every machine anew', () async {
+      await look();
+      watched['laptop']!.known['new.example.org'] = const ForgeInstance(host: 'new.example.org', adapter: 'github');
+
+      records.askAgain();
+      await pumpEventQueue();
+
+      expect(records.kept['laptop']!.answer!.forges.map((each) => each.host), ['new.example.org']);
+    });
+
+    test('a machine no longer watched is forgotten, and nothing is kept after dispose', () async {
+      await look();
+      watched.remove('laptop');
+      await look();
+      expect(records.kept, isEmpty);
+
+      watched['late'] = _Machine()..hold = Completer<void>();
+      records.look();
+      records.dispose();
+      watched['late']!.hold!.complete();
+      await pumpEventQueue();
+      expect(records.kept, isEmpty);
+    });
+  });
 }
 
 /// A machine that knows forges as told, with the adapters it has installed.
@@ -208,6 +302,9 @@ class _Machine implements KnowsForges {
   final set = <(String, String, String?)>[];
   List<String> adapters = const ['github'];
   bool older = false, unreached = false;
+
+  /// Whether `Forges` fails once a forge was set, as a machine going away between the two reads.
+  bool failAfterSet = false;
   VarlinkException? refusal;
 
   /// Held until completed: the answer `Forges` waits for meanwhile.
@@ -216,7 +313,7 @@ class _Machine implements KnowsForges {
   @override
   Future<MachineForges> forges() async {
     if (older) throw const FeatureNotSupported('Forges');
-    if (unreached) throw const VarlinkDisconnected('the tunnel is down');
+    if (unreached || failAfterSet && set.isNotEmpty) throw const VarlinkDisconnected('the tunnel is down');
     if (refusal case final refused?) throw refused;
     await hold?.future;
     return MachineForges(forges: known.values.toList(), adapters: adapters);
