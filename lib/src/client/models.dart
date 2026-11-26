@@ -615,6 +615,8 @@ class Task {
     this.ended,
     this.result,
     this.run,
+    this.role,
+    this.place,
     this.callerKey = '',
     this.landed,
     this.reports,
@@ -640,6 +642,13 @@ class Task {
   /// The container this task is, which tells its hand-in record from that of a later task with the
   /// same name. Null from a machine that does not say.
   final String? run;
+
+  /// The role of its current or last run as the machine says it (`AUTHOR`, `REVIEWER`, or a newer one kept as
+  /// said); null where the machine records none, for a task without a gate or from an older machine.
+  final String? role;
+
+  /// Where its current or last run works; null where the machine records none or said it in a shape not read here.
+  final RunPlace? place;
 
   /// The key its starter gave Start, kept from the task's creation; empty where none was given or the machine keeps
   /// none.
@@ -727,6 +736,8 @@ class Task {
         : null,
     ended: map['ended'] is Map<String, dynamic> ? TaskEnd.from(map['ended'] as Map<String, dynamic>) : null,
     run: map['run'] is String ? map['run'] as String : null,
+    role: map['role'] is String && (map['role'] as String).isNotEmpty ? map['role'] as String : null,
+    place: map['place'] is Map<String, dynamic> ? RunPlace.from(map['place'] as Map<String, dynamic>) : null,
     callerKey: _string(map, 'callerKey'),
     landed: map['landed'] is List
         ? List.unmodifiable(
@@ -748,6 +759,55 @@ class Task {
         ? MissingCredential.from(map['buildsCredential'] as Map<String, dynamic>)
         : null,
   );
+}
+
+/// Where a run works, as the machine says it: exactly one of a push at its gate, a pull request, or the task's own
+/// pull request.
+class RunPlace {
+  /// The push at the gate, by its repository (null for the task's own) and its name.
+  final ({String? repository, String name})? gatePush;
+
+  /// A pull request's https address.
+  final String? pullRequest;
+
+  /// Whether it is the task's own pull request, the one its pushes opened.
+  final bool ownPullRequest;
+
+  /// Constructor taking every part; exactly one is meant to be set.
+  const RunPlace({this.gatePush, this.pullRequest, this.ownPullRequest = false});
+
+  /// Reads one from a reply; null where not exactly one part can be read, since a place guessed is worse than none.
+  static RunPlace? from(Map<String, dynamic> map) {
+    final push = map['gatePush'];
+    final gatePush = push is Map<String, dynamic> && push['name'] is String && (push['name'] as String).isNotEmpty
+        ? (
+            repository: push['repository'] is String && (push['repository'] as String).isNotEmpty
+                ? push['repository'] as String
+                : null,
+            name: push['name'] as String,
+          )
+        : null;
+    final pullRequest = map['pullRequest'] is String && (map['pullRequest'] as String).isNotEmpty
+        ? map['pullRequest'] as String
+        : null;
+    final own = map['ownPullRequest'] == true;
+    final set = [gatePush != null, pullRequest != null, own].where((each) => each).length;
+    if (set != 1) return null;
+    return RunPlace(gatePush: gatePush, pullRequest: pullRequest, ownPullRequest: own);
+  }
+
+  /// The place in words, after "at": a pull request by its repository and number where its address ends in them, so
+  /// two of the same number on different repositories are told apart.
+  String get words {
+    if (gatePush case final push?) {
+      return 'the gate push ${push.repository == null ? push.name : '${push.repository}/${push.name}'}';
+    }
+    if (pullRequest case final address?) {
+      final match = RegExp(r'^https://[^/]+/(.+)/pull/(\d+)/?$').firstMatch(address);
+      return match == null ? 'pull request $address' : 'pull request ${match.group(1)}#${match.group(2)}';
+    }
+    return 'its own pull request';
+  }
 }
 
 /// One installed agent's sign-in on a machine, as `AgentSignIns` answers it.

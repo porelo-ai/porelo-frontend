@@ -1838,6 +1838,23 @@ class WorkRow extends StatelessWidget {
       ? 'no agent named'
       : task.modelLine(task.agent) ?? (task.provider.isEmpty ? task.agent : '${task.agent} via ${task.provider}');
 
+  /// Its run's role and place as the machine says them; null where it says neither.
+  static String? runOf(Task? task) {
+    final role = switch (task?.role) {
+      null => null,
+      'AUTHOR' => 'author',
+      'REVIEWER' => 'reviewer',
+      final other => other.toLowerCase(),
+    };
+    final place = task?.place?.words;
+    return switch ((role, place)) {
+      (null, null) => null,
+      (final role?, null) => 'as $role',
+      (null, final place?) => 'at $place',
+      (final role?, final place?) => 'as $role at $place',
+    };
+  }
+
   /// How it works, in the words of the page.
   static String wayOf(Task? task) => task?.mode == Mode.unattended ? 'Unattended' : 'In a terminal';
 
@@ -1931,6 +1948,9 @@ class WorkRow extends StatelessWidget {
                                         ),
                                       ],
                                     ),
+                                    // Which run it is and where it works: two runs of one repository look alike otherwise.
+                                    if (runOf(task) case final run?)
+                                      Text(run, key: const Key('tile-run'), style: text.bodySmall),
                                     // What a planned task works on, which its name, the machine's, does not say.
                                     if (tile.planned?.worksOn case final worksOn?)
                                       Text(
