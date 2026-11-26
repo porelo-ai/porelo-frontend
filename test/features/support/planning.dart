@@ -135,6 +135,7 @@ class WindowPlanningSource extends MockPlanningSource implements TellsTaskReport
       machine: machine,
       ended: ended,
       landed: landed,
+      refusal: refusal,
     ),
   );
 
@@ -147,6 +148,7 @@ class WindowPlanningSource extends MockPlanningSource implements TellsTaskReport
     required String machine,
     PlanningTaskEnded? ended,
     List<PlanningLanding> landed = const [],
+    PlanningStartRefusal? refusal,
   }) async {
     reported.add((offer, event));
     if (event == PlanningTaskEvent.started && holdNextStarted != null) {
@@ -167,6 +169,7 @@ class WindowPlanningSource extends MockPlanningSource implements TellsTaskReport
         machine: machine,
         ended: ended,
         landed: landed,
+        refusal: refusal,
       );
     }
     if (!followUpEveryStart) followUpOnStart = null;

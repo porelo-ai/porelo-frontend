@@ -191,7 +191,8 @@ void main() {
     final told = planner.refusedTold.single;
     expect(
       (told.offer, told.machine, told.provider, told.project, told.story, told.task, told.name),
-      (order.offer, 'laptop', _provider, 'demo', 'ST291', order.repository, 'RoleNotAllowed'),
+      (order.offer, 'laptop', _provider, 'demo', 'ST291', order.offer, 'RoleNotAllowed'),
+      reason: 'an order naming no task is told under its offer',
     );
     expect(told.parameters, {'role': 'REVIEWER', 'place': '{"pullRequest":"https://forge.example/o/r/pull/7"}'});
     expect(told.detail, contains('laptop'));
@@ -283,6 +284,29 @@ void main() {
 
     expect(planner.refusedTold, isEmpty);
     expect((await loaded()).refusedStarts, isEmpty);
+  });
+
+  // Harm: a rework at its gate push is reported under a task the planner cannot tie to the place that changed.
+  test('a refused rework at a gate push is told under the push\'s task', () async {
+    final (starts, reports) = window();
+    final order = TaskEventResolution.from(
+      _answer([
+        _followUp(
+          3,
+          place: {
+            'gatePush': {'name': 'build-7'},
+          },
+        ),
+      ]),
+    ).tasks.single;
+    machine.throwNext = const VarlinkException('org.fuin.porelo.Tasks1.NotTheTasksPush', {'task': 'build-7'});
+
+    await expectLater(starts(planner, 'demo', 'ST291', order), throwsA(isA<PlanningRefusal>()));
+    await reports.idle;
+    reports.sweep();
+    await reports.idle;
+
+    expect(planner.refusedTold.single.task, 'build-7');
   });
 
   // Harm: the planner's call carries a container, or the refusal in other fields than kept, and the report is refused.
@@ -1681,8 +1705,10 @@ Map<String, dynamic> _followUp(
   String repository = 'builder-one',
   String role = 'BUILDER',
   List<String>? reads,
+  Map<String, dynamic>? place,
 }) => {
   'offer': '00000000-0000-4000-8000-${'$number'.padLeft(12, '0')}',
+  if (place != null) ...{'runRole': 'AUTHOR', 'place': place},
   'repository': repository,
   'issues': ['B540'],
   'role': role,

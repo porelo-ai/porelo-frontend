@@ -24,6 +24,7 @@ import './step/the_machine_lets_the_start_go_on.dart';
 import './step/the_machine_refuses_the_start_of_story_work_because_is_not_signed_in.dart';
 import './step/i_go_to_what_needs_a_person.dart';
 import './step/what_needs_a_person_offers_to_sign_in_to_on.dart';
+import './step/the_planner_was_told_once_of_each_refused_start.dart';
 import './step/i_drop_story_on_working_state.dart';
 import './step/another_machine_offers_the_same_project_planning.dart';
 
@@ -207,6 +208,13 @@ void main() {
       );
       await iGoToWhatNeedsAPerson(tester);
       await whatNeedsAPersonOffersToSignInToOn(tester, 'codex', 'this machine');
+    });
+    testWidgets('''A start Porelo refused from the board reaches the planner as refused, once''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineRefusesTheStartOfStoryWorkBecauseIsNotSignedIn(tester, 'codex');
+      await iOpenStoryWorkFor(tester, 'ST291');
+      await iChooseStoryWork(tester, 'start');
+      await thePlannerWasToldOnceOfEachRefusedStart(tester);
     });
     testWidgets('''The end of a task the window started reaches the planner''', (tester) async {
       await bddSetUp(tester);

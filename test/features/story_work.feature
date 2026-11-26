@@ -171,6 +171,14 @@ Feature: Start and decide story work from the planning board
         When I go to what needs a person
         Then what needs a person offers to sign in to {'codex'} on {'this machine'}
 
+    # Harm: a start Porelo refused never reaches the planner, so its story waits for work that never began, or the
+    # planner hears it again and again.
+    Scenario: A start Porelo refused from the board reaches the planner as refused, once
+        Given the machine refuses the start of story work because {'codex'} is not signed in
+        When I open story work for {'ST291'}
+        And I choose story work {'start'}
+        Then the planner was told once of each refused start
+
     # Harm: the end of a task the window started never reaches the planner, so its story looks at work for ever.
     Scenario: The end of a task the window started reaches the planner
         When I open story work for {'ST291'}

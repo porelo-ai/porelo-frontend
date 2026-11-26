@@ -162,7 +162,8 @@ class WindowTaskStarts {
     try {
       return await _keptWhileStarting(source, project, story, task, pressed: true);
     } on Object {
-      if (offer != null) _fromTheScreen.remove(offer);
+      // A Start Porelo refused is reported through the run that holds its failure; nothing else of it is.
+      if (offer != null && !settings.refusedStarts.any((each) => each.offer == offer)) _fromTheScreen.remove(offer);
       rethrow;
     } finally {
       // The run keeps what Start answered only once this returned, after the microtasks it waits through.
@@ -508,8 +509,8 @@ class WindowTaskStarts {
     Map<String, Object?> parameters,
     String words,
   ) async {
-    final (offer, repository, provider) = (task.offer, task.repository, providerOf(source));
-    if (offer == null || repository == null || provider == null || task.role == 'DISCUSSION') return;
+    final (offer, provider) = (task.offer, providerOf(source));
+    if (offer == null || provider == null || task.role == 'DISCUSSION') return;
     try {
       final refused = RefusedStart.bounded(
         offer: offer,
@@ -517,7 +518,8 @@ class WindowTaskStarts {
         provider: provider,
         project: project,
         story: story,
-        task: repository,
+        // The run's own name where it pushes at a gate, else its offer, as the planner keys a run that made no task.
+        task: task.place?.gatePush ?? offer,
         name: name,
         // Only a refusal the planner names carries its values on: any other may hold what the window never shows.
         parameters: plannerNamedRefusals.contains(name) ? parameters : const {},

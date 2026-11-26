@@ -310,34 +310,80 @@ class WindowTaskReports {
       }
       return;
     }
+    if (await starts.screenRunOf(refused.offer) case final run?) {
+      // As for any report: only the very source whose run handed the offer to Start, and one that tells what came of
+      // it at its planner, is reported through.
+      if (identical(run, source) && source is TellsTaskReports && await _refusedThroughTheScreen(refused, source)) {
+        return;
+      }
+      starts.notFromTheScreen(refused.offer);
+    }
     final TaskEventResolution answer;
     try {
       answer = await tellRefused(source, refused);
-    } on PlanningRefusal catch (refusal) {
-      if (refusal.name == 'TaskNotAnswered') {
-        await settings.forgetRefusedStart(refused.offer);
-        return;
-      }
-      if (_transient(refusal)) {
-        if (_unreachedSaid) return;
-        _unreachedSaid = true;
-        _say(refused.provider, refused.project, refusal);
-        return;
-      }
-      // Refused for good: said once, and not kept for a later window to send again.
-      _refused.add(attempt);
-      _say(refused.provider, refused.project, refusal);
-      await settings.forgetRefusedStart(refused.offer);
-      return;
     } on Object catch (error) {
-      _refused.add(attempt);
-      _say(refused.provider, refused.project, error);
-      return;
+      return _refusalNotTaken(refused, error);
     }
     _unreachedSaid = false;
     if (await _startFollowUps(source, refused.provider, refused.project, refused.story, answer.tasks, refused.offer)) {
       await settings.forgetRefusedStart(refused.offer);
     }
+  }
+
+  /// Sends [refused]'s report through the screen's run that handed its offer to Start, which starts the answer's
+  /// follow-up orders itself. Answers false where that run holds no refused Start of the offer, so the report goes to
+  /// the source as for a start the window asked for itself.
+  Future<bool> _refusedThroughTheScreen(RefusedStart refused, PlanningSource source) async {
+    final at = ReportAtPlanner(refused.offer);
+    Object? afterTheAnswer;
+    _screen.providers = [
+      PlanningProvider(name: refused.provider, connected: true, projects: [refused.project], source: source),
+    ];
+    try {
+      await at.watch(
+        () => _screen.taskEvent(
+          refused.project,
+          refused.task,
+          PlanningTaskEvent.refused,
+          offer: refused.offer,
+          container: '',
+          machine: refused.machine,
+          refusal: PlanningStartRefusal(name: refused.name, parameters: refused.parameters, detail: refused.detail),
+        ),
+      );
+    } on Object catch (error) {
+      if (!at.asked && planningRefused(error, 'TaskEventConflict')) return false;
+      if (!at.answered) {
+        await _refusalNotTaken(refused, error);
+        return true;
+      }
+      // The planner took the report; what the run could not start after its answer is said, and nothing is sent again.
+      afterTheAnswer = error;
+    }
+    _unreachedSaid = false;
+    await settings.forgetRefusedStart(refused.offer);
+    starts.notFromTheScreen(refused.offer);
+    if (afterTheAnswer != null) _say(refused.provider, refused.project, afterTheAnswer);
+    return true;
+  }
+
+  /// A refused start's report the planner did not take: one for a task it no longer answers for is forgotten, one it was
+  /// not reached for is said once and sent again on a later sweep, and any other is said once and not sent again.
+  Future<void> _refusalNotTaken(RefusedStart refused, Object error) async {
+    if (error is PlanningRefusal && error.name == 'TaskNotAnswered') {
+      await settings.forgetRefusedStart(refused.offer);
+      return;
+    }
+    if (error is PlanningRefusal && _transient(error)) {
+      if (_unreachedSaid) return;
+      _unreachedSaid = true;
+      _say(refused.provider, refused.project, error);
+      return;
+    }
+    _refused.add((refused.offer, 'refused'));
+    _say(refused.provider, refused.project, error);
+    // Refused for good: not kept for a later window to send again.
+    if (error is PlanningRefusal) await settings.forgetRefusedStart(refused.offer);
   }
 
   /// Reports [kept] as started, once the reports before it are sent.
