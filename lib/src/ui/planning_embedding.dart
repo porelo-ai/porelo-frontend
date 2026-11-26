@@ -563,7 +563,7 @@ class WindowTaskStarts {
   static Future<DiscussionChoice?> _asOrdered(Machine machine, String project, PlanningTaskOrder task) async =>
       (agent: task.agent, model: task.model);
 
-  // A start that went through answers CREATE or RESUME; an older Porelo bringing a task back answers no action, exit 0.
+  // A start that went through answers CREATE, RESUME or RERUN; an older Porelo bringing a task back answers no action, exit 0.
   // One that made its task and then failed answers its action with an exit code other than 0: no task stands.
   static bool _started(StartProgress answer) => switch ((answer.action, answer.exitCode)) {
     (_, final code?) when code != 0 => false,

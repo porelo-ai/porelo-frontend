@@ -914,7 +914,9 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     if (exitCode != 0) throw OperationFailed(exitCode, notCertified: certifying.refused != null && !certifying.signed);
     if (base case StartProgress(baseBranch: final branch?) when certifying.refused == null) {
       yield StartLine(
-        action == StartAction.resume ? resumedFromWords(branch) : startedFromWords(branch, base.baseSource, sent: from),
+        action == StartAction.resume || action == StartAction.rerun
+            ? resumedFromWords(branch)
+            : startedFromWords(branch, base.baseSource, sent: from),
       );
     }
   }

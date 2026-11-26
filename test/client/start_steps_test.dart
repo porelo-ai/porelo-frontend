@@ -142,6 +142,23 @@ void main() {
     expect(lines.single, 'The work goes on from feature/x, the branch it started from.');
   });
 
+  // Harm: a task whose agent the machine ran again reads as a start that did not happen, so its planner offers it again.
+  test('an agent run again in its container is a start that went through', () async {
+    expect(const StartAction('RERUN').starts, isTrue);
+    expect(const StartAction('RERUN').isKnown, isTrue);
+    daemon.stream('Start', (_) async* {
+      yield <String, dynamic>{'exitCode': 0, 'action': 'RERUN', 'baseBranch': 'feature/x', 'baseSource': 'FROM'};
+    });
+    final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'));
+    await backend.open();
+    final lines = await backend
+        .startTask(task: 'work')
+        .where((event) => event is StartLine)
+        .map((event) => (event as StartLine).line)
+        .toList();
+    expect(lines.single, 'The work goes on from feature/x, the branch it started from.');
+  });
+
   test('a machine that does not say the branch says nothing of it', () async {
     daemon.stream('Start', (_) async* {
       yield <String, dynamic>{'exitCode': 0};

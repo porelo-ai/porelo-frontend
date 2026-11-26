@@ -220,8 +220,21 @@ class StartAction {
   /// come back. `startDetail` says how to copy its workspace out before removing it.
   static const predatesRestart = StartAction('PREDATES_RESTART');
 
+  /// Its container was up and its agent's run had ended: Start ran the agent again in it, continuing its session.
+  /// Said only in Start's reply, never as a task's own action.
+  static const rerun = StartAction('RERUN');
+
   /// Every value this build was written against.
-  static const known = <StartAction>[create, resume, running, needsVault, supersededName, notReady, predatesRestart];
+  static const known = <StartAction>[
+    create,
+    resume,
+    running,
+    needsVault,
+    supersededName,
+    notReady,
+    predatesRestart,
+    rerun,
+  ];
 
   /// Whether this build knows what this value means.
   bool get isKnown => known.contains(this);
@@ -230,7 +243,7 @@ class StartAction {
   bool get said => name.isNotEmpty;
 
   /// Whether Start would do something rather than refuse.
-  bool get starts => this == create || this == resume;
+  bool get starts => this == create || this == resume || this == rerun;
 
   /// The value as a phrase, for a person.
   String get label => name.toLowerCase().replaceAll('_', ' ');
