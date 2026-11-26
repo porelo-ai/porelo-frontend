@@ -1675,8 +1675,8 @@ class Settings extends ChangeNotifier {
       _machinesRead = true;
       return const <Machine>[];
     }
-    // One unusable entry is dropped and the rest are kept. A machine with no name, or with neither a
-    // socket nor a kind of its own, cannot be watched or told apart from another, and losing every
+    // One unusable entry is dropped and the rest are kept. A machine with no name cannot be told apart
+    // from another, and losing every
     // other machine over it would be the worse answer. An entry with a kind is kept even without a
     // socket: a WSL distribution has none, and a kind this version does not know is not its to drop.
     // A second entry of a name already read is dropped too: every machine is told apart by its name,
@@ -1696,7 +1696,8 @@ class Settings extends ChangeNotifier {
         setAside.add(each);
         continue;
       }
-      if (machine.name.isEmpty || (machine.socketPath.isEmpty && machine.kind.isEmpty)) continue;
+      // One with neither host nor socket is kept: its card names the missing field, which a silent drop could not.
+      if (machine.name.isEmpty) continue;
       if (machines.any((kept) => kept.name == machine.name)) continue;
       // A card saved by an older build, with its uid, its return socket or an account's own daemon socket.
       final card = each['hostCard'];

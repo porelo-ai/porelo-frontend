@@ -290,6 +290,13 @@ class Tunnel {
   /// Raises it, and waits until the socket is there or the transport says why not.
   Future<void> raise() async {
     if (machine.hostCard != null) return _raiseCard();
+    // Before any folder check or ssh: an empty path is no endpoint, and its folder would be read as nonsense.
+    if (machine.socketPath.isEmpty) {
+      state = TunnelState.down;
+      problem =
+          '${machine.name} has no socket for its local end, so no endpoint can be made: set socket in frontend.json';
+      return;
+    }
     final generation = ++_generation;
     _wanted = true;
     if (state != TunnelState.down && state != TunnelState.waitingForKey) problem = null;

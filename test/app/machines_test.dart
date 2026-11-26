@@ -153,7 +153,7 @@ void main() {
   /// error: the window simply opens with the machine list reduced to the local daemon, which
   /// looks exactly like having lost it.
   group('a stored machine that is not what it should be', () {
-    test('a wrong type where a path belongs does not take the other machines with it', () async {
+    test('a wrong type where a path belongs does not take the other machines with it, and is said', () async {
       final settings = Settings(
         MemorySettingsStore(<String, Object?>{
           'machines': <Object?>[
@@ -171,7 +171,8 @@ void main() {
 
       final machines = await settings.machines();
 
-      expect(machines.map((each) => each.name), <String>['this machine', 'the build machine']);
+      expect(machines.map((each) => each.name), <String>['this machine', 'broken', 'the build machine']);
+      expect(machines[1].whyNotReachableHere, contains('neither a host nor a socket'));
     });
 
     test('an entry that is not an object at all is dropped', () async {

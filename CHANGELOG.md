@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A machine stored with a host and no `socket`, as the IntelliJ plugin or a hand edit can leave it, gets the window's own endpoint for it and is reached; one naming neither a host nor a socket stays listed and says which fields are missing instead of being dropped or shown with an empty path, and the tunnel refuses an empty socket path in those words before it checks a folder or starts ssh.
 - A task can no longer be named `people`, `person` or `review`, the names Porelo keeps for itself: the window refuses them before a start, and a repository named so suggests the task name `work`.
 - Saves a project's planner could not write and holds for you stand in *Needs you*, one row for each planning board that holds any, naming its project and machine: each command with its state and reason, with *Resend* where the planner sends the save again and *Drop*. The row counts until a whole read of its board holds none; while its board is not read, it shows what was held and says that Resend and Drop return once the board is read. A partly written move also names the issues it moved.
 - *porelo-host* takes `--limits <line>` before its verb, as every Porelo program does, and refuses a malformed line before any work; the window gives it this computer's limits line, so its ssh connect timeout, a server's command and copy, the machine check and the keyring prompt wait as long as this computer's factors say.

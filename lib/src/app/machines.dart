@@ -163,18 +163,35 @@ class Machine {
   /// read by `porelo-intellij`, and written by later versions of this program: dropping what is not
   /// understood here would lose a machine somebody set up elsewhere, the next time this list is
   /// saved.
-  factory Machine.fromStored(Map<String, Object?> stored) {
+  ///
+  /// **An entry that names a host but no `socket` gets this window's own endpoint for it** under the runtime folder
+  /// of [environment]: the plugin, which writes this file too, leaves the local end to the window.
+  factory Machine.fromStored(Map<String, Object?> stored, {Map<String, String>? environment}) {
     final card = stored.containsKey('hostCard') ? HostCardSsh.fromStored(stored['hostCard']) : null;
     // A card's daemon is the login's socket on its host, whatever an older build saved: one with the account's uid or
     // return socket named it by the uid, and an earlier layout put it elsewhere.
     final older = card != null && _text(stored['remoteSocket']) != card.daemonSocket;
+    final name = _text(stored['name']);
+    final kind = card != null && _text(stored['kind']).isEmpty ? 'host' : _text(stored['kind']);
+    final host = _text(stored['host']);
+    // A server prepared with no project names a host and no daemon at all; it keeps none, so it stays that.
+    final serverOnly = kind == 'host' && card == null && _text(stored['remoteSocket']).isEmpty;
+    final ownEndpoint =
+        _text(stored['socket']).isEmpty &&
+        host.isNotEmpty &&
+        name.isNotEmpty &&
+        (kind.isEmpty || kind == 'host') &&
+        !serverOnly &&
+        // A tunnel serves the endpoint only where it has a remote socket to forward from, or a card does.
+        (card != null || _text(stored['remoteSocket']).isNotEmpty) &&
+        !desk.isWindows;
     return Machine(
-      name: _text(stored['name']),
-      socketPath: _text(stored['socket']),
-      host: _text(stored['host']),
+      name: name,
+      socketPath: ownEndpoint ? endpointFor(name, environment: environment) : _text(stored['socket']),
+      host: host,
       remoteSocket: older ? card.daemonSocket : _text(stored['remoteSocket']),
       // A card host is stored without its kind, so the plugin, which reads this file, takes it as a machine.
-      kind: card != null && _text(stored['kind']).isEmpty ? 'host' : _text(stored['kind']),
+      kind: kind,
       distribution: _text(stored['distribution']),
       identity: _text(stored['identity']),
       hostProject: _text(stored['hostProject']),
@@ -281,6 +298,10 @@ class Machine {
             (sshConfig.isEmpty || host != hostCard!.name || remoteSocket != hostCard!.daemonSocket) =>
       'The imported machine needs its matching public SSH configuration and daemon endpoint.',
     'host' when hostCard != null => null,
+    '' when socketPath.isEmpty && host.isEmpty =>
+      '${name.isEmpty ? 'This entry' : name} names neither a host nor a socket in frontend.json.',
+    '' when socketPath.isEmpty && remoteSocket.isEmpty =>
+      '${name.isEmpty ? 'This entry' : name} names a host but no remoteSocket in frontend.json.',
     'host' when remoteSocket.isEmpty && socketPath.isEmpty =>
       'This server is prepared with no project account or daemon.',
     'host' when hostProject.isEmpty => 'This machine has no verified SSH configuration.',
