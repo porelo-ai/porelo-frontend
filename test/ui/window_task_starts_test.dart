@@ -187,6 +187,65 @@ void main() {
       expect(settings.planningOfferHanded(full.offer!), isFalse, reason: 'refused before its offer was handed');
     });
 
+    // Harm: an issue's build its blocker held back lands on the repository's running author task, or takes up a stopped
+    // task of an earlier build; or one with no free name starts anyway.
+    test('a freed author build starts under the first name of its own no task of its project holds', () async {
+      PlanningTaskOrder freed(String offer) => PlanningTaskOrder.from({
+        'offer': offer,
+        'repository': 'porelo',
+        'issues': ['porelo#618'],
+        'role': 'BUILDER',
+        'agent': 'claude',
+        'model': 'opus',
+        'mode': 'UNATTENDED',
+        'prompt': 'Build porelo#618.',
+        'runRole': 'AUTHOR',
+      });
+      machine
+        ..list(Task.from({'name': 'porelo-demo-porelo', 'task': 'porelo', 'project': 'demo', 'running': true}))
+        ..list(Task.from({'name': 'porelo-demo-porelo-2', 'task': 'porelo-2', 'project': 'demo'}));
+
+      await starts()(MockPlanningSource('planner'), 'demo', 'ST618', freed('00000000-0000-4000-8000-0000000006d1'));
+      expect(machine.started.last['task'], 'porelo-3', reason: 'never the running author, never a stopped build');
+      expect(machine.started.last['role'], 'AUTHOR');
+
+      for (var n = 4; n <= 9; n++) {
+        machine.list(Task.from({'name': 'porelo-demo-porelo-$n', 'task': 'porelo-$n', 'project': 'demo'}));
+      }
+      // An author at a place it resumes, or one that is no builder, is not a freed build: Start names it as before.
+      await starts()(
+        MockPlanningSource('planner'),
+        'demo',
+        'ST618',
+        PlanningTaskOrder.from({
+          'offer': '00000000-0000-4000-8000-0000000006d3',
+          'repository': 'porelo',
+          'issues': ['porelo#618'],
+          'role': 'BUILDER',
+          'agent': 'claude',
+          'model': 'opus',
+          'mode': 'UNATTENDED',
+          'prompt': 'Rework porelo#618.',
+          'runRole': 'AUTHOR',
+          'place': {'ownPullRequest': true},
+        }),
+      );
+      expect(
+        machine.started.last['task'],
+        isNull,
+        reason: 'an author resuming its place is not given a name of its own',
+      );
+      machine.started.removeLast();
+
+      final full = freed('00000000-0000-4000-8000-0000000006d2');
+      await expectLater(
+        starts()(MockPlanningSource('planner'), 'demo', 'ST618', full),
+        throwsA(isA<PlanningRefusal>().having((refusal) => refusal.name, 'name', 'NoTaskName')),
+      );
+      expect(machine.started, hasLength(1));
+      expect(settings.planningOfferHanded(full.offer!), isFalse, reason: 'refused before its offer was handed');
+    });
+
     // Harm: a name Porelo refuses is handed to Start, the offer spent on it; or a machine whose tasks cannot be read
     // starts a reviewer under a name it may already hold.
     test(

@@ -199,7 +199,7 @@ class WindowTaskStarts {
     } finally {
       if (offer != null) {
         _starting.remove(offer);
-        _reviewerNames.remove(offer);
+        _ownNames.remove(offer);
       }
     }
   }
@@ -209,48 +209,56 @@ class WindowTaskStarts {
   /// How many names a reviewer of one repository is tried under before its start is refused.
   static const mostReviewerNames = 9;
 
-  /// The reviewer names a start of this window holds until it ends, by its offer: a second start of the same
-  /// repository's reviewer reads the machine's tasks before the first one's stands.
-  final _reviewerNames = <String, (String, String, String)>{};
+  /// The names of their own a start of this window holds until it ends, by its offer: a second such start of the same
+  /// repository reads the machine's tasks before the first one's stands.
+  final _ownNames = <String, (String, String, String)>{};
 
-  /// The task name a reviewer of [repository] starts under: never the push's own, which Porelo refuses a reviewer, never
-  /// one a task of [project] holds, stopped or not, since Start would take that one up again with its older head and
-  /// points, and never one Porelo would refuse as a name. Refused before any offer is handed where the machine's tasks
-  /// cannot be read or no name is left.
-  Future<String> _reviewerName(
+  /// The task name a [reviewer] of [repository], or an author building an issue its run held back, starts under: never
+  /// the repository's own task, which the push's reviewer may not take and whose running author would take the build
+  /// over, never one a task of [project] holds, stopped or not, since Start would take that one up again with its older
+  /// head and points, and never one Porelo would refuse as a name. Refused before any offer is handed where the
+  /// machine's tasks cannot be read or no name is left.
+  Future<String> _ownName(
     FleetBackend backend,
     Machine machine,
     String project,
     String repository,
-    String? offer,
-  ) async {
+    String? offer, {
+    required bool reviewer,
+  }) async {
+    final who = reviewer ? 'the reviewer' : 'the build';
     final List<Task> listed;
     try {
       listed = await backend.tasks();
     } on Exception catch (error) {
-      final words = 'The tasks on ${machine.name} could not be read to name the reviewer of $repository: $error';
+      final words = 'The tasks on ${machine.name} could not be read to name $who of $repository: $error';
       throw PlanningRefusal('StartRefused', {'detail': words}, words);
     }
     final taken = {
       for (final each in listed)
         if (each.project == project) each.task,
-      for (final (onMachine, ofProject, name) in _reviewerNames.values)
+      for (final (onMachine, ofProject, name) in _ownNames.values)
         if (onMachine == machine.name && ofProject == project) name,
     };
     String? problem;
-    for (var n = 1; n <= mostReviewerNames; n++) {
-      final name = n == 1 ? '$repository-reviewer' : '$repository-reviewer-$n';
+    final first = reviewer ? '$repository-reviewer' : '$repository-2';
+    final last = reviewer ? '$repository-reviewer-$mostReviewerNames' : '$repository-$mostReviewerNames';
+    for (var n = reviewer ? 1 : 2; n <= mostReviewerNames; n++) {
+      final name = reviewer ? (n == 1 ? first : '$repository-reviewer-$n') : '$repository-$n';
       if (taken.contains(name)) continue;
       problem = taskNameProblem(name, project: project);
       if (problem != null) continue;
-      if (offer != null) _reviewerNames[offer] = (machine.name, project, name);
+      if (offer != null) _ownNames[offer] = (machine.name, project, name);
       return name;
     }
     final words = problem != null
-        ? 'No task name for the reviewer of $repository in $project is one Porelo takes: $problem'
-        : 'Every reviewer name of $repository in $project on ${machine.name} is held by a task, up to '
-              '$repository-reviewer-$mostReviewerNames; remove a reviewer that is done, then start this one again.';
-    throw PlanningRefusal('NoReviewerName', {'detail': words}, words);
+        ? 'No task name for $who of $repository in $project is one Porelo takes: $problem'
+        : reviewer
+        ? 'Every reviewer name of $repository in $project on ${machine.name} is held by a task, up to '
+              '$last; remove a reviewer that is done, then start this one again.'
+        : 'Every name from $first to $last in $project on ${machine.name} is held by a task; remove one that is done, '
+              'then start this one again.';
+    throw PlanningRefusal(reviewer ? 'NoReviewerName' : 'NoTaskName', {'detail': words}, words);
   }
 
   /// Whether a start of [offer] runs in this window: its task is kept by that start, never by a sweep.
@@ -316,8 +324,10 @@ class WindowTaskStarts {
           onEvent: shown.add,
         );
       case (false, final repository?, final result):
-        final named = task.runRole == 'REVIEWER'
-            ? await _reviewerName(backend, machine, project, repository, task.offer)
+        // A reviewer, and an author building an issue its run held back, run beside the repository's own task.
+        final freed = task.runRole == 'AUTHOR' && task.place == null && task.role == 'BUILDER';
+        final named = task.runRole == 'REVIEWER' || freed
+            ? await _ownName(backend, machine, project, repository, task.offer, reviewer: !freed)
             : null;
         // A task that hands back a result is a planned stage: it reads its repository and pushes nothing.
         start = () => backend.startOrdered(
