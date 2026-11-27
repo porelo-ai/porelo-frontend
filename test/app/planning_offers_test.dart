@@ -153,7 +153,8 @@ void main() {
           'project': 'demo',
           'story': 'ST1',
           'task': 'bad',
-          'role': 'main; rm',
+          'role': 'main\nrm',
+          'endKind': 'pushes work',
           'issues': ['PI68', 7],
         },
       ],
@@ -168,13 +169,18 @@ void main() {
       story: 'ST366',
       task: 'pi',
       result: 'analysis.json',
-      role: 'MAIN',
+      role: 'Analyst (2nd pass)',
+      endKind: 'HANDS_BACK_RESULT',
       issues: ['PI68', 'PI69'],
     );
 
     final again = await loaded(store);
     final kept = again.plannedOffer('laptop', 'porelo-demo-pi')!;
-    expect((kept.role, kept.stage, kept.worksOn), ('MAIN', 'In analysis', 'PI68, PI69 of ST366, in analysis'));
+    expect(
+      (kept.role, kept.endKind, kept.stage, kept.worksOn),
+      ('Analyst (2nd pass)', 'HANDS_BACK_RESULT', 'In analysis', 'PI68, PI69 of ST366, in analysis'),
+      reason: "a role is kept by the name its project gave it, whatever its letters",
+    );
     expect(kept.issues, ['PI68', 'PI69']);
     expect(kept.writesCode, isFalse);
     for (final older in ['porelo-demo-old', 'porelo-demo-bad']) {
@@ -187,7 +193,7 @@ void main() {
   // Harm: a task started for a stage its order does not name reads as implementing, or one that may push loses its
   // build line.
   test('a planned task names a stage only where its order says one', () {
-    PlannedOffer planned(String role, {String? result}) => PlannedOffer(
+    PlannedOffer planned(String role, String? endKind, {String? result}) => PlannedOffer(
       machine: 'laptop',
       container: 'porelo-demo-pi',
       offer: 'offer-1',
@@ -196,17 +202,37 @@ void main() {
       story: 'ST366',
       task: 'pi',
       role: role,
+      endKind: endKind,
       result: result,
       issues: const ['PI68'],
     );
-    for (final role in ['MAIN', 'BUILDER', 'COORDINATOR']) {
-      final offer = planned(role);
+    for (final (role, endKind) in [('author', 'PUSHES_WORK'), ('builder', null), ('later', 'SOMETHING_NEW')]) {
+      final offer = planned(role, endKind);
       expect((offer.stage, offer.worksOn, offer.writesCode), (null, 'PI68 of ST366', true), reason: role);
     }
-    expect(planned('MAIN', result: 'analysis.json').worksOn, 'PI68 of ST366, in analysis');
-    expect(planned('BUILDER', result: 'estimate.json').worksOn, 'PI68 of ST366, estimation');
-    final reader = planned('READER');
-    expect((reader.worksOn, reader.writesCode), ('PI68 of ST366, reading', false));
+    expect(planned('author', 'HANDS_BACK_RESULT', result: 'analysis.json').worksOn, 'PI68 of ST366, in analysis');
+    expect(planned('author', 'HANDS_BACK_RESULT', result: 'estimate.json').worksOn, 'PI68 of ST366, estimation');
+    for (final (role, endKind) in [('reviewer', 'GIVES_POINTS'), ('tester', 'REPORTS_FINDINGS')]) {
+      final reads = planned(role, endKind);
+      expect((reads.worksOn, reads.writesCode), ('PI68 of ST366, reading', false), reason: role);
+    }
+    // Harm: a stage shown or not by whether the role's name could be kept.
+    const unnamed = PlannedOffer(
+      machine: 'laptop',
+      container: 'porelo-demo-pi',
+      offer: 'offer-1',
+      provider: 'porelo-planner',
+      project: 'demo',
+      story: 'ST366',
+      task: 'pi',
+      endKind: 'GIVES_POINTS',
+      issues: ['PI68'],
+    );
+    expect((unnamed.stage, unnamed.worksOn), ('Reading', 'PI68 of ST366, reading'));
+    // Harm: a decision read from a role's name, which is the project's own word, shows a builder named READER as
+    // one that reads.
+    final named = planned('READER', 'PUSHES_WORK');
+    expect((named.stage, named.writesCode), (null, true));
   });
 
   // Harm: a role or issues this build cannot keep refuse the keeping of a task Start already made, so its end is never
@@ -223,13 +249,39 @@ void main() {
       project: 'demo',
       story: 'ST366',
       task: 'pi',
-      role: 'main; rm',
+      role: 'x' * 65,
+      endKind: 'pushes work',
       issues: ['PI68', 'x' * 500],
     );
 
     final kept = (await loaded(store)).plannedOffer('laptop', 'porelo-demo-pi')!;
-    expect((kept.offer, kept.role, kept.reportable), ('offer-1', null, true));
+    expect((kept.offer, kept.role, kept.endKind, kept.reportable), ('offer-1', null, null, true));
     expect(kept.issues, isEmpty);
+  });
+
+  // Harm: a role's name, shown as it is, breaks its row over two lines or turns the text beside it around.
+  test('a role name with a control, a line break or a direction mark is not kept; any other text is', () async {
+    final settings = await loaded(MemorySettingsStore());
+    Future<String?> keptAs(String role) async {
+      await settings.rememberPlanningOffer(
+        machine: 'laptop',
+        container: 'porelo-demo-pi',
+        offer: 'offer-1',
+        provider: 'porelo-planner',
+        project: 'demo',
+        story: 'ST366',
+        task: 'pi',
+        role: role,
+      );
+      return settings.plannedOffer('laptop', 'porelo-demo-pi')!.role;
+    }
+
+    for (final bad in ['two\nlines', 'tab\there', 'turned\u202earound', 'hidden\u200bspace', '   ', '']) {
+      expect(await keptAs(bad), isNull, reason: 'not kept: ${bad.runes.toList()}');
+    }
+    for (final good in ['tester', 'Screener 2', 'Prüferin', 'main; rm', 'x' * 64]) {
+      expect(await keptAs(good), good);
+    }
   });
 
   // Harm: a stored result name that is a path reaches the machine's result read.

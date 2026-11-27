@@ -13,6 +13,7 @@ import 'package:porelo_frontend/src/ui/attention_view.dart';
 import 'package:porelo_planning/planning_fake.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
+import '../support/planned_orders.dart';
 import '../features/support/world.dart';
 
 Map<String, dynamic> _snapshot(
@@ -101,6 +102,8 @@ class _TwoStories extends _Planning {
         'tasks': [
           {
             'task': 'main',
+            'role': authorRole,
+            'readLanded': <String>[],
             'ended': {'at': at, 'outcome': 'BLOCKED', 'why': 'Needs a repository key.', 'answer': ''},
           },
         ],
@@ -395,6 +398,8 @@ void main() {
         'tasks': [
           {
             'task': 'main',
+            'role': authorRole,
+            'readLanded': <String>[],
             'ended': {'at': 'instant', 'outcome': 'BLOCKED', 'why': 'Needs a repository key.', 'answer': ''},
           },
         ],
@@ -442,6 +447,8 @@ void main() {
         'tasks': [
           {
             'task': 'main',
+            'role': authorRole,
+            'readLanded': <String>[],
             'ended': {'at': at, 'outcome': 'BLOCKED', 'why': 'Needs a repository key.', 'answer': ''},
           },
         ],
@@ -571,6 +578,8 @@ void main() {
         'tasks': [
           {
             'task': 'main',
+            'role': authorRole,
+            'readLanded': <String>[],
             'ended': {'at': at, 'outcome': 'BLOCKED', 'why': 'Needs a repository key.', 'answer': ''},
           },
         ],
@@ -621,6 +630,8 @@ void main() {
       tasks: [
         {
           'task': 'reader',
+          'role': authorRole,
+          'readLanded': <String>[],
           'issues': ['item'],
           'ended': {'at': '2026-11-10T09:00:00Z', 'outcome': 'BLOCKED', 'why': 'Needs a key.', 'answer': ''},
         },
@@ -640,6 +651,8 @@ void main() {
         tasks: [
           {
             'task': 'reader',
+            'role': authorRole,
+            'readLanded': <String>[],
             'issues': ['item'],
             'ended': {'at': '2026-11-10T09:00:00Z', 'outcome': 'BLOCKED', 'why': 'Needs a key.', 'answer': ''},
           },
@@ -665,6 +678,8 @@ void main() {
         tasks: [
           {
             'task': 'main',
+            'role': authorRole,
+            'readLanded': <String>[],
             'ended': {'at': '', 'outcome': 'BLOCKED', 'why': 'Needs a key.', 'answer': ''},
           },
         ],

@@ -1,3 +1,5 @@
+import '../../support/planned_orders.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
@@ -11,9 +13,9 @@ Future<void> thePlannerOrdersAReaderOfAfterTheNextReportedStart(WidgetTester tes
     'offer': followUpOffer,
     'repository': 'porelo',
     'issues': [issue],
-    'role': 'READER',
+    ...workOrder(readerRole, const <String, dynamic>{}),
     // What it reads: the issue's builder, which the start ran.
-    'reads': ['st291-porelo-builder-${issue.toLowerCase()}'],
+    'readLanded': ['st291-porelo-builder-${issue.toLowerCase()}'],
     'agent': 'codex',
     'model': 'a-model',
     'prompt': 'Read $issue.',

@@ -7916,17 +7916,17 @@ class _ShellState extends State<Shell> {
     }
   }
 
-  /// Opens the terminal of the first task started *With you*, its main one where it has one, on the machine it runs
-  /// on: as a session opens anywhere else in the window.
+  /// Opens the terminal of the task started *With you* that its order marks to open one, on the machine it runs on:
+  /// as a session opens anywhere else in the window. An order that marks none opens none.
   Future<void> _storyWorkStarted(
     PlanningSource source,
     String project,
     String story,
     List<(PlanningTaskOrder, PlanningTaskStarted)> tasks,
   ) async {
-    final withYou = tasks.where((each) => each.$1.mode == Mode.agent.name);
+    // Only a task a person works with has a terminal to open, whatever an order marks.
     final (order, started) =
-        withYou.where((each) => each.$1.role == 'MAIN').firstOrNull ?? withYou.firstOrNull ?? (null, null);
+        tasks.where((each) => each.$1.mode == Mode.agent.name && each.$1.opensTerminal).firstOrNull ?? (null, null);
     if (order == null || started == null || !mounted) return;
     final machine = widget.planning?.startedOn(project, started.container);
     if (machine == null || !widget.machines.all.contains(machine)) return;

@@ -502,6 +502,11 @@ class PoreloClient {
       return "This machine's Porelo cannot read every repository of a project for a discussion; it needs a newer "
           'Porelo.';
     }
+    // Asked before the person chooses an agent: a start it would refuse for its rights is said here, not after.
+    if (!await _startDeclares('rights') || !await _startDeclares('projectServices')) {
+      return "This machine's Porelo cannot start a discussion with the rights its planner names; it needs a "
+          'newer Porelo.';
+    }
     return null;
   }
 
@@ -768,13 +773,28 @@ class PoreloClient {
     bool? allRepositories,
     String? result,
     String? callerKey,
-    List<String>? reads,
     bool? readOnly,
     Map<String, String>? given,
     TrackedWork? work,
-    String? role,
     Map<String, Object?>? place,
+    List<String>? rights,
+    List<String>? readLanded,
+    String? writeAs,
+    bool? projectServices,
   }) async* {
+    // Never dropped where the machine lacks them: without its rights a start would take the machine's default
+    // set, and without its place, account or services it would be another start than the one ordered.
+    for (final (input, named) in <(String, bool)>[
+      ('rights', rights != null),
+      // Named only by an order here: left out by a machine that takes none, the task would get a gate.
+      ('noGate', noGate != null && rights != null),
+      ('place', place != null),
+      ('readLanded', readLanded != null),
+      ('writeAs', writeAs != null),
+      ('projectServices', projectServices != null),
+    ]) {
+      if (named && !await _startDeclares(input)) throw FeatureNotSupported('Start($input)');
+    }
     // Never dropped where the machine lacks them: without them the start would be an ordinary one, a repository
     // writable, where every repository read only and a file handed back were asked.
     if (allRepositories != null && !await _startDeclares('allRepositories')) {
@@ -782,10 +802,6 @@ class PoreloClient {
     }
     if (result != null && !await _startDeclares('result')) {
       throw const FeatureNotSupported('Start(result)');
-    }
-    // Without them a reader would start seeing none of the work it is to read.
-    if (reads != null && !await _startDeclares('reads')) {
-      throw const FeatureNotSupported('Start(reads)');
     }
     // Without it a planned stage would get its repository writable and a gate; without them it would not read the
     // issues as its planner holds them now.
@@ -798,13 +814,6 @@ class PoreloClient {
     // Without it a stage of a project kept in a tracker would work on nothing it can name.
     if (work != null && !await _startDeclares('work')) {
       throw const FeatureNotSupported('Start(work)');
-    }
-    // Without them a reviewer would start as an author at its own work.
-    if (role != null && !await _startDeclares('role')) {
-      throw const FeatureNotSupported('Start(role)');
-    }
-    if (place != null && !await _startDeclares('place')) {
-      throw const FeatureNotSupported('Start(place)');
     }
     // Only what the caller named is sent, so the backend's own defaults stay the only defaults.
     // Restating them here would be a second place for them to drift.
@@ -839,13 +848,16 @@ class PoreloClient {
       if (certify && await (_startCertify ??= _declaresStartInput('certify'))) 'certify': true,
       'allRepositories': ?allRepositories,
       'result': ?result,
-      'reads': ?reads,
       'readOnly': ?readOnly,
       'given': ?given,
       if (work != null) 'work': <String, String>{'issue': work.issue, 'phase': work.phase},
       // As the planner read them: the window builds no place of its own.
-      'role': ?role,
       'place': ?place,
+      // An empty list is sent as one: left out, the machine would give the task its default set.
+      'rights': ?rights,
+      'readLanded': ?readLanded,
+      'writeAs': ?writeAs,
+      'projectServices': ?projectServices,
       // Only a help to find the task again: a machine that keeps none starts the same task without it.
       if (callerKey != null && await _startDeclares('callerKey')) 'callerKey': callerKey,
     };

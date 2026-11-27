@@ -1,3 +1,5 @@
+import '../../support/planned_orders.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_planning/porelo_planning.dart';
 
@@ -12,8 +14,8 @@ Future<void> anotherTaskOfReadingIsPressedOnTheBoard(WidgetTester tester, String
     'offer': '00000000-0000-4000-8000-0000000002f1',
     'repository': 'porelo',
     'issues': [issue],
-    'role': 'READER',
-    'reads': ['${story.toLowerCase()}-porelo-builder-${issue.toLowerCase()}'],
+    ...workOrder(readerRole, const <String, dynamic>{}),
+    'readLanded': ['${story.toLowerCase()}-porelo-builder-${issue.toLowerCase()}'],
     'agent': 'codex',
     'model': 'a-model',
     'mode': 'AGENT',

@@ -41,7 +41,13 @@ class MockMachine {
         '''
 interface ${daemon.interfaceName}
 type StartStep (step: string, state: string, text: string, waitingOn: string, cause: string)
-method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
+type Right (push, reply, openThreads, resolveThreads, start, stop, done, report, reject)
+type GatePush (repository: ?string, name: string)
+type Place (gatePush: ?GatePush, pullRequest: ?string, ownPullRequest: ?bool)
+method Start(
+  task: ?string, project: ?string, agent: ?string, steps: ?bool, place: ?Place, rights: ?[]Right,
+  readLanded: ?[]string, writeAs: ?(author, review), projectServices: ?bool
+) -> (
   line: ?string, step: ?StartStep, steps: ?[]StartStep, container: ?string, exitCode: ?int
 )
 ''';
@@ -2410,6 +2416,10 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
   /// `prompt`: without one this ends when the container is up, with one it lasts as long as the
   /// run and the agent's own output arrives as it is produced.
   Stream<Map<String, dynamic>> _launch(Map<String, dynamic> parameters) async* {
+    // As Porelo does: an account is taken only at a pull request, and refused elsewhere rather than ignored.
+    if (parameters['writeAs'] != null && !_atAPullRequest(parameters['place'])) {
+      throw const MockRefusal('org.varlink.service.InvalidParameter', <String, dynamic>{'parameter': 'writeAs'});
+    }
     if (situation == 'start-waits') {
       final waiting = Completer<void>();
       _waitingStart = waiting;
@@ -2535,19 +2545,57 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     // it with a new prompt reads back.
     tasks = <Map<String, dynamic>>[
       ...tasks,
-      _task(
-        container,
-        project,
-        running: false,
-        helpers: 0,
-        activity: 'DEAD',
-        mode: mode,
-        agent: parameters['agent'] as String? ?? 'an-agent',
-        prompt: prompt,
-      ),
+      <String, dynamic>{
+        ..._task(
+          container,
+          project,
+          running: false,
+          helpers: 0,
+          activity: 'DEAD',
+          mode: mode,
+          agent: parameters['agent'] as String? ?? 'an-agent',
+          prompt: prompt,
+        ),
+        ..._partsRecorded(parameters, given),
+      },
     ];
     _changes.add(<String, dynamic>{'tasks': _listing});
     yield <String, dynamic>{'container': container, 'exitCode': 0};
+  }
+
+  static bool _atAPullRequest(Object? place) =>
+      place is Map && (place['pullRequest'] is String || place['ownPullRequest'] == true);
+
+  /// The parts of a start as Porelo records them on the task's row, each written out: the kind of workspace, and
+  /// the defaults of what the start left out.
+  static Map<String, dynamic> _partsRecorded(Map<String, dynamic> parameters, String task) {
+    final place = parameters['place'];
+    final push = place is Map ? place['gatePush'] : null;
+    final foreign = (push is Map && push['name'] != task) || (place is Map && place['pullRequest'] is String);
+    final workspace = parameters['noGate'] == true
+        ? 'none'
+        : parameters['allRepositories'] == true
+        ? 'allRepositories'
+        : parameters['readOnly'] == true
+        ? 'readOnly'
+        : foreign
+        ? 'foreign'
+        : 'own';
+    final gated = workspace == 'own' || workspace == 'foreign';
+    return <String, dynamic>{
+      'workspace': workspace,
+      // As Porelo does: only own work has a default set; any other kind without rights named holds none.
+      'rights': parameters['rights'] ?? (workspace == 'own' ? const <String>['push', 'reply'] : const <String>[]),
+      'readLanded': parameters['readLanded'] ?? const <String>[],
+      'writeAs': parameters['writeAs'] ?? 'author',
+      'projectServices': parameters['projectServices'] ?? workspace != 'foreign',
+      if (gated && place is Map)
+        'place': place
+      else if (workspace == 'own')
+        'place': <String, dynamic>{
+          'gatePush': <String, dynamic>{'name': task},
+        },
+    };
   }
 
   static Map<String, dynamic> _startStep(

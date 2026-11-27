@@ -40,6 +40,7 @@ class PendingStart {
     this.discussion = false,
     this.result,
     this.role,
+    this.endKind,
     this.issues = const [],
   });
 
@@ -56,8 +57,9 @@ class PendingStart {
   /// The file a planned stage hands back, kept with its task once found again; null for work that pushes.
   final String? result;
 
-  /// The order's role and issues, kept with its task once found again so its row says what it works on.
-  final String? role;
+  /// The order's role by the name its project gave it, how that role ends and the issues, kept with its task once
+  /// found again so its row says what it works on.
+  final String? role, endKind;
 
   /// The issues the order's task works on.
   final List<String> issues;
@@ -174,6 +176,7 @@ class PlannedOffer {
     this.result,
     this.resultHanded,
     this.role,
+    this.endKind,
     this.issues = const [],
   });
 
@@ -216,31 +219,36 @@ class PlannedOffer {
   /// after that. Null while none was.
   final String? resultHanded;
 
-  /// The order's role (`MAIN`, `BUILDER`, `READER`), or null where an earlier build kept none.
+  /// The order's role by the name its project gave it, shown as it is; null where none was kept.
   final String? role;
+
+  /// How that role ends, in the planner's word (`PUSHES_WORK`, `REPORTS_FINDINGS`, `GIVES_POINTS`,
+  /// `HANDS_BACK_RESULT`, or one a later planner adds); null where none was kept.
+  final String? endKind;
 
   /// The issues the order's task works on, in the order's order; none where an earlier build kept none.
   final List<String> issues;
 
   /// The stage the task works at, in the board's word, only where its order says one: `In analysis` and `Estimation`
-  /// for a stage that hands back its analysis or estimate, `Reading` for a reader; null for any other role, whose
-  /// order names no stage, and where an earlier build kept no role.
-  String? get stage => switch ((role, result)) {
-    (null, _) => null,
-    (_, 'analysis.json') => 'In analysis',
-    (_, 'estimate.json') => 'Estimation',
-    ('READER', _) => 'Reading',
+  /// for a stage that hands back its analysis or estimate, `Reading` for a role that ends by reporting findings or
+  /// giving points; null for any other, whose order names no stage, and where no role was kept. **Never read from
+  /// the role's name**, which is the project's own word.
+  String? get stage => switch ((result, endKind)) {
+    ('analysis.json', _) => 'In analysis',
+    ('estimate.json', _) => 'Estimation',
+    (_, 'REPORTS_FINDINGS' || 'GIVES_POINTS') => 'Reading',
     _ => null,
   };
 
-  /// Whether its task writes code that is pushed and built; a stage that reads or hands back a result does not, and
-  /// any other, one an earlier build kept among them, is taken to.
-  bool get writesCode => role == null || result == null && role != 'READER';
+  /// Whether its task writes code that is pushed and built: one whose role ends another way than by pushing work
+  /// does not; one whose end kind was not kept, or is a word this build does not know, is taken to, and the rights
+  /// its machine lists decide.
+  bool get writesCode => !const {'REPORTS_FINDINGS', 'GIVES_POINTS', 'HANDS_BACK_RESULT'}.contains(endKind);
 
   /// What it works on, for its tile and row: `<issues> of <story>, in analysis`, or `<issues> of <story>` where its
   /// order names no stage; null where an earlier build kept no issues or role.
   String? get worksOn {
-    if (role == null || issues.isEmpty || story == null) return null;
+    if (issues.isEmpty || story == null) return null;
     final where = '${issues.join(', ')} of $story';
     return switch (stage) {
       final at? => '$where, ${at.toLowerCase()}',
@@ -268,6 +276,7 @@ class PlannedOffer {
         result: result,
         resultHanded: resultHanded ?? this.resultHanded,
         role: role,
+        endKind: endKind,
         issues: issues,
       );
 }
@@ -1154,6 +1163,7 @@ class Settings extends ChangeNotifier {
     String? run,
     String? result,
     String? role,
+    String? endKind,
     List<String> issues = const [],
   }) async {
     if (!_validOffer(machine, container, offer)) {
@@ -1169,6 +1179,7 @@ class Settings extends ChangeNotifier {
     // Only said on the task's row: a role or issues this build cannot keep are dropped, never let refuse the keeping
     // of a task Start has already made, whose end would then go unreported.
     final keptRole = role != null && _validRole(role) ? role : null;
+    final keptEndKind = endKind != null && _validEndKind(endKind) ? endKind : null;
     final keptIssues = issues.length <= _mostIssues && issues.every(_validLabel) ? issues : const <String>[];
     _planningOffers[(machine, container)] = PlannedOffer(
       machine: machine,
@@ -1182,6 +1193,7 @@ class Settings extends ChangeNotifier {
       run: run,
       result: result,
       role: keptRole,
+      endKind: keptEndKind,
       issues: List.unmodifiable(keptIssues),
     );
     _kept(offer);
@@ -1353,8 +1365,15 @@ class Settings extends ChangeNotifier {
   /// The most issues one planned task keeps.
   static const _mostIssues = 64;
 
-  /// A role as an order names it.
-  static bool _validRole(String value) => RegExp(r'^[A-Z]{1,32}$').hasMatch(value);
+  /// A role's name as a project gives it: free text shown as it is, so nothing in it may be a control, a line
+  /// break or a character that turns the direction of the text around it.
+  static bool _validRole(String value) =>
+      value.trim().isNotEmpty &&
+      value.runes.length <= 64 &&
+      !value.contains(RegExp(r'[\x00-\x1f\x7f-\x9f\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]'));
+
+  /// How a role ends, in the planner's word.
+  static bool _validEndKind(String value) => RegExp(r'^[A-Z][A-Z_]{0,31}$').hasMatch(value);
 
   /// A result file's name as an order names it: a plain file name, never a path.
   static bool _validResultName(String value) => RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$').hasMatch(value);
@@ -1375,6 +1394,7 @@ class Settings extends ChangeNotifier {
           final result = value['result'];
           final resultHanded = value['resultHanded'];
           final role = value['role'];
+          final endKind = value['endKind'];
           final issues = value['issues'];
           _planningOffers[(machine, container)] = PlannedOffer(
             machine: machine,
@@ -1391,6 +1411,7 @@ class Settings extends ChangeNotifier {
             result: reportable && result is String && _validResultName(result) ? result : null,
             resultHanded: reportable && resultHanded is String && _validEnd(resultHanded) ? resultHanded : null,
             role: reportable && role is String && _validRole(role) ? role : null,
+            endKind: reportable && endKind is String && _validEndKind(endKind) ? endKind : null,
             issues:
                 reportable &&
                     issues is List<dynamic> &&
@@ -1447,6 +1468,10 @@ class Settings extends ChangeNotifier {
             },
             role: switch (value['role']) {
               final String role when _validRole(role) => role,
+              _ => null,
+            },
+            endKind: switch (value['endKind']) {
+              final String endKind when _validEndKind(endKind) => endKind,
               _ => null,
             },
             issues: switch (value['issues']) {
@@ -1512,6 +1537,7 @@ class Settings extends ChangeNotifier {
             'result': ?kept.result,
             'resultHanded': ?kept.resultHanded,
             'role': ?kept.role,
+            'endKind': ?kept.endKind,
             if (kept.issues.isNotEmpty) 'issues': kept.issues,
           },
         },
@@ -1532,6 +1558,7 @@ class Settings extends ChangeNotifier {
           'discussion': pending.discussion,
           'result': ?pending.result,
           'role': ?pending.role,
+          'endKind': ?pending.endKind,
           if (pending.issues.isNotEmpty) 'issues': pending.issues,
         },
     ],

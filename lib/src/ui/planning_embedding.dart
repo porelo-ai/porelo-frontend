@@ -31,7 +31,7 @@ import '../app/shell_model.dart';
 import '../app/start_refusals.dart';
 import '../app/task_names.dart' show taskNameProblem;
 import '../app/window_log.dart';
-import '../client/models.dart' show Agent, AgentEnded, Mode, StartEvent, Task;
+import '../client/models.dart' show Agent, AgentEnded, Mode, StartEvent, StartParts, Task;
 import '../client/porelo_client.dart' show FeatureNotSupported, StartProgress;
 import '../wire/varlink_exception.dart';
 import 'organization_access_dialogs.dart' show planningForgeHost, prepareForgeForPlanning;
@@ -281,16 +281,16 @@ class WindowTaskStarts {
       final words = '${machine.name} is not answering yet: it is being opened. Start the task once it answers.';
       throw PlanningRefusal('NotWatchedYet', {'detail': words}, words);
     }
-    final discussion = task.role == 'DISCUSSION';
+    final discussion = task.discussion;
     final shown = _StartShown(
       () => operations,
-      title: discussion
-          ? 'Discuss an idea in $project'
-          : 'Start the ${task.role.toLowerCase()} task of $story'
-                '${task.repository == null ? '' : ' in ${task.repository}'}',
+      title: discussion ? 'Discuss an idea in $project' : 'Start ${_named(task, story)}',
       machine: machine.name,
       open: pressed ? openOperation : null,
     );
+    // Before the offer is handed and before anything is asked of the machine: an order the window cannot start as
+    // it stands starts nothing.
+    final parts = _partsOf(task);
     final Future<StartProgress> Function() start;
     switch ((discussion, task.repository, task.result)) {
       case (true, _, _):
@@ -320,16 +320,25 @@ class WindowTaskStarts {
           model: chosen.model,
           mode: Mode(task.mode),
           prompt: task.prompt,
+          parts: parts,
           callerKey: task.offer,
           onEvent: shown.add,
         );
       case (false, final repository?, final result):
-        // A reviewer, and an author building an issue its run held back, run beside the repository's own task.
-        final freed = task.runRole == 'AUTHOR' && task.place == null && task.role == 'BUILDER';
-        final named = task.runRole == 'REVIEWER' || freed
-            ? await _ownName(backend, machine, project, repository, task.offer, reviewer: !freed)
-            : null;
-        // A task that hands back a result is a planned stage: it reads its repository and pushes nothing.
+        // Which task Start is asked for is the order's to say, never read from a role: one it marks to run beside
+        // the repository's own task gets a free name here, since only the window reads the machine's tasks; an
+        // author sent back runs the task the order names again; any other is the repository's own. The role's
+        // workspace only shapes a name of the window's own.
+        final named = task.ownTask
+            ? await _ownName(
+                backend,
+                machine,
+                project,
+                repository,
+                task.offer,
+                reviewer: task.role?.workspace == 'foreign',
+              )
+            : task.task;
         start = () => backend.startOrdered(
           task: named,
           project: project,
@@ -338,16 +347,12 @@ class WindowTaskStarts {
           model: task.model,
           mode: Mode(task.mode),
           prompt: task.prompt,
+          parts: parts,
           callerKey: task.offer,
-          reads: task.reads,
           onEvent: shown.add,
           result: result,
-          readOnly: result != null,
           // The issues as the planner holds them now, each a name and a text; Start mounts them read only.
           given: {for (final file in task.given) file.name: file.text},
-          // The run's role and place as the planner read them; the window builds none of its own.
-          role: task.runRole,
-          place: task.place?.toJson(),
           // The tracker issue and phase a task of a project kept in a tracker works; absent for one kept in Markdown.
           work: switch (task.work) {
             final work? => (issue: work.issue, phase: work.phase),
@@ -355,7 +360,7 @@ class WindowTaskStarts {
           },
         );
       default:
-        final words = 'The planner ordered a ${task.role} task this window cannot start.';
+        final words = 'The planner ordered ${_named(task, story)}, which this window cannot start.';
         throw PlanningRefusal('UnknownOrder', {'detail': words}, words);
     }
     // Handed before Start is asked: whatever Start answers, this offer is not started again, unless a later window finds
@@ -379,7 +384,8 @@ class WindowTaskStarts {
             story: story,
             discussion: discussion,
             result: discussion ? null : task.result,
-            role: discussion ? null : task.role,
+            role: task.role?.name,
+            endKind: task.role?.endKind.wire,
             issues: discussion ? const [] : task.issues,
           ),
           null => null,
@@ -474,7 +480,8 @@ class WindowTaskStarts {
         // A planned stage hands its result file in before its end is reported.
         result: task.result,
         // What the task works on, for its tile and row.
-        role: task.role,
+        role: task.role?.name,
+        endKind: task.role?.endKind.wire,
         issues: task.issues,
       );
       if (settings.plannedOffer(machine.name, container) case final kept?) onConfirmed?.call(kept);
@@ -486,19 +493,52 @@ class WindowTaskStarts {
   /// where it was asked for: a start pressed on the board in the board's line, a start the planner ordered after a
   /// report where the window says a refused report.
   void _sayRefused(Machine machine, String project, String story, PlanningTaskOrder task, String words) {
-    final what = task.role == 'DISCUSSION'
-        ? 'a discussion'
-        : 'the ${task.role.toLowerCase()} task of $story${task.repository == null ? '' : ' in ${task.repository}'}';
-    final said = 'Start of $what for $project on ${machine.name} was refused: $words';
+    final said = 'Start of ${_named(task, story)} for $project on ${machine.name} was refused: $words';
     windowLog.warn('Planning: $said', machine: machine.name);
   }
+
+  /// The parts [task]'s order names, as they are: its rights always, an order naming none as an empty list, so the
+  /// machine's default set never applies to a planned start. An order that reaches here was read by the planning
+  /// screen, which takes none without its rights, its services and the tasks it reads, none with a right, a
+  /// place or an account that is no such thing, none whose workspace is not its role's, none at another task's
+  /// work without a task name of its own, and no role whose name holds a control or a direction character.
+  ///
+  /// One order is refused here, before anything is handed or asked: a discussion that would write. The person is
+  /// told it reads every repository and pushes nothing, so one ordered otherwise is not started under those words.
+  static StartParts _partsOf(PlanningTaskOrder task) {
+    if (task.discussion &&
+        (!task.allRepositories || task.noGate || task.place != null || task.rights.contains('push'))) {
+      const words =
+          'The planner ordered a discussion that does not read every repository read only without the right to '
+          'push, so nothing was started.';
+      throw const PlanningRefusal('UnknownOrder', {'detail': words}, words);
+    }
+    return StartParts(
+      rights: task.rights,
+      projectServices: task.projectServices,
+      readOnly: task.readOnly,
+      allRepositories: task.allRepositories,
+      noGate: task.noGate,
+      place: task.place?.toJson(),
+      readLanded: task.readLanded,
+      writeAs: task.writeAs,
+    );
+  }
+
+  /// What an order's task is called where the window speaks of it: its role by the name its project gave it, as it
+  /// is, never a word of the window's own.
+  static String _named(PlanningTaskOrder task, String story) => task.discussion
+      ? 'a discussion'
+      : 'the task of the role ${task.role?.name ?? 'not named'} of $story'
+            '${task.repository == null ? '' : ' in ${task.repository}'}';
 
   /// The refusals of Start the planner names, whose parameters it is handed; any other goes by its name and words.
   static const plannerNamedRefusals = {
     'UnknownForge',
     'NoPullRequest',
     'NotTheTasksPush',
-    'RoleNotAllowed',
+    'StartRuleBroken',
+    'RightsChanged',
     'PlaceUnreadable',
     'AdapterNotInstalled',
   };
@@ -520,7 +560,7 @@ class WindowTaskStarts {
     String words,
   ) async {
     final (offer, provider) = (task.offer, providerOf(source));
-    if (offer == null || provider == null || task.role == 'DISCUSSION') return;
+    if (offer == null || provider == null || task.discussion) return;
     try {
       final refused = RefusedStart.bounded(
         offer: offer,
@@ -529,7 +569,7 @@ class WindowTaskStarts {
         project: project,
         story: story,
         // The run's own name where it pushes at a gate, else its offer, as the planner keys a run that made no task.
-        task: task.place?.gatePush ?? offer,
+        task: task.task ?? task.place?.gatePush ?? offer,
         name: name,
         // Only a refusal the planner names carries its values on: any other may hold what the window never shows.
         parameters: plannerNamedRefusals.contains(name) ? parameters : const {},

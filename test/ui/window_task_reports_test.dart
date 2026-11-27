@@ -13,6 +13,7 @@ import 'package:porelo_planning/porelo_planning.dart';
 
 import 'package:porelo_frontend/src/app/planner_stage_results.dart';
 
+import '../support/planned_orders.dart';
 import 'window_task_starts_test.dart' show discussionOrder, plannedOrders;
 
 const _laptop = Machine(name: 'laptop', socketPath: '/run/laptop.sock');
@@ -124,7 +125,7 @@ void main() {
     await starts(planner, 'demo', 'ST291', (await plannedOrders()).first);
     await reports.idle;
 
-    expect(machine.started.map((each) => each['reads']), [
+    expect(machine.started.map((each) => each['readLanded']), [
       const <String>[],
       const ['foo-1'],
     ]);
@@ -178,9 +179,9 @@ void main() {
   test('a start Porelo refused is reported once as refused, in its own name and words', () async {
     final (starts, reports) = window();
     final order = (await plannedOrders()).first;
-    machine.throwNext = const VarlinkException('org.fuin.porelo.Tasks1.RoleNotAllowed', {
-      'role': 'REVIEWER',
-      'place': {'pullRequest': 'https://forge.example/o/r/pull/7'},
+    machine.throwNext = const VarlinkException('org.fuin.porelo.Tasks1.StartRuleBroken', {
+      'rule': 'foreignWorkLeadsOut',
+      'detail': 'project services at the push fix',
     });
 
     await expectLater(starts(planner, 'demo', 'ST291', order), throwsA(isA<PlanningRefusal>()));
@@ -191,11 +192,12 @@ void main() {
     final told = planner.refusedTold.single;
     expect(
       (told.offer, told.machine, told.provider, told.project, told.story, told.task, told.name),
-      (order.offer, 'laptop', _provider, 'demo', 'ST291', order.offer, 'RoleNotAllowed'),
+      (order.offer, 'laptop', _provider, 'demo', 'ST291', order.offer, 'StartRuleBroken'),
       reason: 'an order naming no task is told under its offer',
     );
-    expect(told.parameters, {'role': 'REVIEWER', 'place': '{"pullRequest":"https://forge.example/o/r/pull/7"}'});
-    expect(told.detail, contains('laptop'));
+    // The planner names this refusal, so it is handed the rule it broke and not only the window's words.
+    expect(told.parameters, {'rule': 'foreignWorkLeadsOut', 'detail': 'project services at the push fix'});
+    expect(told.detail, allOf(contains('laptop'), contains('cannot hold project services')));
     expect(planner.calls, isEmpty, reason: 'no task stands to be reported started');
     expect((await loaded()).refusedStarts, isEmpty, reason: 'the planner took it');
   });
@@ -1618,17 +1620,18 @@ void main() {
     // reported with nothing handed in and its issue moves on with no plan saved.
     test('a stage found again by its key after a restart still hands its result before its end', () async {
       final (starts, _) = window();
-      final order = PlanningTaskOrder.from({
-        'offer': '00000000-0000-4000-8000-0000000005a2',
-        'repository': 'porelo',
-        'issues': ['PI68'],
-        'role': 'MAIN',
-        'agent': 'claude',
-        'model': 'opus',
-        'mode': 'AGENT',
-        'prompt': 'Analyse PI68 and write analysis.json.',
-        'result': 'analysis.json',
-      });
+      final order = PlanningTaskOrder.from(
+        workOrder(stageRole, {
+          'offer': '00000000-0000-4000-8000-0000000005a2',
+          'repository': 'porelo',
+          'issues': ['PI68'],
+          'agent': 'claude',
+          'model': 'opus',
+          'mode': 'AGENT',
+          'prompt': 'Analyse PI68 and write analysis.json.',
+          'result': 'analysis.json',
+        }),
+      );
       machine.hangAfterStart = true;
       unawaited(starts(planner, 'demo', 'ST366', order));
       await pumpEventQueue();
@@ -1645,8 +1648,8 @@ void main() {
       expect(events(), [PlanningTaskEvent.started, PlanningTaskEvent.ended]);
       final kept = (await loaded()).plannedOffer('laptop', 'porelo-demo-porelo')!;
       expect(
-        (kept.role, kept.worksOn),
-        ('MAIN', 'PI68 of ST366, in analysis'),
+        (kept.role, kept.endKind, kept.worksOn),
+        ('analyst', 'HANDS_BACK_RESULT', 'PI68 of ST366, in analysis'),
         reason: 'its row says what it works on',
       );
     });
@@ -1706,18 +1709,19 @@ Map<String, dynamic> _followUp(
   String role = 'BUILDER',
   List<String>? reads,
   Map<String, dynamic>? place,
-}) => {
+}) => workOrder(role == 'READER' ? readerRole : builderRole, {
   'offer': '00000000-0000-4000-8000-${'$number'.padLeft(12, '0')}',
-  if (place != null) ...{'runRole': 'AUTHOR', 'place': place},
+  'place': ?place,
+  // An author sent back runs its own task again, which the order names: the push's, or the one at its pull request.
+  if (place != null) 'task': (place['gatePush'] as Map<String, dynamic>?)?['name'] ?? 'main',
   'repository': repository,
   'issues': ['B540'],
-  'role': role,
-  'reads': ?reads,
+  'readLanded': ?reads,
   'agent': 'codex',
   'model': 'a-model',
   'mode': 'UNATTENDED',
   'prompt': 'Build B540.',
-};
+});
 
 /// Where a build's work landed, as Porelo's row names it.
 const _landing = <String, dynamic>{
@@ -1751,7 +1755,8 @@ Map<String, dynamic> _answer(List<Map<String, dynamic>> followUps) => {
         'mode': 'UNATTENDED',
         'agent': 'codex',
         'model': 'a-model',
-        'role': 'MAIN',
+        'role': authorRole,
+        'readLanded': <String>[],
         'since': 'then',
       },
     ],
@@ -1958,15 +1963,12 @@ class _Machine extends Fake implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
-    List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
     String? result,
-    bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
-    String? role,
-    Map<String, Object?>? place,
     String? task,
   }) async {
     if (refuseNext case final words?) {
@@ -1978,7 +1980,12 @@ class _Machine extends Fake implements FleetBackend {
       throw error;
     }
     if (hangBeforeStart) await Completer<void>().future;
-    started.add({'project': project, 'repository': repository, 'callerKey': ?callerKey, 'reads': reads});
+    started.add({
+      'project': project,
+      'repository': repository,
+      'callerKey': ?callerKey,
+      'readLanded': parts.readLanded,
+    });
     final container = 'porelo-$project-$repository';
     listed.removeWhere((task) => task.name == container);
     listed.add(
@@ -2006,6 +2013,7 @@ class _Machine extends Fake implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) async {

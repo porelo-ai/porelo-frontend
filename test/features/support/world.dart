@@ -729,15 +729,12 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
-    List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
     String? result,
-    bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
-    String? role,
-    Map<String, Object?>? place,
     String? task,
   }) async {
     startsOrdered.add(callerKey);
@@ -772,6 +769,7 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) async {

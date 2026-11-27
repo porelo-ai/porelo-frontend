@@ -74,15 +74,21 @@ void main() {
 
   // Harm: the person chooses an agent and a model for a discussion the machine cannot start, and learns it only after.
   test('a machine says ahead whether it can start a discussion', () async {
-    daemon.description = declares;
+    const ready =
+        'method Start(task: ?string, allRepositories: ?bool, rights: ?[]Right, projectServices: ?bool) -> '
+        '(exitCode: ?int)';
+    daemon.description = ready;
     expect(await (await connect()).whyNoDiscussion(), isNull);
-    for (final lacking in <String?>[null, 'method Start(task: ?string, result: ?string) -> (exitCode: ?int)']) {
+    for (final lacking in <String?>[
+      null,
+      'method Start(task: ?string, result: ?string) -> (exitCode: ?int)',
+      // Without them the discussion would start with the machine's own rights and services, not its order's.
+      'method Start(task: ?string, allRepositories: ?bool, projectServices: ?bool) -> (exitCode: ?int)',
+      'method Start(task: ?string, allRepositories: ?bool, rights: ?[]Right) -> (exitCode: ?int)',
+    ]) {
       daemon.description = lacking;
       expect(await (await connect()).whyNoDiscussion(), contains('newer Porelo'), reason: '$lacking');
     }
-    // A discussion hands back no file: reading every repository is all it needs.
-    daemon.description = 'method Start(task: ?string, allRepositories: ?bool) -> (exitCode: ?int)';
-    expect(await (await connect()).whyNoDiscussion(), isNull);
   });
 
   // Harm: one failed read of the contract leaves a machine unable to start a discussion until the window restarts.
@@ -93,7 +99,9 @@ void main() {
 
     daemon
       ..describeRefusal = null
-      ..description = declares;
+      ..description =
+          'method Start(task: ?string, allRepositories: ?bool, rights: ?[]Right, projectServices: ?bool) -> '
+          '(exitCode: ?int)';
     expect(await client.whyNoDiscussion(), isNull);
   });
 

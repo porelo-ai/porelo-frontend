@@ -1,3 +1,5 @@
+import '../../support/planned_orders.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 
@@ -21,7 +23,8 @@ Future<void> theWindowStartedTaskOfSt291OnTheOtherMachine(WidgetTester tester, S
         'mode': 'UNATTENDED',
         'agent': 'Agent',
         'model': 'Model',
-        'role': 'MAIN',
+        'role': authorRole,
+        'readLanded': <String>[],
         'since': 'instant',
         'atWork': true,
         'ended': null,

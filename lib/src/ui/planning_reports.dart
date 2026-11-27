@@ -594,6 +594,7 @@ class WindowTaskReports {
           run: task.run,
           result: pending.result,
           role: pending.role,
+          endKind: pending.endKind,
           issues: pending.issues,
         );
       }

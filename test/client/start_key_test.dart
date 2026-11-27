@@ -24,12 +24,12 @@ void main() {
   Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   test('a start gives its key and the tasks it reads to a machine that takes them', () async {
-    daemon.description = 'method Start(task: ?string, callerKey: ?string, reads: ?[]string) -> (exitCode: ?int)';
-    await (await connect()).start(project: 'demo', callerKey: 'offer-1', reads: ['foo-1']).toList();
+    daemon.description = 'method Start(task: ?string, callerKey: ?string, readLanded: ?[]string) -> (exitCode: ?int)';
+    await (await connect()).start(project: 'demo', callerKey: 'offer-1', readLanded: ['foo-1']).toList();
     expect(asked, <String, dynamic>{
       'project': 'demo',
       'callerKey': 'offer-1',
-      'reads': ['foo-1'],
+      'readLanded': ['foo-1'],
     });
   });
 
@@ -44,7 +44,7 @@ void main() {
   test('a machine that cannot hand a reader its work is not asked to start it, and says so', () async {
     daemon.description = 'method Start(task: ?string, callerKey: ?string) -> (exitCode: ?int)';
     await expectLater(
-      (await connect()).start(project: 'demo', reads: ['foo-1']).toList(),
+      (await connect()).start(project: 'demo', readLanded: ['foo-1']).toList(),
       throwsA(isA<FeatureNotSupported>()),
     );
     expect(asked, isNull);

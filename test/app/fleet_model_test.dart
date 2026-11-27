@@ -58,6 +58,7 @@ class _Wedged implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) => throw UnimplementedError();
@@ -79,15 +80,12 @@ class _Wedged implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
-    List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
     String? result,
-    bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
-    String? role,
-    Map<String, Object?>? place,
     String? task,
   }) async => throw const VarlinkDisconnected('nothing there');
 
@@ -585,6 +583,7 @@ class _Machine implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) => throw UnimplementedError();
@@ -606,15 +605,12 @@ class _Machine implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
-    List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
     String? result,
-    bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
-    String? role,
-    Map<String, Object?>? place,
     String? task,
   }) async => throw const VarlinkDisconnected('nothing there');
 

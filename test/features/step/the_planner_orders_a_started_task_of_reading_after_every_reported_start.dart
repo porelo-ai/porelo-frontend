@@ -1,3 +1,5 @@
+import '../../support/planned_orders.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
@@ -19,8 +21,8 @@ Future<void> thePlannerOrdersAStartedTaskOfReadingAfterEveryReportedStart(
       'offer': started.first.offer,
       'repository': 'porelo',
       'issues': [issue],
-      'role': 'READER',
-      'reads': ['porelo-builder-${issue.toLowerCase()}'],
+      ...workOrder(readerRole, const <String, dynamic>{}),
+      'readLanded': ['porelo-builder-${issue.toLowerCase()}'],
       'agent': 'codex',
       'model': 'a-model',
       'prompt': 'Read $issue.',

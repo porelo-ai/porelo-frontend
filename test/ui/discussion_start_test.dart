@@ -8,16 +8,19 @@ import 'package:porelo_frontend/src/ui/discussion_start_dialog.dart';
 import 'package:porelo_frontend/src/ui/planning_embedding.dart' show DiscussionChoice;
 import 'package:porelo_planning/porelo_planning.dart' show PlanningTaskOrder;
 
+import '../support/planned_orders.dart';
+
 void main() {
-  final order = PlanningTaskOrder.from({
-    'offer': '00000000-0000-4000-8000-00000000d15c',
-    'issues': <String>[],
-    'role': 'DISCUSSION',
-    'agent': 'codex',
-    'model': 'gpt-6',
-    'mode': 'AGENT',
-    'prompt': 'Discuss this idea.',
-  });
+  final order = PlanningTaskOrder.from(
+    discussionOrderOf({
+      'offer': '00000000-0000-4000-8000-00000000d15c',
+      'issues': <String>[],
+      'agent': 'codex',
+      'model': 'gpt-6',
+      'mode': 'AGENT',
+      'prompt': 'Discuss this idea.',
+    }),
+  );
 
   Agent agent(String name) => Agent.from({'name': name, 'label': name, 'binary': name});
 

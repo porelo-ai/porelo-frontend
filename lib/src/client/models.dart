@@ -872,6 +872,48 @@ class RunPlace {
   int get hashCode => Object.hash(gatePush, pullRequest, ownPullRequest);
 }
 
+/// The parts of a start an order names: its workspace, its equipment and its rights, handed to `Start` as they are.
+/// **[rights] is never absent**: a start that left it out would take the machine's default set, so an order that
+/// names no right at all is an empty list, which the machine keeps as a task holding no right.
+class StartParts {
+  /// Constructor taking every part; the rights and the project's services are always named.
+  const StartParts({
+    required this.rights,
+    required this.projectServices,
+    this.readOnly = false,
+    this.allRepositories = false,
+    this.noGate = false,
+    this.place,
+    this.readLanded = const <String>[],
+    this.writeAs,
+  });
+
+  /// The rights the task holds, in the machine's words, actions and judgments in one list.
+  final List<String> rights;
+
+  /// Whether it gets the project's services.
+  final bool projectServices;
+
+  /// Whether its one repository is read only, with no gate.
+  final bool readOnly;
+
+  /// Whether it reads every repository of the project, each read only, with no gate.
+  final bool allRepositories;
+
+  /// Whether it has no workspace and no gate.
+  final bool noGate;
+
+  /// Where it works, as `Start` takes it; another task's push or pull request makes its workspace that task's work.
+  /// Null for its own.
+  final Map<String, Object?>? place;
+
+  /// The tasks whose landed work it reads.
+  final List<String> readLanded;
+
+  /// The account it writes as, `author` or `review`; named only where [place] is a pull request.
+  final String? writeAs;
+}
+
 /// One installed agent's sign-in on a machine, as `AgentSignIns` answers it.
 ///
 /// [state] stays the machine's word: `SIGNED_IN`, `NOT_SIGNED_IN`, `VAULT_LOCKED` (the vault is shut, so unknown

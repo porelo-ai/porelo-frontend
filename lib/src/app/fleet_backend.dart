@@ -292,18 +292,17 @@ abstract class FleetBackend {
   /// stands, not when its agent's run ends.**
   ///
   /// [callerKey] is kept with the task from its creation and listed with it, so a window that ended before it heard
-  /// Start's answer finds the task again; a machine that keeps none is started without it. [reads] names the tasks
-  /// whose landed work the task reads; a machine that cannot hand it refuses with `FeatureNotSupported`. [onEvent] is
-  /// told each line and step Start says on the way, as they come, so a person sees how far it is.
+  /// Start's answer finds the task again; a machine that keeps none is started without it. [onEvent] is told each
+  /// line and step Start says on the way, as they come, so a person sees how far it is.
   ///
-  /// A planned stage is started [readOnly], its one repository read only with no gate and nothing pushed, with
-  /// [result] the file it hands back when it ends and [given] the files it reads, name to text, as its planner holds
-  /// them now; a machine that cannot start one so refuses with `FeatureNotSupported`, never starting it writable.
-  /// [work] is the issue and phase of a project kept in a tracker; a machine whose Start takes none refuses the same way.
-  /// [role] and [place] are the run's role and where it works, as the planner's order names them and Porelo's `Start`
-  /// takes them, handed on unchanged; a machine whose Start takes neither refuses the same way. [task] names the task
-  /// within the project where the order needs a name of its own, as a reviewer does; absent, Porelo takes the
-  /// repository's.
+  /// [parts] are the workspace, equipment and rights the order names, handed to Start as they are: nothing is added,
+  /// dropped or derived here, and its rights are always sent, an empty list as one. A machine whose Start does not
+  /// take one of them refuses with `FeatureNotSupported`, **never starting the task with its own default set**.
+  ///
+  /// [result] is the file the task hands back when it ends and [given] the files it reads, name to text, as its
+  /// planner holds them now; [work] is the issue and phase of a project kept in a tracker. A machine whose Start
+  /// does not take one of them refuses the same way. [task] names the task within the project where the order needs
+  /// a name of its own or names the task it goes back to; absent, Porelo takes the repository's.
   Future<StartProgress> startOrdered({
     required String project,
     required String repository,
@@ -311,27 +310,24 @@ abstract class FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
-    List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
     String? result,
-    bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
-    String? role,
-    Map<String, Object?>? place,
     String? task,
   });
 
-  /// Starts a discussion a planner ordered: every repository of [project] read only, nothing writable and nothing
-  /// pushed; its idea comes back as a report its planner reads. Answers as [startOrdered] does; a machine that cannot
-  /// read every repository refuses with `FeatureNotSupported`.
+  /// Starts a discussion a planner ordered, in no repository of its own, with [parts] as its order names them; its
+  /// idea comes back as a report its planner reads. Answers and refuses as [startOrdered] does.
   Future<StartProgress> startDiscussion({
     required String project,
     required String agent,
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   });
@@ -988,22 +984,20 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
-    List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
     String? result,
-    bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
-    String? role,
-    Map<String, Object?>? place,
     String? task,
   }) => _startRunning(
     project: project,
     repository: repository,
     callerKey: callerKey,
     onEvent: onEvent,
-    () => _opened().start(
+    () => _startWith(
+      parts,
       task: task,
       project: project,
       repository: repository,
@@ -1012,16 +1006,50 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
       mode: mode,
       prompt: prompt,
       callerKey: callerKey,
-      reads: reads.isEmpty ? null : reads,
       result: result,
-      readOnly: readOnly ? true : null,
       given: given.isEmpty ? null : given,
       work: work,
-      role: role,
-      place: place,
-      now: true,
-      certify: asksToCertify,
     ),
+  );
+
+  /// Start with [parts] as they are: a kind of workspace and the tasks read only where they are named, the rights
+  /// and the project's services always, so neither is left to the machine's default.
+  Stream<StartProgress> _startWith(
+    StartParts parts, {
+    required String project,
+    required String agent,
+    required String model,
+    required Mode mode,
+    required String prompt,
+    String? task,
+    String? repository,
+    String? callerKey,
+    String? result,
+    Map<String, String>? given,
+    TrackedWork? work,
+  }) => _opened().start(
+    task: task,
+    project: project,
+    repository: repository,
+    agent: agent,
+    model: model,
+    mode: mode,
+    prompt: prompt,
+    callerKey: callerKey,
+    result: result,
+    given: given,
+    work: work,
+    now: true,
+    certify: asksToCertify,
+    readOnly: parts.readOnly ? true : null,
+    allRepositories: parts.allRepositories ? true : null,
+    noGate: parts.noGate ? true : null,
+    place: parts.place,
+    rights: parts.rights,
+    // Absent and empty both mean none to the machine, so one that takes no such list is asked for none.
+    readLanded: parts.readLanded.isEmpty ? null : parts.readLanded,
+    writeAs: parts.writeAs,
+    projectServices: parts.projectServices,
   );
 
   @override
@@ -1031,22 +1059,21 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) => _startRunning(
     project: project,
     callerKey: callerKey,
     onEvent: onEvent,
-    () => _opened().start(
+    () => _startWith(
+      parts,
       project: project,
       callerKey: callerKey,
       agent: agent,
       model: model,
       mode: mode,
       prompt: prompt,
-      now: true,
-      certify: asksToCertify,
-      allRepositories: true,
     ),
   );
 

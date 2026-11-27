@@ -1,3 +1,5 @@
+import '../../support/planned_orders.dart';
+
 import 'dart:async';
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
@@ -441,7 +443,8 @@ void reportPlanningWork(bool known) => _story()['work'] = {
       'mode': 'UNATTENDED',
       'agent': 'Agent',
       'model': 'Model',
-      'role': 'MAIN',
+      'role': authorRole,
+      'readLanded': <String>[],
       'since': 'instant',
       'atWork': true,
       'ended': null,
@@ -539,7 +542,7 @@ Future<void> refusePlanningReplacement(WidgetTester tester, String part) async {
 /// Supplies known wire modes without inventing a coordinator name.
 void reportPlanningMode(String mode) => _story()['work'] = {
   'tasks': [
-    {'task': 'main', 'role': 'MAIN', 'mode': mode, 'atWork': true},
+    {'task': 'main', 'role': authorRole, 'readLanded': <String>[], 'mode': mode, 'atWork': true},
   ],
   'atWork': true,
   'coordinator': '',

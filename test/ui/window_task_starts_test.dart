@@ -10,6 +10,8 @@ import 'package:porelo_frontend/src/ui/planning_embedding.dart';
 import 'package:porelo_planning/planning_fake.dart' show MockPlanningSource;
 import 'package:porelo_planning/porelo_planning.dart';
 
+import '../support/planned_orders.dart';
+
 void main() {
   const laptop = Machine(name: 'laptop', socketPath: '/run/laptop.sock');
   const builder = Machine(name: 'builder', socketPath: '/run/builder.sock');
@@ -64,7 +66,10 @@ void main() {
         'model': order.model,
         'mode': order.mode,
         'prompt': order.prompt,
+        'rights': order.rights,
+        'projectServices': order.projectServices,
       });
+      expect(order.rights, isNotEmpty, reason: 'the order of a building role names its rights');
       expect(started.container, 'porelo-demo-${order.repository}');
       expect(started.task, order.repository, reason: 'the name the machine lists for that container');
       expect(hook.startedOn('demo', started.container), laptop);
@@ -73,20 +78,21 @@ void main() {
     // Harm: a planned stage starts writable with a gate, without the issues as the planner holds them, or without the
     // result file it is to hand back; or its result file is not kept, so its result never reaches the planner.
     test('a stage starts read only with its result file and given issues, and keeps its result file', () async {
-      final order = PlanningTaskOrder.from({
-        'offer': '00000000-0000-4000-8000-0000000005a1',
-        'repository': 'porelo',
-        'issues': ['PI68'],
-        'role': 'MAIN',
-        'agent': 'claude',
-        'model': 'opus',
-        'mode': 'AGENT',
-        'prompt': 'Analyse PI68 and write analysis.json.',
-        'result': 'analysis.json',
-        'given': [
-          {'name': 'PI68.md', 'text': '# PI68\n'},
-        ],
-      });
+      final order = PlanningTaskOrder.from(
+        workOrder(stageRole, {
+          'offer': '00000000-0000-4000-8000-0000000005a1',
+          'repository': 'porelo',
+          'issues': ['PI68'],
+          'agent': 'claude',
+          'model': 'opus',
+          'mode': 'AGENT',
+          'prompt': 'Analyse PI68 and write analysis.json.',
+          'result': 'analysis.json',
+          'given': [
+            {'name': 'PI68.md', 'text': '# PI68\n'},
+          ],
+        }),
+      );
 
       final started = await starts()(MockPlanningSource('planner'), 'demo', 'ST366', order);
 
@@ -100,72 +106,227 @@ void main() {
         'result': 'analysis.json',
         'readOnly': true,
         'given': {'PI68.md': '# PI68\n'},
+        'rights': ['report'],
+        'projectServices': true,
       });
       expect(settings.plannedOffer('laptop', started.container)!.result, 'analysis.json');
     });
 
     // Harm: a task of a project kept in a tracker starts without knowing which issue and phase it works on.
     test('a task that works a tracker issue starts with the issue and phase its order names', () async {
-      final order = PlanningTaskOrder.from({
-        'offer': '00000000-0000-4000-8000-0000000006a1',
-        'repository': 'porelo-frontend',
-        'issues': ['porelo-frontend#617'],
-        'role': 'MAIN',
-        'agent': 'claude',
-        'model': 'opus',
-        'mode': 'AGENT',
-        'prompt': 'Build porelo-frontend#617.',
-        'work': {'issue': 'porelo-ai/porelo-frontend#617', 'phase': 'Implementing'},
-      });
+      final order = PlanningTaskOrder.from(
+        workOrder(authorRole, {
+          'offer': '00000000-0000-4000-8000-0000000006a1',
+          'repository': 'porelo-frontend',
+          'issues': ['porelo-frontend#617'],
+          'agent': 'claude',
+          'model': 'opus',
+          'mode': 'AGENT',
+          'prompt': 'Build porelo-frontend#617.',
+          'work': {'issue': 'porelo-ai/porelo-frontend#617', 'phase': 'Implementing'},
+        }),
+      );
 
       await starts()(MockPlanningSource('planner'), 'demo', 'porelo-project#370', order);
 
       expect(machine.started.single['work'], (issue: 'porelo-ai/porelo-frontend#617', phase: 'Implementing'));
     });
 
-    // Harm: a reviewer starts at another place than the planner read, or as an author at its own work.
-    test('a run starts with the role and the place its order names, as the planner read them', () async {
-      final order = PlanningTaskOrder.from({
-        'offer': '00000000-0000-4000-8000-0000000006a2',
-        'repository': 'porelo',
-        'issues': ['porelo#617'],
-        'role': 'MAIN',
-        'agent': 'claude',
-        'model': 'opus',
-        'mode': 'AGENT',
-        'prompt': 'Review the push of porelo#617.',
-        'runRole': 'REVIEWER',
-        'place': {
-          'gatePush': {'name': 'porelo-617', 'repository': 'porelo'},
-        },
-      });
+    // Harm: a task reading another task's work starts at another place than the planner read, or holding the right
+    // to push or the project's services.
+    test('a run starts with the rights and the place its order names, as the planner read them', () async {
+      final order = PlanningTaskOrder.from(
+        workOrder(reviewerRole, {
+          'offer': '00000000-0000-4000-8000-0000000006a2',
+          'repository': 'porelo',
+          'issues': ['porelo#617'],
+          'agent': 'claude',
+          'model': 'opus',
+          'mode': 'AGENT',
+          'prompt': 'Review the push of porelo#617.',
+          'place': {
+            'gatePush': {'name': 'porelo-617', 'repository': 'porelo'},
+          },
+        }),
+      );
 
       await starts()(MockPlanningSource('planner'), 'demo', 'ST617', order);
 
-      expect(machine.started.single['role'], 'REVIEWER');
+      expect(machine.started.single['rights'], ['reply', 'openThreads']);
+      expect(machine.started.single['projectServices'], isFalse);
+      expect(machine.started.single.containsKey('readOnly'), isFalse, reason: 'no kind of workspace it did not name');
       expect(machine.started.single['task'], 'porelo-reviewer', reason: 'never the name of the push it reviews');
       expect(machine.started.single['place'], {
         'gatePush': {'name': 'porelo-617', 'repository': 'porelo'},
       });
     });
 
+    // Harm: a start with Porelo's default set, own work with the right to push, where a narrower one was ordered.
+    test('an order without rights starts nothing, and one naming none reaches Start as an empty list', () async {
+      final watcher = plannedRole('watcher', 'REPORTS_FINDINGS', 'none', const [], projectServices: false);
+      final members = <String, dynamic>{
+        'offer': '00000000-0000-4000-8000-0000000006b1',
+        'repository': 'porelo',
+        'issues': ['porelo#617'],
+        'agent': 'claude',
+        'model': 'opus',
+        'mode': 'UNATTENDED',
+        'prompt': 'Watch porelo#617.',
+      };
+      expect(
+        () => PlanningTaskOrder.from(workOrder(watcher, members)..remove('rights')),
+        throwsFormatException,
+        reason: 'the planning screen takes no order that leaves its rights to a default',
+      );
+
+      await starts()(
+        MockPlanningSource('planner'),
+        'demo',
+        'ST617',
+        PlanningTaskOrder.from(workOrder(watcher, members)),
+      );
+
+      expect(machine.started.single.containsKey('rights'), isTrue);
+      expect(machine.started.single['rights'], isEmpty);
+      expect(machine.started.single['noGate'], isTrue);
+      expect(machine.started.single['projectServices'], isFalse);
+    });
+
+    // Harm: a role a project names in its own words is dropped, or decides something by how its name reads.
+    test("a project's own role is started with its parts, and kept by its name and how it ends", () async {
+      final tester = plannedRole(
+        'READER tester (2nd)',
+        'REPORTS_FINDINGS',
+        'foreign',
+        ['openThreads', 'report'],
+        projectServices: false,
+        writeAs: 'review',
+      );
+      final order = PlanningTaskOrder.from(
+        workOrder(tester, {
+          'offer': '00000000-0000-4000-8000-0000000006b2',
+          'repository': 'porelo',
+          'issues': ['porelo#617'],
+          'agent': 'claude',
+          'model': 'opus',
+          'mode': 'UNATTENDED',
+          'prompt': 'Test the push of porelo#617.',
+          'place': {
+            'gatePush': {'name': 'porelo-617'},
+          },
+        }),
+      );
+
+      final started = await starts()(MockPlanningSource('planner'), 'demo', 'ST617', order);
+
+      expect(machine.started.single['rights'], ['openThreads', 'report']);
+      final kept = settings.plannedOffer('laptop', started.container)!;
+      expect((kept.role, kept.endKind), ('READER tester (2nd)', 'REPORTS_FINDINGS'));
+      expect(kept.stage, 'Reading', reason: 'from how it ends, not from a word in its name');
+    });
+
+    // Harm: a role's name turns the text around it in an operation's title and in the window's log; or a task
+    // reading another task's work is asked of Start as the repository's own task, and takes that task up.
+    test('no order reaches a start with a turning role name, or at another task\'s work without a name of its own', () {
+      final members = <String, dynamic>{
+        'offer': '00000000-0000-4000-8000-0000000006b4',
+        'repository': 'porelo',
+        'issues': ['porelo#617'],
+        'agent': 'claude',
+        'model': 'opus',
+        'mode': 'UNATTENDED',
+        'prompt': 'Read the push of porelo#617.',
+        'place': {
+          'gatePush': {'name': 'porelo-617'},
+        },
+      };
+      final turned = plannedRole('re${String.fromCharCode(0x202e)}viewer', 'GIVES_POINTS', 'foreign', [
+        'reply',
+      ], projectServices: false);
+      // The planning screen reads every order before the window's start sees it, and the window relies on it.
+      expect(() => PlanningTaskOrder.from(workOrder(turned, members)), throwsFormatException);
+      expect(() => PlanningTaskOrder.from(workOrder(reviewerRole, members)..remove('ownTask')), throwsFormatException);
+      expect(PlanningTaskOrder.from(workOrder(reviewerRole, members)).ownTask, isTrue);
+    });
+
+    // Harm: the person is told a discussion changes and pushes nothing, and one that may push is started under
+    // those words.
+    test(
+      'a discussion ordered with the right to push, or not over every repository, is refused before any form',
+      () async {
+        // Not over every repository, or with no workspace, a discussion's order is refused by the planning screen.
+        for (final members in <Map<String, dynamic>>[
+          {'allRepositories': null},
+          {'noGate': true},
+        ]) {
+          expect(
+            () => PlanningTaskOrder.from(
+              discussionOrderOf({
+                'offer': '00000000-0000-4000-8000-0000000006b3',
+                'issues': <String>[],
+                'agent': 'codex',
+                'model': 'mock-model',
+                'mode': 'AGENT',
+                'prompt': 'Discuss this idea.',
+                ...members,
+              })..removeWhere((_, value) => value == null),
+            ),
+            throwsFormatException,
+            reason: '$members',
+          );
+        }
+        // One with the right to push it takes, since a discussion has no role to hold its rights to.
+        for (final members in <Map<String, dynamic>>[
+          {
+            'rights': ['push'],
+          },
+        ]) {
+          final order = PlanningTaskOrder.from(
+            discussionOrderOf({
+              'offer': '00000000-0000-4000-8000-0000000006b3',
+              'issues': <String>[],
+              'agent': 'codex',
+              'model': 'mock-model',
+              'mode': 'AGENT',
+              'prompt': 'Discuss this idea.',
+              ...members,
+            })..removeWhere((_, value) => value == null),
+          );
+          var asked = false;
+          final hook = starts()
+            ..chooseDiscussion = (_, _, _) async {
+              asked = true;
+              return null;
+            };
+
+          await expectLater(
+            hook(MockPlanningSource('planner'), 'demo', '', order),
+            throwsA(isA<PlanningRefusal>().having((refusal) => refusal.name, 'name', 'UnknownOrder')),
+          );
+          expect(asked, isFalse, reason: 'the form never opens');
+          expect(machine.started, isEmpty);
+          expect(machine.discussed, isEmpty);
+        }
+      },
+    );
+
     // Harm: a reviewer takes up a stopped reviewer of an earlier round, with its older head and points, or one of another
     // project's name is counted as held; or a reviewer with no free name starts anyway.
     test('a reviewer starts under the first reviewer name no task of its project holds, stopped or not', () async {
-      PlanningTaskOrder reviewer(String offer) => PlanningTaskOrder.from({
-        'offer': offer,
-        'repository': 'porelo',
-        'issues': ['porelo#617'],
-        'role': 'MAIN',
-        'agent': 'claude',
-        'model': 'opus',
-        'mode': 'AGENT',
-        'prompt': 'Review the push of porelo#617.',
-        'runRole': 'REVIEWER',
-        'place': {
-          'gatePush': {'name': 'porelo-617', 'repository': 'porelo'},
-        },
-      });
+      PlanningTaskOrder reviewer(String offer) => PlanningTaskOrder.from(
+        workOrder(reviewerRole, {
+          'offer': offer,
+          'repository': 'porelo',
+          'issues': ['porelo#617'],
+          'agent': 'claude',
+          'model': 'opus',
+          'mode': 'AGENT',
+          'prompt': 'Review the push of porelo#617.',
+          'place': {
+            'gatePush': {'name': 'porelo-617', 'repository': 'porelo'},
+          },
+        }),
+      );
       machine
         ..list(Task.from({'name': 'porelo-demo-porelo-reviewer', 'task': 'porelo-reviewer', 'project': 'demo'}))
         ..list(Task.from({'name': 'porelo-other-porelo-reviewer-2', 'task': 'porelo-reviewer-2', 'project': 'other'}));
@@ -190,50 +351,54 @@ void main() {
     // Harm: an issue's build its blocker held back lands on the repository's running author task, or takes up a stopped
     // task of an earlier build; or one with no free name starts anyway.
     test('a freed author build starts under the first name of its own no task of its project holds', () async {
-      PlanningTaskOrder freed(String offer) => PlanningTaskOrder.from({
-        'offer': offer,
-        'repository': 'porelo',
-        'issues': ['porelo#618'],
-        'role': 'BUILDER',
-        'agent': 'claude',
-        'model': 'opus',
-        'mode': 'UNATTENDED',
-        'prompt': 'Build porelo#618.',
-        'runRole': 'AUTHOR',
-      });
+      PlanningTaskOrder freed(String offer) => PlanningTaskOrder.from(
+        workOrder(builderRole, {
+          'offer': offer,
+          'repository': 'porelo',
+          'issues': ['porelo#618'],
+          'agent': 'claude',
+          'model': 'opus',
+          'mode': 'UNATTENDED',
+          'prompt': 'Build porelo#618.',
+          // As the planner marks the building work of an issue its run's start held back.
+          'ownTask': true,
+        }),
+      );
       machine
         ..list(Task.from({'name': 'porelo-demo-porelo', 'task': 'porelo', 'project': 'demo', 'running': true}))
         ..list(Task.from({'name': 'porelo-demo-porelo-2', 'task': 'porelo-2', 'project': 'demo'}));
 
       await starts()(MockPlanningSource('planner'), 'demo', 'ST618', freed('00000000-0000-4000-8000-0000000006d1'));
       expect(machine.started.last['task'], 'porelo-3', reason: 'never the running author, never a stopped build');
-      expect(machine.started.last['role'], 'AUTHOR');
+      expect(machine.started.last['rights'], ['push', 'reply'], reason: 'a name of its own changes no right');
 
       for (var n = 4; n <= 9; n++) {
         machine.list(Task.from({'name': 'porelo-demo-porelo-$n', 'task': 'porelo-$n', 'project': 'demo'}));
       }
-      // An author at a place it resumes, or one that is no builder, is not a freed build: Start names it as before.
+      // An author sent back is no held-back build: it runs the task its order names again, here one that was
+      // itself started under a name of its own, which the window could not tell from its place.
       await starts()(
         MockPlanningSource('planner'),
         'demo',
         'ST618',
-        PlanningTaskOrder.from({
-          'offer': '00000000-0000-4000-8000-0000000006d3',
-          'repository': 'porelo',
-          'issues': ['porelo#618'],
-          'role': 'BUILDER',
-          'agent': 'claude',
-          'model': 'opus',
-          'mode': 'UNATTENDED',
-          'prompt': 'Rework porelo#618.',
-          'runRole': 'AUTHOR',
-          'place': {'ownPullRequest': true},
-        }),
+        PlanningTaskOrder.from(
+          workOrder(builderRole, {
+            'offer': '00000000-0000-4000-8000-0000000006d3',
+            'repository': 'porelo',
+            'issues': ['porelo#618'],
+            'agent': 'claude',
+            'model': 'opus',
+            'mode': 'UNATTENDED',
+            'prompt': 'Rework porelo#618.',
+            'place': {'ownPullRequest': true},
+            'task': 'porelo-3',
+          }),
+        ),
       );
       expect(
         machine.started.last['task'],
-        isNull,
-        reason: 'an author resuming its place is not given a name of its own',
+        'porelo-3',
+        reason: 'an author sent back runs the task its order names, never a new name and never the repository\'s',
       );
       machine.started.removeLast();
 
@@ -251,17 +416,17 @@ void main() {
     test(
       'a reviewer with no name Porelo takes, or on a machine not read, is refused before its offer is handed',
       () async {
-        PlanningTaskOrder reviewer(String offer, String repository) => PlanningTaskOrder.from({
-          'offer': offer,
-          'repository': repository,
-          'issues': ['porelo#617'],
-          'role': 'MAIN',
-          'agent': 'claude',
-          'model': 'opus',
-          'mode': 'AGENT',
-          'prompt': 'Review.',
-          'runRole': 'REVIEWER',
-        });
+        PlanningTaskOrder reviewer(String offer, String repository) => PlanningTaskOrder.from(
+          workOrder(reviewerRole, {
+            'offer': offer,
+            'repository': repository,
+            'issues': ['porelo#617'],
+            'agent': 'claude',
+            'model': 'opus',
+            'mode': 'AGENT',
+            'prompt': 'Review.',
+          }),
+        );
         // porelo-demo_<repository>-reviewer fits in 64 characters with this repository, its -2 to -9 do not.
         final long = 'r' * 43;
         machine.list(Task.from({'name': 'porelo-demo_$long-reviewer', 'task': '$long-reviewer', 'project': 'demo'}));
@@ -288,17 +453,17 @@ void main() {
 
     // Harm: two reviewers started at once read the same tasks and the second takes up the first's task.
     test('two reviewers of one repository started at once get two names', () async {
-      PlanningTaskOrder reviewer(String offer) => PlanningTaskOrder.from({
-        'offer': offer,
-        'repository': 'porelo',
-        'issues': ['porelo#617'],
-        'role': 'MAIN',
-        'agent': 'claude',
-        'model': 'opus',
-        'mode': 'AGENT',
-        'prompt': 'Review.',
-        'runRole': 'REVIEWER',
-      });
+      PlanningTaskOrder reviewer(String offer) => PlanningTaskOrder.from(
+        workOrder(reviewerRole, {
+          'offer': offer,
+          'repository': 'porelo',
+          'issues': ['porelo#617'],
+          'agent': 'claude',
+          'model': 'opus',
+          'mode': 'AGENT',
+          'prompt': 'Review.',
+        }),
+      );
       final held = Completer<void>();
       machine.holdStart = held;
       final window = starts();
@@ -680,15 +845,16 @@ void main() {
 }
 
 /// A planner's order to discuss an idea: no repository, no issue, the person driving it, a result file to hand back.
-PlanningTaskOrder discussionOrder({String offer = '00000000-0000-4000-8000-00000000d15c'}) => PlanningTaskOrder.from({
-  'offer': offer,
-  'issues': <String>[],
-  'role': 'DISCUSSION',
-  'agent': 'codex',
-  'model': 'mock-model',
-  'mode': 'AGENT',
-  'prompt': 'Discuss this idea with the person, change nothing, and once they agree report it as an idea.',
-});
+PlanningTaskOrder discussionOrder({String offer = '00000000-0000-4000-8000-00000000d15c'}) => PlanningTaskOrder.from(
+  discussionOrderOf({
+    'offer': offer,
+    'issues': <String>[],
+    'agent': 'codex',
+    'model': 'mock-model',
+    'mode': 'AGENT',
+    'prompt': 'Discuss this idea with the person, change nothing, and once they agree report it as an idea.',
+  }),
+);
 
 /// The tasks a planner orders for ST291's analysis, each with an offer and a prompt of its own.
 Future<List<PlanningTaskOrder>> plannedOrders() async {
@@ -719,16 +885,15 @@ Future<List<PlanningTaskOrder>> plannedOrders() async {
       'revision': served.revision,
       'tasks': [
         for (final (index, task) in served.tasks.indexed)
-          {
+          workOrder(task.role!.toJson(), {
             'offer': '00000000-0000-4000-8000-${'$index'.padLeft(12, '0')}',
             'repository': task.repository,
             'issues': task.issues,
-            'role': task.role,
             'agent': task.agent,
             'model': task.model,
             'mode': task.mode,
             'prompt': '  Work on ${task.repository}.\n',
-          },
+          }),
       ],
     },
     request: request,
@@ -769,15 +934,12 @@ class _Starting extends Fake implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
-    List<String> reads = const [],
     void Function(StartEvent event)? onEvent,
     String? result,
-    bool readOnly = false,
     Map<String, String> given = const {},
     TrackedWork? work,
-    String? role,
-    Map<String, Object?>? place,
     String? task,
   }) async {
     says.forEach(onEvent ?? (_) {});
@@ -791,11 +953,16 @@ class _Starting extends Fake implements FleetBackend {
       'mode': mode.name,
       'prompt': prompt,
       'result': ?result,
-      if (readOnly) 'readOnly': true,
+      if (parts.readOnly) 'readOnly': true,
+      if (parts.allRepositories) 'allRepositories': true,
+      if (parts.noGate) 'noGate': true,
       if (given.isNotEmpty) 'given': given,
       'work': ?work,
-      'role': ?role,
-      'place': ?place,
+      'rights': parts.rights,
+      'projectServices': parts.projectServices,
+      if (parts.readLanded.isNotEmpty) 'readLanded': parts.readLanded,
+      'writeAs': ?parts.writeAs,
+      'place': ?parts.place,
       'task': ?task,
     });
     await holdStart?.future;
@@ -816,6 +983,7 @@ class _Starting extends Fake implements FleetBackend {
     required String model,
     required Mode mode,
     required String prompt,
+    required StartParts parts,
     String? callerKey,
     void Function(StartEvent event)? onEvent,
   }) async {

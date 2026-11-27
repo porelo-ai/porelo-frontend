@@ -39,6 +39,7 @@ void main() {
   Future<void> plannedAs(
     WidgetTester tester, {
     required String role,
+    String endKind = 'PUSHES_WORK',
     String? result,
     List<String> issues = const ['PI68'],
   }) async {
@@ -53,6 +54,7 @@ void main() {
       task: 'pi',
       result: result,
       role: role,
+      endKind: endKind,
       issues: issues,
     );
     World.backend.followBuilds(work, builds: const <Build>[], reader: 'github');
@@ -62,27 +64,33 @@ void main() {
 
   // Harm: a person reads an analysis as a build that has not run, or cannot tell which issue a task is for.
   testWidgets('an analysis says its issue, story and stage, and no build line before it pushed', (tester) async {
-    await plannedAs(tester, role: 'MAIN', result: 'analysis.json');
+    await plannedAs(tester, role: 'analyst', endKind: 'HANDS_BACK_RESULT', result: 'analysis.json');
 
     expect(said('PI68 of ST366, in analysis'), findsOneWidget);
     expect(said('No build yet'), findsNothing);
   });
 
   testWidgets('an estimate says its issues, story and stage, and no build line before it pushed', (tester) async {
-    await plannedAs(tester, role: 'BUILDER', result: 'estimate.json', issues: ['PI68', 'PI69']);
+    await plannedAs(
+      tester,
+      role: 'estimator',
+      endKind: 'HANDS_BACK_RESULT',
+      result: 'estimate.json',
+      issues: ['PI68', 'PI69'],
+    );
     expect(said('PI68, PI69 of ST366, estimation'), findsOneWidget);
     expect(said('No build yet'), findsNothing);
   });
 
   testWidgets('a reader says it reads, and no build line before it pushed', (tester) async {
-    await plannedAs(tester, role: 'READER');
+    await plannedAs(tester, role: 'reviewer', endKind: 'GIVES_POINTS');
     expect(said('PI68 of ST366, reading'), findsOneWidget);
     expect(said('No build yet'), findsNothing);
   });
 
   // Harm: work whose order names no stage reads as implementing, or loses the line that says its build has not run.
   testWidgets('work whose order names no stage says its issues and story alone, and its build line', (tester) async {
-    await plannedAs(tester, role: 'MAIN');
+    await plannedAs(tester, role: 'author');
 
     expect(said('PI68 of ST366'), findsOneWidget);
     expect(find.descendant(of: workRows(), matching: find.textContaining('implementing')), findsNothing);
@@ -109,7 +117,7 @@ void main() {
 
   // Harm: a planned stage on a machine that does not say its rights is said to have commits at a gate.
   testWidgets('a planned stage handing back a result says nothing of a gate, its rights said or not', (tester) async {
-    await plannedAs(tester, role: 'MAIN', result: 'analysis.json');
+    await plannedAs(tester, role: 'analyst', endKind: 'HANDS_BACK_RESULT', result: 'analysis.json');
 
     expect(gateFact(), findsNothing);
     expect(said('No build yet'), findsNothing);
@@ -117,7 +125,7 @@ void main() {
 
   // Harm: work that may push loses the fact of its gate.
   testWidgets('work that may push says its gate as before', (tester) async {
-    await plannedAs(tester, role: 'MAIN');
+    await plannedAs(tester, role: 'author');
 
     expect(gateFact(), findsOneWidget);
     expect(said('No build yet'), findsOneWidget);
