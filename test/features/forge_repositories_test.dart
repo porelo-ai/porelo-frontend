@@ -48,6 +48,8 @@ import './step/i_review_the_change.dart';
 import './step/i_merge_the_change_signed.dart';
 import './step/the_change_was_merged_here_signed_with.dart';
 import './step/the_machine_was_told_landed_on.dart';
+import './step/the_machine_answers_that_the_end_of_a_push_was_not_kept_saying.dart';
+import './step/the_change_is_no_longer_listed.dart';
 import './step/the_upstream_does_not_hold_what_is_merged_yet.dart';
 import './step/the_change_is_still_listed.dart';
 import './step/the_rail_lists_in_this_order.dart';
@@ -247,6 +249,32 @@ void main() {
         await theChangeWasMergedHereSignedWith(tester, 'plan', 'SHA256:person');
         await theMachineWasToldLandedOn(tester, 'plan', 'main');
         await itSays(tester, 'pushed to main, and cleared at');
+      },
+    );
+    testWidgets(
+      '''a landed merge whose push end the machine could not keep says so beside the merge, which stays done''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theForgeReachesAsAnAdminAndWithoutAdminRights(tester, 'acme/api', 'acme/web');
+        await holdsTheProjectWithTheWorkRepositoryAt(
+          tester,
+          'acme/api',
+          'api',
+          'backend',
+          'git@github.com:acme/backend.git',
+        );
+        await theMachineHasTheProjectFrom(tester, 'api', 'git@github.com:acme/api.git');
+        await theMachinesGateHoldsTheChangeSaying(tester, 'plan', 'Add the internal mirror');
+        await theMachineAnswersThatTheEndOfAPushWasNotKeptSaying(tester, 'the task record of plan is gone');
+        await iOpenMyForges(tester);
+        await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
+        await iLookAtTheChangesWaitingAt(tester, 'acme/api');
+        await iReviewTheChange(tester, 'plan');
+        await iMergeTheChangeSigned(tester, 'plan');
+        await theMachineWasToldLandedOn(tester, 'plan', 'main');
+        await itSays(tester, 'gate. The push');
+        await itSays(tester, 'could not be kept: the task record of plan is gone');
+        await theChangeIsNoLongerListed(tester, 'plan');
       },
     );
     testWidgets('''a merge the upstream does not hold yet is said in the machine's words, and stays listed''', (

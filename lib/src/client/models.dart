@@ -4890,16 +4890,27 @@ class ForwardedPush {
   /// The pull request the forge opened or reused, when returned.
   final String? pullRequest;
 
+  /// The machine's sentence for a person when the push's end could not be kept in its task's record; null where the
+  /// end was kept or there was nothing to keep.
+  final String? endUnkept;
+
   /// Constructor taking only what the answer carries.
-  const ForwardedPush({required this.forwarded, required this.branch, this.pullRequest});
+  const ForwardedPush({required this.forwarded, required this.branch, this.pullRequest, this.endUnkept});
 
   /// Reads Approve's answer without deriving a ref from its incoming name.
   factory ForwardedPush.from(Map<String, dynamic> map) => ForwardedPush(
     forwarded: _string(map, 'forwarded'),
     branch: _string(map, 'branch'),
     pullRequest: map['pullRequest'] is String ? map['pullRequest'] as String : null,
+    endUnkept: endUnkeptOf(map),
   );
 }
+
+/// The `endUnkept` sentence of an Approve, Reject or Landed reply; null where it is absent, blank or no string.
+String? endUnkeptOf(Map<String, dynamic> reply) => switch (reply['endUnkept']) {
+  final String said when said.trim().isNotEmpty => said,
+  _ => null,
+};
 
 /// A pull request open on the forge of the host that carries a project, as the machine reads it with the person's
 /// forge token: the one thing it asks of a person is their approval and merge, on that forge.

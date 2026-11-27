@@ -6,6 +6,7 @@ import 'fleet_backend.dart';
 import 'forge.dart';
 import 'project_workspace.dart';
 import 'quiet_after_dispose.dart';
+import 'shown_text.dart' show endUnkeptSaid;
 
 /// What a project's configuration says of itself, as far as its waiting changes need it.
 class ProjectShape {
@@ -125,6 +126,7 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
       _say(
         told.landed
             ? 'Merged “${change.subject}” signed, pushed to $branch, and cleared at $machineName’s gate.'
+                  '${endUnkeptSaid(told.endUnkept)}'
             : 'Merged “${change.subject}” signed and pushed; $machineName says: ${told.detail}',
       );
       reviewing = null;

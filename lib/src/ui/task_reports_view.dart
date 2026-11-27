@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../app/attention.dart' show Tile;
 import '../app/settings.dart';
+import '../app/shown_text.dart';
 import '../app/window_log.dart';
 import '../client/models.dart' show Task, TaskReport, TaskReports, mostReportsOfATask;
 import '../client/porelo_client.dart' show FeatureNotSupported;
@@ -15,36 +16,8 @@ import 'tokens.dart';
 /// The most characters of a report's kind shown: it is one line its starter's brief asked for.
 const mostKindCharacters = 80;
 
-/// The most characters of a report's text shown, as Porelo bounds a report.
-const mostReportCharacters = 65536;
-
 /// The most characters of the machine's own words shown in a refusal.
 const mostRefusalCharacters = 300;
-
-/// Control characters but a line break, the line and paragraph separators, lone surrogates, the marks that turn the
-/// order of text around, and the characters drawn as nothing (soft hyphens, joiners, word joiners, byte order marks,
-/// tags): each would forge a line or hide what the text says.
-final _unsafe = RegExp(
-  '[\x00-\x09\x0b-\x1f\x7f-\x9f\u00ad\u034f\u061c\u180e\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2069\ufeff]'
-  '|\udb40[\udc00-\udc7f]'
-  '|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]',
-);
-
-/// [text] as a report is shown: cut past [most] characters, and every unsafe character of what is left written out as
-/// `\u{...}`.
-String reportShown(String text, {int most = mostReportCharacters}) {
-  final runes = text.runes;
-  final cut = runes.length > most;
-  final kept = cut ? String.fromCharCodes(runes.take(most)) : text;
-  final escaped = kept.replaceAllMapped(
-    _unsafe,
-    (match) => '\\u{${match[0]!.runes.first.toRadixString(16).padLeft(4, '0')}}',
-  );
-  return cut ? '$escaped … cut' : escaped;
-}
-
-/// [text] as one shown line of at most [most] characters: its line breaks written out too.
-String oneLineShown(String text, {required int most}) => reportShown(text, most: most).replaceAll('\n', r'\n');
 
 /// A report's kind as one line.
 String reportKindShown(String kind) => switch (oneLineShown(kind, most: mostKindCharacters)) {

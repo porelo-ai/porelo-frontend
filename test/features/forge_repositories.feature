@@ -172,6 +172,22 @@ Feature: A forge's repositories, its tokens, and what waits at a gate
         And the machine was told {'plan'} landed on {'main'}
         And it says {'pushed to main, and cleared at'}
 
+    Scenario: a landed merge whose push end the machine could not keep says so beside the merge, which stays done
+        Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
+        And {'acme/api'} holds the project {'api'} with the work repository {'backend'} at {'git@github.com:acme/backend.git'}
+        And the machine has the project {'api'} from {'git@github.com:acme/api.git'}
+        And the machine's gate holds the change {'plan'} saying {'Add the internal mirror'}
+        And the machine answers that the end of a push was not kept, saying {'the task record of plan is gone'}
+        When I open my forges
+        And I connect the forge with the token {'ghp_accepted'}
+        And I look at the changes waiting at {'acme/api'}
+        And I review the change {'plan'}
+        And I merge the change {'plan'} signed
+        Then the machine was told {'plan'} landed on {'main'}
+        And it says {'gate. The push'}
+        And it says {'could not be kept: the task record of plan is gone'}
+        And the change {'plan'} is no longer listed
+
     Scenario: a merge the upstream does not hold yet is said in the machine's words, and stays listed
         Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
         And {'acme/api'} holds the project {'api'} with the work repository {'backend'} at {'git@github.com:acme/backend.git'}

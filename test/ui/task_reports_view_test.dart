@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/shown_text.dart';
 import 'package:porelo_frontend/src/ui/task_reports_view.dart';
 
 import '../features/support/tiles.dart';

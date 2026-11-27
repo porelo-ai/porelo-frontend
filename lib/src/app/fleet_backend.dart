@@ -547,7 +547,7 @@ abstract class FleetBackend {
   });
 
   /// Clears pending work once the upstream's [branch] holds it.
-  Future<({bool landed, String commit, String detail})> landed(
+  Future<({bool landed, String commit, String detail, String? endUnkept})> landed(
     String project,
     String name, {
     String? repository,
@@ -676,7 +676,12 @@ abstract class FleetBackend {
   });
 
   /// Drops the request. The work stays in the mirror; only the asking is gone.
-  Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason});
+  Future<({bool? told, String? endUnkept})> reject(
+    String projectFile,
+    String name, {
+    String? repository,
+    String? reason,
+  });
 
   /// How the gate's record of a push stands, asked for one that is no longer waiting; see [PoreloClient.reviewOpen].
   Future<PushEnd> pushEnd(String projectFile, String name, {String? repository});
@@ -1458,7 +1463,7 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
   }) => _opened().pendingBundle(project, name, repository: repository, branch: branch);
 
   @override
-  Future<({bool landed, String commit, String detail})> landed(
+  Future<({bool landed, String commit, String detail, String? endUnkept})> landed(
     String project,
     String name, {
     String? repository,
@@ -1605,8 +1610,12 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
   }) => _opened().credentialTryPush(project, repository: repository, refspec: refspec, source: source, id: id);
 
   @override
-  Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason}) =>
-      _opened().reject(projectFile, name, repository: repository, reason: reason);
+  Future<({bool? told, String? endUnkept})> reject(
+    String projectFile,
+    String name, {
+    String? repository,
+    String? reason,
+  }) => _opened().reject(projectFile, name, repository: repository, reason: reason);
 
   @override
   Future<PushEnd> pushEnd(String projectFile, String name, {String? repository}) =>

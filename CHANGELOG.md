@@ -201,6 +201,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- When a forward from the gate's review, a drop from the gate or a merge brought into the person's checkout is done but the machine could not keep where the push ended in its task's record, the result line says so in the machine's own sentence, on one line, its control, direction and invisible characters written out. The action stays done; nothing is asked again.
 - *Start work* for a story names the open issues its start leaves waiting, each with why, such as the blocker it waits on, in the window's own wizard and in a narrow window.
 - An issue's build that the planner starts once its blocker is done runs under a task name of its own, the first of `<repository>-2` to `-9` no task of the project holds, stopped tasks included, never on the repository's running author task; with no such name left it is refused before its offer is spent.
 - A run's row in *Work* says its role and where it works, as its machine records them: "as reviewer at pull request owner/repo#17", "as author at the gate push build-7" or "at its own pull request"; a run the machine records neither for says nothing of them.

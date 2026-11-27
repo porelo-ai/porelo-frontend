@@ -161,8 +161,12 @@ class _Wedged implements FleetBackend {
   }) async => throw UnimplementedError();
 
   @override
-  Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason}) async =>
-      (told: null);
+  Future<({bool? told, String? endUnkept})> reject(
+    String projectFile,
+    String name, {
+    String? repository,
+    String? reason,
+  }) async => (told: null, endUnkept: null);
 
   @override
   Future<PushEnd> pushEnd(String projectFile, String name, {String? repository}) async => throw UnimplementedError();
@@ -268,7 +272,7 @@ class _Wedged implements FleetBackend {
   }) async => throw UnimplementedError();
 
   @override
-  Future<({bool landed, String commit, String detail})> landed(
+  Future<({bool landed, String commit, String detail, String? endUnkept})> landed(
     String project,
     String name, {
     String? repository,
@@ -685,8 +689,12 @@ class _Machine implements FleetBackend {
   }) async => throw UnimplementedError();
 
   @override
-  Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason}) async =>
-      (told: null);
+  Future<({bool? told, String? endUnkept})> reject(
+    String projectFile,
+    String name, {
+    String? repository,
+    String? reason,
+  }) async => (told: null, endUnkept: null);
 
   @override
   Future<PushEnd> pushEnd(String projectFile, String name, {String? repository}) async => throw UnimplementedError();
@@ -772,7 +780,7 @@ class _Machine implements FleetBackend {
   }) async => throw UnimplementedError();
 
   @override
-  Future<({bool landed, String commit, String detail})> landed(
+  Future<({bool landed, String commit, String detail, String? endUnkept})> landed(
     String project,
     String name, {
     String? repository,

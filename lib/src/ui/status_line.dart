@@ -46,6 +46,7 @@ class StatusLine extends StatelessWidget {
     final theme = Theme.of(context);
     final fleet = this.fleet;
     final info = fleet?.info;
+    final status = fleet?.status ?? 'Not answering yet: it is being opened.';
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -68,12 +69,18 @@ class StatusLine extends StatelessWidget {
                 noProject: fleet?.noProject ?? false,
               ),
               const SizedBox(width: Space.small),
+              // A line cut to the width is read whole by pointing at it: what an action said, such as that a
+              // push's end could not be kept, is often longer than the line.
               Expanded(
-                child: Text(
-                  fleet?.status ?? 'Not answering yet: it is being opened.',
-                  key: const Key('status-line'),
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall,
+                child: Tooltip(
+                  key: const Key('status-line-whole'),
+                  message: status,
+                  child: Text(
+                    status,
+                    key: const Key('status-line'),
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ),
               ),
               Flexible(

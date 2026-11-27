@@ -2423,6 +2423,10 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
   /// Whether the upstream holds what was merged: false says it did not land yet.
   bool itLands = true;
 
+  /// The sentence Approve, Reject and Landed answer as `endUnkept`: the push's end could not be kept in its task's
+  /// record. Null answers none.
+  String? endUnkept;
+
   @override
   Future<({List<int> bundle, int bytes})> pendingBundle(
     String project,
@@ -2435,7 +2439,7 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
   }
 
   @override
-  Future<({bool landed, String commit, String detail})> landed(
+  Future<({bool landed, String commit, String detail, String? endUnkept})> landed(
     String project,
     String name, {
     String? repository,
@@ -2443,8 +2447,13 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
   }) async {
     landedAsked.add((name: name, branch: branch));
     return itLands
-        ? (landed: true, commit: 'c0ffee9', detail: '')
-        : (landed: false, commit: '', detail: "it is not on the upstream's $branch yet: push the merge first");
+        ? (landed: true, commit: 'c0ffee9', detail: '', endUnkept: endUnkept)
+        : (
+            landed: false,
+            commit: '',
+            detail: "it is not on the upstream's $branch yet: push the merge first",
+            endUnkept: null,
+          );
   }
 
   @override
@@ -3172,11 +3181,16 @@ diff --git a/lib/money.dart b/lib/money.dart
       'seededFrom': '',
       'pending': <Map<String, dynamic>>[],
     });
-    return ForwardedPush(forwarded: name, branch: branch);
+    return ForwardedPush(forwarded: name, branch: branch, endUnkept: endUnkept);
   }
 
   @override
-  Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason}) async {
+  Future<({bool? told, String? endUnkept})> reject(
+    String projectFile,
+    String name, {
+    String? repository,
+    String? reason,
+  }) async {
     mustBeAProject(projectFile);
     rejections.add(repository == null ? name : '$repository:$name');
     if (reason != null && reason.isNotEmpty) rejectionReasons.add(reason);
@@ -3186,7 +3200,7 @@ diff --git a/lib/money.dart b/lib/money.dart
       'seededFrom': '',
       'pending': <Map<String, dynamic>>[],
     });
-    return (told: !pushersTaskGone);
+    return (told: !pushersTaskGone, endUnkept: endUnkept);
   }
 
   /// What the gate's record answers for a push, by its name; a push not named here is refused as unknown.

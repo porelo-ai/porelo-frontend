@@ -144,6 +144,7 @@ method Start(
     daemon.method('ReviewSummary', _reviewSummary);
     daemon.method('Approve', _approve);
     daemon.method('Reject', _reject);
+    daemon.method('Landed', _landed);
     daemon.method('ReviewOpen', _reviewOpen);
     // Prompts streams and only streams: answering it once would look like it worked and then
     // deliver nothing ever again.
@@ -726,13 +727,24 @@ method Start(
     _branchHolds[branch] = (name: name, commit: '${_waiting[name]?['commit'] ?? ''}');
     _waiting.remove(name);
     forwarded.add('$name -> $branch');
-    return <String, dynamic>{'forwarded': name, 'branch': '${parameters['branch']}'};
+    return <String, dynamic>{'forwarded': name, 'branch': '${parameters['branch']}', 'endUnkept': ?endUnkept};
   }
+
+  /// The sentence Approve, Reject and Landed answer as `endUnkept`, as a test sets it: the push's end could not be
+  /// kept in its task's record. Null answers none, as when it was kept.
+  String? endUnkept;
 
   Map<String, dynamic> _reject(Map<String, dynamic> parameters) {
     final name = '${parameters['name']}';
     _waiting.remove(name);
-    return <String, dynamic>{'rejected': name, 'told': true};
+    return <String, dynamic>{'rejected': name, 'told': true, 'endUnkept': ?endUnkept};
+  }
+
+  /// As Porelo does once the upstream holds the merge: the push waits no more.
+  Map<String, dynamic> _landed(Map<String, dynamic> parameters) {
+    final name = '${parameters['name']}';
+    final commit = '${_waiting.remove(name)?['commit'] ?? ''}';
+    return <String, dynamic>{'landed': true, 'commit': commit, 'detail': '', 'endUnkept': ?endUnkept};
   }
 
   /// What `ReviewOpen` answers for a push that no longer waits, by its name, as a test sets it.

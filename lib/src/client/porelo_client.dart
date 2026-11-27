@@ -1863,8 +1863,8 @@ class PoreloClient {
   ///
   /// The task the work came from is told in its inbox, with [reason] when a person gave one. `told`
   /// is false when no task of that name has a mailbox any more, and null from a Porelo that does not
-  /// say.
-  Future<({bool? told})> reject(
+  /// say. `endUnkept` is the machine's sentence when the push's end could not be kept in its task's record.
+  Future<({bool? told, String? endUnkept})> reject(
     String project,
     String name, {
     String? upstream,
@@ -1879,7 +1879,7 @@ class PoreloClient {
       if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
     });
     final told = reply['told'];
-    return (told: told is bool ? told : null);
+    return (told: told is bool ? told : null, endUnkept: endUnkeptOf(reply));
   }
 
   /// How the gate's record of the push at [place] stands: its decision, and the task that rejected it, if one did.
@@ -1968,8 +1968,9 @@ class PoreloClient {
   }
 
   /// Clears pending work [name] once [branch] on the upstream holds its commit, fetched with the
-  /// machine's own key. Not landed changes nothing, and `detail` says why.
-  Future<({bool landed, String commit, String detail})> landed(
+  /// machine's own key. Not landed changes nothing, and `detail` says why. `endUnkept` is the machine's sentence when
+  /// the push's end could not be kept in its task's record.
+  Future<({bool landed, String commit, String detail, String? endUnkept})> landed(
     String project,
     String name, {
     String? repository,
@@ -1985,6 +1986,7 @@ class PoreloClient {
       landed: reply['landed'] == true,
       commit: reply['commit'] is String ? reply['commit'] as String : '',
       detail: reply['detail'] is String ? reply['detail'] as String : '',
+      endUnkept: endUnkeptOf(reply),
     );
   }
 

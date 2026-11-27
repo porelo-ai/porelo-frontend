@@ -8,6 +8,7 @@ import 'package:porelo_host/porelo_host.dart' show quoteForAShell;
 import 'diff.dart';
 import 'fleet_backend.dart';
 import 'hand_in.dart' show HandingIn;
+import 'shown_text.dart' show endUnkeptSaid;
 
 /// A push that left the list of waiting ones because a task holding the right to reject rejected it, with who and when.
 ///
@@ -701,6 +702,7 @@ class Gate extends ChangeNotifier {
           : '${push.subject} was forwarded to ${answer.branch}.';
       final pullRequest = answer.pullRequest;
       if (pullRequest != null && pullRequest.isNotEmpty) said = '$said Pull request: $pullRequest.';
+      said = '$said${endUnkeptSaid(answer.endUnkept)}';
       _decidedHere.add(push.id);
       looking = null;
       _forgetTheRefusal();
@@ -837,7 +839,7 @@ class Gate extends ChangeNotifier {
         false => ' No task of that name is here any more, so nobody was told.',
         null => '',
       };
-      said = '${push.subject} was dropped. The work is still in the mirror.$told';
+      said = '${push.subject} was dropped. The work is still in the mirror.$told${endUnkeptSaid(done.endUnkept)}';
       _decidedHere.add(push.id);
       looking = null;
       _forgetTheRefusal();
