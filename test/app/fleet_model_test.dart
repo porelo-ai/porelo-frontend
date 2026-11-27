@@ -167,6 +167,9 @@ class _Wedged implements FleetBackend {
       (told: null);
 
   @override
+  Future<PushEnd> pushEnd(String projectFile, String name, {String? repository}) async => throw UnimplementedError();
+
+  @override
   Future<String> tell(String task, String text) async => '';
 
   @override
@@ -688,6 +691,9 @@ class _Machine implements FleetBackend {
   @override
   Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason}) async =>
       (told: null);
+
+  @override
+  Future<PushEnd> pushEnd(String projectFile, String name, {String? repository}) async => throw UnimplementedError();
 
   @override
   Future<String> tell(String task, String text) async => '';

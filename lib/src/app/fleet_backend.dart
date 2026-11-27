@@ -682,6 +682,9 @@ abstract class FleetBackend {
   /// Drops the request. The work stays in the mirror; only the asking is gone.
   Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason});
 
+  /// How the gate's record of a push stands, asked for one that is no longer waiting; see [PoreloClient.reviewOpen].
+  Future<PushEnd> pushEnd(String projectFile, String name, {String? repository});
+
   /// Which logs a task has, asked rather than assumed.
   ///
   /// An empty list is a normal answer: a task whose state directory is gone has none.
@@ -1577,6 +1580,10 @@ class PoreloBackend implements CarryingBackend, SetsUpRooms {
   @override
   Future<({bool? told})> reject(String projectFile, String name, {String? repository, String? reason}) =>
       _opened().reject(projectFile, name, repository: repository, reason: reason);
+
+  @override
+  Future<PushEnd> pushEnd(String projectFile, String name, {String? repository}) =>
+      _opened().reviewOpen(projectFile, RunPlace(gatePush: (repository: repository, name: name)));
 
   @override
   Future<List<Log>> logsOf(String task) => _opened().logsOf(task);

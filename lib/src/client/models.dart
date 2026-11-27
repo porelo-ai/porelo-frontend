@@ -5083,6 +5083,34 @@ class PendingPush {
   );
 }
 
+/// How the gate's record of one push ends, as `ReviewOpen` answers it; only what a rejection says is read.
+class PushEnd {
+  /// Constructor taking every field.
+  const PushEnd({this.decision, this.rejectedBy, this.decisionSince});
+
+  /// OPEN, RETURNED, REJECTED, LANDED, APPROVED, MERGED or CLOSED; null where the machine does not say.
+  final String? decision;
+
+  /// The task that rejected the push, by name; null where the owner account did, where the decision is another,
+  /// and where the machine does not say.
+  final String? rejectedBy;
+
+  /// When the decision began, UTC, RFC 3339, as the machine wrote it; null where it does not say.
+  final String? decisionSince;
+
+  /// Reads one from a reply, field by field; a field of another type reads as absent.
+  factory PushEnd.from(Map<String, dynamic> map) {
+    final decision = map['decision'];
+    final by = map['rejectedBy'];
+    final since = map['decisionSince'];
+    return PushEnd(
+      decision: decision is String ? decision : null,
+      rejectedBy: by is String ? by : null,
+      decisionSince: since is String ? since : null,
+    );
+  }
+}
+
 /// A commit's whole message, or null where the machine gives none this can read: an empty one is
 /// git's answer the machine could not match to the commit, never a message without a co-author.
 String? _message(Object? value) => value is String && value.isNotEmpty ? value : null;

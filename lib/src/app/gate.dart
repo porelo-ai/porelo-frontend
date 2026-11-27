@@ -9,6 +9,64 @@ import 'diff.dart';
 import 'fleet_backend.dart';
 import 'hand_in.dart' show HandingIn;
 
+/// A push that left the list of waiting ones because a task holding the right to reject rejected it, with who and when.
+///
+/// Said to the person so a push a task dropped is never taken for one that vanished or for their own refusal.
+@immutable
+class PushRejected {
+  /// Constructor taking every field.
+  const PushRejected({required this.task, required this.subject, required this.name, this.repository = '', this.at});
+
+  /// The task's name, cut to printable ASCII and at most 64 characters, since the machine chose it.
+  final String task;
+
+  /// First line of the pushed commit's message.
+  final String subject;
+
+  /// The push's name at the gate.
+  final String name;
+
+  /// The repository it waited in; empty where the gate was asked about none.
+  final String repository;
+
+  /// When the task rejected it, UTC, RFC 3339, as the machine wrote it; null where it did not say or wrote no instant.
+  final String? at;
+
+  /// What tells the push apart: the same name can wait in two repositories.
+  String get id => repository.isEmpty ? name : '$repository:$name';
+
+  /// The day and the time of day it was rejected, here, or null where the machine gave none: the day too, since a
+  /// notice stays until it is dismissed and a time alone would read as today's.
+  String? get when {
+    final local = switch (at) {
+      final at? => DateTime.tryParse(at)?.toLocal(),
+      null => null,
+    };
+    if (local == null) return null;
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} at ${two(local.hour)}:${two(local.minute)}';
+  }
+
+  /// What the machine named, kept to what a line can show, or null where nothing printable is left.
+  static String? taskNamed(String raw) {
+    final shown = String.fromCharCodes(raw.codeUnits.where((unit) => unit >= 0x20 && unit <= 0x7e));
+    final cut = shown.length > 64 ? shown.substring(0, 64) : shown;
+    return cut.trim().isEmpty ? null : cut;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is PushRejected &&
+      other.task == task &&
+      other.subject == subject &&
+      other.name == name &&
+      other.repository == repository &&
+      other.at == at;
+
+  @override
+  int get hashCode => Object.hash(task, subject, name, repository, at);
+}
+
 /// What is waiting at one project's gate, and what is being made of it.
 ///
 /// The gate is where work an agent finished sits until a person decides about it. Nothing leaves
@@ -31,6 +89,20 @@ class Gate extends ChangeNotifier {
   /// The repositories that were asked about and answered, the project's own first. Empty where the
   /// machine names none, which a Porelo older than repositories per project does.
   List<String> repositories = const <String>[];
+
+  /// The pushes a task rejected that were waiting here before, newest last, until the person dismisses each or
+  /// another project's gate is opened.
+  List<PushRejected> get rejectedByTasks => List<PushRejected>.unmodifiable(_rejectedByTasks);
+  final List<PushRejected> _rejectedByTasks = <PushRejected>[];
+
+  /// Takes one notice of [rejected] away.
+  void dismissRejection(PushRejected rejected) {
+    if (_rejectedByTasks.remove(rejected)) notifyListeners();
+  }
+
+  /// The pushes this window itself approved or rejected since the list was last read: gone from it on the
+  /// person's word, never asked about.
+  final Set<String> _decidedHere = <String>{};
 
   /// Whether something is being asked for right now.
   bool busy = false;
@@ -215,6 +287,8 @@ class Gate extends ChangeNotifier {
       mirror = '';
       mode = '';
       _listChecks = const <String, ChecksRead>{};
+      _rejectedByTasks.clear();
+      _decidedHere.clear();
     }
     final round = ++_round;
     _from = backend;
@@ -568,7 +642,11 @@ class Gate extends ChangeNotifier {
     if (now == null) {
       looking = null;
       _forgetTheReview();
-      problem = '${push.subject} moved since it was read, and no longer waits at the gate.';
+      final rejected = _rejectedByTasks.where((each) => each.id == push.id).lastOrNull;
+      problem = rejected == null
+          ? '${push.subject} moved since it was read, and no longer waits at the gate.'
+          : '${push.subject} moved since it was read: the task ${rejected.task} rejected it, so it no longer waits '
+                'at the gate.';
       notifyListeners();
       return;
     }
@@ -623,6 +701,7 @@ class Gate extends ChangeNotifier {
           : '${push.subject} was forwarded to ${answer.branch}.';
       final pullRequest = answer.pullRequest;
       if (pullRequest != null && pullRequest.isNotEmpty) said = '$said Pull request: $pullRequest.';
+      _decidedHere.add(push.id);
       looking = null;
       _forgetTheRefusal();
       await _readAgain(backend, file);
@@ -759,6 +838,7 @@ class Gate extends ChangeNotifier {
         null => '',
       };
       said = '${push.subject} was dropped. The work is still in the mirror.$told';
+      _decidedHere.add(push.id);
       looking = null;
       _forgetTheRefusal();
       await _readAgain(backend, file);
@@ -783,12 +863,57 @@ class Gate extends ChangeNotifier {
     _unreadSaid = null;
     reading = names.isEmpty ? 1 : names.length;
     notifyListeners();
+    final before = waiting;
     try {
       await _readEach(backend, file, names, mine);
       if (mine == _round) unawaited(_readSummaries(backend, file, mine));
     } finally {
       if (mine == _round) reading = 0;
     }
+    // Only a list that was replaced by this read says what is gone from it.
+    if (mine != _round || identical(before, waiting)) return;
+    final decided = Set<String>.of(_decidedHere);
+    _decidedHere.clear();
+    final readIn = names.isEmpty ? const <String>{''} : repositories.toSet();
+    final gone = <PendingPush>[
+      for (final push in before)
+        if (readIn.contains(push.repository) &&
+            !decided.contains(push.id) &&
+            !waiting.any((each) => each.id == push.id))
+          push,
+    ];
+    await Future.wait(<Future<void>>[for (final push in gone) _askWhyGone(backend, file, push, mine)]);
+  }
+
+  /// Asks the machine how a push that left the list ended, and keeps a notice where a task rejected it.
+  ///
+  /// An extra question: a refusal, a machine without the method, a lost connection or an answer that does not
+  /// say a task rejected it leaves no notice, and never hides the list or fails the read.
+  Future<void> _askWhyGone(FleetBackend backend, String file, PendingPush push, int round) async {
+    final PushEnd end;
+    try {
+      end = await backend.pushEnd(file, push.name, repository: _where(push));
+    } on Exception {
+      return;
+    }
+    if (round != _round || !identical(_from, backend) || project?.name != file) return;
+    final by = end.rejectedBy;
+    if ((end.decision != 'REJECTED' && end.decision != 'RETURNED') || by == null) return;
+    final task = PushRejected.taskNamed(by);
+    if (task == null) return;
+    final since = end.decisionSince;
+    final rejected = PushRejected(
+      task: task,
+      subject: push.subject,
+      name: push.name,
+      repository: push.repository,
+      at: since != null && DateTime.tryParse(since) != null ? since : null,
+    );
+    if (_rejectedByTasks.contains(rejected)) return;
+    _rejectedByTasks
+      ..removeWhere((each) => each.id == rejected.id)
+      ..add(rejected);
+    notifyListeners();
   }
 
   /// Reads each waiting push's summary at the commit it names, all at once; what an older read answers after a newer

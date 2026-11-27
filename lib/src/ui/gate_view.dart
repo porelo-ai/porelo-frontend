@@ -56,6 +56,8 @@ class GateView extends StatelessWidget {
         ),
       if (gate.unread.isNotEmpty) _Unread(unread: gate.unread),
       if (gate.otherProblem != null) GateProblem(words: gate.otherProblem!),
+      for (final rejected in gate.rejectedByTasks)
+        RejectedNotice(rejected: rejected, onDismiss: () => gate.dismissRejection(rejected)),
       if (gate.mode.isNotEmpty)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
@@ -1019,6 +1021,48 @@ class _Decision extends StatelessWidget {
       ),
     );
   }
+}
+
+/// One line saying a task rejected a push that waited here, with a way to dismiss it.
+class RejectedNotice extends StatelessWidget {
+  /// Constructor taking the notice and what dismisses it.
+  const RejectedNotice({required this.rejected, required this.onDismiss, super.key});
+
+  /// Which push, which task and when.
+  final PushRejected rejected;
+
+  /// Takes the line away.
+  final VoidCallback onDismiss;
+
+  /// What the line says; the day and time only where the machine gave them.
+  static String wordsOf(PushRejected rejected) {
+    final day = switch (rejected.when) {
+      final day? => ' on $day',
+      null => '',
+    };
+    return 'The task ${rejected.task} rejected ${rejected.subject} (${rejected.name})$day.';
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.only(left: Space.normal),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
+    ),
+    child: Row(
+      children: <Widget>[
+        Expanded(child: Text(wordsOf(rejected), key: Key('gate-rejected-${rejected.id}'))),
+        IconButton(
+          key: Key('gate-rejected-dismiss-${rejected.id}'),
+          icon: const Icon(Icons.close),
+          tooltip: 'Dismiss',
+          onPressed: onDismiss,
+        ),
+      ],
+    ),
+  );
 }
 
 /// Why the gate could not be read or acted on.

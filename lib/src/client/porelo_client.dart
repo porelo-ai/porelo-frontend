@@ -1870,6 +1870,13 @@ class PoreloClient {
     return (told: told is bool ? told : null);
   }
 
+  /// How the gate's record of the push at [place] stands: its decision, and the task that rejected it, if one did.
+  ///
+  /// Asked once a push has left the list of waiting ones. The task is left to the machine, which at a gate
+  /// push takes the one that pushed.
+  Future<PushEnd> reviewOpen(String project, RunPlace place) async =>
+      PushEnd.from(await _call('ReviewOpen', {'project': project, 'place': place.toWire()}));
+
   // --------------------------------------------------------------------- clearance
 
   /// Blocked connections from every running task, as they happen.

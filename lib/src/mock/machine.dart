@@ -138,6 +138,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     daemon.method('ReviewSummary', _reviewSummary);
     daemon.method('Approve', _approve);
     daemon.method('Reject', _reject);
+    daemon.method('ReviewOpen', _reviewOpen);
     // Prompts streams and only streams: answering it once would look like it worked and then
     // deliver nothing ever again.
     daemon.pushes('Prompts', (_) async* {
@@ -726,6 +727,23 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     final name = '${parameters['name']}';
     _waiting.remove(name);
     return <String, dynamic>{'rejected': name, 'told': true};
+  }
+
+  /// What `ReviewOpen` answers for a push that no longer waits, by its name, as a test sets it.
+  final Map<String, Map<String, dynamic>> pushEnds = <String, Map<String, dynamic>>{};
+
+  /// The parameters of every `ReviewOpen` call, as they arrived.
+  final List<Map<String, dynamic>> reviewOpenAsked = <Map<String, dynamic>>[];
+
+  Map<String, dynamic> _reviewOpen(Map<String, dynamic> parameters) {
+    reviewOpenAsked.add(Map<String, dynamic>.of(parameters));
+    final place = parameters['place'];
+    final push = place is Map ? place['gatePush'] : null;
+    final name = push is Map ? '${push['name']}' : '';
+    final set = pushEnds[name];
+    if (set != null) return set;
+    if (_waiting.containsKey(name)) return <String, dynamic>{'decision': 'OPEN'};
+    throw const MockRefusal('org.fuin.porelo.Tasks1.PlaceUnreadable');
   }
 
   /// The sets a project is using, by project file.

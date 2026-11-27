@@ -3191,6 +3191,26 @@ diff --git a/lib/money.dart b/lib/money.dart
     return (told: !pushersTaskGone);
   }
 
+  /// What the gate's record answers for a push, by its name; a push not named here is refused as unknown.
+  final Map<String, PushEnd> pushEnds = <String, PushEnd>{};
+
+  /// Set to fail `ReviewOpen` the way a daemon refuses it, one without the method does, or a lost connection does.
+  Exception? refusePushEnd;
+
+  /// Every push `ReviewOpen` was asked about, as `repository:name` or the bare name.
+  final List<String> pushEndsAsked = <String>[];
+
+  @override
+  Future<PushEnd> pushEnd(String projectFile, String name, {String? repository}) async {
+    mustBeAProject(projectFile);
+    pushEndsAsked.add(repository == null ? name : '$repository:$name');
+    final refusal = refusePushEnd;
+    if (refusal != null) throw refusal;
+    final end = pushEnds[name];
+    if (end == null) throw const VarlinkException('org.fuin.porelo.Tasks1.PlaceUnreadable');
+    return end;
+  }
+
   /// Why a person dropped a push, in their words, as the machine was given them.
   final List<String> rejectionReasons = <String>[];
 
