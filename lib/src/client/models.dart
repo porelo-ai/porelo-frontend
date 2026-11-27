@@ -632,12 +632,15 @@ class Task {
     this.ended,
     this.result,
     this.run,
-    this.role,
     this.place,
     this.callerKey = '',
     this.landed,
     this.reports,
-    this.readOnly = false,
+    this.workspace,
+    this.rights,
+    this.readLanded,
+    this.writeAs,
+    this.projectServices,
     this.handInLimit,
     this.files,
     this.builds,
@@ -660,10 +663,6 @@ class Task {
   /// same name. Null from a machine that does not say.
   final String? run;
 
-  /// The role of its current or last run as the machine says it (`AUTHOR`, `REVIEWER`, or a newer one kept as
-  /// said); null where the machine records none, for a task without a gate or from an older machine.
-  final String? role;
-
   /// Where its current or last run works; null where the machine records none or said it in a shape not read here.
   final RunPlace? place;
 
@@ -679,9 +678,27 @@ class Task {
   /// machine that does not say cannot say whether it made any.
   final int? reports;
 
-  /// Whether it only reads: made read only or over all repositories, with no gate and nothing it can push. False for
-  /// any other task, and from a machine that does not say.
-  final bool readOnly;
+  /// The kind of workspace the machine recorded for it, in the machine's word: `own`, `foreign` (another task's work,
+  /// named by [place]), `readOnly`, `allRepositories` or `none`, or a word this build does not know, kept as it came.
+  /// **Null is not own work**: the machine did not say.
+  final String? workspace;
+
+  /// The rights it was started with, in the machine's words, one this build does not know kept as it came. **Null is
+  /// neither none nor the default set**: the machine did not say, while an empty list is a task holding no right.
+  final List<String>? rights;
+
+  /// The tasks whose landed work it reads beside its own workspace; null where the machine did not say.
+  final List<String>? readLanded;
+
+  /// The account its start recorded for a pull request, `author` or `review` or a word kept as it came, written
+  /// also for a task at no pull request, where it chooses nothing; null where the machine did not say.
+  final String? writeAs;
+
+  /// Whether it holds the project's services; null where the machine did not say.
+  final bool? projectServices;
+
+  /// Whether it may push to its gate: true or false by its [rights], and null where the machine did not say them.
+  bool? get mayPush => rights?.contains('push');
 
   /// The bytes one file handed to this task may have. Null from a machine without hand-in, which
   /// is no limit of zero.
@@ -753,7 +770,6 @@ class Task {
         : null,
     ended: map['ended'] is Map<String, dynamic> ? TaskEnd.from(map['ended'] as Map<String, dynamic>) : null,
     run: map['run'] is String ? map['run'] as String : null,
-    role: map['role'] is String && (map['role'] as String).isNotEmpty ? map['role'] as String : null,
     place: map['place'] is Map<String, dynamic> ? RunPlace.from(map['place'] as Map<String, dynamic>) : null,
     callerKey: _string(map, 'callerKey'),
     landed: map['landed'] is List
@@ -762,7 +778,11 @@ class Task {
           )
         : null,
     reports: map['reports'] is int && (map['reports'] as int) >= 0 ? map['reports'] as int : null,
-    readOnly: map['readOnly'] == true,
+    workspace: map['workspace'] is String ? map['workspace'] as String : null,
+    rights: _namesOrNull(map['rights']),
+    readLanded: _namesOrNull(map['readLanded']),
+    writeAs: map['writeAs'] is String ? map['writeAs'] as String : null,
+    projectServices: map['projectServices'] is bool ? map['projectServices'] as bool : null,
     handInLimit: map['handInLimit'] is num ? (map['handInLimit'] as num).toInt() : null,
     files: map['files'] is List
         ? (map['files'] as List).whereType<Map<String, dynamic>>().map(HandedFile.from).toList()
@@ -777,6 +797,11 @@ class Task {
         : null,
   );
 }
+
+/// A list of names as the machine sent it, or null where it sent no list: an entry that is no string makes the whole
+/// list unsaid, since a list read short would show a task holding fewer rights than it does.
+List<String>? _namesOrNull(Object? value) =>
+    value is List && value.every((each) => each is String) ? List<String>.unmodifiable(value.cast<String>()) : null;
 
 /// Where a run works, as the machine says it: exactly one of a push at its gate, a pull request, or the task's own
 /// pull request.
@@ -825,6 +850,26 @@ class RunPlace {
     }
     return 'its own pull request';
   }
+
+  /// Whether a forge holds it, so that an account to write as can be chosen for it.
+  bool get atAPullRequest => pullRequest != null || ownPullRequest;
+
+  /// As `Start` takes it.
+  Map<String, dynamic> toWire() => <String, dynamic>{
+    if (gatePush case final push?) 'gatePush': <String, dynamic>{'repository': ?push.repository, 'name': push.name},
+    'pullRequest': ?pullRequest,
+    if (ownPullRequest) 'ownPullRequest': true,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is RunPlace &&
+      other.gatePush == gatePush &&
+      other.pullRequest == pullRequest &&
+      other.ownPullRequest == ownPullRequest;
+
+  @override
+  int get hashCode => Object.hash(gatePush, pullRequest, ownPullRequest);
 }
 
 /// One installed agent's sign-in on a machine, as `AgentSignIns` answers it.

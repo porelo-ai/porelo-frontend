@@ -1809,22 +1809,13 @@ class WorkRow extends StatelessWidget {
       ? 'no agent named'
       : task.modelLine(task.agent) ?? (task.provider.isEmpty ? task.agent : '${task.agent} via ${task.provider}');
 
-  /// Its run's role and place as the machine says them; null where it says neither.
-  static String? runOf(Task? task) {
-    final role = switch (task?.role) {
-      null => null,
-      'AUTHOR' => 'author',
-      'REVIEWER' => 'reviewer',
-      final other => other.toLowerCase(),
-    };
-    final place = task?.place?.words;
-    return switch ((role, place)) {
-      (null, null) => null,
-      (final role?, null) => 'as $role',
-      (null, final place?) => 'at $place',
-      (final role?, final place?) => 'as $role at $place',
-    };
-  }
+  /// Its run's place as the machine says it, and that it reads another task's work there where the machine recorded
+  /// that kind of workspace; null where it names no place.
+  static String? runOf(Task? task) => switch ((task?.place?.words, task?.workspace)) {
+    (null, _) => null,
+    (final place?, 'foreign') => "reading another task's work at $place",
+    (final place?, _) => 'at $place',
+  };
 
   /// How it works, in the words of the page.
   static String wayOf(Task? task) => task?.mode == Mode.unattended ? 'Unattended' : 'In a terminal';

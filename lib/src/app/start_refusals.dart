@@ -95,6 +95,17 @@ String startRefusalWords(Object error, {required String machine}) {
           '${text('model').isEmpty ? '' : ' (${text('model')})'} and starts again only with it; nothing was started.',
     VarlinkException(simpleName: 'NoSuchTask') =>
       '$machine has no task${text('task').isEmpty ? '' : ' ${text('task')}'}.',
+    VarlinkException(simpleName: 'RightsChanged') =>
+      '$machine refused: a task keeps the workspace, equipment and rights it was started with. Start a new task '
+          'for others.',
+    VarlinkException(simpleName: 'StartRuleBroken') =>
+      '$machine refused the start: ${startRuleWords(text('rule'))}.'
+          '${switch (shownName(text('detail'), most: 200)) {
+            '' => '',
+            final part => ' What breaks it: $part.',
+          }}',
+    VarlinkException(simpleName: 'InvalidParameter', :final parameters) when parameters['parameter'] == 'writeAs' =>
+      '$machine refused the start: an account to write as is chosen only for a pull request.',
     VarlinkException(isMethodNotFound: true) => '$machine does not offer this; it needs a newer Porelo.',
     VarlinkException(:final simpleName, :final parameters) => switch ([
       text('detail'),
@@ -139,6 +150,57 @@ bool isStartRefusal(Object error) =>
 };
 
 String _task(String task) => task.isEmpty ? 'The task' : task;
+
+/// What each right of a task allows, in plain words that follow "the right to"; the names are the machine's.
+/// No call of the machine answers a missing right: a task meets one in the refusal of what it handed in and in
+/// its gate's log, so the words serve the page that lists a task's rights.
+const rightLabels = <String, String>{
+  'push': 'push work to the gate',
+  'reply': 'reply in threads',
+  'openThreads': 'open threads',
+  'resolveThreads': 'resolve threads',
+  'start': 'start tasks',
+  'stop': 'stop the tasks it started',
+  'done': 'report its own end',
+  'report': 'hand back a result',
+  'reject': 'reject a waiting push',
+};
+
+/// The plain words of the right the machine names [right], or that name itself where the window does not know it:
+/// a right a newer machine added is still said, **never left out**.
+String rightLabel(String right) =>
+    rightLabels[right] ??
+    switch (shownName(right)) {
+      '' => 'do this',
+      final name => name,
+    };
+
+const _startRules = <String, String>{
+  'foreignWorkLeadsOut':
+      "a task reading another task's work cannot hold project services, the right to push, extra credentials or an "
+      'open clearance',
+  'foreignWorkNamesNoRights': "a task reading another task's work must be started with its rights named",
+  'rejectWithPush': 'a task cannot hold the right to reject a waiting push together with the right to push',
+  'rejectOverOwnWork': 'a task cannot reject its own work',
+  'pushWithoutOwnWork': 'only a task on its own work can hold the right to push',
+  'exceedsParent': 'a started task cannot hold more than the task that started it',
+};
+
+/// The rule of Porelo's a refused start broke, in plain words, or the machine's own name for one the window does not
+/// know.
+String startRuleWords(String rule) =>
+    _startRules[rule] ??
+    switch (shownName(rule)) {
+      '' => 'it breaks a rule the machine did not name',
+      final name => 'it breaks the rule $name',
+    };
+
+/// A name the machine sent, as it is shown: nothing but its printable characters, and never longer than [most],
+/// which is as long as a name is unless the caller knows a longer one.
+String shownName(String name, {int most = 64}) {
+  final printable = name.replaceAll(RegExp(r'[^\x20-\x7E]'), '').trim();
+  return printable.length <= most ? printable : '${printable.substring(0, most)}…';
+}
 
 /// The sign-ins a start refused for, one per agent and machine, each offered under *Needs you* until the machine says
 /// its agent is signed in there.

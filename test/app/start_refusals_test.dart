@@ -87,6 +87,89 @@ void main() {
       expect(said['NoSuchDestination'], contains('The credential extra'));
     });
 
+    // Harm: a person reads a wire name and cannot tell which right a task holds, or reads one label for another right.
+    test('each of Porelo\'s rights has its own plain words, and one the window does not know its name', () {
+      const labels = <String, String>{
+        'push': 'push work to the gate',
+        'reply': 'reply in threads',
+        'openThreads': 'open threads',
+        'resolveThreads': 'resolve threads',
+        'start': 'start tasks',
+        'stop': 'stop the tasks it started',
+        'done': 'report its own end',
+        'report': 'hand back a result',
+        'reject': 'reject a waiting push',
+      };
+      for (final MapEntry(key: right, value: label) in labels.entries) {
+        expect(rightLabel(right), label, reason: right);
+      }
+      expect(rightLabel('mergeThreads'), 'mergeThreads', reason: 'said by its raw name, never left out');
+    });
+
+    // Harm: a name the machine sent breaks the line it is said in, turns its text around or fills the window.
+    test('a right or a rule the machine sent is said without controls and never longer than a name', () {
+      expect(rightLabel('merge${String.fromCharCode(0x202e)}Threads\nnow'), 'mergeThreadsnow');
+      expect(
+        _words('StartRuleBroken', {'rule': 'r' * 200, 'detail': ''}),
+        'build-host refused the start: it breaks the rule ${'r' * 64}….',
+      );
+    });
+
+    // Harm: a refusal no method of the machine answers keeps words of its own, and a later machine's error of that
+    // name is said with values the window never checked.
+    test('a missing right, which no call answers, is worded like any refusal the window does not know', () {
+      final bare = _words('RightMissing', {'right': 'push', 'act': 'hunter2-secret'});
+      expect(bare, 'build-host refused (RightMissing: right, act).');
+      expect(bare, isNot(contains('hunter2-secret')), reason: 'no value is ever shown');
+    });
+
+    test('changed rights on a resume say that a new task is needed', () {
+      final changed = _words('RightsChanged');
+      expect(changed, contains('keeps the workspace, equipment and rights it was started with'));
+      expect(changed, contains('Start a new task'));
+      expect(changed, isNot(contains('RightsChanged')));
+    });
+
+    test("a broken rule of a start is said in words, the machine's detail beside it", () {
+      const known = <String, String>{
+        'foreignWorkLeadsOut': 'cannot hold project services',
+        'foreignWorkNamesNoRights': 'must be started with its rights named',
+        'rejectWithPush': 'together with the right to push',
+        'rejectOverOwnWork': 'cannot reject its own work',
+        'pushWithoutOwnWork': 'only a task on its own work',
+        'exceedsParent': 'more than the task that started it',
+      };
+      for (final MapEntry(key: rule, value: part) in known.entries) {
+        final words = _words('StartRuleBroken', {'rule': rule, 'detail': 'read\nOnly'});
+        expect(words, startsWith('build-host refused the start: '), reason: rule);
+        expect(words, contains(part), reason: rule);
+        // The machine's detail names the part that breaks the rule, a word and no sentence: said as that, on one line.
+        expect(words, endsWith('. What breaks it: readOnly.'), reason: rule);
+        expect(words, isNot(contains(rule)), reason: '$rule is said in words');
+        expect(words, isNot(contains('StartRuleBroken')), reason: rule);
+      }
+      expect(
+        _words('StartRuleBroken', {'rule': 'somethingNew', 'detail': ''}),
+        'build-host refused the start: it breaks the rule somethingNew.',
+      );
+    });
+
+    test('an account named where there is no pull request says where one is chosen', () {
+      final words = startRefusalWords(
+        const VarlinkException('org.varlink.service.InvalidParameter', <String, dynamic>{'parameter': 'writeAs'}),
+        machine: 'build-host',
+      );
+      expect(words, 'build-host refused the start: an account to write as is chosen only for a pull request.');
+      // Any other refused parameter keeps the generic words: it is no start's refusal.
+      expect(
+        startRefusalWords(
+          const VarlinkException('org.varlink.service.InvalidParameter', <String, dynamic>{'parameter': 'task'}),
+          machine: 'build-host',
+        ),
+        'build-host refused (InvalidParameter: parameter).',
+      );
+    });
+
     test('an unknown refusal is said by its detail, and without one never by its type name alone', () {
       expect(
         _words('SomethingNew', {'detail': 'The moon is in the way'}),

@@ -7829,6 +7829,7 @@ class _ShellState extends State<Shell> {
           handing: _handing,
           handIns: _handIns,
           machine: machine.name,
+          role: widget.settings.plannedOffer(machine.name, task.name)?.role,
           onStoreTheBuildsCredential: reachesTheHostItself(machine)
               ? (missing) => _storeOnTheHost(machine, missing)
               : null,

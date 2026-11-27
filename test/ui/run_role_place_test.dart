@@ -5,15 +5,15 @@ import 'package:porelo_frontend/client.dart';
 import '../features/support/tiles.dart';
 import '../features/support/world.dart';
 
-/// What a run's row says of its role and place, read from the machine's task record.
+/// What a run's row says of its place, and of whose work it is, read from the machine's task record.
 void main() {
-  Task task(String name, {Object? role, Object? place}) => Task.from(<String, dynamic>{
+  Task task(String name, {Object? workspace, Object? place}) => Task.from(<String, dynamic>{
     'name': 'porelo-walk_$name',
     'task': name,
     'project': 'walk',
     'running': true,
     'mode': 'UNATTENDED',
-    'role': ?role,
+    'workspace': ?workspace,
     'place': ?place,
   });
 
@@ -31,24 +31,24 @@ void main() {
     ),
   );
 
-  // Harm: a person cannot tell which run reviews which pull request, and decides or stops the wrong one.
-  testWidgets('a reviewer and an author each say their role and place on the row', (tester) async {
+  // Harm: a person cannot tell which run reads which pull request, and decides or stops the wrong one.
+  testWidgets("a task reading another task's work and one on its own each say their place on the row", (tester) async {
     await onTheWork(tester, [
-      task('reviewer', role: 'REVIEWER', place: {'pullRequest': 'https://github.com/owner/repo/pull/17'}),
+      task('reviewer', workspace: 'foreign', place: {'pullRequest': 'https://github.com/owner/repo/pull/17'}),
       task(
         'author',
-        role: 'AUTHOR',
+        workspace: 'own',
         place: {
           'gatePush': {'name': 'author'},
         },
       ),
     ]);
-    expect(run('as reviewer at pull request owner/repo#17'), findsOneWidget);
-    expect(run('as author at the gate push author'), findsOneWidget);
+    expect(run("reading another task's work at pull request owner/repo#17"), findsOneWidget);
+    expect(run('at the gate push author'), findsOneWidget);
   });
 
-  // Harm: a role or place made up where the machine said none is believed.
-  testWidgets('a task the machine names no role or place for says neither', (tester) async {
+  // Harm: a place made up where the machine said none is believed.
+  testWidgets('a task the machine names no place for says none', (tester) async {
     await onTheWork(tester, [task('plain')]);
     expect(find.byKey(const Key('tile-run')), findsNothing);
   });
@@ -61,13 +61,13 @@ void main() {
         RunPlace.from(<String, dynamic>{'pullRequest': 'https://github.com/owner/repo/pull/3', 'ownPullRequest': true}),
         isNull,
       );
-      expect(task('odd', role: 'REVIEWER', place: {'gatePush': 'not a record'}).place, isNull);
+      expect(task('odd', workspace: 'foreign', place: {'gatePush': 'not a record'}).place, isNull);
     });
 
-    // Harm: a role a newer machine adds is dropped or crashes the row instead of being shown.
-    test('an unknown role is kept as the machine says it', () {
-      expect(task('x', role: 'OBSERVER').role, 'OBSERVER');
-      expect(task('x', role: 7).role, isNull);
+    // Harm: a kind of workspace a newer machine adds is dropped or crashes the row instead of being kept.
+    test('an unknown kind of workspace is kept as the machine says it', () {
+      expect(task('x', workspace: 'shared').workspace, 'shared');
+      expect(task('x', workspace: 7).workspace, isNull);
     });
   });
 }

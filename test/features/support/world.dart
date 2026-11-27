@@ -1114,7 +1114,12 @@ class FakeBackend implements FleetBackend, SetsUpRooms {
     builds: builds ?? task.builds,
     buildReader: buildReader ?? task.buildReader,
     buildProblem: buildProblem ?? task.buildProblem,
-    readOnly: task.readOnly,
+    workspace: task.workspace,
+    place: task.place,
+    rights: task.rights,
+    readLanded: task.readLanded,
+    writeAs: task.writeAs,
+    projectServices: task.projectServices,
   );
 
   /// Changes what the machine says about [work]'s builds, every other field kept.
@@ -4896,7 +4901,12 @@ Map<String, dynamic> wire(Task task) => <String, dynamic>{
   'startDetail': task.startDetail,
   'phase': task.phase,
   'repository': task.repository,
-  'readOnly': task.readOnly,
+  'workspace': ?task.workspace,
+  'place': ?task.place?.toWire(),
+  'rights': ?task.rights,
+  'readLanded': ?task.readLanded,
+  'writeAs': ?task.writeAs,
+  'projectServices': ?task.projectServices,
   'run': ?task.run,
   'reports': ?task.reports,
   'credentials': task.credentials,

@@ -94,10 +94,10 @@ void main() {
       find.descendant(of: tileFor(work), matching: find.byKey(const ValueKey<String>('tile-fact gate')));
 
   // Harm: a task with no gate and nothing to push is said to have commits at a gate, or a build that has not run.
-  testWidgets('a task the machine lists as read only says nothing of a gate or a build', (tester) async {
+  testWidgets('a task the machine lists without the right to push says nothing of a gate or a build', (tester) async {
     await onTheWork(tester);
     final listed = World.backend.tasksNow.firstWhere((task) => task.name == work);
-    World.backend.bringsUp(Task.from({...wire(listed), 'readOnly': true}));
+    World.backend.bringsUp(Task.from({...wire(listed), 'workspace': 'readOnly', 'rights': <String>[]}));
     World.backend.followBuilds(work, builds: const <Build>[], reader: 'github');
     await World.settle(tester);
     await unfolded(tester);
@@ -107,8 +107,8 @@ void main() {
     expect(find.descendant(of: tileFor(work), matching: find.text('Commits at the gate')), findsNothing);
   });
 
-  // Harm: a planned stage on a machine too old to say read only is said to have commits at a gate.
-  testWidgets('a planned stage handing back a result says nothing of a gate, read only said or not', (tester) async {
+  // Harm: a planned stage on a machine that does not say its rights is said to have commits at a gate.
+  testWidgets('a planned stage handing back a result says nothing of a gate, its rights said or not', (tester) async {
     await plannedAs(tester, role: 'MAIN', result: 'analysis.json');
 
     expect(gateFact(), findsNothing);

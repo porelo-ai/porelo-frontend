@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/builds.dart';
 import '../app/hand_in.dart';
+import '../app/task_parts.dart';
 import '../app/work_held.dart';
 import 'how_long.dart';
 import 'missing_credentials_view.dart';
@@ -88,11 +89,16 @@ class WorkDetail extends StatelessWidget {
     this.handIns,
     this.machine = '',
     this.onStoreTheBuildsCredential,
+    this.role,
     super.key,
   });
 
   /// The name of the machine it runs on, as the window shows it.
   final String machine;
+
+  /// The role its planner started it in, by the name its project gave that role, as this window kept it with the
+  /// planner's offer; null for work no planner ordered here. **Never read from the machine**, which knows no role.
+  final String? role;
 
   /// Runs on [machine] its command for the credential the task's builds wait for, in a terminal there, answering
   /// whether it ended without an error; null where this window does not reach that machine itself.
@@ -167,7 +173,14 @@ class WorkDetail extends StatelessWidget {
               // An `online` task answers `0` and that is not a smaller number: nothing is ever
               // reviewed there, so it is a question the class does not have, and saying *nothing
               // is waiting* would imply somebody could be.
-              if (!task.readOnly) _Field(name: 'At the gate', value: task.atTheGate),
+              // Only a task holding the right to push has a gate that takes anything; one whose machine did not say
+              // its rights keeps the line, which is the machine's own count.
+              if (task.mayPush ?? true) _Field(name: 'At the gate', value: task.atTheGate),
+              if (role case final role?) _Field(key: const Key('task-role'), name: 'Role', value: role),
+              // What it was started with, as the machine recorded it: never derived here.
+              _Field(key: const Key('task-workspace'), name: 'Workspace', value: workspaceWords(task)),
+              _Field(key: const Key('task-equipment'), name: 'Equipment', value: equipmentWords(task)),
+              _Field(key: const Key('task-rights'), name: 'Rights', value: rightsWords(task)),
               // **The other half of the same question, and it costs a call.** What is waiting at
               // the gate comes free with the task; what never reached it runs git inside the
               // container, so it is asked when this opens and never while drawing a list.
