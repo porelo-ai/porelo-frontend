@@ -28,6 +28,13 @@ Feature: Saves the planner holds wait in Needs you until resent or dropped
         When I copy the request id of the held save of {'cart-move'}
         Then the clipboard holds the request id alone
 
+    # Harm: the issue a held save changes is named in its card but cannot be opened, so the person looks it up by hand.
+    Scenario: The issue of a held save opens its page in the browser
+        Given the board of {'checkout'} gives {'cart-move'} the page {'https://example.org/stories/cart-move'}
+        When the planner holds a save of {'cart-move'} made on the board
+        And I open the issue of the held save of {'cart-move'}
+        Then the browser was given {'https://example.org/stories/cart-move'}
+
     # Harm: a halted run's save is offered again from here, where only its run's Stop or Start decides it.
     Scenario: A halted run's held save can only be dropped
         When the planner holds a save of {'cart-move'} made by a halted run

@@ -66,6 +66,17 @@ class WindowPlanningSource extends MockPlanningSource implements TellsTaskReport
     push(project, next);
   }
 
+  /// Puts a story [id] on [project]'s board whose page is [link], shaped as the board's first story, and tells the
+  /// screen with a new board.
+  void addStory(String project, String id, String link) {
+    final next = Map<String, dynamic>.of(board(project));
+    final stories = [...(next['stories'] as List)].cast<Map<String, dynamic>>();
+    stories.add({...stories.first, 'id': id, 'title': 'A story of its own', 'link': link, 'issues': <Object>[]});
+    next['stories'] = stories;
+    next['revision'] = '${next['revision']}:story';
+    push(project, next);
+  }
+
   /// Takes [save] off [project]'s board, as the outbox does once the group is written or dropped, with a new revision.
   String _release(String project, String save) {
     final next = Map<String, dynamic>.of(board(project));

@@ -24,6 +24,7 @@ import '../app/settings.dart' show RanOutQuestion, Settings;
 import '../app/fleet_model.dart';
 import '../app/host_forge_token.dart';
 import '../app/host_pull_requests.dart';
+import '../app/links.dart' show openLink;
 import '../app/machines.dart';
 import '../app/operations.dart';
 import 'command_menu.dart';
@@ -1118,7 +1119,9 @@ class _HeldSavesEntry extends StatelessWidget {
         ),
       );
     }
-    if (live case final board?) return PlanningHeldSavesView(board: board, machine: machine);
+    if (live case final board?) {
+      return PlanningHeldSavesView(board: board, machine: machine, openLink: (address) => openLink(address));
+    }
     // The screen's own read-only form, so a kept row says what the live one says, without Resend and Drop.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

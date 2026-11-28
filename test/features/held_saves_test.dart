@@ -18,6 +18,9 @@ import './step/i_open_the_held_save_of.dart';
 import './step/the_held_save_of_shows_its_change_the_forges_answer_and_its_tries.dart';
 import './step/i_copy_the_request_id_of_the_held_save_of.dart';
 import './step/the_clipboard_holds_the_request_id_alone.dart';
+import './step/the_board_of_gives_the_page.dart';
+import './step/i_open_the_issue_of_the_held_save_of.dart';
+import './step/the_browser_was_given.dart';
 import './step/the_planner_holds_a_save_of_made_by_a_halted_run.dart';
 import './step/i_drop_the_held_save_of.dart';
 import './step/the_planner_refuses_to_resend_a_save_as_no_longer_held.dart';
@@ -53,6 +56,13 @@ void main() {
         await theClipboardHoldsTheRequestIdAlone(tester);
       },
     );
+    testWidgets('''The issue of a held save opens its page in the browser''', (tester) async {
+      await bddSetUp(tester);
+      await theBoardOfGivesThePage(tester, 'checkout', 'cart-move', 'https://example.org/stories/cart-move');
+      await thePlannerHoldsASaveOfMadeOnTheBoard(tester, 'cart-move');
+      await iOpenTheIssueOfTheHeldSaveOf(tester, 'cart-move');
+      await theBrowserWasGiven(tester, 'https://example.org/stories/cart-move');
+    });
     testWidgets('''A halted run's held save can only be dropped''', (tester) async {
       await bddSetUp(tester);
       await thePlannerHoldsASaveOfMadeByAHaltedRun(tester, 'cart-move');

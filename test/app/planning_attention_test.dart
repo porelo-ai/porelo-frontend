@@ -318,7 +318,8 @@ void main() {
     final details = find.byKey(const Key('held-save-details group-1'));
     expect(details, findsOneWidget);
     Finder inIt(Finder what) => find.descendant(of: details, matching: what);
-    expect(inIt(find.byKey(const Key('held-save-change group-1 0'))), findsOneWidget);
+    expect(inIt(find.byKey(const Key('held-save-field group-1 0'))), findsOneWidget);
+    expect(inIt(find.byKey(const Key('held-save-after group-1 0'))), findsOneWidget);
     expect(inIt(find.byKey(const Key('held-save-answer group-1'))), findsOneWidget);
     expect(inIt(find.textContaining('HTTP 502 · Bad gateway')), findsWidgets);
     expect(inIt(find.byKey(const Key('held-save-request group-1'))), findsOneWidget);
