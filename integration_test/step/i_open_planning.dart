@@ -9,7 +9,10 @@ import '../support/story_play.dart';
 final theBoard = find.byWidgetPredicate(
   (widget) =>
       widget.key == const Key('planning-project') ||
-      (widget is Text && (widget.data ?? '').startsWith('The stories of project ')),
+      // The board names its project only in the tooltip of its info button.
+      (widget is Tooltip &&
+          widget.key == const Key('planning-board-info') &&
+          (widget.message ?? '').startsWith('The stories of project ')),
 );
 
 /// The notes the planning place shows instead of a board where this computer gives it no planner.

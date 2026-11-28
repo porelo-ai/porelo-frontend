@@ -250,7 +250,7 @@ Future<void> rememberPlanningBoard(WidgetTester tester) async {
 /// Checks that back navigation retains search, priority, folds and both scroll axes.
 void expectPlanningBoardRetained(WidgetTester tester) {
   expect(tester.widget<TextField>(planningElement('search')).controller!.text, 'ST');
-  expect(find.text('High and above'), findsOneWidget);
+  expect(find.text('Priority: High and above'), findsOneWidget);
   final folded = tester
       .widgetList<IconButton>(
         find.byWidgetPredicate((widget) => widget is IconButton && (widget.tooltip?.startsWith('Unfold ') ?? false)),

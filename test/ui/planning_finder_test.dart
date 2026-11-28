@@ -64,15 +64,12 @@ void main() {
   testWidgets('a planning page has one title, with the window\'s i in the screen\'s own head', (tester) async {
     void expectOneTitle(Finder page, {required bool board}) {
       expect(find.byType(PageHead), findsNothing, reason: 'the screen\'s head or breadcrumb is the one title');
-      expect(find.descendant(of: page, matching: find.text('Board')), findsOneWidget);
+      if (board) expect(find.descendant(of: page, matching: planningElement('board-info')), findsOneWidget);
       final info = find.descendant(of: page, matching: find.byKey(const ValueKey<String>('explanation-open planning')));
       expect(info, findsOneWidget, reason: 'the i stands in the screen');
-      // On the board beside the screen's Board head; on a detail page at the end of its breadcrumb.
+      // On the board beside the screen's own info button; on a detail page at the end of its breadcrumb.
       final line = find.ancestor(of: info, matching: find.byType(board ? Row : Wrap)).first;
-      expect(
-        find.descendant(of: line, matching: board ? find.text('Board') : find.byKey(const Key('planning-crumb 0'))),
-        findsOneWidget,
-      );
+      expect(find.descendant(of: line, matching: planningElement(board ? 'board-info' : 'crumb 0')), findsOneWidget);
     }
 
     await _fromWork(tester);
@@ -86,13 +83,16 @@ void main() {
   });
 
   // Harm: a page's first-time words stand above its title, so the page reads from its middle.
-  testWidgets('planning\'s first-time words stand under the screen\'s head', (tester) async {
+  testWidgets('planning\'s first-time words stand under the page\'s title', (tester) async {
     await _onTheBoard(tester);
     // The words standing open, not the empty place a closed explanation keeps.
     final words = find.byKey(const ValueKey<String>('explanation-fold planning'));
     expect(find.descendant(of: find.byType(PlanningScreen), matching: words), findsOneWidget);
-    final head = find.descendant(of: find.byType(PlanningScreen), matching: find.text('Board')).first;
+    // The board's title is the window's app bar; the screen's toolbar follows the words.
+    final head = find.descendant(of: find.byType(AppBar), matching: find.text('Board')).first;
     expect(tester.getTopLeft(words).dy, greaterThanOrEqualTo(tester.getBottomLeft(head).dy));
+    final toolbar = planningElement('board-info');
+    expect(tester.getBottomLeft(words).dy, lessThanOrEqualTo(tester.getTopLeft(toolbar).dy));
 
     // Opening a story moves the words under its breadcrumb; they stay open, as nobody has closed them yet.
     await _find(tester, 'Open story ST291');

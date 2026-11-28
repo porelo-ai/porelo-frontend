@@ -5,6 +5,7 @@ import '../support/world.dart';
 
 /// Usage: I search planning for {query}
 Future<void> iSearchPlanningFor(WidgetTester tester, String query) async {
+  await openPlanningSearch(tester);
   await tester.enterText(planningElement('search'), query);
   await World.settle(tester);
 }

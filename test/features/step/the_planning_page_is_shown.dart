@@ -7,5 +7,5 @@ import '../support/planning.dart';
 Future<void> thePlanningPageIsShown(WidgetTester tester) async {
   // Navigating away despite canceling the question makes this fail.
   expect(find.byType(PlanningScreen), findsOneWidget);
-  expect(planningElement('search'), findsOneWidget);
+  expect(planningElement('board-info'), findsOneWidget);
 }

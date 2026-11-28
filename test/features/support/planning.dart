@@ -291,6 +291,16 @@ List<Map<String, dynamic>> planningMaps(Map<String, dynamic> board, String field
 /// A named planning element, required to exist before reading it.
 Finder planningElement(String key) => find.byKey(Key('planning-$key'));
 
+/// Opens the board's search, which the screen shows only once its search button is pressed.
+Future<void> openPlanningSearch(WidgetTester tester) async {
+  if (planningElement('search').evaluate().isNotEmpty) return;
+  final open = planningElement('search-open');
+  await tester.ensureVisible(open);
+  await tester.tap(open);
+  await World.settle(tester);
+  expect(planningElement('search'), findsOneWidget);
+}
+
 /// The plain text below one known planning element.
 String planningText(WidgetTester tester, Finder finder) {
   expect(finder, findsOneWidget);
